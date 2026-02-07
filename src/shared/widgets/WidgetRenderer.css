@@ -1,0 +1,154 @@
+/**
+ * WidgetRenderer - Fluid Padding System
+ * 
+ * Uses CSS Container Query units for padding that scales with widget size.
+ * Imported from WidgetWrapper.css - shared styling for both legacy and new components.
+ */
+
+/* Ensure widget-wrapper acts as a container for fluid padding calculations */
+.widget-wrapper {
+    container-type: size;
+    container-name: widget;
+}
+
+/* ===== FLUID PADDING CLASSES ===== */
+
+/* None: Widget handles its own padding (e.g., link-grid) */
+.widget-padding-none {
+    padding: 0;
+}
+
+/* Compact: Tight padding for data-dense or small widgets */
+.widget-padding-compact {
+    padding: clamp(2px, 1.5cqi, 12px);
+}
+
+/* Default: Balanced padding for most widgets */
+.widget-padding-default {
+    padding: clamp(4px, 2cqi, 16px);
+}
+
+/* Relaxed: Spacious padding for sparse content */
+.widget-padding-relaxed {
+    padding: clamp(12px, 3cqi, 24px);
+}
+
+/* ===== RESPONSIVE ADJUSTMENTS ===== */
+
+/* On very small containers, tighten all padding */
+@container widget (max-width: 200px) {
+    .widget-padding-compact {
+        padding: clamp(1px, 1cqi, 6px);
+    }
+
+    .widget-padding-default {
+        padding: clamp(2px, 1.5cqi, 10px);
+    }
+
+    .widget-padding-relaxed {
+        padding: clamp(4px, 2cqi, 14px);
+    }
+}
+
+/* On very small height, reduce vertical padding more aggressively */
+@container widget (max-height: 100px) {
+    .widget-padding-compact {
+        padding-top: clamp(1px, 1cqb, 4px);
+        padding-bottom: clamp(1px, 1cqb, 4px);
+    }
+
+    .widget-padding-default {
+        padding-top: clamp(2px, 1.5cqb, 8px);
+        padding-bottom: clamp(2px, 1.5cqb, 8px);
+    }
+
+    .widget-padding-relaxed {
+        padding-top: clamp(4px, 2cqb, 12px);
+        padding-bottom: clamp(4px, 2cqb, 12px);
+    }
+}
+
+/* ===== EDIT CONTROLS RESPONSIVE LAYOUT ===== */
+
+/* For taller widgets (h:2+), use column layout and position at top-right */
+@container widget (min-height: 85px) {
+    .widget-edit-controls {
+        flex-direction: column;
+        align-items: flex-end;
+        top: 24px !important;
+        transform: none !important;
+    }
+
+    .widget-edit-controls.has-extra-controls {
+        top: 48px !important;
+    }
+}
+
+/* ===== THUMBNAIL MODE ===== */
+
+.widget-renderer-thumbnail {
+    pointer-events: none;
+    user-select: none;
+}
+
+/* ===== EDIT MODE CLICK BLOCKING ===== */
+
+/**
+ * When in edit mode, block all internal widget clicks.
+ * This prevents popovers, modals, and other interactions from
+ * interfering with widget dragging and resizing.
+ * 
+ * Uses CSS-only approach based on .framerr-edit-mode ancestor class,
+ * so widgets don't need to re-render when toggling edit mode.
+ * 
+ * Elements that need to remain clickable in edit mode should
+ * have the .edit-clickable or .no-drag class applied.
+ */
+
+/* Block all widget content clicks when grid is in edit mode */
+.framerr-edit-mode .widget-portal-content {
+    pointer-events: none;
+}
+
+/* Exception: elements that should remain clickable in edit mode */
+.framerr-edit-mode .widget-portal-content .edit-clickable,
+.framerr-edit-mode .widget-portal-content .no-drag {
+    pointer-events: auto;
+}
+
+/* Legacy class-based approach (kept for backward compatibility) */
+.edit-disabled {
+    pointer-events: none;
+}
+
+/* Exception: elements that should remain clickable in edit mode */
+.edit-disabled .edit-clickable {
+    pointer-events: auto;
+}
+
+/* ===== ADAPTIVE HEADER TRANSITIONS ===== */
+
+/**
+ * Header collapse animation for adaptive header system.
+ * The header smoothly collapses/expands during resize.
+ * Uses max-height + opacity for smooth visual transition.
+ */
+.widget-header-wrapper {
+    transition: max-height 200ms ease-out, opacity 150ms ease-out;
+    overflow: hidden;
+    /* Default: header visible, allow natural height */
+    max-height: 60px;
+    /* ~header height */
+    opacity: 1;
+}
+
+.widget-header-wrapper.widget-header--collapsed {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Remove border when header is collapsed to avoid visual artifacts */
+.widget-header--collapsed .widget-header {
+    border-bottom-color: transparent;
+}

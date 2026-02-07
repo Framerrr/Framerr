@@ -1,0 +1,89 @@
+/* Nord Theme - Arctic, frost-inspired colors */
+:root[data-theme="nord"] {
+    /* Backgrounds */
+    --bg-primary: #2e3440;
+    /* Polar Night 0 */
+    --bg-secondary: #3b4252;
+    /* Polar Night 1 */
+    --bg-tertiary: #434c5e;
+    /* Polar Night 2 */
+    --bg-hover: #4c566a;
+    /* Polar Night 3 */
+
+    /* Accent Colors */
+    --accent: #88c0d0;
+    /* Frost 1 */
+    --accent-hover: #81a1c1;
+    /* Frost 2 */
+    --accent-light: #8fbcbb;
+    /* Frost 0 */
+
+    /* Text */
+    --text-primary: #eceff4;
+    /* Snow Storm 2 */
+    --text-secondary: #d8dee9;
+    /* Snow Storm 1 */
+    --text-tertiary: #e5e9f0;
+    /* Snow Storm 0 */
+
+    /* Borders */
+    --border: #4c566a;
+    --border-light: #434c5e;
+
+    /* Status Colors */
+    --success: #a3be8c;
+    /* Aurora Green */
+    --warning: #ebcb8b;
+    /* Aurora Yellow */
+    --error: #bf616a;
+    /* Aurora Red */
+    --info: #5e81ac;
+    /* Frost 3 */
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
+
+    /* Blur */
+    --blur-sm: blur(4px);
+    --blur-md: blur(8px);
+    --blur-lg: blur(16px);
+
+    /* ============================================
+       PREMIUM DESIGN SYSTEM
+       ============================================ */
+
+    /* Animated Gradient (4 stops for background animation) */
+    --gradient-1: #2e3440;
+    --gradient-2: #3b4252;
+    --gradient-3: #434c5e;
+    --gradient-4: #2e3440;
+
+    /* Glassmorphism Colors */
+    --glass-start: rgba(67, 76, 94, 0.95);
+    --glass-end: rgba(46, 52, 64, 0.98);
+    --border-glass: rgba(76, 86, 106, 0.5);
+
+    /* Accent Secondary */
+    --accent-secondary: #8fbcbb;
+    /* Frost 0 */
+
+    /* Glow Effects */
+    --accent-glow: rgba(136, 192, 208, 0.3);
+    --accent-glow-soft: rgba(136, 192, 208, 0.2);
+
+    /* Blur Intensity */
+    --blur-strong: 20px;
+    --blur-medium: 12px;
+    --blur-subtle: 8px;
+
+    /* ============================================
+       EDIT MODE - Dashboard editing indicators
+       ============================================ */
+    --accent-edit: #5e81ac;
+    --accent-edit-soft: rgba(94, 129, 172, 0.3);
+    --scrollbar-thumb: rgba(94, 129, 172, 0.5);
+    --scrollbar-track: rgba(67, 76, 94, 0.5);
+}

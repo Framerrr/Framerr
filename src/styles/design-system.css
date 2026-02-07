@@ -1,0 +1,229 @@
+/* Design System - Minimal Foundation for Tailwind */
+:root {
+    /* Font Families - Used in body */
+    --font-primary: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Roboto', sans-serif;
+    --font-mono: 'Fira Code', 'SF Mono', 'Courier New', monospace;
+    /* Layout Constants */
+    --sidebar-width: 280px;
+    --sidebar-collapsed: 80px;
+    /* Z-Index Scale */
+    --z-base: 0;
+    --z-dropdown: 1000;
+    --z-sticky: 1020;
+    --z-fixed: 1030;
+    --z-modal-backdrop: 1040;
+    --z-modal: 1050;
+    --z-popover: 1060;
+    --z-tooltip: 1070;
+    /* Transitions */
+    --transition-fast: 150ms ease;
+    --transition-base: 200ms ease;
+    --transition-slow: 300ms ease;
+}
+
+/* Base Body Styles Only */
+body {
+    font-family: var(--font-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* NOTE: All typography (h1-h6, p, etc.), spacing utilities, and text utilities 
+   have been removed to prevent conflicts with Tailwind.
+   Use Tailwind classes directly in components for all styling. */
+/* ============================================
+   THEME-AWARE UTILITY CLASSES
+   These classes use CSS variables for customization
+   ============================================ */
+/* Background Colors */
+.bg-theme-primary {
+    background-color: var(--bg-primary) !important;
+}
+
+.bg-theme-secondary {
+    background-color: var(--bg-secondary) !important;
+}
+
+.bg-theme-tertiary {
+    background-color: var(--bg-tertiary) !important;
+}
+
+.bg-theme-hover {
+    background-color: var(--bg-hover) !important;
+}
+
+/* Accent Colors */
+.bg-accent {
+    background-color: var(--accent) !important;
+}
+
+.bg-accent-hover {
+    background-color: var(--accent-hover) !important;
+}
+
+.bg-accent-secondary {
+    background-color: var(--accent-secondary) !important;
+}
+
+.bg-accent\/10 {
+    background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+.bg-accent\/15 {
+    background-color: rgba(10, 14, 26, 0.7) !important;
+}
+
+.bg-accent\/20 {
+    background-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Text Colors */
+.text-theme-primary {
+    color: var(--text-primary) !important;
+}
+
+.text-theme-secondary {
+    color: var(--text-secondary) !important;
+}
+
+.text-theme-tertiary {
+    color: var(--text-tertiary) !important;
+}
+
+.text-accent {
+    color: var(--accent) !important;
+}
+
+.text-accent-hover {
+    color: var(--accent-hover) !important;
+}
+
+.text-accent-secondary {
+    color: var(--accent-secondary) !important;
+}
+
+/* Border Colors */
+.border-theme {
+    border-color: var(--border) !important;
+}
+
+.border-theme-light {
+    border-color: var(--border-light) !important;
+}
+
+.border-accent {
+    border-color: var(--accent) !important;
+}
+
+.border-accent\/30 {
+    border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+/* Divide Colors (for Tailwind's divide-y, divide-x utilities) */
+.divide-theme> :not([hidden])~ :not([hidden]) {
+    border-color: var(--border) !important;
+}
+
+.divide-theme-light> :not([hidden])~ :not([hidden]) {
+    border-color: var(--border-light) !important;
+}
+
+/* Hover States - These need to be used with hover: prefix */
+.hover\:bg-theme-hover:hover {
+    background-color: var(--bg-hover) !important;
+}
+
+.hover\:bg-accent:hover {
+    background-color: var(--accent) !important;
+}
+
+.hover\:bg-accent-hover:hover {
+    background-color: var(--accent-hover) !important;
+}
+
+.hover\:text-theme-primary:hover {
+    color: var(--text-primary) !important;
+}
+
+.hover\:text-accent:hover {
+    color: var(--accent) !important;
+}
+
+.hover\:border-accent:hover {
+    border-color: var(--accent) !important;
+}
+
+/* ============================================
+   EXPANDED THEME-AWARE UTILITIES
+   ============================================ */
+/* Status Text Utilities */
+.text-success {
+    color: var(--success) !important;
+}
+
+.text-warning {
+    color: var(--warning) !important;
+}
+
+.text-error {
+    color: var(--error) !important;
+}
+
+.text-info {
+    color: var(--info) !important;
+}
+
+/* Status Background Utilities */
+.bg-success {
+    background-color: var(--success) !important;
+}
+
+.bg-success\/15 {
+    background-color: rgba(16, 185, 129, 0.25) !important;
+}
+
+.bg-success\/25 {
+    background-color: rgba(16, 185, 129, 0.25) !important;
+}
+
+.bg-warning {
+    background-color: var(--warning) !important;
+}
+
+.bg-error {
+    background-color: var(--error) !important;
+}
+
+.bg-info {
+    background-color: var(--info) !important;
+}
+
+/* Additional Hover State Utilities */
+.hover\:bg-theme-primary:hover {
+    background-color: var(--bg-primary) !important;
+}
+
+.hover\:bg-theme-secondary:hover {
+    background-color: var(--bg-secondary) !important;
+}
+
+.hover\:bg-theme-tertiary:hover {
+    background-color: var(--bg-tertiary) !important;
+}
+
+.hover\:text-theme-secondary:hover {
+    color: var(--text-secondary) !important;
+}
+
+.hover\:border-theme:hover {
+    border-color: var(--border) !important;
+}
+
+/* Focus State Utilities */
+.focus\:border-accent:focus {
+    border-color: var(--accent) !important;
+}
+
+.focus\:border-theme:focus {
+    border-color: var(--border) !important;
+}

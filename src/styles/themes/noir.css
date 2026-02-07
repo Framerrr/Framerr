@@ -1,0 +1,124 @@
+/* Noir Theme - Premium Black with Silver Steel Accents */
+:root[data-theme="noir"] {
+   /* ============================================
+       BACKGROUNDS - True blacks with cool undertones
+       ============================================ */
+   --bg-primary: #0a0a0a;
+   /* Near-black base */
+   --bg-secondary: #121214;
+   /* Cards - subtle cool undertone */
+   --bg-tertiary: #1c1c20;
+   /* Elevated elements */
+   --bg-hover: #28282e;
+   /* Hover state */
+
+   /* Glassmorphism - Extra translucent for depth on black */
+   --glass-bg: rgba(30, 30, 35, 0.6);
+   --glass-border: rgba(138, 155, 168, 0.12);
+   --glass-bg-light: rgba(30, 30, 35, 0.4);
+
+   /* ============================================
+       ACCENT COLORS - Silver Steel
+       ============================================ */
+   --accent: #8a9ba8;
+   /* Silver steel */
+   --accent-hover: #a0b0bc;
+   /* Lighter on hover */
+   --accent-light: #b8c5d0;
+   /* Highlights */
+   --accent-secondary: #6b7a87;
+   /* Darker variant */
+
+   /* ============================================
+       GRADIENTS - Subtle silver gradients
+       ============================================ */
+   --gradient-primary: linear-gradient(135deg, #8a9ba8 0%, #6b7a87 100%);
+   --gradient-primary-soft: linear-gradient(135deg, rgba(138, 155, 168, 0.15) 0%, rgba(107, 122, 135, 0.05) 100%);
+   --gradient-card-hover: linear-gradient(135deg, rgba(138, 155, 168, 0.08) 0%, rgba(107, 122, 135, 0.03) 100%);
+   --gradient-text: linear-gradient(135deg, #b8c5d0 0%, #8a9ba8 100%);
+
+   /* ============================================
+       TEXT - Soft whites for comfortable reading
+       ============================================ */
+   --text-primary: #e8e8e8;
+   /* Soft white */
+   --text-secondary: #888888;
+   /* Medium gray */
+   --text-tertiary: #555555;
+   /* Muted */
+
+   /* ============================================
+       BORDERS - Subtle definition
+       ============================================ */
+   --border: #2a2a30;
+   /* Dark with cool tint */
+   --border-light: #1e1e22;
+   /* Barely visible */
+   --border-accent: rgba(138, 155, 168, 0.3);
+
+   /* ============================================
+       STATUS COLORS - Slightly muted for noir aesthetic
+       ============================================ */
+   --success: #4ade80;
+   /* Green 400 - softer */
+   --warning: #fbbf24;
+   /* Amber 400 */
+   --error: #f87171;
+   /* Red 400 - softer */
+   --info: #8a9ba8;
+   /* Silver (matches accent) */
+
+   /* ============================================
+       SHADOWS - Deep blacks with subtle glow
+       ============================================ */
+   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.6);
+   --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.7);
+   --shadow-lg: 0 10px 20px -5px rgba(0, 0, 0, 0.8);
+   --shadow-xl: 0 20px 30px -8px rgba(0, 0, 0, 0.85);
+   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.9);
+
+   /* Glow shadows - Silver steel glow */
+   --shadow-glow: 0 0 20px rgba(138, 155, 168, 0.1);
+   --shadow-glow-lg: 0 0 40px rgba(138, 155, 168, 0.15);
+   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.6);
+
+   /* ============================================
+       BLUR
+       ============================================ */
+   --blur-sm: blur(4px);
+   --blur-md: blur(8px);
+   --blur-lg: blur(16px);
+   --blur-xl: blur(24px);
+
+   /* ============================================
+       PREMIUM DESIGN SYSTEM - Noir Aesthetic
+       ============================================ */
+
+   /* Animated Gradient - Deep blacks */
+   --gradient-1: #0a0a0a;
+   --gradient-2: #101014;
+   --gradient-3: #18181c;
+   --gradient-4: #0a0a0a;
+
+   /* Glassmorphism Colors */
+   --glass-start: rgba(28, 28, 32, 0.95);
+   --glass-end: rgba(12, 12, 14, 0.98);
+   --border-glass: rgba(138, 155, 168, 0.15);
+
+   /* Glow Effects */
+   --accent-glow: rgba(138, 155, 168, 0.25);
+   --accent-glow-soft: rgba(138, 155, 168, 0.12);
+
+   /* Blur Intensity */
+   --blur-strong: 20px;
+   --blur-medium: 12px;
+   --blur-subtle: 8px;
+
+   /* ============================================
+       EDIT MODE - Dashboard editing indicators
+       ============================================ */
+   --accent-edit: #a0b0bc;
+   --accent-edit-soft: rgba(160, 176, 188, 0.3);
+   --scrollbar-thumb: rgba(160, 176, 188, 0.5);
+   --scrollbar-track: rgba(28, 28, 32, 0.5);
+}

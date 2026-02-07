@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  framerr:
+    build: .
+    container_name: framerr
+    image: pickels23/framerr:latest
+    environment:
+      - PUID=99 # Unraid user ID
+      - PGID=100 # Unraid group ID
+      - TZ=America/New_York # Your timezone
+    ports:
+      - "3001:3001"
+    volumes:
+      - /mnt/user/appdata/framerr:/config
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})" ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

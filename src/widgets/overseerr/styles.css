@@ -1,0 +1,94 @@
+/**
+ * OverseerrWidget - Download Progress Bar Styles
+ * 
+ * Progress bar shows above title when media is downloading.
+ * Expands on hover to show details (%, time remaining, episode count).
+ */
+
+/* Progress Bar Container - padding for larger tap target */
+.overseerr-progress {
+    position: relative;
+    width: 100%;
+    padding: 8px 0;
+    /* Increase tap area above/below the bar */
+    margin: -8px 0;
+    /* Offset padding to maintain visual position */
+    cursor: pointer;
+}
+
+/* Progress Bar Track */
+.overseerr-progress__bar {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    overflow: hidden;
+    transition: height 0.2s ease;
+}
+
+/* Expanded state: expand ALL bars (triggered by parent .expanded class) */
+.overseerr-progress-stack.expanded .overseerr-progress__bar {
+    height: 8px;
+}
+
+/* Progress Bar Fill */
+.overseerr-progress__fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--info), var(--accent));
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+/* Details Container (hidden by default, shows when expanded) */
+.overseerr-progress__details {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    opacity: 0;
+    height: 0;
+    overflow: hidden;
+    transition: opacity 0.2s, height 0.2s;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+}
+
+/* Show details when parent stack has expanded class */
+.overseerr-progress-stack.expanded .overseerr-progress__details {
+    opacity: 1;
+    height: 18px;
+    margin-top: 4px;
+}
+
+/* Percentage */
+.overseerr-progress__percent {
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* Time remaining */
+.overseerr-progress__time {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Episode count (for TV shows) */
+.overseerr-progress__episodes {
+    color: rgba(255, 255, 255, 0.6);
+    font-style: italic;
+}
+
+/* Multi-bar stack container (Phase 8) */
+.overseerr-progress-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Instance label above bar (only shown when multiple instances) */
+.overseerr-progress__label {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}

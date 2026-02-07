@@ -1,0 +1,333 @@
+/**
+ * CalendarWidget - Fluid Container Query-based Responsive Styles
+ * 
+ * Uses CSS Container Queries with clamp() and container query units (cqi/cqb)
+ * for fluid, dynamic sizing that scales with container size.
+ * 
+ * Container Query Units:
+ * - cqi = 1% of container inline size (width)
+ * - cqb = 1% of container block size (height)
+ * - cqmin = smaller of cqi/cqb
+ * 
+ * NO PADDING - WidgetWrapper handles padding consistently (uses 'relaxed').
+ */
+
+/* Container setup - enables @container queries with size tracking */
+.calendar-widget {
+    container-type: size;
+    container-name: calendar;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow: hidden;
+    gap: clamp(4px, 1.5cqi, 12px);
+}
+
+/* ===== HEADER: Month navigation ===== */
+.calendar-widget__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: clamp(4px, 2cqi, 12px);
+    flex-shrink: 0;
+    position: relative;
+}
+
+.calendar-widget__nav-btn {
+    padding: clamp(2px, 1cqi, 6px);
+    border-radius: clamp(4px, 1cqi, 8px);
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.calendar-widget__nav-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.calendar-widget__nav-btn svg {
+    width: clamp(12px, 3cqi, 18px);
+    height: clamp(12px, 3cqi, 18px);
+}
+
+.calendar-widget__title {
+    font-size: clamp(0.7rem, 3cqi, 1rem);
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: center;
+    flex: 1;
+    white-space: nowrap;
+}
+
+.calendar-widget__today-btn {
+    font-size: clamp(0.55rem, 2cqi, 0.75rem);
+    padding: clamp(2px, 0.8cqi, 6px) clamp(4px, 1.5cqi, 12px);
+    border-radius: clamp(3px, 1cqi, 6px);
+    background: var(--bg-tertiary);
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+    /* Pull out of flow so title centers evenly between arrows */
+    position: absolute;
+    right: clamp(20px, 8cqi, 36px);
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.calendar-widget__today-btn:hover {
+    background: var(--bg-hover);
+}
+
+/* ===== FILTER BUTTONS ===== */
+.calendar-widget__filters {
+    display: flex;
+    gap: clamp(2px, 0.8cqi, 6px);
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.calendar-widget__filter-icon {
+    width: clamp(10px, 2.5cqi, 16px);
+    height: clamp(10px, 2.5cqi, 16px);
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.calendar-widget__filter-btn {
+    font-size: clamp(0.5rem, 2cqi, 0.65rem);
+    padding: clamp(1px, 0.5cqi, 3px) clamp(4px, 1.2cqi, 10px);
+    border-radius: clamp(2px, 0.6cqi, 4px);
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+/* ===== CALENDAR GRID ===== */
+.calendar-widget__grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    /* Day-header row is auto-sized, day-content rows fill remaining space equally */
+    grid-template-rows: auto;
+    grid-auto-rows: 1fr;
+    gap: clamp(1px, 0.3cqi, 3px);
+    flex: 1;
+    min-height: 0;
+    /* Allow flex item to shrink */
+    overflow: hidden;
+}
+
+/* Day headers (S, M, T, W, T, F, S) */
+.calendar-widget__day-header {
+    text-align: center;
+    font-size: clamp(0.5rem, 2cqi, 0.65rem);
+    color: var(--text-secondary);
+    font-weight: 600;
+    padding: clamp(2px, 0.5cqi, 6px) 0;
+}
+
+/* Empty cells before month starts */
+.calendar-widget__empty-cell {
+    background: var(--bg-tertiary);
+    opacity: 0.2;
+    border-radius: clamp(2px, 0.4cqi, 4px);
+}
+
+/* Individual day cells */
+.calendar-widget__day-cell {
+    padding: clamp(1px, 0.3cqi, 3px);
+    border-radius: clamp(3px, 0.6cqi, 8px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid transparent;
+    background: var(--bg-tertiary);
+    opacity: 0.85;
+    transition: border-color 0.2s;
+    min-height: 0;
+    /* Allow shrinking within 1fr rows */
+}
+
+.calendar-widget__day-cell:hover {
+    border-color: var(--border-color-light);
+}
+
+.calendar-widget__day-cell--today {
+    background: rgba(var(--accent-rgb), 0.1);
+    border-color: var(--accent);
+    opacity: 1;
+}
+
+/* Day number */
+.calendar-widget__day-number {
+    font-size: clamp(0.5rem, 1.8cqi, 0.65rem);
+    text-align: right;
+    margin-bottom: 1px;
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.calendar-widget__day-cell--today .calendar-widget__day-number {
+    font-weight: 700;
+    color: var(--accent);
+    opacity: 1;
+}
+
+/* Events container within each day */
+.calendar-widget__events {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* Individual event pill */
+.calendar-widget__event {
+    font-size: clamp(0.4rem, 1.5cqi, 0.55rem);
+    padding: clamp(0px, 0.2cqi, 2px) clamp(2px, 0.5cqi, 4px);
+    border-radius: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+    color: white;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.calendar-widget__event:hover {
+    opacity: 0.8;
+}
+
+.calendar-widget__event--tv {
+    background: var(--info);
+}
+
+.calendar-widget__event--movie {
+    background: var(--success);
+}
+
+/* ===== LOADING STATE ===== */
+.calendar-widget__loading {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-size: clamp(0.6rem, 2.5cqi, 0.85rem);
+    opacity: 0.6;
+}
+
+/* ===== ERROR STATE ===== */
+.calendar-widget__error {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: clamp(8px, 3cqi, 20px);
+    font-size: clamp(0.55rem, 2cqi, 0.75rem);
+    color: var(--error);
+    background: rgba(var(--error-rgb), 0.1);
+    border-radius: clamp(4px, 1cqi, 8px);
+}
+
+/* ===== EMPTY STATE ===== */
+.calendar-widget__empty {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    opacity: 0.5;
+}
+
+.calendar-widget__empty-icon {
+    width: clamp(20px, 8cqi, 36px);
+    height: clamp(20px, 8cqi, 36px);
+    margin: 0 auto clamp(4px, 1cqi, 10px);
+    color: var(--text-tertiary);
+}
+
+.calendar-widget__empty-text {
+    font-size: clamp(0.55rem, 2cqi, 0.75rem);
+    color: var(--text-secondary);
+}
+
+.calendar-widget__empty-subtext {
+    font-size: clamp(0.45rem, 1.5cqi, 0.6rem);
+    color: var(--text-tertiary);
+    margin-top: clamp(2px, 0.5cqi, 6px);
+}
+
+/* ===== COMPACT MODE: Narrow width - hide filters, compact day headers ===== */
+@container calendar (max-width: 280px) {
+    .calendar-widget__filters {
+        display: none;
+    }
+
+    .calendar-widget__today-btn {
+        display: none;
+    }
+}
+
+/* ===== ULTRA COMPACT: Very small width - abbreviate everything ===== */
+@container calendar (max-width: 180px) {
+    .calendar-widget__title {
+        font-size: clamp(0.55rem, 4cqi, 0.75rem);
+    }
+
+    .calendar-widget__day-header {
+        font-size: clamp(0.4rem, 2.5cqi, 0.55rem);
+    }
+
+    .calendar-widget__day-number {
+        font-size: clamp(0.4rem, 2cqi, 0.5rem);
+    }
+
+    .calendar-widget__event {
+        font-size: clamp(0.35rem, 1.5cqi, 0.45rem);
+        padding: 0 clamp(1px, 0.3cqi, 2px);
+    }
+}
+
+/* ===== SHORT HEIGHT: Hide filters when vertically constrained ===== */
+@container calendar (max-height: 200px) {
+    .calendar-widget__filters {
+        display: none;
+    }
+}
+
+/* ===== TALL MODE: More spacious layout when plenty of vertical space ===== */
+@container calendar (min-height: 350px) {
+    .calendar-widget {
+        gap: clamp(8px, 2cqi, 16px);
+    }
+
+    .calendar-widget__event {
+        font-size: clamp(0.5rem, 1.8cqi, 0.65rem);
+        padding: clamp(1px, 0.3cqi, 3px) clamp(3px, 0.7cqi, 6px);
+    }
+}
+
+/* ===== WIDE MODE: Horizontal layout benefits ===== */
+@container calendar (min-width: 450px) {
+    .calendar-widget__grid {
+        gap: clamp(2px, 0.5cqi, 4px);
+    }
+
+    .calendar-widget__day-cell {
+        border-radius: clamp(4px, 0.8cqi, 10px);
+    }
+}

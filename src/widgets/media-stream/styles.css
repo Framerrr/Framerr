@@ -1,0 +1,339 @@
+/**
+ * PlexWidget - Container Query Responsive Carousel Styles
+ * 
+ * Dynamic row layout (JS-controlled via usePlexRowLayout):
+ * - 1-row mode: single horizontal scroll
+ * - 2-row mode: two independent scrolling rows
+ * Cards maintain ~1:1 aspect ratio.
+ */
+
+/* ============================================
+ * 1-ROW MODE (default)
+ * ============================================ */
+
+/* Container setup for 1-row mode */
+.plex-widget {
+    container-type: size;
+    container-name: plex;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    align-content: flex-start;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-behavior: smooth;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.plex-widget::-webkit-scrollbar {
+    display: none;
+}
+
+/* ============================================
+ * 2-ROW MODE (JS-controlled)
+ * ============================================ */
+
+/* Wrapper for multi-row layout */
+.plex-widget-multi {
+    container-type: size;
+    container-name: plex-multi;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Individual scrolling row */
+.plex-widget-row {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-behavior: smooth;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.plex-widget-row::-webkit-scrollbar {
+    display: none;
+}
+
+/* Container query: 2-row layout when container is tall (>280px = ~5H+)
+ * Cards wrap to second row and are constrained to half height */
+@container plex (min-height: 280px) and (min-width: 400px) {
+    .plex-widget {
+        flex-wrap: wrap;
+        align-content: flex-start;
+    }
+
+    .plex-card {
+        height: calc(50% - 4px);
+    }
+}
+
+/* ============================================
+ * SESSION CARD
+ * ============================================ */
+
+/* Session Card - 1:1 aspect ratio */
+.plex-card {
+    container-type: inline-size;
+    container-name: plex-card;
+    flex: 0 0 auto;
+    height: 100%;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-hover);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: box-shadow 0.2s;
+    position: relative;
+    isolation: isolate;
+    will-change: box-shadow;
+}
+
+/* Hover effect only on devices with true hover capability (not touch) */
+/* This prevents iOS "sticky hover" where tap applies :hover that doesn't clear */
+@media (hover: hover) {
+    .plex-card:hover {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+}
+
+/* Image Section - reduced to give more room for info */
+.plex-card__image {
+    flex: 0 0 65%;
+    position: relative;
+    background: var(--bg-tertiary);
+    overflow: hidden;
+    /* Explicit border-radius for top corners to prevent rendering quirks */
+    border-radius: 8px 8px 0 0;
+}
+
+.plex-card__image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.plex-card__image-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Hover overlay for controls - JavaScript-controlled only */
+.plex-card__controls {
+    position: absolute;
+    inset: 0;
+    /* Extend to bottom - progress bar has higher z-index and will appear on top */
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    opacity: 0;
+    pointer-events: none;
+    /* Prevent clicks when hidden */
+    transition: opacity 0.2s;
+    z-index: 10;
+    /* Match parent border-radius to fix backdrop-filter clipping */
+    border-radius: 8px 8px 0 0;
+}
+
+/* JavaScript-controlled toggle state (works on both desktop and mobile) */
+.plex-card__controls--active {
+    opacity: 1;
+    pointer-events: auto;
+    /* Enable clicks when visible */
+}
+
+/* Progress Bar - glassmorphic, inset with rounded corners */
+.plex-card__progress {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    right: 6px;
+    height: 4px;
+    /* Glassmorphic background with rounding */
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: 4px;
+    flex-shrink: 0;
+    transition: height 0.25s ease, bottom 0.25s ease;
+    overflow: hidden;
+    /* Higher than controls overlay */
+    z-index: 15;
+}
+
+/* Expand upward when hovering the CARD (consistent with controls) */
+@media (hover: hover) {
+    .plex-card:hover .plex-card__progress {
+        height: 12px;
+        bottom: 4px;
+    }
+
+    .plex-card:hover .plex-card__progress-text {
+        opacity: 1;
+    }
+}
+
+.plex-card__progress-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 100%;
+    /* Gradient fill like Overseerr */
+    background: linear-gradient(90deg, var(--info), var(--accent));
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+/* Percentage text - only visible when expanded */
+.plex-card__progress-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+/* Info Section */
+.plex-card__info {
+    flex: 1;
+    padding: 0.4rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.plex-card__title {
+    font-weight: 600;
+    font-size: 0.85rem;
+    line-height: 1.2;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.plex-card__title-text {
+    display: inline-block;
+    white-space: nowrap;
+}
+
+/* Only animate when text overflows (JS adds --scrolling class) */
+.plex-card__title-text--scrolling {
+    animation: marquee 25s linear infinite;
+}
+
+@keyframes marquee {
+
+    0%,
+    20% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
+.plex-card__meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.plex-card__episode {
+    white-space: nowrap;
+}
+
+.plex-card__user {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+    min-width: 0;
+    padding-left: 0.5rem;
+}
+
+.plex-card__status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+    margin-top: auto;
+}
+
+.plex-card__status-icon {
+    color: var(--success);
+}
+
+/* Container Query - Compact mode */
+@container plex-card (max-width: 120px) {
+    .plex-card__status {
+        display: none;
+    }
+}
+
+@container plex-card (max-width: 100px) {
+    .plex-card__meta {
+        display: none;
+    }
+}
+
+@container plex-card (max-width: 80px) {
+    .plex-card__info {
+        display: none;
+    }
+
+    /* Show title overlay on image when info hidden */
+    .plex-card__title-overlay {
+        display: block;
+    }
+}
+
+/* Title overlay - hidden by default, shown when info section is hidden */
+.plex-card__title-overlay {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

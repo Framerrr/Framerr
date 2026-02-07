@@ -1,0 +1,271 @@
+/**
+ * Premium Effects CSS
+ * Reusable utilities for glassmorphism, animations, and interactive effects
+ */
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes gradientShift {
+
+    0%,
+    100% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+/* Animated Gradient Background */
+.animated-gradient {
+    background: linear-gradient(-45deg, var(--gradient-1), var(--gradient-2), var(--gradient-3), var(--gradient-4));
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
+}
+
+/* Glassmorphism Effects */
+.glass-card {
+    background: linear-gradient(135deg, var(--glass-start), var(--glass-end));
+    backdrop-filter: blur(var(--blur-strong));
+    -webkit-backdrop-filter: blur(var(--blur-strong));
+    box-shadow:
+        0 20px 40px rgba(0, 0, 0, 0.25),
+        0 8px 16px rgba(0, 0, 0, 0.15),
+        0 0 0 1px var(--border-glass),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.glass-subtle {
+    background: linear-gradient(135deg, var(--glass-start), var(--glass-end));
+    backdrop-filter: blur(var(--blur-medium));
+    -webkit-backdrop-filter: blur(var(--blur-medium));
+    box-shadow:
+        0 8px 16px rgba(0, 0, 0, 0.3),
+        0 4px 8px rgba(0, 0, 0, 0.2),
+        0 0 0 1px var(--border-glass);
+}
+
+/* Gradient Border Accent */
+.glass-card::before,
+.glass-subtle::before {
+    /* content: ''; */
+    /* DISABLED - Removes light blue border */
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 2px;
+    background: linear-gradient(135deg, var(--accent-glow), var(--accent-glow-soft));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+}
+
+/* Interactive Glow Effects */
+.input-glow:focus {
+    border-color: var(--accent);
+    transition: all 0.3s ease;
+}
+
+.card-glow:hover {
+    box-shadow:
+        0 8px 16px rgba(0, 0, 0, 0.4),
+        0 0 0 1px var(--accent-glow),
+        0 0 24px var(--accent-glow-soft);
+    transition: all 0.3s ease;
+}
+
+/* Button Elevation */
+.button-elevated {
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.button-elevated:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow:
+        0 12px 24px var(--accent-glow),
+        0 6px 12px rgba(0, 0, 0, 0.6);
+}
+
+.button-elevated:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow:
+        0 4px 8px var(--accent-glow-soft),
+        0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Page Load Animations */
+.fade-in {
+    animation: fadeIn 0.6s ease-out;
+}
+
+.slide-up {
+    animation: slideUp 0.8s ease-out;
+}
+
+.slide-down {
+    animation: slideDown 0.8s ease-out;
+}
+
+.scale-in {
+    animation: scaleIn 0.5s ease-out;
+}
+
+/* Staggered Animations */
+.stagger-1 {
+    animation-delay: 0.1s;
+}
+
+.stagger-2 {
+    animation-delay: 0.2s;
+}
+
+.stagger-3 {
+    animation-delay: 0.3s;
+}
+
+.stagger-4 {
+    animation-delay: 0.4s;
+}
+
+.stagger-5 {
+    animation-delay: 0.5s;
+}
+
+/* Shadow Hierarchy */
+.shadow-subtle {
+    box-shadow:
+        0 4px 6px rgba(0, 0, 0, 0.1),
+        0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.shadow-medium {
+    box-shadow:
+        0 8px 16px rgba(0, 0, 0, 0.2),
+        0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.shadow-deep {
+    box-shadow:
+        0 24px 48px rgba(0, 0, 0, 0.6),
+        0 12px 24px rgba(0, 0, 0, 0.4);
+}
+
+.shadow-glow {
+    box-shadow: 0 8px 16px var(--accent-glow);
+}
+
+/* Gradient Text */
+.gradient-text {
+    background: linear-gradient(to right, var(--accent), var(--accent-secondary));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* ========================================
+   ACCESSIBILITY - Reduced Motion
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+
+    .animated-gradient {
+        animation: none;
+    }
+}
+
+/* Global Flatten UI Mode */
+.flatten-ui .glass-card,
+.flatten-ui .glass-subtle {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+}
+
+.flatten-ui .glass-card::before,
+.flatten-ui .glass-subtle::before {
+    display: none !important;
+}
+
+/* Per-Widget Flatten Mode */
+.flatten-mode.glass-card,
+.flatten-mode.glass-subtle,
+.flatten-mode .glass-card,
+.flatten-mode .glass-subtle {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+}
+
+.flatten-mode.glass-card::before,
+.flatten-mode.glass-subtle::before,
+.flatten-mode .glass-card::before,
+.flatten-mode .glass-subtle::before {
+    display: none !important;
+}

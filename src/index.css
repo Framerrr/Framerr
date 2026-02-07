@@ -1,0 +1,108 @@
+/* Tailwind v4 - Import the framework */
+@import "tailwindcss";
+
+/* Import Design System & Default Theme */
+/* @import './styles/design-system.css'; */
+/* COMMENTED: File not in recovery */
+@import './styles/themes/dark-pro.css';
+@import './styles/premium-effects.css';
+@import './styles/design-system.css';
+@import './styles/animations.css';
+
+/* Modal max-height - Desktop defaults */
+:root {
+    --modal-max-height: 85vh;
+}
+
+/* Mobile: Use conservative 70vh to ensure modal doesn't extend past viewport */
+/* Tab bar is ~86px from bottom, want ~16px clearance top and bottom */
+@media (max-width: 768px) {
+    :root {
+        --modal-max-height: 70vh;
+    }
+}
+
+/* 
+ * iOS Safari Safe Area Pattern (iOS 26.2 Fix)
+ * Based on Seerr/Jellyseerr's proven implementation.
+ * 
+ * Key insight: Do NOT use position:fixed on html/body - it fights with viewport-fit=cover
+ * and causes black bars in the home indicator region.
+ * 
+ * NOTE: This approach fixes the black bar but allows container scrolling.
+ * Container scroll prevention needs to be handled separately (JS touch events).
+ */
+html {
+    /* Height required for h-full chain to work in children */
+    height: 100%;
+    /* Seerr-style: min-height allows background to fill home indicator region */
+    min-height: calc(100% + env(safe-area-inset-top));
+    /* Safe area handling - TOP/LEFT/RIGHT only, tab bar handles bottom */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+    background-color: var(--bg-primary);
+
+    /* Prevent pinch zoom */
+    touch-action: manipulation;
+}
+
+body {
+    font-family: var(--font-primary);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+
+    height: 100%;
+    margin: 0;
+
+    /* Momentum scrolling for child containers */
+    -webkit-overflow-scrolling: touch;
+}
+
+/* React root container */
+#root {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Universal scrollbar hiding - Clean premium UI */
+* {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+*::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari, Opera */
+}
+
+/* Horizontal scroll containment - prevents scroll from bubbling to page */
+.scroll-contain-x {
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Container query for profile button - hide text when container is narrow */
+@container (max-width: 240px) {
+    .profile-btn-text {
+        display: none;
+    }
+}
+
+/* Radix UI scroll lock override - allows nested scrollable elements (like Popovers inside Dialogs) */
+/* When Radix locks scroll, it adds [data-scroll-locked] to body which can break nested scroll areas */
+body[data-scroll-locked] [data-radix-popper-content-wrapper] {
+    pointer-events: auto !important;
+}
+
+/* Ensure popover content can scroll even when body scroll is locked */
+[data-radix-popper-content-wrapper] {
+    overflow: visible !important;
+}
+
+[data-radix-popper-content-wrapper]>* {
+    overflow-y: auto !important;
+}

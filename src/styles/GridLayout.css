@@ -1,0 +1,532 @@
+/**
+ * Grid Layout Styles for react-grid-layout
+ * Custom styling for dashboard grid, widgets, and edit mode
+ * 
+ * Note: Base react-grid-layout CSS is imported in Dashboard.jsx
+ */
+
+/* Grid Container */
+.react-grid-layout {
+    position: relative;
+    transition: height 200ms ease;
+}
+
+/* ========================================
+ * EDIT MODE - Text Selection Prevention
+ * Prevents accidental text selection while touching/dragging on mobile
+ * ======================================== */
+.dashboard-edit-mode {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    /* Prevents iOS long-press popup */
+    touch-action: manipulation;
+    /* Helps prevent double-tap zoom */
+}
+
+/* ========================================
+ * WIDGET DRAG-READY STATE
+ * Visual feedback when hold threshold is reached
+ * Applied after user holds for 250ms without moving
+ * 
+ * NOTE: Cannot use transform:scale() because RGL uses 
+ * inline transform:translate() for positioning - we'd override it!
+ * ======================================== */
+.react-grid-item.widget-drag-ready {
+    /* Use box-shadow for visual "lift" effect instead of scale */
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35),
+        0 0 0 3px var(--accent-edit),
+        inset 0 0 0 1px var(--accent-edit-soft) !important;
+    transition: box-shadow 150ms ease-out !important;
+    z-index: 100 !important;
+    /* CRITICAL: Re-enable pointer events when drag-ready */
+    pointer-events: auto !important;
+}
+
+/* Grid Items */
+.react-grid-item {
+    transition: all 200ms ease;
+    transition-property: left, top, width, height, border, box-shadow;
+    border-radius: 0.75rem;
+    overflow: visible;
+    /* Default border for transition - invisible */
+    border: 2px dashed transparent;
+}
+
+/* Prevent unwanted text selection while dragging */
+.react-grid-item.react-draggable-dragging {
+    transition: none;
+    z-index: 100;
+    cursor: move;
+}
+
+.react-grid-item.resizing {
+    transition: none !important;
+    z-index: 100;
+}
+
+/* Edit Mode Styles - applied to inner wrapper div */
+.react-grid-item .edit-mode {
+    border: 2px dashed var(--accent-edit-soft);
+    border-radius: 0.75rem;
+}
+
+/* Hover effect only on devices with true hover capability (not touch) */
+/* This prevents iOS "sticky hover" where tap applies :hover that doesn't clear */
+@media (hover: hover) {
+    .react-grid-item .edit-mode:hover {
+        border-color: var(--accent-edit);
+        box-shadow: 0 4px 20px var(--accent-edit-soft);
+    }
+}
+
+/* Locked Mode - No visual feedback */
+.react-grid-item .locked {
+    cursor: default;
+}
+
+/* Restore pointer-events on interactive elements within widgets */
+/* .no-drag elements need to be clickable even when widget has pointer-events:none */
+.react-grid-item .edit-mode .no-drag {
+    pointer-events: auto;
+}
+
+/* Resize Handles */
+.react-resizable-handle {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: transparent;
+    /* CRITICAL: z-index must be higher than dnd-kit drag overlay (z-index: 10) */
+    z-index: 20;
+    /* CRITICAL for iOS: prevent touch events from being captured by scroll */
+    touch-action: none;
+    -webkit-touch-callout: none;
+}
+
+/* Larger touch targets for resize handles on mobile (iOS recommended: 44px minimum) */
+@media (max-width: 768px) {
+    .react-resizable-handle {
+        width: 44px;
+        height: 44px;
+    }
+
+    /* Ensure side handles (e, w) are large enough for touch on mobile */
+    .react-grid-item .react-resizable-handle-e,
+    .react-grid-item .react-resizable-handle-w {
+        width: 44px !important;
+    }
+
+    /* Ensure top/bottom handles (n, s) are tall enough for touch on mobile */
+    .react-grid-item .react-resizable-handle-n,
+    .react-grid-item .react-resizable-handle-s {
+        height: 44px !important;
+    }
+}
+
+/* Restore pointer-events on resize handles in edit mode */
+/* These need to be touchable even when widget has pointer-events:none */
+.react-grid-item .edit-mode .react-resizable-handle {
+    pointer-events: auto;
+    /* Force touch-action for iOS PWA */
+    touch-action: none !important;
+}
+
+/* Only show resize handles in edit mode */
+/* Use container-level .grid-edit-mode class for visibility */
+.react-grid-item .react-resizable-handle {
+    display: none !important;
+}
+
+.grid-edit-mode .react-grid-item .react-resizable-handle {
+    display: block !important;
+}
+
+/* Bottom-Right Resize Handle - Desktop only */
+.react-resizable-handle-se {
+    bottom: 0;
+    right: 0;
+    cursor: se-resize;
+}
+
+/* Desktop SE corner bracket - hidden on mobile */
+@media (min-width: 769px) {
+    .react-resizable-handle-se::after {
+        content: '';
+        position: absolute;
+        right: 3px;
+        bottom: 3px;
+        width: 8px;
+        height: 8px;
+        border-right: 2px solid var(--accent-edit);
+        border-bottom: 2px solid var(--accent-edit);
+        border-radius: 0 0 4px 0;
+    }
+
+    .edit-mode .react-resizable-handle-se:hover::after {
+        border-color: var(--accent-edit);
+        width: 10px;
+        height: 10px;
+    }
+}
+
+/* Placeholder while dragging - More specific selector to override RGL's red default */
+.react-grid-item.react-grid-placeholder {
+    background: var(--accent-edit-soft) !important;
+    border: 2px dashed var(--accent-edit) !important;
+    border-radius: 0.75rem;
+    opacity: 1 !important;
+    transition-duration: 100ms;
+    z-index: 2;
+}
+
+/* Widget Wrapper Styles */
+.widget-wrapper {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.widget-header {
+    flex-shrink: 0;
+}
+
+.widget-content {
+    flex: 1;
+    overflow: auto;
+    /* Scrollbar hidden globally in index.css for clean UI */
+    /* Theme variables available if scrollbars enabled: --scrollbar-thumb, --scrollbar-track */
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .react-grid-item {
+        /* Prevent tiny widgets on mobile */
+    }
+
+    /* Simpler resize handle on mobile */
+    .react-resizable-handle-se::after {
+        width: 12px;
+        height: 12px;
+        border-width: 3px;
+    }
+}
+
+/* Animation when adding/removing widgets */
+.widget-enter {
+    opacity: 0;
+    transform: scale(0.9);
+}
+
+.widget-enter-active {
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity 300ms, transform 300ms;
+}
+
+.widget-exit {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.widget-exit-active {
+    opacity: 0;
+    transform: scale(0.9);
+    transition: opacity 200ms, transform 200ms;
+}
+
+/* Full-edge resize handles - extended 5px outside widget bounds */
+.react-grid-item .react-resizable-handle-n {
+    width: 100% !important;
+    left: 0 !important;
+    top: -5px !important;
+    height: 20px !important;
+    cursor: n-resize !important;
+    transform: none !important;
+}
+
+.react-grid-item .react-resizable-handle-e {
+    height: 100% !important;
+    top: 0 !important;
+    right: -5px !important;
+    width: 20px !important;
+    cursor: e-resize !important;
+    transform: none !important;
+}
+
+.react-grid-item .react-resizable-handle-s {
+    width: 100% !important;
+    left: 0 !important;
+    bottom: -5px !important;
+    height: 20px !important;
+    cursor: s-resize !important;
+    transform: none !important;
+}
+
+.react-grid-item .react-resizable-handle-w {
+    height: 100% !important;
+    top: 0 !important;
+    left: -5px !important;
+    width: 20px !important;
+    cursor: w-resize !important;
+    transform: none !important;
+}
+
+.react-grid-item .react-resizable-handle-se,
+.react-grid-item .react-resizable-handle-ne,
+.react-grid-item .react-resizable-handle-sw,
+.react-grid-item .react-resizable-handle-nw {
+    width: 24px !important;
+    height: 24px !important;
+    transform: none !important;
+}
+
+/* Desktop corner handle positioning - extended 5px outside widget */
+.react-grid-item .react-resizable-handle-nw {
+    top: -5px !important;
+    left: -5px !important;
+}
+
+.react-grid-item .react-resizable-handle-ne {
+    top: -5px !important;
+    right: -5px !important;
+}
+
+.react-grid-item .react-resizable-handle-sw {
+    bottom: -5px !important;
+    left: -5px !important;
+}
+
+.react-grid-item .react-resizable-handle-se {
+    bottom: -5px !important;
+    right: -5px !important;
+}
+
+/* Mobile: Make corner resize handles (NW, SW, SE) large and visible */
+@media (max-width: 768px) {
+
+    /* Base sizing + reset for all mobile corner handles */
+    .react-grid-item .react-resizable-handle-nw,
+    .react-grid-item .react-resizable-handle-sw,
+    .react-grid-item .react-resizable-handle-se {
+        width: 28px !important;
+        height: 28px !important;
+        background: none !important;
+        border: none !important;
+    }
+
+    /* Hide any pseudo-element "backside" from RGL defaults */
+    .react-grid-item .react-resizable-handle-nw::before,
+    .react-grid-item .react-resizable-handle-sw::before,
+    .react-grid-item .react-resizable-handle-se::before {
+        display: none !important;
+    }
+
+    /* Position: top-left - handle extends inward, icon at corner */
+    .react-grid-item .react-resizable-handle-nw {
+        top: -6px !important;
+        left: -6px !important;
+        cursor: nw-resize !important;
+    }
+
+    /* Position: bottom-left - handle extends inward, icon at corner */
+    .react-grid-item .react-resizable-handle-sw {
+        bottom: -6px !important;
+        left: -6px !important;
+        cursor: sw-resize !important;
+    }
+
+    /* Position: bottom-right - handle extends inward, icon at corner */
+    .react-grid-item .react-resizable-handle-se {
+        bottom: -6px !important;
+        right: -6px !important;
+        cursor: se-resize !important;
+    }
+
+    /* L-bracket SVG icons for corner handles */
+    /* Using inline SVG with rounded stroke-linecap for smooth appearance */
+    /* Icons positioned at outer corner of handle (widget corner) */
+
+    /* NW (top-left) - L in top-left orientation */
+    .grid-edit-mode .react-grid-item .react-resizable-handle-nw {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M4 12 L4 4 L12 4' stroke='%2310b981' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: 6px 6px;
+        background-size: 14px 14px;
+    }
+
+    /* SW (bottom-left) - L in bottom-left orientation */
+    .grid-edit-mode .react-grid-item .react-resizable-handle-sw {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M4 4 L4 12 L12 12' stroke='%2310b981' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: 6px 8px;
+        background-size: 14px 14px;
+    }
+
+    /* SE (bottom-right) - L in bottom-right orientation */
+    .grid-edit-mode .react-grid-item .react-resizable-handle-se {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M12 4 L12 12 L4 12' stroke='%2310b981' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: 8px 8px;
+        background-size: 14px 14px;
+    }
+
+    /* Hide ::after pseudo-elements since we're using background images now */
+    .grid-edit-mode .react-grid-item .react-resizable-handle-nw::after,
+    .grid-edit-mode .react-grid-item .react-resizable-handle-sw::after,
+    .grid-edit-mode .react-grid-item .react-resizable-handle-se::after {
+        display: none !important;
+    }
+}
+
+/* Remove visual arrow indicators from resize handles */
+.react-grid-item .react-resizable-handle-s::before,
+.react-grid-item .react-resizable-handle-s::after,
+.react-grid-item .react-resizable-handle-n::before,
+.react-grid-item .react-resizable-handle-n::after,
+.react-grid-item .react-resizable-handle-e::before,
+.react-grid-item .react-resizable-handle-e::after,
+.react-grid-item .react-resizable-handle-w::before,
+.react-grid-item .react-resizable-handle-w::after,
+.react-grid-item .react-resizable-handle-se::before,
+.react-grid-item .react-resizable-handle-se::after,
+.react-grid-item .react-resizable-handle-ne::before,
+.react-grid-item .react-resizable-handle-ne::after,
+.react-grid-item .react-resizable-handle-sw::before,
+.react-grid-item .react-resizable-handle-sw::after,
+.react-grid-item .react-resizable-handle-nw::before,
+.react-grid-item .react-resizable-handle-nw::after {
+    display: none !important;
+}
+
+/* ========================================
+ * GRIDSTACK EMPTY GRID FIX
+ * Ensures grid has height when empty so it can receive drops
+ * GridStack sets height based on rows, so empty grid = 0 height
+ * Need explicit height on empty grids for drag/drop to work
+ * ======================================== */
+
+/* The .layout wrapper needs to pass height through */
+[data-grid-container]>.layout {
+    display: flex;
+    flex-direction: column;
+    min-height: inherit;
+    height: 100%;
+}
+
+/* Empty grid container needs explicit height to receive drops */
+/* GridStack now uses minHeight, so CSS min-height will take effect */
+.dashboard-grid-area .grid-stack {
+    min-height: calc(100vh - 200px);
+    /* Grid needs to be above empty overlay (z-10) for mouse events */
+    position: relative;
+    z-index: 20;
+}
+
+/* Template builder also needs full height drop zone */
+.template-grid-layout .grid-stack {
+    min-height: calc(100vh - 200px);
+    position: relative;
+    z-index: 20;
+}
+
+/* Grid drop area: always at least viewport height so external drops work on empty/short grids.
+ * GridStack's _updateContainerHeight() compares JS min-height vs CSS min-height.
+ * If CSS is larger → inline style is removed → CSS wins (viewport fill).
+ * If JS is larger → inline style is set → grid grows beyond viewport. */
+[data-grid-container="dashboard-grid"] .grid-stack {
+    min-height: calc(100vh - 200px);
+}
+
+/* Template builder: min drop area in virtual coordinates (before scaling) */
+[data-grid-container="template-grid"] .grid-stack {
+    min-height: 600px;
+}
+
+/* Hide empty dashboard overlay when GridStack placeholder is visible (during drag) */
+.dashboard-grid-area:has(.grid-stack-placeholder) .empty-dashboard-overlay {
+    display: none !important;
+}
+
+/* Let mouse events pass through empty overlay to reach grid for drop detection */
+/* The overlay is visual-only, it shouldn't block drag/drop operations */
+.empty-dashboard-overlay {
+    pointer-events: none;
+}
+
+/* ========================================
+ * GRIDSTACK EDIT MODE STYLES
+ * Dashed borders and hide default drag handle icons
+ * ======================================== */
+
+/* GridStack widget dashed border in edit mode */
+.dashboard-edit-mode .grid-stack-item>.grid-stack-item-content {
+    border: 2px dashed var(--accent-edit-soft);
+    border-radius: 0.75rem;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+/* Hover effect for GridStack widgets in edit mode */
+@media (hover: hover) {
+    .dashboard-edit-mode .grid-stack-item>.grid-stack-item-content:hover {
+        border-color: var(--accent-edit);
+        box-shadow: 0 4px 20px var(--accent-edit-soft);
+    }
+}
+
+/* Active/dragging state for GridStack widgets */
+.dashboard-edit-mode .grid-stack-item.ui-draggable-dragging>.grid-stack-item-content {
+    border-color: var(--accent-edit);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35),
+        0 0 0 3px var(--accent-edit);
+}
+
+/* GridStack placeholder styling */
+.grid-stack>.grid-stack-placeholder>.placeholder-content {
+    background: var(--accent-edit-soft) !important;
+    border: 2px dashed var(--accent-edit) !important;
+    border-radius: 0.75rem;
+    opacity: 1 !important;
+}
+
+/* Hide GridStack default resize handle icons (SVG arrows) */
+/* These corner handles have default SVG background-images we want to hide */
+.grid-stack-item>.ui-resizable-ne,
+.grid-stack-item>.ui-resizable-nw,
+.grid-stack-item>.ui-resizable-se,
+.grid-stack-item>.ui-resizable-sw {
+    background-image: none !important;
+}
+
+/* ========================================
+ * TEMPLATE BUILDER EDIT MODE STYLES
+ * Template Builder is always in edit mode
+ * ======================================== */
+
+/* Template Builder widget dashed border (always active) */
+.template-grid-layout .grid-stack-item>.grid-stack-item-content {
+    border: 2px dashed var(--accent-edit-soft);
+    border-radius: 0.75rem;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+/* Hover effect for Template Builder widgets */
+@media (hover: hover) {
+    .template-grid-layout .grid-stack-item>.grid-stack-item-content:hover {
+        border-color: var(--accent-edit);
+        box-shadow: 0 4px 20px var(--accent-edit-soft);
+    }
+}
+
+/* Active/dragging state for Template Builder widgets */
+.template-grid-layout .grid-stack-item.ui-draggable-dragging>.grid-stack-item-content {
+    border-color: var(--accent-edit);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35),
+        0 0 0 3px var(--accent-edit);
+}
+
+/* Selected widget in Template Builder - same as hover but persists */
+.template-grid-layout .grid-stack-item>.grid-stack-item-content:has(.widget-selected) {
+    border-color: var(--accent-edit) !important;
+    box-shadow: 0 4px 20px var(--accent-edit-soft) !important;
+}

@@ -1,0 +1,279 @@
+/**
+ * WeatherWidget - Fluid Container Query-based Responsive Styles
+ * 
+ * Uses CSS Container Queries with clamp() and container query units (cqi/cqb)
+ * for fluid, dynamic sizing that scales with container size.
+ * 
+ * Container Query Units:
+ * - cqi = 1% of container inline size (width)
+ * - cqb = 1% of container block size (height)
+ * - cqmin = smaller of cqi/cqb
+ * 
+ * NO PADDING - WidgetWrapper handles padding consistently.
+ */
+
+/* Container setup - enables @container queries with size tracking */
+.weather-widget {
+    container-type: size;
+    container-name: weather;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Refresh location button (edit mode only) - matches widget control buttons */
+.weather-widget__refresh-btn {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    z-index: 10;
+}
+
+.weather-widget__refresh-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--accent);
+}
+
+.weather-widget__refresh-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Confirmation dialog overlay */
+.weather-widget__confirm-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    backdrop-filter: blur(4px);
+    border-radius: inherit;
+}
+
+.weather-widget__confirm-dialog {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.weather-widget__confirm-dialog p {
+    margin: 0 0 12px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.weather-widget__confirm-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.weather-widget__confirm-btn {
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid var(--border);
+}
+
+.weather-widget__confirm-btn--cancel {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+.weather-widget__confirm-btn--cancel:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.weather-widget__confirm-btn--confirm {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.weather-widget__confirm-btn--confirm:hover {
+    filter: brightness(1.1);
+}
+
+/* ===== MAIN CONTENT: Horizontal flex by default (wide containers) ===== */
+.weather-widget__content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(4px, 3cqi, 24px);
+    width: fit-content;
+    max-width: 100%;
+    flex-wrap: nowrap;
+}
+
+/* Weather Icon - scales fluidly with container size */
+.weather-widget__icon {
+    width: clamp(16px, min(12cqi, 40cqb), 56px);
+    height: clamp(16px, min(12cqi, 40cqb), 56px);
+    flex-shrink: 0;
+    color: var(--text-secondary);
+    opacity: 0.8;
+}
+
+/* Temperature - primary text, scales fluidly */
+.weather-widget__temp {
+    font-size: clamp(1rem, min(10cqi, 50cqb), 4rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* Info section - contains location, condition, high/low */
+.weather-widget__info {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1px, 0.5cqi, 4px);
+}
+
+/* Location - city name with pin icon */
+.weather-widget__location {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: clamp(0.55rem, 3cqi, 1rem);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.weather-widget__location>span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.weather-widget__location-icon {
+    width: clamp(6px, 2cqi, 14px);
+    height: clamp(6px, 2cqi, 14px);
+    flex-shrink: 0;
+}
+
+/* Condition label */
+.weather-widget__condition {
+    font-size: clamp(0.55rem, 3cqi, 1rem);
+    font-weight: 500;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* High/Low temps */
+.weather-widget__highlow {
+    font-size: clamp(0.5rem, 2.5cqi, 0.9rem);
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+
+/* ===== STACKED LAYOUT: Narrow containers — grid with centered rows ===== */
+@container weather (max-width: 557px) {
+    .weather-widget__content {
+        display: grid;
+        grid-template-rows: auto auto;
+        justify-content: center;
+        justify-items: center;
+        align-items: center;
+        gap: clamp(2px, 1cqi, 8px);
+        width: 100%;
+    }
+
+    /* Row 1: Icon + Temp + Condition side by side */
+    .weather-widget__icon {
+        grid-row: 1;
+        width: clamp(20px, 18cqi, 40px);
+        height: clamp(20px, 18cqi, 40px);
+    }
+
+    .weather-widget__temp {
+        grid-row: 1;
+        font-size: clamp(1.2rem, 14cqi, 2.5rem);
+    }
+
+    .weather-widget__info {
+        grid-row: 1;
+        align-items: flex-start;
+        gap: 0;
+    }
+
+    .weather-widget__condition {
+        order: -1;
+        font-size: clamp(0.7rem, 5cqi, 1.1rem);
+    }
+
+    /* Row 2: High/Low + Location, centered */
+    .weather-widget__highlow {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        text-align: center;
+        font-size: clamp(0.65rem, 4cqi, 1rem);
+    }
+
+    /* Location hidden by default in stacked — shown again in taller containers */
+    .weather-widget__location {
+        display: none;
+    }
+}
+
+/* ===== TALL STACKED: Enough height to show location row ===== */
+@container weather (max-width: 557px) and (min-height: 80px) {
+    .weather-widget__content {
+        grid-template-rows: auto auto auto;
+    }
+
+    .weather-widget__location {
+        display: flex;
+        grid-column: 1 / -1;
+        grid-row: 3;
+        justify-content: center;
+        font-size: clamp(0.6rem, 3.5cqi, 0.85rem);
+    }
+}
+
+/* ===== COMPACT: Very small - hide location and high/low ===== */
+@container weather (max-width: 150px) {
+
+    .weather-widget__location,
+    .weather-widget__highlow {
+        display: none;
+    }
+}
+
+/* ===== ULTRA COMPACT: Tiny container - temp only ===== */
+@container weather (max-width: 100px) {
+
+    .weather-widget__icon,
+    .weather-widget__info {
+        display: none;
+    }
+}

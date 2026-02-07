@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Framerr</title>
+
+  <!-- PWA Manifest (dynamic) -->
+  <link rel="manifest" href="/api/config/manifest.json" />
+
+  <!-- Favicon for all browsers -->
+  <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico" />
+  <link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="96x96" href="/favicon/favicon-96x96.png" />
+
+  <!-- iOS PWA Meta Tags -->
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Framerr" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
+
+  <!-- Theme Color for PWA -->
+  <meta name="theme-color" content="#0a0a0b" />
+
+  <!-- Critical CSS for Splash Screen - loads before React/JS -->
+  <style id="splash-styles">
+    /* Splash screen uses CSS variables set by inline script below */
+    #framerr-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--splash-bg, #0a0e1a);
+      transition: opacity 0.3s ease-out;
+    }
+
+    #framerr-splash.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #framerr-splash .spinner {
+      width: 32px;
+      height: 32px;
+      border: 2px solid var(--splash-border, rgba(148, 163, 184, 0.2));
+      border-top-color: var(--splash-accent, #3b82f6);
+      border-radius: 50%;
+      animation: splash-spin 1s linear infinite;
+      margin-bottom: 12px;
+    }
+
+    #framerr-splash .text {
+      color: var(--splash-text, #94a3b8);
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 14px;
+    }
+
+    @keyframes splash-spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+
+  <!-- Theme detection + splash colors - runs before React loads -->
+  <script>
+    (function () {
+      // Theme color mappings for splash screen
+      // NOTE: When adding new themes, add them here too!
+      // See docs/reference/theming.md for details
+      var themeColors = {
+        'dark-pro': { bg: '#0a0e1a', text: '#94a3b8', accent: '#3b82f6' },
+        'light': { bg: '#ffffff', text: '#6b7280', accent: '#3b82f6' },
+        'nord': { bg: '#2e3440', text: '#81a1c1', accent: '#88c0d0' },
+        'catppuccin': { bg: '#1e1e2e', text: '#bac2de', accent: '#89b4fa' },
+        'dracula': { bg: '#282a36', text: '#e6e6e6', accent: '#bd93f9' },
+        'noir': { bg: '#0f0f12', text: '#888888', accent: '#8a9ba8' },
+        'nebula': { bg: '#0d0d1a', text: '#94a3b8', accent: '#a855f7' }
+      };
+
+      // Get saved theme from localStorage
+      var saved = localStorage.getItem('framerr-theme');
+      var theme = saved || 'dark-pro';
+
+      // Check system preference for light theme
+      if (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+        theme = 'light';
+      }
+
+      // Set data-theme attribute (for full CSS later)
+      document.documentElement.setAttribute('data-theme', theme);
+
+      // Apply splash screen colors immediately
+      var colors = themeColors[theme] || themeColors['dark-pro'];
+      document.documentElement.style.setProperty('--splash-bg', colors.bg);
+      document.documentElement.style.setProperty('--splash-text', colors.text);
+      document.documentElement.style.setProperty('--splash-accent', colors.accent);
+      document.documentElement.style.setProperty('--splash-border', colors.text + '33'); // 20% opacity
+    })();
+  </script>
+</head>
+
+<body>
+  <!-- Splash Screen - shows instantly with correct theme colors -->
+  <div id="framerr-splash">
+    <div class="spinner"></div>
+    <div class="text">Loading...</div>
+  </div>
+
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

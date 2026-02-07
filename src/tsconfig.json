@@ -1,0 +1,40 @@
+{
+    "extends": "../tsconfig.base.json",
+    "compilerOptions": {
+        /* Frontend-specific settings */
+        "lib": [
+            "ES2022",
+            "DOM",
+            "DOM.Iterable"
+        ],
+        "jsx": "react-jsx",
+        /* Allow JS files for gradual migration */
+        "allowJs": true,
+        "checkJs": false,
+        /* Path Aliases */
+        "baseUrl": ".",
+        "paths": {
+            "@shared/*": [
+                "../shared/*"
+            ],
+            "@/*": [
+                "./*"
+            ],
+            "@widgets/*": [
+                "./widgets/*"
+            ],
+            "@features/*": [
+                "./features/*"
+            ]
+        }
+    },
+    "include": [
+        "**/*.ts",
+        "**/*.tsx",
+        "**/*.d.ts",
+        "../shared/types/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}

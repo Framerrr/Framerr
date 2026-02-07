@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (local development)
+server/data/*.json
+server/data/*.db
+server/data/*.db-shm
+server/data/*.db-wal
+!server/data/.gitkeep
+
+# Database files (global protection)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Backups
+backups/
+*.bak
+
+# Temp
+temp/
+tmp/
+*.tmp
+
+# Lock files (keep package-lock.json for consistency)
+# But ignore others
+yarn.lock
+pnpm-lock.yaml
+
+# Local development tools
+develop-server/
+
+# Note: docs/ and .agent/ ARE tracked in git
+# They contain important documentation and agent rules

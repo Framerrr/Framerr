@@ -1,0 +1,108 @@
+/**
+ * ClockWidget - Fluid Container Query-based Responsive Styles
+ * 
+ * Uses CSS Container Queries with clamp() and container query units (cqi/cqb)
+ * for fluid, dynamic sizing that scales with container size.
+ * 
+ * NO PADDING - WidgetWrapper handles padding consistently.
+ */
+
+/* Container setup - enables @container queries with size tracking */
+.clock-widget {
+    container-type: size;
+    container-name: clock;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* ===== MAIN CONTENT: Flex layout for time + date ===== */
+.clock-widget__content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(4px, 3cqi, 24px);
+    width: fit-content;
+    max-width: 100%;
+    flex-wrap: nowrap;
+}
+
+/* Time Display - main visual element, scales fluidly */
+.clock-widget__time {
+    font-size: clamp(1rem, min(12cqi, 50cqb), 4rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Date/Info section - secondary information */
+.clock-widget__info {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(1px, 0.5cqi, 4px);
+}
+
+/* Date text */
+.clock-widget__date {
+    font-size: clamp(0.5rem, 3cqi, 1rem);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Timezone indicator */
+.clock-widget__timezone {
+    font-size: clamp(0.45rem, 2cqi, 0.75rem);
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    opacity: 0.7;
+}
+
+/* ===== LAYOUT: Vertical (stacked) by default, horizontal only when very wide (>557px) ===== */
+@container clock (max-width: 557px) {
+    .clock-widget__content {
+        display: grid;
+        grid-template-rows: auto auto;
+        justify-content: center;
+        justify-items: center;
+        align-items: center;
+        gap: clamp(2px, 1cqi, 8px);
+        width: 100%;
+    }
+
+    /* Time on row 1, centered */
+    .clock-widget__time {
+        grid-row: 1;
+        text-align: center;
+    }
+
+    /* Info section on row 2, centered */
+    .clock-widget__info {
+        grid-row: 2;
+        align-items: center;
+        text-align: center;
+    }
+}
+
+/* ===== COMPACT: Very small container - hide secondary info ===== */
+@container clock (max-width: 150px) {
+    .clock-widget__date {
+        display: none;
+    }
+}
+
+/* ===== ULTRA COMPACT: Tiny container - hide timezone too ===== */
+@container clock (max-width: 100px) {
+
+    .clock-widget__timezone,
+    .clock-widget__info {
+        display: none;
+    }
+}

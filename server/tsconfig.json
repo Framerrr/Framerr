@@ -1,0 +1,46 @@
+{
+    "extends": "../tsconfig.base.json",
+    "compilerOptions": {
+        /* Backend-specific settings */
+        "lib": [
+            "ES2022"
+        ],
+        "types": [
+            "node"
+        ],
+        /* Override base config to emit files */
+        "noEmit": false,
+        "module": "CommonJS",
+        "moduleResolution": "node",
+        /* CommonJS interop for existing .js files */
+        "allowJs": true,
+        "checkJs": false,
+        /* Output settings for compiled JavaScript */
+        "outDir": "./dist",
+        "rootDir": "..",
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        /* Path Aliases */
+        "baseUrl": ".",
+        "paths": {
+            "@shared/*": [
+                "../shared/*"
+            ],
+            "@/*": [
+                "./*"
+            ]
+        }
+    },
+    "include": [
+        "**/*.ts",
+        "**/*.js",
+        "types/**/*.d.ts",
+        "../shared/types/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "scripts",
+        "dist"
+    ]
+}

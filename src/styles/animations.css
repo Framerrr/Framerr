@@ -1,0 +1,125 @@
+/**
+ * Animation System CSS
+ * 
+ * CSS variables and utilities for the Framerr animation system.
+ * Integrates with theme engine and respects Flatten UI mode.
+ */
+
+:root {
+    /* Spring Physics Configuration - Gentle & Fluid */
+    --animation-spring-stiffness: 220;
+    --animation-spring-damping: 30;
+    
+    /* Duration Fallbacks (for non-spring animations) */
+    --animation-duration-instant: 0ms;
+    --animation-duration-fast: 150ms;
+    --animation-duration-normal: 300ms;
+    --animation-duration-slow: 500ms;
+    
+    /* Easing Functions */
+    --animation-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --animation-ease-out: cubic-bezier(0.0, 0, 0.2, 1);
+    --animation-ease-in: cubic-bezier(0.4, 0, 1, 1);
+    
+    /* Scale Values */
+    --animation-scale-press: 0.98;
+    --animation-scale-hover: 1.01;
+    --animation-scale-modal: 0.96;
+    --animation-scale-popover: 0.96;
+}
+
+/* Flatten UI Mode: Disable all animations */
+[data-flatten-ui="true"] * {
+    --animation-spring-stiffness: 0 !important;
+    --animation-spring-damping: 0 !important;
+    --animation-duration-instant: 0ms !important;
+    --animation-duration-fast: 0ms !important;
+    --animation-duration-normal: 0ms !important;
+    --animation-duration-slow: 0ms !important;
+    animation: none !important;
+    transition: none !important;
+}
+
+/* Respect user's prefers-reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Animation Utility Classes */
+
+.animate-fade-in {
+    animation: fadeIn var(--animation-duration-normal) var(--animation-ease-out);
+}
+
+.animate-fade-out {
+    animation: fadeOut var(--animation-duration-normal) var(--animation-ease-in);
+}
+
+.animate-slide-in-up {
+    animation: slideInUp var(--animation-duration-normal) var(--animation-ease-out);
+}
+
+.animate-slide-in-down {
+    animation: slideInDown var(--animation-duration-normal) var(--animation-ease-out);
+}
+
+.animate-scale-in {
+    animation: scaleIn var(--animation-duration-fast) var(--animation-ease-out);
+}
+
+/* Keyframes */
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

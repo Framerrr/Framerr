@@ -1,0 +1,445 @@
+/**
+ * SettingsLayout.css - iOS-style settings design
+ * 
+ * Design inspired by iOS Settings:
+ * - Items grouped in rounded containers
+ * - Straight line dividers between items
+ * - Clean, minimal styling
+ * - Theme-aware colors
+ */
+
+/* ========================================
+   Settings Container
+   ======================================== */
+
+.settings-layout {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+}
+
+/* Desktop split view */
+.settings-layout--desktop {
+    flex-direction: row;
+}
+
+/* ========================================
+   Settings Sidebar (Desktop)
+   ======================================== */
+
+.settings-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    padding: 1rem;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+}
+
+.settings-sidebar--collapsed {
+    display: none;
+}
+
+/* Sidebar overlay for narrow desktop */
+.settings-sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+.settings-sidebar-overlay--visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.settings-sidebar--overlay {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 280px;
+    z-index: 50;
+    background: var(--bg-secondary);
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    border-right: 1px solid var(--border);
+}
+
+.settings-sidebar--overlay.settings-sidebar--open {
+    transform: translateX(0);
+}
+
+/* ========================================
+   Settings Content Area
+   ======================================== */
+
+.settings-content {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ========================================
+   iOS-Style Grouped List
+   ======================================== */
+
+.settings-group {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border);
+}
+
+/* Group with glassmorphism (when flatten-ui is off) */
+:root:not(.flatten-ui) .settings-group {
+    background: var(--glass-bg, rgba(255, 255, 255, 0.05));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+/* Group label (optional header above group) */
+.settings-group__label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    padding: 0 1rem;
+    margin-bottom: 0.5rem;
+}
+
+/* ========================================
+   Settings List Item
+   ======================================== */
+
+.settings-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    position: relative;
+}
+
+.settings-item:hover {
+    background: var(--bg-hover);
+}
+
+.settings-item:active {
+    background: var(--bg-tertiary);
+}
+
+/* Divider between items (iOS style - indented from icon) */
+.settings-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 3.25rem;
+    /* Indent past icon */
+    right: 0;
+    height: 1px;
+    background: var(--border);
+}
+
+/* Full-width divider variant */
+.settings-item--full-divider:not(:last-child)::after {
+    left: 0;
+}
+
+/* Active/selected state */
+.settings-item--active {
+    background: var(--bg-hover);
+}
+
+/* Disabled state */
+.settings-item--disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ========================================
+   Item Icon
+   ======================================== */
+
+.settings-item__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    color: white;
+}
+
+/* iOS-style colored icon backgrounds */
+.settings-item__icon--blue {
+    background: #007AFF;
+}
+
+.settings-item__icon--green {
+    background: #34C759;
+}
+
+.settings-item__icon--orange {
+    background: #FF9500;
+}
+
+.settings-item__icon--red {
+    background: #FF3B30;
+}
+
+.settings-item__icon--purple {
+    background: #AF52DE;
+}
+
+.settings-item__icon--pink {
+    background: #FF2D55;
+}
+
+.settings-item__icon--teal {
+    background: #5AC8FA;
+}
+
+.settings-item__icon--gray {
+    background: #8E8E93;
+}
+
+.settings-item__icon--indigo {
+    background: #5856D6;
+}
+
+/* Default - use accent color */
+.settings-item__icon--default {
+    background: var(--accent);
+}
+
+/* ========================================
+   Item Content
+   ======================================== */
+
+.settings-item__content {
+    flex: 1;
+    min-width: 0;
+}
+
+.settings-item__label {
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.settings-item__description {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-top: 0.125rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ========================================
+   Item Accessories (right side)
+   ======================================== */
+
+.settings-item__accessory {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+}
+
+.settings-item__value {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.settings-item__chevron {
+    color: var(--text-tertiary);
+    opacity: 0.6;
+}
+
+/* ========================================
+   Settings Header (Mobile/Narrow Desktop)
+   ======================================== */
+
+.settings-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.settings-header__back {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    color: var(--accent);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.settings-header__back:hover {
+    background: var(--bg-hover);
+}
+
+.settings-header__title {
+    flex: 1;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.settings-header__breadcrumb {
+    font-size: 0.875rem;
+    color: var(--text-tertiary);
+}
+
+.settings-header__menu {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    color: var(--text-primary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.settings-header__menu:hover {
+    background: var(--bg-hover);
+}
+
+/* ========================================
+   Navigation Animations
+   ======================================== */
+
+.settings-nav-stack {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.settings-nav-page {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--bg-primary);
+}
+
+/* Forward animation (entering from right) */
+@keyframes slideInFromRight {
+    from {
+        transform: translateX(100%);
+    }
+
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutToLeft {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(-30%);
+        opacity: 0.5;
+    }
+}
+
+/* Backward animation (entering from left) */
+@keyframes slideInFromLeft {
+    from {
+        transform: translateX(-30%);
+        opacity: 0.5;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutToRight {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(100%);
+    }
+}
+
+/* ========================================
+   Mobile-specific styles
+   ======================================== */
+
+@media (max-width: 767px) {
+    .settings-sidebar {
+        display: none;
+    }
+
+    .settings-header {
+        padding: 0.75rem 1rem;
+    }
+
+    .settings-group {
+        margin-left: 1rem;
+        margin-right: 1rem;
+        border-radius: 10px;
+    }
+}
+
+/* ========================================
+   Narrow Desktop (768px - 1023px)
+   ======================================== */
+
+@media (min-width: 768px) and (max-width: 1023px) {
+    .settings-sidebar:not(.settings-sidebar--overlay) {
+        display: none;
+    }
+}
+
+/* ========================================
+   Wide Desktop (1024px+)
+   ======================================== */
+
+@media (min-width: 1024px) {
+    .settings-header__menu {
+        display: none;
+    }
+
+    .settings-sidebar-overlay {
+        display: none;
+    }
+}

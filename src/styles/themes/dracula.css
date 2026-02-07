@@ -1,0 +1,81 @@
+/* Dracula Theme - Vampiric purple and pink */
+:root[data-theme="dracula"] {
+   /* Backgrounds */
+   --bg-primary: #282a36;
+   --bg-secondary: #21222c;
+   --bg-tertiary: #44475a;
+   --bg-hover: #6272a4;
+
+   /* Accent Colors */
+   --accent: #bd93f9;
+   /* Purple */
+   --accent-hover: #ff79c6;
+   /* Pink */
+   --accent-light: #d6acff;
+
+   /* Text */
+   --text-primary: #f8f8f2;
+   --text-secondary: #e6e6e6;
+   --text-tertiary: #6272a4;
+
+   /* Borders */
+   --border: #6272a4;
+   --border-light: #44475a;
+
+   /* Status Colors */
+   --success: #50fa7b;
+   /* Green */
+   --warning: #f1fa8c;
+   /* Yellow */
+   --error: #ff5555;
+   /* Red */
+   --info: #8be9fd;
+   /* Cyan */
+
+   /* Shadows */
+   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
+   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
+   --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
+
+   /* Blur */
+   --blur-sm: blur(4px);
+   --blur-md: blur(8px);
+   --blur-lg: blur(16px);
+
+   /* ============================================
+       PREMIUM DESIGN SYSTEM
+       ============================================ */
+
+   /* Animated Gradient (4 stops for background animation) */
+   --gradient-1: #282a36;
+   --gradient-2: #44475a;
+   --gradient-3: #6272a4;
+   --gradient-4: #21222c;
+
+   /* Glassmorphism Colors */
+   --glass-start: rgba(68, 71, 90, 0.95);
+   --glass-end: rgba(33, 34, 44, 0.98);
+   --border-glass: rgba(98, 114, 164, 0.5);
+
+   /* Accent Secondary */
+   --accent-secondary: #ff79c6;
+   /* Pink */
+
+   /* Glow Effects */
+   --accent-glow: rgba(189, 147, 249, 0.3);
+   --accent-glow-soft: rgba(189, 147, 249, 0.2);
+
+   /* Blur Intensity */
+   --blur-strong: 20px;
+   --blur-medium: 12px;
+   --blur-subtle: 8px;
+
+   /* ============================================
+       EDIT MODE - Dashboard editing indicators
+       ============================================ */
+   --accent-edit: #ff79c6;
+   --accent-edit-soft: rgba(255, 121, 198, 0.3);
+   --scrollbar-thumb: rgba(255, 121, 198, 0.5);
+   --scrollbar-track: rgba(68, 71, 90, 0.5);
+}

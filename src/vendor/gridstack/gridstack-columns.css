@@ -1,0 +1,404 @@
+/**
+ * Custom GridStack CSS
+ * 
+ * Includes:
+ * - 12-24 column support (gridstack-extra.min.css only supports up to 11)
+ * - Placeholder styling for drag ghost preview
+ * - Other utility styles from prototype
+ * 
+ * Ported from prototypes/gridstack/styles.css
+ */
+
+/* =============================================================================
+ * Placeholder Styling (Ghost Preview)
+ * ============================================================================= */
+.grid-stack-placeholder>.placeholder-content {
+    background-color: rgba(59, 130, 246, 0.3) !important;
+    border: 2px dashed #3b82f6 !important;
+    border-radius: 8px;
+}
+
+/* Position portal content within the item
+ * GridStack generates: top/right/bottom/left insets based on margin settings
+ * With position:absolute (from gridstack.min.css), these insets determine size
+ * DO NOT add height:100% as it overrides the bottom inset!
+ */
+.grid-stack-item-content {
+    /* Allow resize handle to be on top */
+    overflow: visible !important;
+}
+
+/* Make sure portal content fills the container but allows drag */
+.widget-portal-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Flex container for child .widget-content with flex:1 */
+    display: flex;
+    flex-direction: column;
+    /* Fallback height for older browsers */
+    height: 100%;
+    /* Allow dragging through the widget */
+    pointer-events: auto;
+}
+
+/* Ensure resize handle is above portal content */
+.grid-stack-item>.ui-resizable-handle {
+    z-index: 10 !important;
+}
+
+/* =============================================================================
+ * Modal Drag Fix (from GridStack PR #2353)
+ * When dragging from a modal, the helper element needs to be above the modal's
+ * z-index (typically 1000+). This ensures the drag helper is visible.
+ * ============================================================================= */
+.ui-draggable-dragging {
+    z-index: 10000 !important;
+}
+
+/* Also ensure external drag items appear above modals */
+.grid-stack-item.ui-draggable-dragging {
+    z-index: 10000 !important;
+}
+
+/* =============================================================================
+ * 12 Column Grid
+ * ============================================================================= */
+.grid-stack.gs-12>.grid-stack-item {
+    width: 8.333%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-w="1"] {
+    width: 8.333%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-w="2"] {
+    width: 16.667%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-w="3"] {
+    width: 25%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-w="4"] {
+    width: 33.333%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-w="5"] {
+    width: 41.667%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-w="6"] {
+    width: 50%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-w="7"] {
+    width: 58.333%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-w="8"] {
+    width: 66.667%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-w="9"] {
+    width: 75%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-w="10"] {
+    width: 83.333%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-w="11"] {
+    width: 91.667%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-w="12"] {
+    width: 100%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-x="1"] {
+    left: 8.333%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-x="2"] {
+    left: 16.667%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-x="3"] {
+    left: 25%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-x="4"] {
+    left: 33.333%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-x="5"] {
+    left: 41.667%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-x="6"] {
+    left: 50%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-x="7"] {
+    left: 58.333%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-x="8"] {
+    left: 66.667%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-x="9"] {
+    left: 75%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-x="10"] {
+    left: 83.333%;
+}
+
+.grid-stack.gs-12>.grid-stack-item[gs-x="11"] {
+    left: 91.667%;
+}
+
+/* 24 column grid */
+.grid-stack.gs-24>.grid-stack-item {
+    width: 4.167%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="1"] {
+    width: 4.167%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="2"] {
+    width: 8.333%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="3"] {
+    width: 12.5%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="4"] {
+    width: 16.667%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="5"] {
+    width: 20.833%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="6"] {
+    width: 25%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="7"] {
+    width: 29.167%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="8"] {
+    width: 33.333%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="9"] {
+    width: 37.5%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="10"] {
+    width: 41.667%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="11"] {
+    width: 45.833%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="12"] {
+    width: 50%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="13"] {
+    width: 54.167%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="14"] {
+    width: 58.333%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="15"] {
+    width: 62.5%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="16"] {
+    width: 66.667%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="17"] {
+    width: 70.833%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="18"] {
+    width: 75%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="19"] {
+    width: 79.167%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="20"] {
+    width: 83.333%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="21"] {
+    width: 87.5%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="22"] {
+    width: 91.667%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="23"] {
+    width: 95.833%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-w="24"] {
+    width: 100%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="1"] {
+    left: 4.167%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="2"] {
+    left: 8.333%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="3"] {
+    left: 12.5%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="4"] {
+    left: 16.667%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="5"] {
+    left: 20.833%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="6"] {
+    left: 25%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="7"] {
+    left: 29.167%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="8"] {
+    left: 33.333%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="9"] {
+    left: 37.5%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="10"] {
+    left: 41.667%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="11"] {
+    left: 45.833%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="12"] {
+    left: 50%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="13"] {
+    left: 54.167%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="14"] {
+    left: 58.333%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="15"] {
+    left: 62.5%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="16"] {
+    left: 66.667%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="17"] {
+    left: 70.833%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="18"] {
+    left: 75%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="19"] {
+    left: 79.167%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="20"] {
+    left: 83.333%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="21"] {
+    left: 87.5%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="22"] {
+    left: 91.667%;
+}
+
+.grid-stack.gs-24>.grid-stack-item[gs-x="23"] {
+    left: 95.833%;
+}
+
+/* =============================================================================
+ * MOBILE RESIZE HANDLES
+ * All 8 handles are created by GridStack, CSS controls which are visible.
+ * Mobile: only corner handles NW, SW, SE (no side/edge handles, no NE)
+ * ============================================================================= */
+
+@media (max-width: 768px) {
+
+    /* Hide side/edge handles and NE corner on mobile - only NW, SW, SE visible */
+    .grid-stack-item>.ui-resizable-n,
+    .grid-stack-item>.ui-resizable-e,
+    .grid-stack-item>.ui-resizable-s,
+    .grid-stack-item>.ui-resizable-w,
+    .grid-stack-item>.ui-resizable-ne {
+        display: none !important;
+    }
+
+    /* Corner handles - 30px touch targets */
+    .grid-stack-item>.ui-resizable-se,
+    .grid-stack-item>.ui-resizable-sw,
+    .grid-stack-item>.ui-resizable-nw {
+        width: 30px !important;
+        height: 30px !important;
+        background-image: none !important;
+        transform: none !important;
+        touch-action: none;
+    }
+
+    /* Position corner handles - inset inside widget */
+    .grid-stack-item>.ui-resizable-nw {
+        top: 0 !important;
+        left: 0 !important;
+    }
+
+    .grid-stack-item>.ui-resizable-sw {
+        bottom: 0 !important;
+        left: 0 !important;
+        top: auto !important;
+    }
+
+    .grid-stack-item>.ui-resizable-se {
+        bottom: 0 !important;
+        right: 0 !important;
+        top: auto !important;
+        left: auto !important;
+    }
+}

@@ -1,0 +1,125 @@
+/* Dark Pro Theme - Modern Glassmorphism Edition */
+:root[data-theme="dark-pro"],
+:root {
+   /* ============================================
+       BACKGROUNDS - Enhanced with depth
+       ============================================ */
+   --bg-primary: #0a0e1a;
+   /* Deep slate base */
+   --bg-secondary: #151922;
+   /* Card backgrounds */
+   --bg-tertiary: #1f2937;
+   /* Elevated elements */
+   --bg-hover: #374151;
+   /* Hover state */
+
+   /* Glassmorphism */
+   --glass-bg: rgba(31, 41, 55, 0.5);
+   --glass-border: rgba(148, 163, 184, 0.1);
+   --glass-bg-light: rgba(31, 41, 55, 0.3);
+
+   /* ============================================
+       ACCENT COLORS - Blue to Cyan gradient
+       ============================================ */
+   --accent: #3b82f6;
+   /* Blue 500 */
+   --accent-hover: #2563eb;
+   /* Blue 600 */
+   --accent-light: #60a5fa;
+   /* Blue 400 */
+   --accent-secondary: #06b6d4;
+   /* Cyan 500 */
+
+   /* ============================================
+       GRADIENTS - Modern accent gradients
+       ============================================ */
+   --gradient-primary: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+   --gradient-primary-soft: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(6, 182, 212, 0.05) 100%);
+   --gradient-card-hover: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(6, 182, 212, 0.05) 100%);
+   --gradient-text: linear-gradient(135deg, #60a5fa 0%, #22d3ee 100%);
+
+   /* ============================================
+       TEXT - High contrast for readability
+       ============================================ */
+   --text-primary: #f1f5f9;
+   /* Slate 100 */
+   --text-secondary: #94a3b8;
+   /* Slate 400 */
+   --text-tertiary: #64748b;
+   /* Slate 500 */
+
+   /* ============================================
+       BORDERS - Subtle and refined
+       ============================================ */
+   --border: #374151;
+   /* Gray 700 */
+   --border-light: #1f2937;
+   /* Gray 800 */
+   --border-accent: rgba(59, 130, 246, 0.3);
+
+   /* ============================================
+       STATUS COLORS
+       ============================================ */
+   --success: #10b981;
+   /* Green 500 */
+   --warning: #f59e0b;
+   /* Amber 500 */
+   --error: #ef4444;
+   /* Red 500 */
+   --info: #3b82f6;
+   /* Blue 500 */
+
+   /* ============================================
+       SHADOWS - Enhanced depth and glow
+       ============================================ */
+   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+   --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.5);
+   --shadow-lg: 0 10px 20px -5px rgba(0, 0, 0, 0.6);
+   --shadow-xl: 0 20px 30px -8px rgba(0, 0, 0, 0.7);
+   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+
+   /* Glow shadows */
+   --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+   --shadow-glow-lg: 0 0 40px rgba(59, 130, 246, 0.2);
+   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+   /* ============================================
+       BLUR
+       ============================================ */
+   --blur-sm: blur(4px);
+   --blur-md: blur(8px);
+   --blur-lg: blur(16px);
+   --blur-xl: blur(24px);
+
+   /* ============================================
+       PREMIUM DESIGN SYSTEM - Login Page Aesthetic
+       ============================================ */
+
+   /* Animated Gradient (4 stops for background animation) */
+   --gradient-1: #0a0e1a;
+   --gradient-2: #1e1b4b;
+   --gradient-3: #1e3a8a;
+   --gradient-4: #0f172a;
+
+   /* Glassmorphism Colors */
+   --glass-start: rgba(30, 41, 59, 0.95);
+   --glass-end: rgba(15, 23, 42, 0.98);
+   --border-glass: rgba(71, 85, 105, 0.5);
+
+   /* Glow Effects */
+   --accent-glow: rgba(59, 130, 246, 0.3);
+   --accent-glow-soft: rgba(59, 130, 246, 0.2);
+
+   /* Blur Intensity (for premium-effects.css) */
+   --blur-strong: 20px;
+   --blur-medium: 12px;
+   --blur-subtle: 8px;
+
+   /* ============================================
+       EDIT MODE - Dashboard editing indicators
+       ============================================ */
+   --accent-edit: #60a5fa;
+   --accent-edit-soft: rgba(96, 165, 250, 0.3);
+   --scrollbar-thumb: rgba(96, 165, 250, 0.5);
+   --scrollbar-track: rgba(30, 41, 59, 0.5);
+}

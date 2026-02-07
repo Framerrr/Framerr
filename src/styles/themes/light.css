@@ -1,0 +1,85 @@
+/* Light Theme - Clean and bright */
+:root[data-theme="light"] {
+    /* Backgrounds */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f9fafb;
+    --bg-tertiary: #f3f4f6;
+    --bg-hover: #e5e7eb;
+
+    /* Accent Colors */
+    --accent: #3b82f6;
+    /* Blue 500 */
+    --accent-hover: #2563eb;
+    /* Blue 600 */
+    --accent-light: #60a5fa;
+    /* Blue 400 */
+
+    /* Text */
+    --text-primary: #111827;
+    /* Gray 900 */
+    --text-secondary: #6b7280;
+    /* Gray 500 */
+    --text-tertiary: #9ca3af;
+    /* Gray 400 */
+
+    /* Borders */
+    --border: #e5e7eb;
+    --border-light: #f3f4f6;
+
+    /* Status Colors */
+    --success: #10b981;
+    /* Green 500 */
+    --warning: #f59e0b;
+    /* Amber 500 */
+    --error: #ef4444;
+    /* Red 500 */
+    --info: #3b82f6;
+    /* Blue 500 */
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+
+    /* Blur */
+    --blur-sm: blur(4px);
+    --blur-md: blur(8px);
+    --blur-lg: blur(16px);
+
+    /* ============================================
+       PREMIUM DESIGN SYSTEM
+       ============================================ */
+
+    /* Animated Gradient (4 stops for background animation) */
+    --gradient-1: #ffffff;
+    --gradient-2: #f9fafb;
+    --gradient-3: #f3f4f6;
+    --gradient-4: #e5e7eb;
+
+    /* Glassmorphism Colors (lighter for light theme) */
+    --glass-start: rgba(249, 250, 251, 0.9);
+    --glass-end: rgba(255, 255, 255, 0.95);
+    --border-glass: rgba(229, 231, 235, 0.8);
+
+    /* Accent Secondary */
+    --accent-secondary: #06b6d4;
+    /* Cyan 500 */
+
+    /* Glow Effects */
+    --accent-glow: rgba(59, 130, 246, 0.3);
+    --accent-glow-soft: rgba(59, 130, 246, 0.2);
+
+    /* Blur Intensity */
+    --blur-strong: 20px;
+    --blur-medium: 12px;
+    --blur-subtle: 8px;
+
+    /* ============================================
+       EDIT MODE - Dashboard editing indicators
+       ============================================ */
+    --accent-edit: #2563eb;
+    --accent-edit-soft: rgba(37, 99, 235, 0.3);
+    --scrollbar-thumb: rgba(37, 99, 235, 0.4);
+    --scrollbar-track: rgba(229, 231, 235, 0.5);
+}
