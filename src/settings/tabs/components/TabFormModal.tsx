@@ -75,11 +75,15 @@ export const TabFormModal: React.FC<TabFormModalProps> = ({
                         <label className="block mb-2 font-medium text-theme-secondary text-sm">
                             Group (Optional)
                         </label>
-                        <Select value={formData.groupId} onValueChange={(value) => onFormChange({ ...formData, groupId: value })}>
+                        <Select
+                            value={formData.groupId || '__none__'}
+                            onValueChange={(value) => onFormChange({ ...formData, groupId: value === '__none__' ? '' : value })}
+                        >
                             <Select.Trigger className="w-full">
                                 <Select.Value placeholder="No Group" />
                             </Select.Trigger>
                             <Select.Content>
+                                <Select.Item value="__none__">No Group</Select.Item>
                                 {tabGroups.map((group) => (
                                     <Select.Item key={group.id} value={group.id}>{group.name}</Select.Item>
                                 ))}

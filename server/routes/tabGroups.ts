@@ -17,6 +17,7 @@ import {
 } from '../db/tabGroups';
 import logger from '../utils/logger';
 import { invalidateUserSettings } from '../utils/invalidateUserSettings';
+import { getUserTabs, updateUserTab } from '../db/userConfig';
 
 const router = Router();
 
@@ -161,8 +162,27 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
 router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
     try {
         const authReq = req as AuthenticatedRequest;
-        await deleteTabGroup(authReq.user!.id, req.params.id);
+        const groupId = req.params.id;
+
+        // Delete the group
+        await deleteTabGroup(authReq.user!.id, groupId);
+
+        // Clean up tabs that reference this group — remove their groupId
+        try {
+            const tabs = await getUserTabs(authReq.user!.id);
+            const affectedTabs = tabs.filter(t => (t as { groupId?: string }).groupId === groupId);
+            for (const tab of affectedTabs) {
+                await updateUserTab(authReq.user!.id, tab.id, { groupId: '' } as Record<string, unknown>);
+            }
+            if (affectedTabs.length > 0) {
+                logger.info(`[TabGroups] Cleaned groupId from ${affectedTabs.length} tab(s) after group delete`);
+            }
+        } catch (cleanupError) {
+            logger.warn(`[TabGroups] Failed to clean tab references after group delete: ${(cleanupError as Error).message}`);
+        }
+
         invalidateUserSettings(authReq.user!.id, 'tab-groups');
+        invalidateUserSettings(authReq.user!.id, 'tabs');
 
         res.json({ success: true });
     } catch (error) {

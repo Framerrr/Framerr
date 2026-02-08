@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import { useAppData } from '../../../context/AppDataContext';
 import { useNotifications } from '../../../context/NotificationContext';
 import { renderIcon } from '../../../utils/iconUtils';
-import { Group } from '../types';
 
 // Sub-contexts
 import { SidebarUIProvider, useSidebarUI } from './SidebarUIContext';
@@ -28,13 +27,10 @@ interface SharedSidebarProviderProps {
  * or use individual hooks for focused access.
  */
 export function SharedSidebarProvider({ children }: SharedSidebarProviderProps) {
-    const { groups: rawGroups } = useAppData();
-    const groups = rawGroups as unknown as Group[] | null;
-
     return (
         <SidebarTabsProvider>
-            <SidebarUIProvider groups={groups}>
-                <SidebarNavigationBridge groups={groups}>
+            <SidebarUIProvider>
+                <SidebarNavigationBridge>
                     {children}
                 </SidebarNavigationBridge>
             </SidebarUIProvider>
@@ -46,7 +42,7 @@ export function SharedSidebarProvider({ children }: SharedSidebarProviderProps) 
  * Bridge component that connects SidebarUIContext to SidebarNavigationProvider
  * (needed because SidebarNavigationProvider needs tabs and UI state)
  */
-function SidebarNavigationBridge({ children, groups }: { children: ReactNode; groups: Group[] | null }) {
+function SidebarNavigationBridge({ children }: { children: ReactNode }) {
     const { tabs } = useSidebarTabs();
     const { isExpanded, setIsExpanded } = useSidebarUI();
 
@@ -71,10 +67,11 @@ export function useSharedSidebar() {
     const ui = useSidebarUI();
     const tabsCtx = useSidebarTabs();
     const nav = useSidebarNavigation();
-    const { userSettings, groups: rawGroups } = useAppData();
+    const { userSettings } = useAppData();
     const { unreadCount } = useNotifications();
 
-    const groups = rawGroups as unknown as Group[] | null;
+    // Groups now come from SidebarTabsContext (per-user tab groups)
+    const groups = tabsCtx.groups;
 
     // Render icon helper
     const renderIconCallback = useCallback((iconValue: string | undefined, size: number = 20): React.ReactNode => {

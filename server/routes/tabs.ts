@@ -102,14 +102,14 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 router.post('/', requireAuth, async (req: Request, res: Response) => {
     try {
         const authReq = req as AuthenticatedRequest;
-        const { name, url, icon, enabled } = req.body as TabBody;
+        const { name, url, icon, groupId, enabled } = req.body as TabBody;
 
         if (!name || !url) {
             res.status(400).json({ error: 'Name and URL are required' });
             return;
         }
 
-        const tab = await addUserTab(authReq.user!.id, { name, url, icon, enabled });
+        const tab = await addUserTab(authReq.user!.id, { name, url, icon, groupId, enabled });
         invalidateUserSettings(authReq.user!.id, 'tabs');
 
         res.status(201).json({ tab });

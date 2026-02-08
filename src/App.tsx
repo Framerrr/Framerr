@@ -181,7 +181,7 @@ const App: React.FC = () => {
                     </ThemeProvider>
                 </CustomColorLoader>
             </AuthProvider>
-            <ReactQueryDevtools initialIsOpen={false} />
+            {/* <ReactQueryDevtools initialIsOpen={false} /> */}
         </QueryClientProvider>
     );
 };

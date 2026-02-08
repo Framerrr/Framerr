@@ -91,8 +91,10 @@ const OVERSEERR_REQUESTS = [
             tmdbId: 98,  // Gladiator
             mediaType: 'movie',
             status: 3,
+            title: 'Gladiator',
+            posterPath: '/ehGpN04mLJIrSnxcZBMvHeG0eDc.jpg',
         },
-        requestedBy: { id: 1, displayName: 'TestUser' },
+        requestedBy: { id: 1, displayName: 'Alex' },
         serverId: 0, // Sent to Radarr 1080p
         createdAt: new Date().toISOString(),
     },
@@ -105,8 +107,10 @@ const OVERSEERR_REQUESTS = [
             tmdbId: 693134,  // Dune: Part Two
             mediaType: 'movie',
             status: 3,
+            title: 'Dune: Part Two',
+            posterPath: '/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg',
         },
-        requestedBy: { id: 1, displayName: 'TestUser' },
+        requestedBy: { id: 2, displayName: 'Sarah' },
         serverId: 1, // Sent to Radarr 4K
         createdAt: new Date().toISOString(),
     },
@@ -119,9 +123,91 @@ const OVERSEERR_REQUESTS = [
             tmdbId: 1399,  // Game of Thrones
             mediaType: 'tv',
             status: 3,
+            title: 'Game of Thrones',
+            posterPath: '/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg',
         },
-        requestedBy: { id: 2, displayName: 'OtherUser' },
+        requestedBy: { id: 3, displayName: 'Marcus' },
         serverId: 0, // Sent to Sonarr
+        createdAt: new Date().toISOString(),
+    },
+    {
+        id: 4,
+        status: 2,
+        type: 'movie',
+        media: {
+            id: 4,
+            tmdbId: 872585,  // Oppenheimer
+            mediaType: 'movie',
+            status: 5,  // Available
+            title: 'Oppenheimer',
+            posterPath: '/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
+        },
+        requestedBy: { id: 1, displayName: 'Alex' },
+        serverId: 0,
+        createdAt: new Date().toISOString(),
+    },
+    {
+        id: 5,
+        status: 1, // pending
+        type: 'movie',
+        media: {
+            id: 5,
+            tmdbId: 402431,  // Wicked
+            mediaType: 'movie',
+            status: 1,  // Unknown/Pending
+            title: 'Wicked',
+            posterPath: '/2C0A2gj4kqW2s9z2jOJD8WvmA5s.jpg',
+        },
+        requestedBy: { id: 4, displayName: 'Jordan' },
+        serverId: 0,
+        createdAt: new Date().toISOString(),
+    },
+    {
+        id: 6,
+        status: 2,
+        type: 'tv',
+        media: {
+            id: 6,
+            tmdbId: 94997,  // House of the Dragon
+            mediaType: 'tv',
+            status: 4,  // Partially Available
+            title: 'House of the Dragon',
+            posterPath: '/t9XkeE7HzOsdQcDDDapDYh8Rrmt.jpg',
+        },
+        requestedBy: { id: 2, displayName: 'Sarah' },
+        serverId: 0,
+        createdAt: new Date().toISOString(),
+    },
+    {
+        id: 7,
+        status: 2,
+        type: 'movie',
+        media: {
+            id: 7,
+            tmdbId: 558449,  // Gladiator II
+            mediaType: 'movie',
+            status: 3,
+            title: 'Gladiator II',
+            posterPath: '/2cxhvwyEwRlysAmRH4iodkvo0z5.jpg',
+        },
+        requestedBy: { id: 5, displayName: 'Emily' },
+        serverId: 1, // 4K
+        createdAt: new Date().toISOString(),
+    },
+    {
+        id: 8,
+        status: 2,
+        type: 'tv',
+        media: {
+            id: 8,
+            tmdbId: 66732,  // Stranger Things
+            mediaType: 'tv',
+            status: 5,  // Available
+            title: 'Stranger Things',
+            posterPath: '/x2LSRK2Cm7MZhjluni1msVJ3wDF.jpg',
+        },
+        requestedBy: { id: 3, displayName: 'Marcus' },
+        serverId: 0,
         createdAt: new Date().toISOString(),
     },
 ];
@@ -486,6 +572,89 @@ app.get('/overseerr/api/v1/settings/public', (_req: Request, res: Response) => {
         version: '1.33.2',
     });
 });
+
+// =============================================================================
+// TMDB DETAIL ENDPOINTS (used by tmdbEnrichment service)
+// The Framerr backend calls these to get titles, posters, and metadata
+// =============================================================================
+
+/** Mock TMDB movie/TV details keyed by tmdbId */
+const TMDB_MOVIE_DETAILS: Record<number, { title: string; posterPath: string; overview: string; releaseDate: string; voteAverage: number; runtime: number }> = {
+    98: { title: 'Gladiator', posterPath: '/ehGpN04mLJIrSnxcZBMvHeG0eDc.jpg', overview: 'In the year 180, the death of emperor Marcus Aurelius throws the Roman Empire into chaos.', releaseDate: '2000-05-01', voteAverage: 8.2, runtime: 155 },
+    693134: { title: 'Dune: Part Two', posterPath: '/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg', overview: 'Paul Atreides unites with Chani and the Fremen while seeking revenge against those who destroyed his family.', releaseDate: '2024-02-27', voteAverage: 8.1, runtime: 166 },
+    872585: { title: 'Oppenheimer', posterPath: '/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg', overview: 'The story of J. Robert Oppenheimer and the creation of the atomic bomb.', releaseDate: '2023-07-19', voteAverage: 8.1, runtime: 180 },
+    402431: { title: 'Wicked', posterPath: '/2C0A2gj4kqW2s9z2jOJD8WvmA5s.jpg', overview: 'The story of how a green-skinned woman becomes the Wicked Witch of the West.', releaseDate: '2024-11-22', voteAverage: 7.6, runtime: 160 },
+    558449: { title: 'Gladiator II', posterPath: '/2cxhvwyEwRlysAmRH4iodkvo0z5.jpg', overview: 'Lucius must enter the Colosseum and find the courage to return the glory of Rome to its people.', releaseDate: '2024-11-13', voteAverage: 6.8, runtime: 148 },
+    346698: { title: 'Barbie', posterPath: '/iuFNMS8U5cb6xfzi51Dbkovj7vM.jpg', overview: 'Barbie and Ken are having the time of their lives in the colorful and seemingly perfect world of Barbie Land.', releaseDate: '2023-07-19', voteAverage: 7.0, runtime: 114 },
+    157336: { title: 'Interstellar', posterPath: '/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg', overview: 'Interstellar chronicles the adventures of a group of explorers who travel through a wormhole in search of a new home for humanity.', releaseDate: '2014-11-05', voteAverage: 8.4, runtime: 169 },
+    155: { title: 'The Dark Knight', posterPath: '/qJ2tW6WMUDux911r6m7haRef0WH.jpg', overview: 'Batman raises the stakes in his war on crime. With the help of Lt. Jim Gordon and DA Harvey Dent, Batman sets out to dismantle the remaining criminal organizations.', releaseDate: '2008-07-16', voteAverage: 8.5, runtime: 152 },
+    27205: { title: 'Inception', posterPath: '/9gk7adHYeDvHkCSEqAvQNLV5Ber.jpg', overview: 'Cobb, a skilled thief who commits corporate espionage by infiltrating the subconscious of his targets, is offered a chance to regain his old life.', releaseDate: '2010-07-15', voteAverage: 8.4, runtime: 148 },
+    575264: { title: 'Mission: Impossible 8', posterPath: '/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg', overview: 'Ethan Hunt and the IMF team embark on their most dangerous mission yet.', releaseDate: '2026-05-23', voteAverage: 0, runtime: 160 },
+    83533: { title: 'Avatar 3', posterPath: '/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg', overview: 'The saga continues on Pandora.', releaseDate: '2026-12-19', voteAverage: 0, runtime: 180 },
+    822119: { title: 'Captain America: Brave New World', posterPath: '/pzIddUEMWhFCfFj3ELqvVcspmJc.jpg', overview: 'Sam Wilson, the new Captain America, finds himself in the middle of an international incident.', releaseDate: '2025-02-12', voteAverage: 5.8, runtime: 118 },
+    986056: { title: 'Thunderbolts*', posterPath: '/m3LslH3zNJHVKSMlNOWDqp1IhVE.jpg', overview: 'A group of antiheroes are recruited by the government to go on dangerous missions.', releaseDate: '2025-04-30', voteAverage: 0, runtime: 127 },
+};
+
+const TMDB_TV_DETAILS: Record<number, { name: string; posterPath: string; overview: string; firstAirDate: string; voteAverage: number; numberOfSeasons: number }> = {
+    1399: { name: 'Game of Thrones', posterPath: '/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg', overview: 'Seven noble families fight for control of the mythical land of Westeros.', firstAirDate: '2011-04-17', voteAverage: 8.4, numberOfSeasons: 8 },
+    94997: { name: 'House of the Dragon', posterPath: '/t9XkeE7HzOsdQcDDDapDYh8Rrmt.jpg', overview: 'The Targaryen civil war that tore apart the Seven Kingdoms.', firstAirDate: '2022-08-21', voteAverage: 8.4, numberOfSeasons: 2 },
+    66732: { name: 'Stranger Things', posterPath: '/x2LSRK2Cm7MZhjluni1msVJ3wDF.jpg', overview: 'When a young boy disappears, his mother, a police chief and his friends must confront terrifying supernatural forces.', firstAirDate: '2016-07-15', voteAverage: 8.6, numberOfSeasons: 4 },
+    100088: { name: 'The Last of Us', posterPath: '/dmo1WLKp2W5rS2rGEhU9CBnZQFz.jpg', overview: 'Twenty years after modern civilization has been destroyed, Joel, a hardened survivor, is hired to smuggle Ellie through a dangerous journey across the US.', firstAirDate: '2023-01-15', voteAverage: 8.6, numberOfSeasons: 2 },
+    95396: { name: 'Severance', posterPath: '/lFf6DEhtrGqLNhJXFGQXU8q1Zm1.jpg', overview: 'Mark leads a team of office workers whose memories have been surgically divided between their work and personal lives.', firstAirDate: '2022-02-18', voteAverage: 8.3, numberOfSeasons: 2 },
+    136315: { name: 'The Bear', posterPath: '/sHFlbKS3WLqMnp9t2ghADIJFnuQ.jpg', overview: 'A young chef from the fine dining world comes home to Chicago to run his family sandwich shop.', firstAirDate: '2022-06-23', voteAverage: 8.0, numberOfSeasons: 3 },
+    1396: { name: 'Breaking Bad', posterPath: '/ggFHVNu6YYI5L9pCfOacjizRGt.jpg', overview: 'A high school chemistry teacher diagnosed with inoperable lung cancer turns to manufacturing and selling methamphetamine.', firstAirDate: '2008-01-20', voteAverage: 8.9, numberOfSeasons: 5 },
+};
+
+// Movie detail endpoint (used by tmdbEnrichment service)
+app.get('/overseerr/api/v1/movie/:tmdbId', (req: Request, res: Response) => {
+    const tmdbId = parseInt(req.params.tmdbId as string);
+    const details = TMDB_MOVIE_DETAILS[tmdbId];
+    if (details) {
+        res.json({
+            id: tmdbId,
+            title: details.title,
+            originalTitle: details.title,
+            posterPath: details.posterPath,
+            backdropPath: null,
+            overview: details.overview,
+            releaseDate: details.releaseDate,
+            voteAverage: details.voteAverage,
+            voteCount: 1000,
+            genres: [{ id: 1, name: 'Action' }, { id: 2, name: 'Drama' }],
+            runtime: details.runtime,
+            tagline: '',
+            status: 'Released',
+        });
+    } else {
+        res.status(404).json({ error: 'Movie not found' });
+    }
+});
+
+// TV detail endpoint (used by tmdbEnrichment service)
+app.get('/overseerr/api/v1/tv/:tmdbId', (req: Request, res: Response) => {
+    const tmdbId = parseInt(req.params.tmdbId as string);
+    const details = TMDB_TV_DETAILS[tmdbId];
+    if (details) {
+        res.json({
+            id: tmdbId,
+            name: details.name,
+            originalName: details.name,
+            posterPath: details.posterPath,
+            backdropPath: null,
+            overview: details.overview,
+            firstAirDate: details.firstAirDate,
+            voteAverage: details.voteAverage,
+            voteCount: 500,
+            genres: [{ id: 1, name: 'Drama' }, { id: 2, name: 'Sci-Fi & Fantasy' }],
+            numberOfSeasons: details.numberOfSeasons,
+            tagline: '',
+            status: 'Returning Series',
+        });
+    } else {
+        res.status(404).json({ error: 'TV show not found' });
+    }
+});
+
 
 // =============================================================================
 // RADARR 1080P ROUTES

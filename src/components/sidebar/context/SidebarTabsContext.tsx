@@ -3,13 +3,22 @@ import { Tab, UserProfile, TabsResponse } from '../types';
 
 // ============================================================================
 // SidebarTabsContext
-// Manages: Tab data fetching and user profile for sidebar display
+// Manages: Tab data fetching, tab groups, and user profile for sidebar display
 // ============================================================================
+
+interface TabGroup {
+    id: string;
+    name: string;
+    icon?: string | null;
+    order?: number;
+}
 
 interface SidebarTabsContextType {
     tabs: Tab[];
+    groups: TabGroup[];
     currentUser: UserProfile | null;
     refreshTabs: () => void;
+    refreshGroups: () => void;
 }
 
 const SidebarTabsContext = createContext<SidebarTabsContextType | null>(null);
@@ -20,6 +29,7 @@ interface SidebarTabsProviderProps {
 
 export function SidebarTabsProvider({ children }: SidebarTabsProviderProps) {
     const [tabs, setTabs] = useState<Tab[]>([]);
+    const [groups, setGroups] = useState<TabGroup[]>([]);
     const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
 
     // Fetch tabs from API
@@ -36,6 +46,26 @@ export function SidebarTabsProvider({ children }: SidebarTabsProviderProps) {
             }
         } catch (error) {
             // Silent fail for tabs
+        }
+    }, []);
+
+    // Fetch tab groups from per-user API
+    const fetchGroups = useCallback(async (): Promise<void> => {
+        try {
+            const response = await fetch('/api/tab-groups', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                const sorted = (data.tabGroups || []).sort(
+                    (a: TabGroup, b: TabGroup) => (a.order ?? 0) - (b.order ?? 0)
+                );
+                setGroups(sorted);
+            }
+        } catch (error) {
+            // Silent fail for groups
         }
     }, []);
 
@@ -62,6 +92,7 @@ export function SidebarTabsProvider({ children }: SidebarTabsProviderProps) {
     // Initial fetch
     useEffect(() => {
         fetchTabs();
+        fetchGroups();
         fetchUserProfile();
 
         // Listen for tabs updates
@@ -69,6 +100,12 @@ export function SidebarTabsProvider({ children }: SidebarTabsProviderProps) {
             fetchTabs();
         };
         window.addEventListener('tabsUpdated', handleTabsUpdated);
+
+        // Listen for tab groups updates
+        const handleGroupsUpdated = (): void => {
+            fetchGroups();
+        };
+        window.addEventListener('tabGroupsUpdated', handleGroupsUpdated);
 
         // Listen for profile picture updates from settings
         const handleProfilePictureUpdate = (event: Event): void => {
@@ -79,16 +116,19 @@ export function SidebarTabsProvider({ children }: SidebarTabsProviderProps) {
 
         return () => {
             window.removeEventListener('tabsUpdated', handleTabsUpdated);
+            window.removeEventListener('tabGroupsUpdated', handleGroupsUpdated);
             window.removeEventListener('profilePictureUpdated', handleProfilePictureUpdate as EventListener);
         };
-    }, [fetchTabs, fetchUserProfile]);
+    }, [fetchTabs, fetchGroups, fetchUserProfile]);
 
     // Memoize context value
     const value = useMemo<SidebarTabsContextType>(() => ({
         tabs,
+        groups,
         currentUser,
         refreshTabs: fetchTabs,
-    }), [tabs, currentUser, fetchTabs]);
+        refreshGroups: fetchGroups,
+    }), [tabs, groups, currentUser, fetchTabs, fetchGroups]);
 
     return (
         <SidebarTabsContext.Provider value={value}>

@@ -326,7 +326,17 @@ let mockSessions: MockSession[] = [
 // =============================================================================
 
 function findItem(id: string): MockItem | undefined {
-    return ALL_ITEMS.find(item => item.id === id);
+    // Direct match first
+    const directMatch = ALL_ITEMS.find(item => item.id === id);
+    if (directMatch) return directMatch;
+
+    // Fallback: episode IDs like 'series-1-s5e16' → try parent series 'series-1'
+    const seriesMatch = id.match(/^(series-\d+)-s\d+e\d+$/);
+    if (seriesMatch) {
+        return ALL_ITEMS.find(item => item.id === seriesMatch[1]);
+    }
+
+    return undefined;
 }
 
 /**

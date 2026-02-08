@@ -114,6 +114,8 @@ export function useGroupSettings(): UseGroupSettingsReturn {
 
             await updateTabGroups.mutateAsync(updatedGroups);
             setShowModal(false);
+            // Notify sidebar to update groups immediately
+            window.dispatchEvent(new Event('tabGroupsUpdated'));
             showSuccess(
                 modalMode === 'create' ? 'Group Created' : 'Group Updated',
                 `Tab group "${formData.name}" ${modalMode === 'create' ? 'created' : 'updated'} successfully`
@@ -128,6 +130,10 @@ export function useGroupSettings(): UseGroupSettingsReturn {
     const handleDelete = useCallback(async (group: TabGroup): Promise<void> => {
         try {
             await updateTabGroups.mutateAsync(tabGroups.filter(g => g.id !== group.id));
+            // Notify sidebar to update groups and tabs immediately
+            // (server cleans up groupId on affected tabs)
+            window.dispatchEvent(new Event('tabGroupsUpdated'));
+            window.dispatchEvent(new Event('tabsUpdated'));
             showSuccess('Group Deleted', `Group "${group.name}" deleted`);
         } catch (error) {
             showError('Delete Failed', 'Failed to delete group');
@@ -150,6 +156,8 @@ export function useGroupSettings(): UseGroupSettingsReturn {
 
         try {
             await updateTabGroups.mutateAsync(reorderedGroups);
+            // Notify sidebar to update group order immediately
+            window.dispatchEvent(new Event('tabGroupsUpdated'));
         } catch (error) {
             // React Query will automatically refetch on error, reverting the UI
         }

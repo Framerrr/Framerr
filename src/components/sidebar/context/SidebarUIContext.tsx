@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
 import { useLayout } from '../../../context/LayoutContext';
 import { ExpandedGroups } from '../types';
+import { useSidebarTabs } from './SidebarTabsContext';
 
 // ============================================================================
 // SidebarUIContext
@@ -38,10 +39,11 @@ const SidebarUIContext = createContext<SidebarUIContextType | null>(null);
 
 interface SidebarUIProviderProps {
     children: ReactNode;
-    groups?: { id: string | number; name: string }[] | null;
 }
 
-export function SidebarUIProvider({ children, groups }: SidebarUIProviderProps) {
+export function SidebarUIProvider({ children }: SidebarUIProviderProps) {
+    // Get groups from SidebarTabsContext (per-user tab groups)
+    const { groups } = useSidebarTabs();
     // Expansion state - initialize expanded if on settings page (prevents flash on refresh)
     const [isExpanded, setIsExpanded] = useState<boolean>(() => {
         const hash = window.location.hash.slice(1);
