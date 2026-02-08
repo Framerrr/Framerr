@@ -135,7 +135,10 @@ export const CacheSection: React.FC<CacheSectionProps> = ({
                                         className="border-b border-theme-light bg-theme-hover/30"
                                     >
                                         <td className="py-2.5 px-3 pl-10 text-theme-secondary text-xs">
-                                            {integration.integrationId}
+                                            {integration.displayName || integration.integrationId}
+                                            {integration.displayName && integration.displayName !== integration.integrationId && (
+                                                <span className="ml-1 opacity-50">({integration.integrationId})</span>
+                                            )}
                                         </td>
                                         <td className="py-2.5 px-3 text-theme-secondary text-xs">
                                             {integration.imageCount} images

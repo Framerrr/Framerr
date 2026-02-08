@@ -12,6 +12,7 @@ import {
     AlertCircle
 } from 'lucide-react';
 import { Button } from '../../../shared/ui';
+import ConfirmButton from '../../../shared/ui/ConfirmButton/ConfirmButton';
 import MonitorSharingDropdown from '../MonitorSharingDropdown';
 import { ActionBarProps } from '../types';
 
@@ -29,15 +30,24 @@ const ActionBar: React.FC<ActionBarProps> = ({
     return (
         <div className="flex items-center justify-between pt-2 border-t border-theme">
             <div className="flex items-center gap-2">
-                {/* Delete/Remove button - always visible */}
-                <Button
-                    onClick={onDelete}
-                    variant="danger"
-                    size="sm"
-                    icon={Trash2}
-                >
-                    {isNew ? 'Remove' : (isReadonly ? 'Remove' : 'Delete')}
-                </Button>
+                {/* Delete/Remove button - ConfirmButton for existing, plain Button for new/readonly */}
+                {isNew || isReadonly ? (
+                    <Button
+                        onClick={onDelete}
+                        variant="danger"
+                        size="sm"
+                        icon={Trash2}
+                    >
+                        Remove
+                    </Button>
+                ) : (
+                    <ConfirmButton
+                        onConfirm={onDelete}
+                        label="Delete"
+                        confirmLabel="Confirm"
+                        size="sm"
+                    />
+                )}
             </div>
             <div className="flex items-center gap-2">
                 {/* Share button - only for saved monitors with eligible users */}

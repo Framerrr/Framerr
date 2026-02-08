@@ -15,6 +15,7 @@ import { clearAllSearchHistory, getSearchHistoryCount } from '../db/mediaSearchH
 import { getLibraryCacheStats, getPerIntegrationLibraryStats, deleteAllLibraryImages } from '../services/libraryImageCache';
 import { deleteLibrarySyncData, startFullSync, getSyncStatus } from '../services/librarySyncService';
 import { getMonitorDefaults, updateSystemConfig } from '../db/systemConfig';
+import { getInstanceById } from '../db/integrationInstances';
 import logger from '../utils/logger';
 
 const router = Router();
@@ -74,7 +75,16 @@ router.get('/cache/stats', requireAuth, requireAdmin, (_req: Request, res: Respo
         const tmdbImages = getImageCacheStats();
         const searchHistory = { count: getSearchHistoryCount() };
         const library = getLibraryCacheStats();
-        const libraryPerIntegration = getPerIntegrationLibraryStats();
+        const rawStats = getPerIntegrationLibraryStats();
+
+        // Enrich with display names from integration instances
+        const libraryPerIntegration = rawStats.map(stat => {
+            const instance = getInstanceById(stat.integrationId);
+            return {
+                ...stat,
+                displayName: instance?.displayName || stat.integrationId,
+            };
+        });
 
         res.json({
             tmdbMetadata,

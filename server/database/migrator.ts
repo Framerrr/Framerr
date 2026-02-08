@@ -254,7 +254,7 @@ export function runMigrations(db: DatabaseInstance): MigrationResult {
 
     try {
         for (const migration of pending) {
-            logger.info(`[Migrator] Running migration ${migration.version}: ${migration.name || migration.filename}`);
+            logger.debug(`[Migrator] Running migration ${migration.version}: ${migration.name || migration.filename}`);
 
             // Run migration in transaction
             const runMigration = db.transaction(() => {
@@ -264,7 +264,7 @@ export function runMigrations(db: DatabaseInstance): MigrationResult {
 
             runMigration();
             lastSuccessfulVersion = migration.version;
-            logger.info(`[Migrator] ✓ Migration ${migration.version} complete`);
+            logger.debug(`[Migrator] ✓ Migration ${migration.version} complete`);
         }
 
         logger.info(`[Migrator] All migrations complete (v${status.currentVersion} → v${lastSuccessfulVersion})`);

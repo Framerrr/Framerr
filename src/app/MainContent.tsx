@@ -45,6 +45,7 @@ function PageLayer({
                 right: 0,
                 bottom: bottomOffset,
                 opacity: active ? 1 : 0,
+                visibility: active ? 'visible' : 'hidden',
                 pointerEvents: active ? 'auto' : 'none',
                 overflowY: scrollable ? 'auto' : 'hidden',
                 WebkitOverflowScrolling: scrollable ? 'touch' : undefined,

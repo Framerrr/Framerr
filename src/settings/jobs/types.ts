@@ -36,6 +36,7 @@ export interface SearchHistoryStats {
 /** Library cache per-integration stats */
 export interface LibraryIntegrationStats {
     integrationId: string;
+    displayName?: string;
     imageCount: number;
     sizeBytes: number;
 }

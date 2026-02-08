@@ -183,6 +183,17 @@ router.post('/restore', upload.single('backup'), async (req: Request, res: Respo
 
         logger.info('[Restore] Backup restore complete via setup wizard');
 
+        // Start background services - the restored database has users and data,
+        // but services were skipped at startup because no users existed then
+        try {
+            const { startAllServices } = await import('../services/IntegrationManager');
+            await startAllServices();
+            logger.info('[Restore] Background services started after restore');
+        } catch (serviceError) {
+            // Non-fatal: services can be started on next server restart
+            logger.warn(`[Restore] Failed to start background services: error="${(serviceError as Error).message}"`);
+        }
+
         res.json({
             success: true,
             message: 'Backup restored successfully.',

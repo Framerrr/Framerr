@@ -235,10 +235,8 @@ export function useMonitorForm({ instanceId, integrations }: UseMonitorFormProps
         }
     }, [newMonitors]);
 
-    // Handle delete monitor
+    // Handle delete monitor (confirmation handled by ConfirmButton in UI)
     const handleDeleteMonitor = useCallback(async (id: string) => {
-        if (!confirm('Are you sure you want to delete this monitor?')) return;
-
         try {
             const response = await fetch(`/api/service-monitors/${id}`, {
                 method: 'DELETE',

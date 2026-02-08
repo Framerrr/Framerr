@@ -168,6 +168,7 @@ const UptimeKumaForm = forwardRef<UptimeKumaFormRef, UptimeKumaFormProps>((
                     service={serviceDef}
                     config={config}
                     onFieldChange={(field, value) => onFieldChange(instanceId, field, value as string)}
+                    serverSchema={schemaInfo?.configSchema}
                 />
             )}
 
