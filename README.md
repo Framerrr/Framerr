@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://hub.docker.com/r/pickels23/framerr"><img src="https://img.shields.io/docker/pulls/pickels23/framerr" alt="Docker Pulls"></a>
   <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/pickels23/framerr" alt="License"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Framerrr/Framerr" alt="License"></a>
 </p>
 
 ---
