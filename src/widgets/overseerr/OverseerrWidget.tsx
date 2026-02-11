@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
+import AuthImage from '../../shared/ui/AuthImage';
 import { WidgetStateMessage, useWidgetIntegration, useIntegrationSSE } from '../../shared/widgets';
 import { useAuth } from '../../context/AuthContext';
 import { isAdmin } from '../../utils/permissions';
@@ -470,12 +471,14 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                         const backdropUrl = media?.backdropPath
                             ? `https://image.tmdb.org/t/p/w780${media.backdropPath}`
                             : null;
-                        const posterUrl = media?.localPosterPath
+                        // Primary: local cache path (fetched with credentials)
+                        const localCacheSrc = media?.localPosterPath
                             ? `/api/cache/images/${media.localPosterPath}`
-                            : media?.posterPath
-                                ? `https://image.tmdb.org/t/p/w342${media.posterPath}`
-                                : null;
-                        const imageUrl = backdropUrl || posterUrl;
+                            : null;
+                        // Fallback: TMDB CDN (public, no auth needed)
+                        const cdnFallbackSrc = media?.posterPath
+                            ? `https://image.tmdb.org/t/p/w342${media.posterPath}`
+                            : null;
 
                         return (
                             <div
@@ -485,9 +488,10 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                                 onClick={() => setSelectedRequest({ request: req, downloadInfo })}
                             >
                                 {/* Backdrop/Poster Image */}
-                                {imageUrl ? (
-                                    <img
-                                        src={imageUrl}
+                                {(backdropUrl || localCacheSrc || cdnFallbackSrc) ? (
+                                    <AuthImage
+                                        src={backdropUrl || localCacheSrc}
+                                        fallbackSrc={backdropUrl ? localCacheSrc : cdnFallbackSrc}
                                         alt={title}
                                         className="w-full h-full object-cover"
                                     />
@@ -679,12 +683,14 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                     }
                     // Default: req.status === 1 (Pending approval) - shows "Requested"
 
-                    // Use local cached poster if available, otherwise fall back to TMDB CDN
-                    const posterUrl = media?.localPosterPath
+                    // Primary: local cache path (fetched with credentials)
+                    const localCacheSrc = media?.localPosterPath
                         ? `/api/cache/images/${media.localPosterPath}`
-                        : media?.posterPath
-                            ? `https://image.tmdb.org/t/p/w342${media.posterPath}`
-                            : null;
+                        : null;
+                    // Fallback: TMDB CDN (public, no auth needed)
+                    const cdnFallbackSrc = media?.posterPath
+                        ? `https://image.tmdb.org/t/p/w342${media.posterPath}`
+                        : null;
 
                     // Detect if touch device (for mobile vs desktop interaction)
                     const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -715,9 +721,10 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                             }}
                         >
                             {/* Poster Image */}
-                            {posterUrl ? (
-                                <img
-                                    src={posterUrl}
+                            {(localCacheSrc || cdnFallbackSrc) ? (
+                                <AuthImage
+                                    src={localCacheSrc}
+                                    fallbackSrc={cdnFallbackSrc}
                                     alt={title}
                                     className="w-full h-full object-cover"
                                 />

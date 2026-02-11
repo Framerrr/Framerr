@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Star, Calendar, Clock, User, Check, XCircle, Film, Tv } from 'lucide-react';
 import { Modal } from '../../../shared/ui';
+import AuthImage from '../../../shared/ui/AuthImage';
 import { useAuth } from '../../../context/AuthContext';
 import { useNotifications } from '../../../context/NotificationContext';
 import { isAdmin } from '../../../utils/permissions';
@@ -252,13 +253,17 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
     // Use fetched data or fall back to props
     const title = details?.tmdb?.title || request.media?.title || 'Unknown Title';
     // Prefer local cached poster, then API details, then request props
-    const posterUrl = request.media?.localPosterPath
+    // Primary: local cache path (fetched with credentials)
+    const localCacheSrc = request.media?.localPosterPath
         ? `/api/cache/images/${request.media.localPosterPath}`
-        : details?.tmdb?.posterPath
-            ? `https://image.tmdb.org/t/p/w342${details.tmdb.posterPath}`
-            : request.media?.posterPath
-                ? `https://image.tmdb.org/t/p/w342${request.media.posterPath}`
-                : null;
+        : null;
+    // Fallback: TMDB CDN (public, no auth needed)
+    const cdnFallbackSrc = details?.tmdb?.posterPath
+        ? `https://image.tmdb.org/t/p/w342${details.tmdb.posterPath}`
+        : request.media?.posterPath
+            ? `https://image.tmdb.org/t/p/w342${request.media.posterPath}`
+            : null;
+    const hasPoster = !!(localCacheSrc || cdnFallbackSrc);
 
     return (
         <Modal open={true} onOpenChange={(open) => !open && onClose()} size="lg">
@@ -278,7 +283,7 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                         {/* Poster and Basic Info */}
                         <div style={{ display: 'flex', gap: '1.5rem' }}>
                             {/* Poster */}
-                            {posterUrl ? (
+                            {hasPoster ? (
                                 <div style={{
                                     width: '150px',
                                     height: '225px',
@@ -289,8 +294,9 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                                     overflow: 'hidden',
                                     boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
                                 }}>
-                                    <img
-                                        src={posterUrl}
+                                    <AuthImage
+                                        src={localCacheSrc}
+                                        fallbackSrc={cdnFallbackSrc}
                                         alt={title}
                                         style={{
                                             width: '100%',

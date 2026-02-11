@@ -2,6 +2,13 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.1.3] - 2026-02-11
+
+### Fixed
+- TMDB poster images failing behind reverse proxy auth (Authentik) — images now load via authenticated fetch with automatic TMDB CDN fallback
+
+---
+
 ## [0.1.2] - 2026-02-11
 
 ### Added
