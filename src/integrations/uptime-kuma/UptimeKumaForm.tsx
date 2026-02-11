@@ -235,8 +235,6 @@ const UptimeKumaForm = forwardRef<UptimeKumaFormRef, UptimeKumaFormProps>((
                                 <Popover.Content align="start" sideOffset={4} className="p-0 min-w-[300px]">
                                     <div
                                         className="max-h-64 overflow-y-scroll overscroll-contain"
-                                        onWheel={(e) => e.stopPropagation()}
-                                        data-scroll-lock-allow
                                     >
                                         {availableMonitors
                                             .filter(m => !selectedMonitorIds.includes(m.id))

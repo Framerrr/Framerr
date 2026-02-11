@@ -21,5 +21,26 @@ export const plugin: WidgetPlugin = {
         max: { w: 24, h: 18 },
     },
     component: lazy(() => import('./CustomHTMLWidget')),
-    isGlobal: true
+    isGlobal: true,
+    configConstraints: {
+        contentPadding: 'none',
+        options: [
+            {
+                key: 'htmlContent',
+                label: 'HTML Content',
+                type: 'textarea',
+                syntax: 'html',
+                placeholder: '<h1>Hello World</h1>\n<p>Your custom content here</p>',
+                rows: 8,
+            },
+            {
+                key: 'cssContent',
+                label: 'CSS Styles',
+                type: 'textarea',
+                syntax: 'css',
+                placeholder: 'h1 {\n  color: var(--accent);\n  font-size: 2rem;\n}',
+                rows: 6,
+            },
+        ],
+    },
 };

@@ -116,9 +116,9 @@ export function useServiceLayout({
             };
         }
 
-        // Use compact layout for short widgets (h=1 or h=2 with header)
-        // Threshold 64px: h=2 without header measures ~65px, should be expanded
-        const useCompact = effectiveSize.height < 64;
+        // Use compact layout for short widgets (h=1)
+        // Threshold 56px: h=1 content area ~50px → compact, h=2 with header ~80px → expanded
+        const useCompact = effectiveSize.height < 56;
 
         // Determine padding before calculating layout
         const padding = useCompact ? 2 : 8;

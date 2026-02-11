@@ -2,7 +2,7 @@
  * Overseerr Widget Plugin
  *
  * Media requests and discovery.
- * P4 Phase 4.3: Widget Plugin Migration
+ * Supports Carousel (horizontal poster scroll) and Stacked (vertical backdrop list) modes.
  */
 
 import { lazy } from 'react';
@@ -22,7 +22,23 @@ export const plugin: WidgetPlugin = {
     },
     component: lazy(() => import('./OverseerrWidget')),
     compatibleIntegrations: ['overseerr'],
+    defaultConfig: {
+        viewMode: 'auto',
+    },
     configConstraints: {
-        contentPadding: 'lg',  // Relaxed padding for card layout
+        contentPadding: 'sm',
+        options: [
+            {
+                key: 'viewMode',
+                label: 'View Mode',
+                type: 'buttons',
+                defaultValue: 'auto',
+                choices: [
+                    { value: 'auto', label: 'Auto' },
+                    { value: 'carousel', label: 'Carousel' },
+                    { value: 'stacked', label: 'Stacked' },
+                ]
+            }
+        ]
     },
 };

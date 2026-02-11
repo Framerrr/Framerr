@@ -105,6 +105,8 @@ export function DragPreviewPortal({ previewMode, getIntegrationBinding, renderWi
                 });
 
                 // Check removed nodes to clean up
+                // Delay cleanup to allow FLIP drop animation to complete
+                // (the morph-content is moved to a FLIP overlay during drop)
                 mutation.removedNodes.forEach((node) => {
                     if (node instanceof HTMLElement) {
                         const previewEl = node.matches('[data-drag-preview-type]')
@@ -114,7 +116,9 @@ export function DragPreviewPortal({ previewMode, getIntegrationBinding, renderWi
                         if (previewEl && previewEl instanceof HTMLElement) {
                             const previewId = previewEl.dataset.dragPreviewId;
                             if (previewId) {
-                                setPreviews(prev => prev.filter(p => p.id !== previewId));
+                                setTimeout(() => {
+                                    setPreviews(prev => prev.filter(p => p.id !== previewId));
+                                }, 600);
                             }
                         }
                     }

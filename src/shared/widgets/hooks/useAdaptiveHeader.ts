@@ -85,7 +85,7 @@ export function useAdaptiveHeader({
         }
 
         // Calculate height threshold in pixels
-        // h:2 with ROW_HEIGHT=50 = 100px, but with margins actual container might be ~110px
+        // h:2 with ROW_HEIGHT=60 = 120px, but with margins actual container might be ~130px
         // Use a lower threshold to ensure header shows when expected
         const heightThreshold = (minHeightForHeader * ROW_HEIGHT) - 20;
         const hasEnoughHeight = containerHeight >= heightThreshold;

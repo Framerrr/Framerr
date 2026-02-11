@@ -40,7 +40,7 @@ export type { DragPreviewPortalProps } from './DragPreviewPortal';
 // External Drag Setup (GridStack)
 // ============================================================================
 
-export { setupExternalDragSources } from './setupExternalDragSources';
+export { setupExternalDragSources, getLastHelperRect, getLastMorphContent } from './setupExternalDragSources';
 
 // ============================================================================
 // Quirks & Legacy Support

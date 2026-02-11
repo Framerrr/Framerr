@@ -76,9 +76,10 @@ class PlexRealtimeManager implements RealtimeManager {
     private refreshInterval: NodeJS.Timeout | null = null;
     private isShuttingDown = false;
     private lastSessions: string = ''; // For change detection
+    private fetchDebounceTimer: NodeJS.Timeout | null = null; // Debounce concurrent fetches
 
     // Constants
-    private static readonly REFRESH_INTERVAL = 30000; // 30 seconds
+    private static readonly REFRESH_INTERVAL = 10000; // 10 seconds (reduced from 30s for faster recovery)
 
     // Lifecycle hooks for RealtimeOrchestrator
     onConnect?: () => void;
@@ -182,9 +183,24 @@ class PlexRealtimeManager implements RealtimeManager {
 
         // Handle playback state changes (playing, paused, stopped, etc.)
         if (container.type === 'playing' && container.PlaySessionStateNotification) {
-            logger.debug('[Plex] Playback event - fetching sessions');
-            this.fetchSessions();
+            logger.debug('[Plex] Playback event - debounced fetch');
+            this.debouncedFetchSessions();
         }
+    }
+
+    /**
+     * Debounced fetch - prevents concurrent HTTP requests when rapid WS
+     * notifications arrive (e.g., play+pause in quick succession).
+     * Waits 200ms for events to settle, then fetches once.
+     */
+    private debouncedFetchSessions(): void {
+        if (this.fetchDebounceTimer) {
+            clearTimeout(this.fetchDebounceTimer);
+        }
+        this.fetchDebounceTimer = setTimeout(() => {
+            this.fetchDebounceTimer = null;
+            this.fetchSessions();
+        }, 200);
     }
 
     /**
@@ -192,8 +208,8 @@ class PlexRealtimeManager implements RealtimeManager {
      */
     private async fetchSessions(): Promise<void> {
         try {
-            const translatedUrl = translateHostUrl(this.url);
-            const response = await axios.get(`${translatedUrl}/status/sessions`, {
+            // URL already translated in constructor — no double translation
+            const response = await axios.get(`${this.url}/status/sessions`, {
                 headers: {
                     'X-Plex-Token': this.token,
                     'Accept': 'application/json'
@@ -272,6 +288,12 @@ class PlexRealtimeManager implements RealtimeManager {
         this.isShuttingDown = true;
 
         this.stopPeriodicRefresh();
+
+        // Clear any pending debounced fetch
+        if (this.fetchDebounceTimer) {
+            clearTimeout(this.fetchDebounceTimer);
+            this.fetchDebounceTimer = null;
+        }
 
         if (this.ws) {
             this.ws.close();

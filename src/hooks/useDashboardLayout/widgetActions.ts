@@ -354,6 +354,7 @@ export function useWidgetActions(deps: WidgetActionDeps): WidgetActionReturn {
         mobileWidgets?: FramerrWidget[];
         mobileLayoutMode?: MobileLayoutMode;
         preserveCache?: boolean; // If true, don't reset the cached manual layout
+        editMode?: boolean; // If provided, set editMode to this value instead of false
     }): void => {
         const fetchedWidgets = data.widgets;
         const fetchedMobileWidgets = data.mobileWidgets || [];
@@ -380,7 +381,8 @@ export function useWidgetActions(deps: WidgetActionDeps): WidgetActionReturn {
 
         setPendingUnlink(false);
         setHasUnsavedChanges(false);
-        setEditModeInternal(false);
+        // Allow callers to preserve edit mode (e.g., template builder is always editing)
+        setEditModeInternal(data.editMode ?? false);
     }, [setWidgetsInternal, setMobileWidgetsInternal, setMobileLayoutModeInternal, setOriginalLayout, setMobileOriginalLayout, setLayouts, setCachedManualLayout, setPendingUnlink, setHasUnsavedChanges, setEditModeInternal]);
 
     return {

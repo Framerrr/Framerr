@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, LogOut, UserCircle, Mail, LayoutGrid, Settings as SettingsIcon } from 'lucide-react';
+import { LayoutDashboard, LogOut, UserCircle, Mail, LayoutGrid, Settings as SettingsIcon, PanelLeftClose } from 'lucide-react';
 import { useSharedSidebar } from './SharedSidebarContext';
 import { Highlight, HighlightItem } from './Highlight';
 import { sidebarSpring } from './types';
@@ -19,9 +19,13 @@ export function DesktopSidebar() {
     const navScrollRef = React.useRef<HTMLElement>(null);
     // Ref to track pending mode reset timeout (so we can cancel it when user clicks toggle)
     const modeResetTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+    // Ref to debounce auto-hide on mouse leave (prevents flicker during animation)
+    const hideTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const {
         isExpanded,
         setIsExpanded,
+        isSidebarHidden,
+        setSidebarHidden,
         currentUser,
         showNotificationCenter,
         setShowNotificationCenter,
@@ -38,6 +42,9 @@ export function DesktopSidebar() {
         shouldAutoExpand,
         lastSettingsPath,
     } = useSharedSidebar();
+
+    // Peek state for edge-hover interaction when sidebar is hidden
+    const [isPeeking, setIsPeeking] = useState(false);
 
     // Auto-collapse sidebar when entering edit mode
     useEffect(() => {
@@ -58,18 +65,119 @@ export function DesktopSidebar() {
     // When collapsed, settings sub-tabs aren't visible, so snap indicator to parent category
     const effectiveActiveNavItem = React.useMemo(() => {
         if (!isExpanded && activeNavItem.startsWith('settings-')) {
-            // Check if this is a sub-tab (format: settings-{category}-{subtab})
             const parts = activeNavItem.split('-');
             if (parts.length >= 3) {
-                // Return the parent category (settings-{category})
                 return `settings-${parts[1]}`;
             }
         }
         return activeNavItem;
     }, [isExpanded, activeNavItem]);
 
+    // Determine if sidebar is in hidden-off-screen state
+    // Settings pages override: sidebar is always visible
+    const isOnSettingsPage = hash.startsWith('settings');
+    const effectivelyHidden = isSidebarHidden && !isOnSettingsPage && !isPeeking && !isExpanded;
+
+    // Force sidebar visible when navigating to settings
+    useEffect(() => {
+        if (isOnSettingsPage && isSidebarHidden) {
+            setIsExpanded(true);
+        }
+    }, [isOnSettingsPage, isSidebarHidden]);
+
+    // Reset peek state when auto-hide is turned off
+    useEffect(() => {
+        if (!isSidebarHidden) {
+            setIsPeeking(false);
+        }
+    }, [isSidebarHidden]);
+
+    // Calculate sidebar position and scale
+    // Hidden: off-screen (-96px), Peeking: 30% visible (-56px), Normal: full position (16px)
+    const isPeekOnly = isPeeking && !isExpanded && isSidebarHidden;
+    const sidebarLeft = effectivelyHidden ? -96 : (isPeekOnly ? -56 : 16);
+    const sidebarScale = effectivelyHidden ? 0.95 : 1;
+    const sidebarOpacity = effectivelyHidden ? 0 : 1;
+
     return (
         <>
+            {/* Peek zone — disabled when sidebar is fully open */}
+            {isSidebarHidden && !isOnSettingsPage && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        left: 6,
+                        top: 0,
+                        width: 36,
+                        height: '100%',
+                        zIndex: 50,
+                        pointerEvents: isExpanded ? 'none' : 'auto',
+                    }}
+                    onMouseEnter={() => {
+                        setIsPeeking(true);
+                    }}
+                    onMouseLeave={() => {
+                        setIsPeeking(false);
+                    }}
+                    onClick={() => {
+                        if (isPeeking) {
+                            setIsExpanded(true);
+                        }
+                    }}
+                />
+            )}
+            {/* Snap open zone (screen edge) — disabled when sidebar is fully open */}
+            {isSidebarHidden && !isOnSettingsPage && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        left: 0,
+                        top: 0,
+                        width: 12,
+                        height: '100%',
+                        zIndex: 51,
+                        pointerEvents: isExpanded ? 'none' : 'auto',
+                    }}
+                    onMouseEnter={() => {
+                        if (hideTimeoutRef.current) {
+                            clearTimeout(hideTimeoutRef.current);
+                            hideTimeoutRef.current = null;
+                        }
+                        setIsPeeking(true);
+                        setIsExpanded(true);
+                    }}
+                />
+            )}
+
+            {/* Bridge div — fills the gap between screen edge and floating sidebar when expanded in auto-hide mode */}
+            {isSidebarHidden && !isOnSettingsPage && isExpanded && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        left: 0,
+                        top: 16,
+                        width: 16,
+                        height: 'calc(100vh - 32px)',
+                        zIndex: 40,
+                    }}
+                    onMouseEnter={() => {
+                        // Mouse in the gap — cancel any pending hide
+                        if (hideTimeoutRef.current) {
+                            clearTimeout(hideTimeoutRef.current);
+                            hideTimeoutRef.current = null;
+                        }
+                    }}
+                    onMouseLeave={() => {
+                        // Mouse left the gap — start hide timer
+                        hideTimeoutRef.current = setTimeout(() => {
+                            setIsExpanded(false);
+                            setIsPeeking(false);
+                            hideTimeoutRef.current = null;
+                        }, 300);
+                    }}
+                />
+            )}
+
             {/* Backdrop when sidebar is expanded */}
             <AnimatePresence>
                 {isExpanded && (
@@ -87,12 +195,14 @@ export function DesktopSidebar() {
                 className="flex flex-col relative fade-in"
                 animate={{
                     width: showNotificationCenter ? 400 : (isExpanded ? 280 : 80),
+                    left: sidebarLeft,
+                    scale: sidebarScale,
+                    opacity: sidebarOpacity,
                 }}
                 transition={sidebarSpring}
                 style={{
                     height: 'calc(100vh - 32px)',
                     position: 'fixed',
-                    left: '16px',
                     top: '16px',
                     zIndex: 40,
                     overflow: 'hidden',
@@ -101,26 +211,52 @@ export function DesktopSidebar() {
                     WebkitBackdropFilter: 'blur(var(--blur-strong))',
                     borderRadius: '20px',
                     boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6), 0 12px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-glass), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
+                    transformOrigin: 'left center',
+                    // Fix: force GPU to properly clip backdrop-filter to border-radius
+                    WebkitMaskImage: '-webkit-radial-gradient(white, black)',
+                    maskImage: 'radial-gradient(white, black)',
                 }}
                 onMouseEnter={() => {
+                    // Cancel any pending hide (prevents flicker)
+                    if (hideTimeoutRef.current) {
+                        clearTimeout(hideTimeoutRef.current);
+                        hideTimeoutRef.current = null;
+                    }
+
                     // Don't auto-expand sidebar during dashboard edit mode
                     if (dashboardEdit?.editMode) return;
-                    setIsExpanded(true);
+
+                    // When peeking, don't auto-expand — user must click to expand
+                    if (isPeeking) return;
+
+                    if (!isSidebarHidden || isOnSettingsPage) {
+                        // Normal behavior: expand on hover
+                        setIsExpanded(true);
+                    }
+                }}
+                onClick={() => {
+                    // If peeking (collapsed strip visible), click to fully expand
+                    if (isPeeking && !isExpanded) {
+                        setIsExpanded(true);
+                    }
                 }}
                 onMouseLeave={() => {
-                    // Don't collapse when notification center is open OR when on settings page (any desktop size)
-                    const isOnSettingsPage = hash.startsWith('settings');
-
-                    if (!showNotificationCenter && !isOnSettingsPage) {
+                    if (isSidebarHidden && !isOnSettingsPage) {
+                        // Debounce auto-hide to prevent flicker during animation
+                        hideTimeoutRef.current = setTimeout(() => {
+                            setIsExpanded(false);
+                            setIsPeeking(false);
+                            hideTimeoutRef.current = null;
+                        }, 100);
+                    } else if (!showNotificationCenter && !isOnSettingsPage) {
+                        // Normal behavior: collapse
                         setIsExpanded(false);
                     }
                     // Reset to settings mode if on a settings page (with delay to allow button clicks to register)
                     if (isOnSettingsPage) {
-                        // Cancel any existing timeout
                         if (modeResetTimeoutRef.current) {
                             clearTimeout(modeResetTimeoutRef.current);
                         }
-                        // Small delay so clicking toggle button can cancel before reset happens
                         modeResetTimeoutRef.current = setTimeout(() => {
                             setSidebarMode('settings');
                             modeResetTimeoutRef.current = null;
@@ -165,10 +301,40 @@ export function DesktopSidebar() {
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.1 }}
-                                    className="gradient-text font-bold"
+                                    className="gradient-text font-bold flex-1 min-w-0"
                                 >
                                     {userSettings?.serverName || 'Dashboard'}
                                 </motion.div>
+                            )}
+                        </AnimatePresence>
+                        {/* Auto-hide toggle button - only visible when expanded */}
+                        <AnimatePresence>
+                            {isExpanded && (
+                                <motion.button
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.8 }}
+                                    transition={{ duration: 0.15 }}
+                                    className="mr-4 p-1.5 rounded-lg text-theme-secondary hover:text-theme-primary hover:bg-theme-hover transition-colors"
+                                    title={isSidebarHidden ? 'Show Sidebar' : 'Hide Sidebar'}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSidebarHidden(!isSidebarHidden);
+                                        if (!isSidebarHidden) {
+                                            // Hiding: collapse and hide
+                                            setIsExpanded(false);
+                                            setIsPeeking(false);
+                                        }
+                                    }}
+                                >
+                                    <PanelLeftClose
+                                        size={18}
+                                        style={{
+                                            transform: isSidebarHidden ? 'scaleX(-1)' : 'none',
+                                            transition: 'transform 0.2s ease',
+                                        }}
+                                    />
+                                </motion.button>
                             )}
                         </AnimatePresence>
                     </div>
@@ -204,7 +370,7 @@ export function DesktopSidebar() {
                             />
                         </div>
                     ) : (
-                        <nav ref={navScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-1 relative">
+                        <nav ref={navScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-1 relative" style={{ overscrollBehavior: 'contain' }}>
                             {/* Mode Toggle - Tabs / Settings (only on settings page, when expanded) */}
                             {hash.startsWith('settings') && isExpanded && (
                                 <div className="px-4 mb-3">

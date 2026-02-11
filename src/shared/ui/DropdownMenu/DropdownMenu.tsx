@@ -27,11 +27,13 @@
  * </DropdownMenu>
  */
 
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState, useCallback, useEffect } from 'react';
 import * as RadixDropdownMenu from '@radix-ui/react-dropdown-menu';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { popIn } from '../animations';
+import { useCloseOnScroll } from '../../../hooks/useCloseOnScroll';
+import { useOverlayScrollLock } from '../../../hooks/useOverlayScrollLock';
 
 // ===========================
 // DropdownMenu Root
@@ -46,16 +48,49 @@ export interface DropdownMenuProps {
      * will close this one. Defaults to true for proper UX.
      */
     modal?: boolean;
+    /**
+     * Close the dropdown when the main scroll container is scrolled.
+     * Useful for dashboard dropdowns that float in a portal.
+     */
+    closeOnScroll?: boolean;
     children: React.ReactNode;
 }
 
 export function DropdownMenu({
     children,
     modal = true,
+    closeOnScroll = false,
+    open: controlledOpen,
+    onOpenChange: controlledOnOpenChange,
     ...props
 }: DropdownMenuProps) {
+    // Internal state management for close-on-scroll
+    const [internalOpen, setInternalOpen] = useState(false);
+
+    // Use controlled or internal state
+    const isControlled = controlledOpen !== undefined;
+    const isOpen = isControlled ? controlledOpen : internalOpen;
+
+    const handleOpenChange = useCallback((open: boolean) => {
+        if (!isControlled) {
+            setInternalOpen(open);
+        }
+        controlledOnOpenChange?.(open);
+    }, [isControlled, controlledOnOpenChange]);
+
+    // Close on scroll when enabled
+    useCloseOnScroll(
+        closeOnScroll && isOpen,
+        () => handleOpenChange(false)
+    );
+
     return (
-        <RadixDropdownMenu.Root modal={modal} {...props}>
+        <RadixDropdownMenu.Root
+            modal={modal}
+            open={isOpen}
+            onOpenChange={handleOpenChange}
+            {...props}
+        >
             {children}
         </RadixDropdownMenu.Root>
     );
@@ -106,6 +141,11 @@ const DropdownMenuContent = forwardRef<HTMLDivElement, DropdownMenuContentProps>
         alignOffset = 0,
         ...props
     }, ref) => {
+        const contentRef = React.useRef<HTMLDivElement>(null);
+
+        // Prevent touch scroll from bleeding through to the page behind
+        useOverlayScrollLock(true, contentRef);
+
         return (
             <RadixDropdownMenu.Portal>
                 <RadixDropdownMenu.Content
@@ -118,6 +158,7 @@ const DropdownMenuContent = forwardRef<HTMLDivElement, DropdownMenuContentProps>
                     {...props}
                 >
                     <motion.div
+                        ref={contentRef}
                         variants={popIn}
                         initial="hidden"
                         animate="visible"
@@ -130,6 +171,7 @@ const DropdownMenuContent = forwardRef<HTMLDivElement, DropdownMenuContentProps>
               py-1
               ${className}
             `}
+                        style={{ overscrollBehavior: 'contain' }}
                     >
                         {children}
                     </motion.div>

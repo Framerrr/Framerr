@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import logger from '../../../utils/logger';
 import { generateAllMobileLayouts } from '../../../utils/layoutUtils';
 import { isAdmin } from '../../../utils/permissions';
+import { getWidgetMetadata } from '../../../widgets/registry';
 import {
     useWidgets,
     useRoleAwareIntegrations,
@@ -53,10 +54,20 @@ interface UseDashboardDataReturn {
     handleWidgetVisibilityChange: (widgetId: string, isVisible: boolean) => void;
 
     // Greeting
-    greetingEnabled: boolean;
-    setGreetingEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+    greetingMode: 'auto' | 'manual';
+    setGreetingMode: React.Dispatch<React.SetStateAction<'auto' | 'manual'>>;
     greetingText: string;
     setGreetingText: React.Dispatch<React.SetStateAction<string>>;
+    headerVisible: boolean;
+    setHeaderVisible: React.Dispatch<React.SetStateAction<boolean>>;
+    taglineEnabled: boolean;
+    setTaglineEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+    taglineText: string;
+    setTaglineText: React.Dispatch<React.SetStateAction<string>>;
+    tones: string[];
+    setTones: React.Dispatch<React.SetStateAction<string[]>>;
+    loadingMessagesEnabled: boolean;
+    setLoadingMessagesEnabled: React.Dispatch<React.SetStateAction<boolean>>;
 
     // User preferences
     mobileDisclaimerDismissed: boolean;
@@ -187,9 +198,17 @@ export function useDashboardData({
     const [widgetVisibility, setWidgetVisibility] = useState<Record<string, boolean>>({});
     const [widgetPixelSizes, setWidgetPixelSizes] = useState<Record<string, { w: number; h: number }>>({});
 
-    // Greeting preferences - initialized from query data
-    const [greetingEnabled, setGreetingEnabled] = useState<boolean>(true);
-    const [greetingText, setGreetingText] = useState<string>('Your personal dashboard');
+    // Greeting & header preferences - initialized from query data
+    const [greetingMode, setGreetingMode] = useState<'auto' | 'manual'>('auto');
+    const [greetingText, setGreetingText] = useState<string>('');
+    const [headerVisible, setHeaderVisible] = useState<boolean>(true);
+    const [taglineEnabled, setTaglineEnabled] = useState<boolean>(true);
+    const [taglineText, setTaglineText] = useState<string>('Your personal dashboard');
+    const [tones, setTones] = useState<string[]>(['standard', 'witty', 'nerdy']);
+    const [loadingMessagesEnabled, setLoadingMessagesEnabled] = useState<boolean>(() => {
+        const saved = localStorage.getItem('framerr-loading-messages');
+        return saved !== null ? saved !== 'false' : true;
+    });
     const [mobileDisclaimerDismissed, setMobileDisclaimerDismissed] = useState<boolean>(false);
     const [hideMobileEditButton, setHideMobileEditButton] = useState<boolean>(false);
 
@@ -221,8 +240,17 @@ export function useDashboardData({
                 setHideMobileEditButton(true);
             }
             if (prefs?.dashboardGreeting) {
-                setGreetingEnabled(prefs.dashboardGreeting.enabled ?? true);
-                setGreetingText(prefs.dashboardGreeting.text || 'Your personal dashboard');
+                const g = prefs.dashboardGreeting;
+                setGreetingMode(g.mode || 'auto');
+                const displayName = user?.displayName || user?.username || 'User';
+                setGreetingText((g.text || 'Welcome back, {user}').replace(/\{user\}/gi, displayName));
+                setHeaderVisible(g.headerVisible ?? true);
+                setTaglineEnabled(g.taglineEnabled ?? g.enabled ?? true);
+                setTaglineText(g.taglineText || g.text || 'Your personal dashboard');
+                setTones(g.tones || ['standard', 'witty', 'nerdy']);
+                setLoadingMessagesEnabled(g.loadingMessages ?? true);
+                // Persist to localStorage for instant splash screen preference on next load
+                localStorage.setItem('framerr-loading-messages', String(g.loadingMessages ?? true));
             }
         }
     }, [userPreferencesData]);
@@ -273,6 +301,9 @@ export function useDashboardData({
     // Check if user has access to a widget type
     const hasWidgetAccess = useCallback((widgetType: string): boolean => {
         if (userIsAdmin) return true;
+        // Global/utility widgets (clock, weather, link-grid, custom-html) are always accessible
+        const metadata = getWidgetMetadata(widgetType);
+        if (metadata?.isGlobal) return true;
         if (accessibleWidgetTypes === 'all') return true;
         return accessibleWidgetTypes.includes(widgetType);
     }, [userIsAdmin, accessibleWidgetTypes]);
@@ -302,10 +333,20 @@ export function useDashboardData({
         sharedIntegrations,
         widgetVisibility,
         handleWidgetVisibilityChange,
-        greetingEnabled,
-        setGreetingEnabled,
+        greetingMode,
+        setGreetingMode,
         greetingText,
         setGreetingText,
+        headerVisible,
+        setHeaderVisible,
+        taglineEnabled,
+        setTaglineEnabled,
+        taglineText,
+        setTaglineText,
+        tones,
+        setTones,
+        loadingMessagesEnabled,
+        setLoadingMessagesEnabled,
         mobileDisclaimerDismissed,
         setMobileDisclaimerDismissed,
         hideMobileEditButton,

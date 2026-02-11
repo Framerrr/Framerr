@@ -28,7 +28,13 @@ interface SidebarConfig {
 
 interface DashboardGreeting {
     enabled: boolean;
+    mode: 'auto' | 'manual';
     text: string;
+    headerVisible: boolean;
+    taglineEnabled: boolean;
+    taglineText: string;
+    tones: string[];
+    loadingMessages: boolean;
 }
 
 interface Preferences {
@@ -87,7 +93,13 @@ const DEFAULT_USER_CONFIG: UserConfig = {
     preferences: {
         dashboardGreeting: {
             enabled: true,
-            text: 'Your personal dashboard'
+            mode: 'auto',
+            text: 'Welcome back, {user}',
+            headerVisible: true,
+            taglineEnabled: true,
+            taglineText: 'Your personal dashboard',
+            tones: ['standard', 'witty', 'nerdy'],
+            loadingMessages: true
         }
     }
 };

@@ -77,7 +77,6 @@ const FormActionBar: React.FC<FormActionBarProps> = ({
                     <Popover.Content align="end" sideOffset={4} className="p-1 min-w-[256px]" maxWidth="320px">
                         <div
                             className="max-h-[320px] overflow-y-scroll overscroll-contain"
-                            onWheel={(e) => e.stopPropagation()}
                         >
                             {availableIntegrations.map((integration) => {
                                 const IconComponent = getIconComponent(integration.icon);

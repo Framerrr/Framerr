@@ -115,6 +115,12 @@ const TemplateBuilderStep2: React.FC<Step2Props> = ({ data, onChange, onDraftSav
     const [sidebarOpen, setSidebarOpen] = useState(!isPreviewMode);
     const [viewMode, setViewMode] = useState<ViewMode>('desktop');
 
+    // Guard ref to prevent circular state updates.
+    // When syncing parent data → hook (setInitialData), GridStack may fire onLayoutCommit
+    // which would echo back through onWidgetsChange → onChange → data.widgets change → infinite loop.
+    // This guard suppresses the echo during parent-initiated syncs.
+    const isSyncingFromParentRef = useRef(false);
+
     // Integration instance type for sharing selector (admin only)
     interface IntegrationInstance {
         id: string;
@@ -149,10 +155,13 @@ const TemplateBuilderStep2: React.FC<Step2Props> = ({ data, onChange, onDraftSav
         initialMobileLayoutMode: data.mobileLayoutMode || 'linked',
         isMobile: viewMode === 'mobile',
         onWidgetsChange: (newWidgets) => {
-            // Pass directly - types are identical
+            // Skip echo when update originated from parent data sync (prevents infinite loop)
+            if (isSyncingFromParentRef.current) return;
             queueMicrotask(() => onChange({ widgets: newWidgets }));
         },
         onMobileWidgetsChange: (newMobileWidgets) => {
+            // Skip echo when update originated from parent data sync (prevents infinite loop)
+            if (isSyncingFromParentRef.current) return;
             queueMicrotask(() => onChange({ mobileWidgets: newMobileWidgets }));
         },
         onMobileLayoutModeChange: (mode) => {
@@ -293,23 +302,38 @@ const TemplateBuilderStep2: React.FC<Step2Props> = ({ data, onChange, onDraftSav
         const modeChanged = currentMode !== lastSyncedModeRef.current;
 
         if (widgetsChanged || mobileChanged || modeChanged) {
+            // Update tracking refs BEFORE state changes (prevents re-entry on same data)
             lastSyncedDataRef.current = currentDataStr;
             lastSyncedMobileRef.current = currentMobileStr;
             lastSyncedModeRef.current = currentMode;
+
+            // Guard: suppress onWidgetsChange echo while syncing from parent
+            isSyncingFromParentRef.current = true;
 
             setInitialData({
                 widgets: data.widgets,
                 mobileWidgets: data.mobileWidgets || [],
                 mobileLayoutMode: currentMode,
                 preserveCache: true,
+                editMode: true, // Template builder is always in edit mode
+            });
+
+            // Clear guard after React has flushed all synchronous state updates.
+            // Any GridStack onLayoutCommit calls during this sync will be suppressed.
+            queueMicrotask(() => {
+                isSyncingFromParentRef.current = false;
             });
         }
     }, [data.widgets, data.mobileWidgets, data.mobileLayoutMode, setInitialData]);
 
-    // Keep hook in "edit mode" since template builder is always editing
+    // Keep hook in "edit mode" since template builder is always editing.
+    // Mount-only: setEditMode is intentionally excluded from deps because its identity
+    // changes whenever widgets change (it captures state values), which would cause
+    // cascading re-renders. Template builder always wants edit mode on.
     useEffect(() => {
         setEditMode(true);
-    }, [setEditMode]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         setViewBreakpoint(viewMode === 'mobile' ? 'sm' : 'lg');

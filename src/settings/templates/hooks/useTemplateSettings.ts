@@ -15,6 +15,7 @@ import { useLayout } from '../../../context/LayoutContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useNotifications } from '../../../context/NotificationContext';
 import { readFramerrFile } from '../../../utils/templateExportImport';
+import { generateWidgetId } from '../../../shared/grid/core/ops';
 import logger from '../../../utils/logger';
 import type { Template, BackupData, BuilderMode } from '../types';
 
@@ -248,6 +249,20 @@ export function useTemplateSettings(): UseTemplateSettingsReturn {
             const imported = await readFramerrFile(file);
 
             // Open builder with imported template data
+            // Generate unique IDs for imported widgets (export format strips IDs)
+            const widgetsWithIds = imported.template.widgets.map(w => ({
+                ...w,
+                id: generateWidgetId(),
+                config: w.config || {},
+            }));
+            const mobileWidgetsWithIds = imported.template.mobileWidgets
+                ? imported.template.mobileWidgets.map(w => ({
+                    ...w,
+                    id: generateWidgetId(),
+                    config: w.config || {},
+                }))
+                : undefined;
+
             setBuilderMode('import');
             setEditingTemplate({
                 id: '',
@@ -255,10 +270,10 @@ export function useTemplateSettings(): UseTemplateSettingsReturn {
                 description: imported.template.description || '',
                 categoryId: undefined,
                 ownerId: '',
-                widgets: imported.template.widgets,
+                widgets: widgetsWithIds,
                 isDraft: false,
                 mobileLayoutMode: imported.template.mobileLayoutMode,
-                mobileWidgets: imported.template.mobileWidgets || undefined,
+                mobileWidgets: mobileWidgetsWithIds,
                 createdAt: '',
                 updatedAt: '',
             } as Template);

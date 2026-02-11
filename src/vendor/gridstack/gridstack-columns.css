@@ -49,6 +49,43 @@
     z-index: 10 !important;
 }
 
+/* Push resize handles slightly outside widget bounds to align with visual indicators */
+.grid-stack-item>.ui-resizable-nw {
+    top: -3px !important;
+    left: -3px !important;
+}
+
+.grid-stack-item>.ui-resizable-ne {
+    top: -3px !important;
+    right: -3px !important;
+}
+
+.grid-stack-item>.ui-resizable-sw {
+    bottom: -3px !important;
+    left: -3px !important;
+}
+
+.grid-stack-item>.ui-resizable-se {
+    bottom: -3px !important;
+    right: -3px !important;
+}
+
+.grid-stack-item>.ui-resizable-n {
+    top: -3px !important;
+}
+
+.grid-stack-item>.ui-resizable-s {
+    bottom: -3px !important;
+}
+
+.grid-stack-item>.ui-resizable-e {
+    right: -3px !important;
+}
+
+.grid-stack-item>.ui-resizable-w {
+    left: -3px !important;
+}
+
 /* =============================================================================
  * Modal Drag Fix (from GridStack PR #2353)
  * When dragging from a modal, the helper element needs to be above the modal's
@@ -383,21 +420,21 @@
         touch-action: none;
     }
 
-    /* Position corner handles - inset inside widget */
+    /* Position corner handles - slightly outside widget bounds */
     .grid-stack-item>.ui-resizable-nw {
-        top: 0 !important;
-        left: 0 !important;
+        top: -2px !important;
+        left: -2px !important;
     }
 
     .grid-stack-item>.ui-resizable-sw {
-        bottom: 0 !important;
-        left: 0 !important;
+        bottom: -2px !important;
+        left: -2px !important;
         top: auto !important;
     }
 
     .grid-stack-item>.ui-resizable-se {
-        bottom: 0 !important;
-        right: 0 !important;
+        bottom: -2px !important;
+        right: -2px !important;
         top: auto !important;
         left: auto !important;
     }

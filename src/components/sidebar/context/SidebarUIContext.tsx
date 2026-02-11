@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { useLayout } from '../../../context/LayoutContext';
 import { ExpandedGroups } from '../types';
 import { useSidebarTabs } from './SidebarTabsContext';
+import { configApi } from '../../../api/endpoints';
+import logger from '../../../utils/logger';
 
 // ============================================================================
 // SidebarUIContext
@@ -12,6 +14,10 @@ interface SidebarUIContextType {
     // Expansion state
     isExpanded: boolean;
     setIsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
+
+    // Auto-hide state
+    isSidebarHidden: boolean;
+    setSidebarHidden: (hidden: boolean) => void;
 
     // Mobile menu
     isMobileMenuOpen: boolean;
@@ -68,8 +74,59 @@ export function SidebarUIProvider({ children }: SidebarUIProviderProps) {
     // Notification center
     const [showNotificationCenter, setShowNotificationCenter] = useState<boolean>(false);
 
-    // Context hooks
+    // Context hooks (before effects that depend on isMobile)
     const { isMobile } = useLayout();
+
+    // Auto-hide state (persisted to DB)
+    const [isSidebarHidden, setIsSidebarHiddenState] = useState<boolean>(false);
+
+    // Load sidebar auto-hide preference from DB on mount
+    useEffect(() => {
+        const loadSidebarPreference = async (): Promise<void> => {
+            try {
+                const response = await configApi.getUser();
+                if (response?.preferences?.sidebarAutoHide) {
+                    setIsSidebarHiddenState(true);
+                }
+            } catch (error) {
+                logger.debug('Could not load sidebar preference');
+            }
+        };
+        if (!isMobile) {
+            loadSidebarPreference();
+        }
+    }, [isMobile]);
+
+    // Toggle sidebar hidden state and persist to DB
+    const setSidebarHidden = useCallback(async (hidden: boolean): Promise<void> => {
+        setIsSidebarHiddenState(hidden);
+        try {
+            await configApi.updateUser({
+                preferences: { sidebarAutoHide: hidden }
+            });
+            // Dispatch event to sync with settings page
+            window.dispatchEvent(new CustomEvent('user-preferences-changed', {
+                detail: { sidebarAutoHide: hidden }
+            }));
+        } catch (error) {
+            logger.error('Failed to save sidebar preference:', { error });
+            // Revert on error
+            setIsSidebarHiddenState(!hidden);
+        }
+    }, []);
+
+    // Listen for preference changes from settings page
+    useEffect(() => {
+        const handlePreferencesChanged = (event: Event): void => {
+            const detail = (event as CustomEvent).detail;
+            if (detail?.sidebarAutoHide !== undefined) {
+                setIsSidebarHiddenState(detail.sidebarAutoHide);
+            }
+        };
+        window.addEventListener('user-preferences-changed', handlePreferencesChanged);
+        return () => window.removeEventListener('user-preferences-changed', handlePreferencesChanged);
+    }, []);
+
 
     // Toggle group expansion and persist to localStorage
     const toggleGroup = useCallback((groupId: string): void => {
@@ -253,6 +310,8 @@ export function SidebarUIProvider({ children }: SidebarUIProviderProps) {
     const value = useMemo<SidebarUIContextType>(() => ({
         isExpanded,
         setIsExpanded,
+        isSidebarHidden,
+        setSidebarHidden,
         isMobileMenuOpen,
         setIsMobileMenuOpen,
         isMobile,
@@ -267,7 +326,7 @@ export function SidebarUIProvider({ children }: SidebarUIProviderProps) {
         showNotificationCenter,
         setShowNotificationCenter,
     }), [
-        isExpanded, isMobileMenuOpen, isMobile, expandedGroups, toggleGroup,
+        isExpanded, isSidebarHidden, setSidebarHidden, isMobileMenuOpen, isMobile, expandedGroups, toggleGroup,
         hoveredItem, handleMouseEnter, handleMouseLeave, showNotificationCenter
     ]);
 

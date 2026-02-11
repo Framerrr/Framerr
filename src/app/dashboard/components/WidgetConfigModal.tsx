@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Modal, Select, Switch, IntegrationDropdown } from '../../../shared/ui';
+import { Modal, Select, Switch, IntegrationDropdown, CodeEditor } from '../../../shared/ui';
 import { getWidgetMetadata, getWidgetIcon, getWidgetConfigConstraints } from '../../../widgets/registry';
 import { useWidgetConfigUI } from '../../../shared/widgets';
 import { useRoleAwareIntegrations } from '../../../api/hooks';
@@ -224,7 +224,7 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
 
     /**
      * Renders a single option based on its type.
-     * Supports: toggle, toggle-buttons, buttons, select, text, number, search
+     * Supports: toggle, toggle-buttons, buttons, select, text, textarea, number, search
      */
     const renderOption = (option: WidgetConfigOption) => {
         const currentValue = config[option.key] ?? option.defaultValue;
@@ -345,6 +345,39 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
                 );
             }
 
+            case 'textarea': {
+                // If syntax highlighting requested, use CodeEditor
+                if (option.syntax) {
+                    return (
+                        <div key={option.key} className="space-y-2">
+                            <span className="text-sm text-theme-secondary">{option.label}</span>
+                            <CodeEditor
+                                value={(currentValue as string) || ''}
+                                onChange={(val) => updateConfig(option.key, val)}
+                                syntax={option.syntax}
+                                placeholder={option.placeholder}
+                                rows={option.rows ?? 4}
+                                disabled={isReadOnly}
+                            />
+                        </div>
+                    );
+                }
+
+                return (
+                    <div key={option.key} className="space-y-2">
+                        <span className="text-sm text-theme-secondary">{option.label}</span>
+                        <textarea
+                            value={(currentValue as string) || ''}
+                            onChange={(e) => updateConfig(option.key, e.target.value)}
+                            placeholder={option.placeholder}
+                            disabled={isReadOnly}
+                            rows={option.rows ?? 4}
+                            className={`w-full px-3 py-2 rounded-lg text-sm bg-theme-tertiary text-theme-primary border border-theme placeholder:text-theme-tertiary focus:outline-none focus:border-accent transition-colors font-mono ${isReadOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        />
+                    </div>
+                );
+            }
+
             case 'number': {
                 return (
                     <div key={option.key} className="space-y-2">
@@ -425,6 +458,21 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
                                 )}
                             </div>
                         )}
+                    </div>
+                );
+            }
+
+            case 'component': {
+                const CustomComponent = option.component;
+                if (!CustomComponent) return null;
+                return (
+                    <div key={option.key} className="space-y-2">
+                        <span className="text-sm text-theme-secondary">{option.label}</span>
+                        <CustomComponent
+                            config={config}
+                            updateConfig={updateConfig}
+                            widgetHeight={widgetHeight}
+                        />
                     </div>
                 );
             }
@@ -562,6 +610,13 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
 
         const integrationOptions = availableIntegrations.map(i => ({ value: i.id, label: i.displayName }));
 
+        // Validate stored integrationId against available options
+        // If the stored ID doesn't match any option (e.g. integration was deleted),
+        // treat as unselected so the placeholder shows instead of an empty Select
+        const storedId = config.integrationId as string | undefined;
+        const isValidId = storedId && integrationOptions.some(opt => opt.value === storedId);
+        const selectValue = isValidId ? storedId : '';
+
         return (
             <div className="flex flex-col items-center pb-4 border-b border-theme mb-2">
                 <div className="flex items-center gap-2 mb-3">
@@ -577,7 +632,7 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
                     </div>
                 ) : (
                     <div className="w-full">
-                        <Select value={(config.integrationId as string) || ''} onValueChange={(value) => updateConfig('integrationId', value || undefined)}>
+                        <Select value={selectValue} onValueChange={(value) => updateConfig('integrationId', value || undefined)}>
                             <Select.Trigger className="w-full">
                                 <Select.Value placeholder="Select an integration..." />
                             </Select.Trigger>

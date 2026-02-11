@@ -85,14 +85,14 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
                     padding="none"
                 >
                     {shouldShowHeader && (
-                        <div className="widget-header flex items-center justify-between px-3 py-2 border-b border-theme">
-                            <div className="flex items-center gap-3 min-w-0">
+                        <div className="widget-header h-[36px] flex items-center justify-between px-3 border-b border-theme">
+                            <div className="flex items-center gap-2.5 min-w-0">
                                 {Icon && (
-                                    <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center flex-shrink-0">
-                                        <Icon size={18} className="text-accent" />
+                                    <div className="w-6 h-6 rounded-md bg-accent/20 flex items-center justify-center flex-shrink-0">
+                                        <Icon size={14} className="text-accent" />
                                     </div>
                                 )}
-                                <h3 className="text-lg font-semibold text-theme-primary truncate">
+                                <h3 className="text-sm font-semibold text-theme-primary truncate">
                                     {title || 'Widget'}
                                 </h3>
                             </div>
@@ -119,42 +119,30 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
                         className={`widget-header-wrapper ${shouldShowHeader ? '' : 'widget-header--collapsed'}`}
                     >
                         {supportsHeader && (
-                            <div className="widget-header flex items-center justify-between px-3 py-2 border-b border-theme">
-                                <div className="flex items-center gap-3 min-w-0">
+                            <div className="widget-header h-[36px] flex items-center justify-between px-3 border-b border-theme">
+                                <div className="flex items-center gap-2.5 min-w-0">
                                     {Icon && (
-                                        <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center flex-shrink-0">
-                                            <Icon size={18} className="text-accent" />
+                                        <div className="w-6 h-6 rounded-md bg-accent/20 flex items-center justify-center flex-shrink-0">
+                                            <Icon size={14} className="text-accent" />
                                         </div>
                                     )}
-                                    <h3 className="text-lg font-semibold text-theme-primary truncate">
+                                    <h3 className="text-sm font-semibold text-theme-primary truncate">
                                         {title || 'Widget'}
                                     </h3>
                                 </div>
-                                {/* Preview mode: simple delete button in header */}
-                                {editMode && onDelete && (
-                                    <button
-                                        onClick={handleDelete}
-                                        className="p-1.5 rounded text-theme-secondary hover:text-error hover:bg-error/10 transition-colors no-drag"
-                                        title="Remove from template"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
-                                )}
                             </div>
                         )}
                     </div>
 
-                    {/* Preview mode: floating delete for headerless widgets */}
-                    {editMode && !shouldShowHeader && onDelete && (
-                        <div className="widget-edit-controls absolute top-2 right-2 z-50 no-drag">
+                    {/* Preview mode: floating delete button - always absolute top-right */}
+                    {editMode && onDelete && (
+                        <div className="widget-edit-controls absolute top-[6px] right-[6px] z-50 no-drag">
                             <button
                                 onClick={handleDelete}
-                                className="p-1.5 rounded bg-theme-secondary/80 text-theme-secondary hover:text-error hover:bg-error/20 transition-colors"
+                                className="w-6 h-6 rounded bg-theme-secondary/80 flex items-center justify-center text-theme-secondary hover:text-error hover:bg-error/20 transition-colors"
                                 title="Remove from template"
                             >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
@@ -181,36 +169,24 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
                     className={`widget-header-wrapper ${shouldShowHeader ? '' : 'widget-header--collapsed'}`}
                 >
                     {supportsHeader && (
-                        <div className="widget-header flex items-center justify-between px-3 py-2 border-b border-theme">
-                            <div className="flex items-center gap-3 min-w-0">
+                        <div className="widget-header h-[36px] flex items-center justify-between px-3 border-b border-theme">
+                            <div className="flex items-center gap-2.5 min-w-0">
                                 {Icon && (
-                                    <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center flex-shrink-0">
-                                        <Icon size={18} className="text-accent" />
+                                    <div className="w-6 h-6 rounded-md bg-accent/20 flex items-center justify-center flex-shrink-0">
+                                        <Icon size={14} className="text-accent" />
                                     </div>
                                 )}
-                                <h3 className="text-lg font-semibold text-theme-primary truncate">
+                                <h3 className="text-sm font-semibold text-theme-primary truncate">
                                     {title || 'Widget'}
                                 </h3>
                             </div>
-                            {/* Edit mode controls in header */}
-                            {editMode && (
-                                <div className="no-drag">
-                                    <WidgetActionsPopover
-                                        widgetId={widget.id}
-                                        onEdit={onEdit}
-                                        onMoveResize={onMoveResize}
-                                        onDuplicate={onDuplicate}
-                                        onDelete={handleDelete}
-                                    />
-                                </div>
-                            )}
                         </div>
                     )}
                 </div>
 
-                {/* Edit mode controls for widgets without header - centered vertically */}
-                {editMode && !shouldShowHeader && (
-                    <div className="widget-edit-controls absolute top-1/2 -translate-y-1/2 right-2 z-50 no-drag">
+                {/* Config button - single absolute render, centered in header area */}
+                {editMode && (
+                    <div className="widget-edit-controls absolute top-[6px] right-[6px] z-50 no-drag">
                         <WidgetActionsPopover
                             widgetId={widget.id}
                             onEdit={onEdit}

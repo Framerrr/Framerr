@@ -37,8 +37,11 @@ export const GRID_COLS = {
 // Sizing
 // =============================================================================
 
-/** Row height in pixels (halved to enable finer-grained sizing) */
-export const ROW_HEIGHT = 50;
+/** Row height in pixels.
+ * Widget card height = ROW_HEIGHT - (2 × GRID_MARGIN) = 60 - 10 = 50px at h=1.
+ * This is the GridStack cellHeight, which INCLUDES margin insets on each side.
+ */
+export const ROW_HEIGHT = 60;
 
 /** Gap/margin between widgets [horizontal, vertical] in pixels
  * GridStack applies this as insets on each widget, so adjacent widgets have 2× this gap.

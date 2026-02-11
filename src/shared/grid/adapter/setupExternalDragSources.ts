@@ -33,6 +33,26 @@ interface SetupOptions {
 /** Track which selectors already have active watchers */
 const activeWatchers = new Map<string, MutationObserver>();
 
+/** Last known screen rect of the drag helper (for FLIP animation on drop) */
+let lastHelperRect: DOMRect | null = null;
+
+/** Live morph-content DOM node detached during cleanupDrag (before GridStack strips it) */
+let lastMorphContent: HTMLElement | null = null;
+
+/** Get the last known helper rect (consumed once, then cleared) */
+export function getLastHelperRect(): DOMRect | null {
+    const rect = lastHelperRect;
+    lastHelperRect = null;
+    return rect;
+}
+
+/** Get the last morph-content DOM node (consumed once, then cleared) */
+export function getLastMorphContent(): HTMLElement | null {
+    const el = lastMorphContent;
+    lastMorphContent = null;
+    return el;
+}
+
 // ============================================================================
 // MAIN FUNCTION
 // ============================================================================
@@ -144,8 +164,8 @@ export function setupExternalDragSources(
                 width: ${actualCardWidth}px;
                 height: ${actualCardHeight}px;
                 pointer-events: none;
-                transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1), 
-                           height 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+                transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1), 
+                           height 0.35s cubic-bezier(0.22, 1, 0.36, 1);
             `;
 
             // Store target size and card size for morph animation
@@ -169,7 +189,7 @@ export function setupExternalDragSources(
                 position: absolute;
                 inset: 0;
                 opacity: 1;
-                transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                transition: opacity 0.15s ease-out;
                 pointer-events: none;
             `;
             // Clone the inner content of the card
@@ -202,10 +222,10 @@ export function setupExternalDragSources(
                 inset: 0;
                 opacity: 0;
                 background: var(--bg-primary, #0f172a);
-                border: 2px dashed var(--accent, #3b82f6);
-                border-radius: 12px;
-                box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-                transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                border: none;
+                border-radius: 1rem;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+                transition: opacity 0.2s ease-in;
                 box-sizing: border-box;
                 overflow: hidden;
             `;
@@ -232,16 +252,41 @@ export function setupExternalDragSources(
             // Setup MutationObserver to watch for placeholder
             setupPlaceholderWatcher();
 
+            // Track helper position for FLIP animation on drop
+            const trackPosition = () => {
+                if (currentHelper) {
+                    lastHelperRect = currentHelper.getBoundingClientRect();
+                }
+            };
+
             // Cleanup when drag ends
             const cleanupDrag = () => {
                 if (observer) {
                     observer.disconnect();
                     observer = null;
                 }
+                // Capture final position and detach morph-content before GridStack strips it
+                trackPosition();
+                // Detach the morph-content DOM node — GridStack will destroy helper children
+                // on drop, so we must save the live element NOW
+                if (currentHelper) {
+                    const morphContent = currentHelper.querySelector('.morph-content') as HTMLElement | null;
+                    if (morphContent) {
+                        // Remove from parent to prevent GridStack from destroying it.
+                        // Always save even if React portal hasn't rendered children yet —
+                        // by the time the FLIP overlay displays, React will have committed.
+                        morphContent.remove();
+                        lastMorphContent = morphContent;
+                    }
+                }
                 currentHelper = null;
+                document.removeEventListener('mousemove', trackPosition);
+                document.removeEventListener('touchmove', trackPosition);
                 document.removeEventListener('mouseup', cleanupDrag);
                 document.removeEventListener('touchend', cleanupDrag);
             };
+            document.addEventListener('mousemove', trackPosition);
+            document.addEventListener('touchmove', trackPosition);
             document.addEventListener('mouseup', cleanupDrag);
             document.addEventListener('touchend', cleanupDrag);
 
@@ -287,7 +332,7 @@ export function setupExternalDragSources(
                     width: ${cardWidth}px;
                     height: ${cardHeight}px;
                     pointer-events: none;
-                    transition: width 0.2s ease-out, height 0.2s ease-out, border-radius 0.2s ease-out;
+                    transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1), height 0.35s cubic-bezier(0.22, 1, 0.36, 1);
                 `;
 
                 helper.dataset.targetWidth = String(targetSize.width);
@@ -302,11 +347,11 @@ export function setupExternalDragSources(
                     position: relative;
                     width: 100%;
                     height: 100%;
-                    background: linear-gradient(135deg, #1e293b, #0f172a);
-                    border: 2px solid #3b82f6;
-                    border-radius: 12px;
-                    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-                    transition: all 0.2s ease-out;
+                    background: var(--bg-primary, #0f172a);
+                    border: none;
+                    border-radius: 1rem;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+                    transition: opacity 0.2s ease-in;
                     box-sizing: border-box;
                     overflow: hidden;
                 `;
@@ -325,15 +370,35 @@ export function setupExternalDragSources(
                 isMorphed = false;
                 setupPlaceholderWatcher();
 
+                // Track helper position for FLIP animation on drop
+                const trackPosition = () => {
+                    if (currentHelper) {
+                        lastHelperRect = currentHelper.getBoundingClientRect();
+                    }
+                };
+
                 const cleanupDrag = () => {
                     if (observer) {
                         observer.disconnect();
                         observer = null;
                     }
+                    trackPosition();
+                    if (currentHelper) {
+                        const morphContent = currentHelper.querySelector('.morph-content') as HTMLElement | null;
+                        if (morphContent) {
+                            // Always save — React portal may still be committing on first drag
+                            morphContent.remove();
+                            lastMorphContent = morphContent;
+                        }
+                    }
                     currentHelper = null;
+                    document.removeEventListener('mousemove', trackPosition);
+                    document.removeEventListener('touchmove', trackPosition);
                     document.removeEventListener('mouseup', cleanupDrag);
                     document.removeEventListener('touchend', cleanupDrag);
                 };
+                document.addEventListener('mousemove', trackPosition);
+                document.addEventListener('touchmove', trackPosition);
                 document.addEventListener('mouseup', cleanupDrag);
                 document.addEventListener('touchend', cleanupDrag);
 
@@ -407,13 +472,13 @@ export function setupExternalDragSources(
         const cardClone = currentHelper.querySelector('.morph-card-clone') as HTMLElement;
         const portalContent = currentHelper.querySelector('.morph-content') as HTMLElement;
 
-        // Step 1: Immediately fade out card content (fast 80ms)
+        // Step 1: Fade out card content
         if (cardClone) {
-            cardClone.style.transition = 'opacity 0.08s ease-out';
+            cardClone.style.transition = 'opacity 0.15s ease-out';
             cardClone.style.opacity = '0';
         }
 
-        // Step 2: After card fades, change size and fade in widget
+        // Step 2: Start size morph slightly after card starts fading
         setTimeout(() => {
             if (!currentHelper) return;
 
@@ -423,12 +488,17 @@ export function setupExternalDragSources(
 
             currentHelper.style.width = `${offsetWidth}px`;
             currentHelper.style.height = `${offsetHeight}px`;
+        }, 60); // Start size morph while card is still fading
 
+        // Step 3: Fade in widget content after card is fully gone + size has started
+        setTimeout(() => {
+            if (!currentHelper) return;
             if (portalContent) {
+                portalContent.style.transition = 'opacity 0.25s ease-in';
                 portalContent.style.opacity = '1';
                 portalContent.dataset.morphed = 'true';
             }
-        }, 80); // Wait for card fade-out
+        }, 200); // Card fade (150ms) + brief pause for size transition to settle
 
         isMorphed = true;
     }
@@ -443,14 +513,14 @@ export function setupExternalDragSources(
         const cardClone = currentHelper.querySelector('.morph-card-clone') as HTMLElement;
         const portalContent = currentHelper.querySelector('.morph-content') as HTMLElement;
 
-        // Step 1: Immediately fade out widget content (fast 80ms)
+        // Step 1: Fade out widget content
         if (portalContent) {
-            portalContent.style.transition = 'opacity 0.08s ease-out';
+            portalContent.style.transition = 'opacity 0.15s ease-out';
             portalContent.style.opacity = '0';
             portalContent.dataset.morphed = 'false';
         }
 
-        // Step 2: After widget fades, change size and fade in card
+        // Step 2: Start size morph while widget is fading
         setTimeout(() => {
             if (!currentHelper) return;
 
@@ -460,12 +530,16 @@ export function setupExternalDragSources(
 
             currentHelper.style.width = `${cardW}px`;
             currentHelper.style.height = `${cardH}px`;
+        }, 60);
 
+        // Step 3: Fade in card after widget is gone + size transition started
+        setTimeout(() => {
+            if (!currentHelper) return;
             if (cardClone) {
                 cardClone.style.transition = 'opacity 0.25s cubic-bezier(0.22, 1, 0.36, 1)';
                 cardClone.style.opacity = '1';
             }
-        }, 80); // Wait for widget fade-out
+        }, 200);
 
         isMorphed = false;
     }

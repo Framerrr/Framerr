@@ -78,37 +78,14 @@ const AddWidgetModal = ({
                                 }
                             });
 
-                            // Close or reopen modal based on where the drop landed
-                            const closeDragModal = (e: Event) => {
+                            // Always close modal when drag ends — whether dropped on grid or not.
+                            // Re-opening the modal is trivial, and trying to restore visibility
+                            // causes z-index stacking issues.
+                            const closeDragModal = () => {
                                 isDraggingRef.current = false;
                                 document.removeEventListener('mouseup', closeDragModal);
                                 document.removeEventListener('touchend', closeDragModal);
-
-                                // Determine drop position from event
-                                let x = 0, y = 0;
-                                if (e instanceof MouseEvent) {
-                                    x = e.clientX;
-                                    y = e.clientY;
-                                } else if (e instanceof TouchEvent && e.changedTouches.length > 0) {
-                                    x = e.changedTouches[0].clientX;
-                                    y = e.changedTouches[0].clientY;
-                                }
-
-                                // Check if drop landed on a grid-stack element
-                                const dropTarget = document.elementFromPoint(x, y);
-                                const droppedOnGrid = dropTarget?.closest('.grid-stack') != null;
-
-                                if (droppedOnGrid) {
-                                    // Dropped on grid - close modal without restoring styles (no flash)
-                                    onClose();
-                                } else {
-                                    // Dropped outside grid - restore modal visibility
-                                    portalElements.forEach(el => {
-                                        el.style.removeProperty('opacity');
-                                        el.style.removeProperty('pointer-events');
-                                        el.style.removeProperty('z-index');
-                                    });
-                                }
+                                onClose();
                             };
                             document.addEventListener('mouseup', closeDragModal as EventListener);
                             document.addEventListener('touchend', closeDragModal as EventListener);

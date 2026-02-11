@@ -29,6 +29,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ChevronDown } from 'lucide-react';
 import { popIn } from '../animations';
 import { formSizeClasses, type FormSize } from '../formSizeClasses';
+import { useCloseOnScroll } from '../../../hooks/useCloseOnScroll';
+import { useOverlayScrollLock } from '../../../hooks/useOverlayScrollLock';
 
 // Global tracker - when a select opens, it closes any previously open one
 let currentlyOpenSelect: { close: () => void } | null = null;
@@ -52,6 +54,8 @@ export interface SelectProps {
     disabled?: boolean;
     name?: string;
     required?: boolean;
+    /** Close when main scroll container is scrolled. Default false (settings context). */
+    closeOnScroll?: boolean;
     children: React.ReactNode;
 }
 
@@ -59,6 +63,7 @@ export function Select({
     children,
     open: controlledOpen,
     onOpenChange: externalOnOpenChange,
+    closeOnScroll = false,
     ...props
 }: SelectProps) {
     const [internalOpen, setInternalOpen] = useState(false);
@@ -102,6 +107,12 @@ export function Select({
             setInternalOpen(open);
         }
     }, [isControlled, externalOnOpenChange]);
+
+    // Close on scroll when enabled
+    useCloseOnScroll(
+        closeOnScroll && isOpen,
+        () => handleOpenChange(false)
+    );
 
     return (
         <RadixSelect.Root
@@ -201,6 +212,11 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
         align = 'start',
         ...props
     }, ref) => {
+        const contentRef = useRef<HTMLDivElement>(null);
+
+        // Prevent touch scroll from bleeding through to the page behind
+        useOverlayScrollLock(true, contentRef);
+
         return (
             <RadixSelect.Portal>
                 <RadixSelect.Content
@@ -213,6 +229,7 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
                     {...props}
                 >
                     <motion.div
+                        ref={contentRef}
                         variants={popIn}
                         initial="hidden"
                         animate="visible"
@@ -226,7 +243,10 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
               ${className}
             `}
                     >
-                        <RadixSelect.Viewport className="max-h-[300px] overflow-y-auto">
+                        <RadixSelect.Viewport
+                            className="max-h-[300px] overflow-y-auto"
+                            style={{ overscrollBehavior: 'contain' }}
+                        >
                             {children}
                         </RadixSelect.Viewport>
                     </motion.div>

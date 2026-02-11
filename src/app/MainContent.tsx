@@ -7,6 +7,7 @@ import SettingsPage from './settings/SettingsPage';
 import { useSharedSidebar } from '../components/sidebar/SharedSidebarContext';
 import { useLayout } from '../context/LayoutContext';
 import { LAYOUT } from '../constants/layout';
+import { signalAppReady } from '../utils/splash';
 
 /**
  * PageLayer - Wrapper for keep-alive pages
@@ -160,6 +161,17 @@ const MainContent = (): React.JSX.Element => {
 
     // Get visited tabs
     const visitedTabs = Array.from(visitedPages).filter(isTabPage);
+
+    // Fallback: if Dashboard hasn't signaled ready within 2s, signal from here.
+    // Dashboard fires its own signal earlier when data loads.
+    // This catches edge cases (e.g., direct navigation to settings).
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark-pro';
+            signalAppReady(currentTheme);
+        }, 2000);
+        return () => clearTimeout(timeout);
+    }, []);
 
     // Dev pages are rendered conditionally (not keep-alive)
     if (currentPage === 'dev/widget-states') {

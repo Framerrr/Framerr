@@ -157,7 +157,17 @@ export interface WidgetConfigOption {
     label: string;
 
     /** UI control type */
-    type: 'toggle' | 'toggle-buttons' | 'buttons' | 'select' | 'text' | 'number' | 'search';
+    type: 'toggle' | 'toggle-buttons' | 'buttons' | 'select' | 'text' | 'textarea' | 'number' | 'search' | 'component';
+
+    /**
+     * For 'component' type: a React component rendered inline.
+     * Receives config state and an update callback.
+     */
+    component?: ComponentType<{
+        config: Record<string, unknown>;
+        updateConfig: (key: string, value: unknown) => void;
+        widgetHeight?: number;
+    }>;
 
     /** Default value if not set in widget config */
     defaultValue?: unknown;
@@ -169,10 +179,16 @@ export interface WidgetConfigOption {
      */
     choices?: WidgetConfigChoice[];
 
-    // === TEXT / NUMBER / SEARCH PROPERTIES ===
+    // === TEXT / TEXTAREA / NUMBER / SEARCH PROPERTIES ===
 
-    /** Placeholder text for text/number/search inputs */
+    /** Placeholder text for text/textarea/number/search inputs */
     placeholder?: string;
+
+    /** For 'textarea': number of visible rows (default: 4) */
+    rows?: number;
+
+    /** For 'textarea': syntax highlighting language (default: none) */
+    syntax?: 'html' | 'css';
 
     /** For 'number': minimum value */
     min?: number;

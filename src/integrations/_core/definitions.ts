@@ -13,11 +13,12 @@
  *   That's it! Frontend automatically picks up the new integration.
  */
 
-import { LucideIcon } from 'lucide-react';
-
 // ============================================================================
 // Types
 // ============================================================================
+
+/** Icon component type - accepts both Lucide icons and custom icon components */
+export type IconComponent = React.ComponentType<{ size?: number; className?: string }>;
 
 export interface FieldDefinition {
     key: string;
@@ -41,7 +42,7 @@ export interface ServiceDefinition {
     id: string;
     name: string;
     description: string;
-    icon: LucideIcon;
+    icon: IconComponent;
     category: 'system' | 'media' | 'management';
     fields?: FieldDefinition[];
     /** Info message shown at top of form for setup guidance */

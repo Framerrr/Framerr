@@ -28,6 +28,7 @@ export interface OverseerrRequest {
         status: number;
         posterPath: string | null;
         localPosterPath: string | null;
+        backdropPath: string | null;
         overview?: string | null;
         releaseDate?: string | null;
         voteAverage?: number | null;

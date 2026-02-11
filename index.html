@@ -26,7 +26,7 @@
 
   <!-- Critical CSS for Splash Screen - loads before React/JS -->
   <style id="splash-styles">
-    /* Splash screen uses CSS variables set by inline script below */
+    /* Splash screen — server injects correct theme colors via template placeholders */
     #framerr-splash {
       position: fixed;
       inset: 0;
@@ -36,7 +36,7 @@
       align-items: center;
       justify-content: center;
       background-color: var(--splash-bg, #0a0e1a);
-      transition: opacity 0.3s ease-out;
+      transition: opacity 0.3s ease-out, background-color 0.5s ease;
     }
 
     #framerr-splash.fade-out {
@@ -45,19 +45,22 @@
     }
 
     #framerr-splash .spinner {
-      width: 32px;
-      height: 32px;
+      width: 32px !important;
+      height: 32px !important;
+      box-sizing: content-box !important;
       border: 2px solid var(--splash-border, rgba(148, 163, 184, 0.2));
       border-top-color: var(--splash-accent, #3b82f6);
       border-radius: 50%;
       animation: splash-spin 1s linear infinite;
       margin-bottom: 12px;
+      transition: border-color 0.5s ease;
     }
 
     #framerr-splash .text {
       color: var(--splash-text, #94a3b8);
       font-family: system-ui, -apple-system, sans-serif;
       font-size: 14px;
+      transition: color 0.5s ease;
     }
 
     @keyframes splash-spin {
@@ -67,49 +70,73 @@
     }
   </style>
 
-  <!-- Theme detection + splash colors - runs before React loads -->
+  <!-- Theme injection — server replaces {{placeholders}} with correct theme colors -->
+  <!-- In dev (Vite), placeholders remain as fallback strings and localStorage is used -->
   <script>
     (function () {
-      // Theme color mappings for splash screen
-      // NOTE: When adding new themes, add them here too!
-      // See docs/reference/theming.md for details
-      var themeColors = {
-        'dark-pro': { bg: '#0a0e1a', text: '#94a3b8', accent: '#3b82f6' },
-        'light': { bg: '#ffffff', text: '#6b7280', accent: '#3b82f6' },
-        'nord': { bg: '#2e3440', text: '#81a1c1', accent: '#88c0d0' },
-        'catppuccin': { bg: '#1e1e2e', text: '#bac2de', accent: '#89b4fa' },
-        'dracula': { bg: '#282a36', text: '#e6e6e6', accent: '#bd93f9' },
-        'noir': { bg: '#0f0f12', text: '#888888', accent: '#8a9ba8' },
-        'nebula': { bg: '#0d0d1a', text: '#94a3b8', accent: '#a855f7' }
+      // Server-injected values (production) — placeholders are replaced by server/index.ts
+      var injected = {
+        theme: '{{SPLASH_THEME}}',
+        bg: '{{SPLASH_BG}}',
+        text: '{{SPLASH_TEXT}}',
+        accent: '{{SPLASH_ACCENT}}'
       };
 
-      // Get saved theme from localStorage
-      var saved = localStorage.getItem('framerr-theme');
-      var theme = saved || 'dark-pro';
+      // Check if server injected real values (not raw placeholders)
+      var isInjected = injected.theme.indexOf('{{') === -1;
 
-      // Check system preference for light theme
-      if (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-        theme = 'light';
+      var theme, bg, text, accent;
+
+      if (isInjected) {
+        // Production: server knows exactly which theme to show
+        theme = injected.theme;
+        bg = injected.bg;
+        text = injected.text;
+        accent = injected.accent;
+      } else {
+        // Dev mode: fall back to localStorage detection
+        var themeColors = {
+          'dark-pro': { bg: '#0a0e1a', text: '#94a3b8', accent: '#3b82f6' },
+          'light': { bg: '#ffffff', text: '#6b7280', accent: '#3b82f6' },
+          'nord': { bg: '#2e3440', text: '#81a1c1', accent: '#88c0d0' },
+          'catppuccin': { bg: '#1e1e2e', text: '#bac2de', accent: '#89b4fa' },
+          'dracula': { bg: '#282a36', text: '#e6e6e6', accent: '#bd93f9' },
+          'noir': { bg: '#0f0f12', text: '#888888', accent: '#8a9ba8' },
+          'nebula': { bg: '#0d0d1a', text: '#94a3b8', accent: '#a855f7' }
+        };
+        var saved = localStorage.getItem('framerr-theme');
+        theme = saved || 'dark-pro';
+        if (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+          theme = 'light';
+        }
+        var colors = themeColors[theme] || themeColors['dark-pro'];
+        bg = colors.bg;
+        text = colors.text;
+        accent = colors.accent;
       }
 
-      // Set data-theme attribute (for full CSS later)
+      // Apply theme
       document.documentElement.setAttribute('data-theme', theme);
 
-      // Apply splash screen colors immediately
-      var colors = themeColors[theme] || themeColors['dark-pro'];
-      document.documentElement.style.setProperty('--splash-bg', colors.bg);
-      document.documentElement.style.setProperty('--splash-text', colors.text);
-      document.documentElement.style.setProperty('--splash-accent', colors.accent);
-      document.documentElement.style.setProperty('--splash-border', colors.text + '33'); // 20% opacity
+      // Apply splash colors
+      document.documentElement.style.setProperty('--splash-bg', bg);
+      document.documentElement.style.setProperty('--splash-text', text);
+      document.documentElement.style.setProperty('--splash-accent', accent);
+      document.documentElement.style.setProperty('--splash-border', text + '33');
+
+      // Record splash start time + initial theme for airlock comparison
+      window.__splashStart = performance.now();
+      window.__splashTheme = theme;
+
     })();
   </script>
 </head>
 
-<body>
+<body style="background-color: var(--splash-bg, #0a0e1a)">
   <!-- Splash Screen - shows instantly with correct theme colors -->
   <div id="framerr-splash">
     <div class="spinner"></div>
-    <div class="text">Loading...</div>
+    <div class="text" id="splash-message">Loading...</div>
   </div>
 
   <div id="root"></div>

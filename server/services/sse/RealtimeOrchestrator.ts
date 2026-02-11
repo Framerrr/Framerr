@@ -51,7 +51,7 @@ export interface RealtimeHealth {
 
 export class RealtimeOrchestrator {
     private activeConnections: Map<string, RealtimeState> = new Map();
-    private broadcastFn: (topic: string, data: unknown) => void;
+    private broadcastFn: (topic: string, data: unknown, options?: { forceFullPayload?: boolean }) => void;
     private idleTimers: Map<string, NodeJS.Timeout> = new Map();
 
     // Configuration constants
@@ -61,7 +61,7 @@ export class RealtimeOrchestrator {
     private static readonly WS_FAILURE_THRESHOLD = 5;           // Fall back to polling after ~30s (1+2+4+8+16=31s with backoff)
     private static readonly WS_RETRY_INTERVAL_MS = 60_000;      // Retry WS every 60s when in polling mode
 
-    constructor(broadcast?: (topic: string, data: unknown) => void) {
+    constructor(broadcast?: (topic: string, data: unknown, options?: { forceFullPayload?: boolean }) => void) {
         this.broadcastFn = broadcast || broadcastToTopic;
     }
 
@@ -93,7 +93,7 @@ export class RealtimeOrchestrator {
             this.broadcastFn(topic, {
                 ...(typeof data === 'object' && data !== null ? data : { data }),
                 _meta: { healthy: true, source: 'realtime' }
-            });
+            }, { forceFullPayload: true });
         };
 
         const manager = plugin.realtime.createManager(pluginInstance, onUpdate);

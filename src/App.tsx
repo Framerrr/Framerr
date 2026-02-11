@@ -83,6 +83,7 @@ const CustomColorLoader: React.FC<CustomColorLoaderProps> = ({ children }) => {
 // Inner layout content that uses sidebar context for dynamic padding
 const MainLayoutContent: React.FC = () => {
     const { isMobile } = useLayout();
+    const { isSidebarHidden } = useSharedSidebar();
 
     // SSE-based settings sync - invalidates React Query caches when settings change
     useSettingsSSE();
@@ -90,9 +91,9 @@ const MainLayoutContent: React.FC = () => {
     // P9: SSE connection state toasts (reconnecting, reconnected, failed)
     useConnectionToasts();
 
-    // Main container always uses collapsed sidebar width
-    // Settings page handles its own extra padding when sidebar is expanded
-    const sidebarPadding = isMobile ? 0 : LAYOUT.SIDEBAR_WIDTH;
+    // Main container: collapsed sidebar width, PAGE_MARGIN if sidebar is hidden (keeps a visible trigger strip on left)
+    const isOnSettingsPage = window.location.hash.slice(1).startsWith('settings');
+    const sidebarPadding = isMobile ? 0 : (isSidebarHidden && !isOnSettingsPage ? 0 : LAYOUT.SIDEBAR_WIDTH);
 
     return (
         <>

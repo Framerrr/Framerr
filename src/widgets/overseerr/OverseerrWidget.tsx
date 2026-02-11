@@ -25,6 +25,7 @@ interface Media {
     status?: number;
     posterPath?: string | null;
     localPosterPath?: string | null;
+    backdropPath?: string | null;
     overview?: string | null;
     releaseDate?: string | null;
     voteAverage?: number | null;
@@ -106,8 +107,28 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
     const userIsAdmin = isAdmin(user);
 
     // Check if integration is bound (new pattern: explicit integrationId in config)
-    const config = widget.config as { integrationId?: string } | undefined;
+    const config = widget.config as { integrationId?: string; viewMode?: 'auto' | 'carousel' | 'stacked' } | undefined;
     const configuredIntegrationId = config?.integrationId;
+    const configViewMode = config?.viewMode ?? 'auto';
+
+    // Wrapper ref for auto view mode dimension measurement
+    const wrapperRef = useRef<HTMLDivElement>(null);
+    const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
+
+    useEffect(() => {
+        if (configViewMode !== 'auto' || !wrapperRef.current) return;
+        const ro = new ResizeObserver(([entry]) => {
+            const { width, height } = entry.contentRect;
+            setContainerSize({ w: width, h: height });
+        });
+        ro.observe(wrapperRef.current);
+        return () => ro.disconnect();
+    }, [configViewMode]);
+
+    // Resolve 'auto' based on container aspect ratio
+    const viewMode = configViewMode === 'auto'
+        ? (containerSize.h > containerSize.w * 1.2 ? 'stacked' : 'carousel')
+        : configViewMode;
 
     // Use unified access hook for widget + integration access
     const {
@@ -394,11 +415,152 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
         );
     }
 
-    const headerHeight = 32;
-    const headerGap = 12;
+    const headerHeight = 28;
+    const headerGap = 6;
+
+    // ========================================================================
+    // STACKED MODE
+    // ========================================================================
+    if (viewMode === 'stacked') {
+        return (
+            <div ref={wrapperRef} className="flex flex-col h-full overflow-hidden">
+                {/* Vertical scrollable list */}
+                <div
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        flex: 1,
+                        overflowY: 'auto',
+                        overflowX: 'hidden',
+                        overscrollBehaviorY: 'contain',
+                        scrollbarWidth: 'none',
+                        msOverflowStyle: 'none',
+                        borderRadius: '0.75rem',
+                    }}
+                    className="hide-scrollbar"
+                >
+                    <style>{`
+                        .hide-scrollbar::-webkit-scrollbar {
+                            display: none;
+                        }
+                    `}</style>
+                    {requests.map((req, i) => {
+                        const media = req.media;
+                        const title = media?.title || 'Unknown';
+                        const userName = req.requestedBy?.displayName || 'User';
+                        const downloadInfo = getDownloadInfo(req);
+
+                        // Status logic (same as carousel)
+                        let status = 'Requested';
+                        let statusColor = 'var(--warning)';
+                        if (media?.status === 5) { status = 'Available'; statusColor = 'var(--success)'; }
+                        else if (media?.status === 4) { status = 'Partial'; statusColor = 'var(--info)'; }
+                        else if (media?.status === 6) { status = 'Deleted'; statusColor = 'var(--error)'; }
+                        else if (downloadInfo?.isDownloading) { status = 'Downloading'; statusColor = 'var(--info)'; }
+                        else if (req.status === 5) { status = 'Completed'; statusColor = 'var(--success)'; }
+                        else if (req.status === 3) { status = 'Declined'; statusColor = 'var(--error)'; }
+                        else if (req.status === 4) { status = 'Failed'; statusColor = 'var(--error)'; }
+                        else if (req.status === 2) {
+                            if (media?.status === 3) { status = 'Processing'; statusColor = 'var(--info)'; }
+                            else { status = 'Approved'; statusColor = 'var(--success)'; }
+                        }
+
+                        // Backdrop for stacked mode, fall back to poster
+                        const backdropUrl = media?.backdropPath
+                            ? `https://image.tmdb.org/t/p/w780${media.backdropPath}`
+                            : null;
+                        const posterUrl = media?.localPosterPath
+                            ? `/api/cache/images/${media.localPosterPath}`
+                            : media?.posterPath
+                                ? `https://image.tmdb.org/t/p/w342${media.posterPath}`
+                                : null;
+                        const imageUrl = backdropUrl || posterUrl;
+
+                        return (
+                            <div
+                                key={`${req.id}-${i}`}
+                                className="relative flex-shrink-0 rounded-xl overflow-hidden cursor-pointer"
+                                style={{ aspectRatio: '16/7', width: '100%' }}
+                                onClick={() => setSelectedRequest({ request: req, downloadInfo })}
+                            >
+                                {/* Backdrop/Poster Image */}
+                                {imageUrl ? (
+                                    <img
+                                        src={imageUrl}
+                                        alt={title}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full bg-theme-tertiary flex items-center justify-center">
+                                        <Film size={32} className="text-theme-secondary opacity-30" />
+                                    </div>
+                                )}
+
+                                {/* Status Badge */}
+                                <div
+                                    className="absolute top-2 right-2 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border"
+                                    style={{
+                                        background: 'rgba(0,0,0,0.8)',
+                                        color: statusColor,
+                                        borderColor: `${statusColor}40`
+                                    }}
+                                >
+                                    {status}
+                                </div>
+
+                                {/* Download Progress (if downloading) */}
+                                {downloadInfo?.isDownloading && downloadInfo.downloads.length > 0 && (
+                                    <div className="absolute left-3 bottom-10 right-3">
+                                        {downloadInfo.downloads.slice(0, 2).map((dl) => (
+                                            <div key={dl.integrationId} className="flex items-center gap-2 mb-1">
+                                                <div className="flex-1 h-1.5 rounded-full bg-white/20 overflow-hidden">
+                                                    <div
+                                                        className="h-full rounded-full bg-accent"
+                                                        style={{ width: `${dl.progress}%` }}
+                                                    />
+                                                </div>
+                                                <span className="text-[10px] text-white/80 font-mono tabular-nums">{dl.progress}%</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Bottom Gradient with Title */}
+                                <div className="absolute inset-x-0 bottom-0 pt-8 pb-2.5 px-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+                                    <div className="font-semibold text-sm text-white line-clamp-1 leading-tight">
+                                        {title}
+                                    </div>
+                                    <div className="text-[11px] text-white/60 mt-0.5">
+                                        {userName}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Request Info Modal */}
+                {selectedRequest && (
+                    <RequestInfoModal
+                        request={selectedRequest.request}
+                        downloadInfo={selectedRequest.downloadInfo}
+                        integrationId={integrationId!}
+                        sonarrQueue={sonarrQueue}
+                        radarrQueue={radarrQueue}
+                        onClose={() => setSelectedRequest(null)}
+                    />
+                )}
+            </div>
+        );
+    }
+
+    // ========================================================================
+    // CAROUSEL MODE (default)
+    // ========================================================================
 
     return (
-        <div className="flex flex-col h-full overflow-hidden">
+        <div ref={wrapperRef} className="flex flex-col h-full overflow-hidden">
             {/* Header with Scroll Buttons */}
             <div style={{
                 display: 'flex',
@@ -446,9 +608,9 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                     overflowY: 'hidden',
                     overscrollBehaviorX: 'contain',
                     scrollBehavior: 'smooth',
-                    scrollbarWidth: 'none', // Firefox
-                    msOverflowStyle: 'none', // IE/Edge
-                    paddingBottom: '4px'
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    borderRadius: '0.75rem',
                 }}
                 className="hide-scrollbar"
             >
@@ -531,7 +693,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                     return (
                         <div
                             key={`${req.id}-${i}`}
-                            className="group relative h-full flex-shrink-0 rounded-xl overflow-hidden shadow-medium cursor-pointer"
+                            className="group relative h-full flex-shrink-0 rounded-xl overflow-hidden cursor-pointer"
                             style={{
                                 height: '100%',
                                 aspectRatio: '2/3'

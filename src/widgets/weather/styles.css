@@ -1,18 +1,25 @@
 /**
  * WeatherWidget - Fluid Container Query-based Responsive Styles
  * 
- * Uses CSS Container Queries with clamp() and container query units (cqi/cqb)
- * for fluid, dynamic sizing that scales with container size.
+ * Layout tiers (all based on container queries):
+ * 
+ * 1. WIDE + SHORT (h=1, w=6+)  → 4-column grid: icon | temp | condition+location | H/L
+ * 2. WIDE + TALL  (h=2+, w=6+) → Flex row: icon | temp | stacked info
+ * 3. NARROW (w<400px, h=2+)    → Grid: icon+temp+condition row, H/L row, location row
+ * 4. COMPACT (w<150px)         → Just icon + temp + condition
+ * 5. ULTRA COMPACT (w<100px)   → Temp only
  * 
  * Container Query Units:
  * - cqi = 1% of container inline size (width)
  * - cqb = 1% of container block size (height)
- * - cqmin = smaller of cqi/cqb
  * 
- * NO PADDING - WidgetWrapper handles padding consistently.
+ * RULE: Never clip. Hide elements progressively rather than overflow.
  */
 
-/* Container setup - enables @container queries with size tracking */
+/* ============================================================================
+ * Container Setup
+ * ============================================================================ */
+
 .weather-widget {
     container-type: size;
     container-name: weather;
@@ -26,7 +33,10 @@
     position: relative;
 }
 
-/* Refresh location button (edit mode only) - matches widget control buttons */
+/* ============================================================================
+ * Refresh Button (edit mode, auto location only)
+ * ============================================================================ */
+
 .weather-widget__refresh-btn {
     position: absolute;
     top: 4px;
@@ -56,7 +66,10 @@
     cursor: not-allowed;
 }
 
-/* Confirmation dialog overlay */
+/* ============================================================================
+ * Confirmation Dialog
+ * ============================================================================ */
+
 .weather-widget__confirm-overlay {
     position: absolute;
     inset: 0;
@@ -121,18 +134,22 @@
     filter: brightness(1.1);
 }
 
-/* ===== MAIN CONTENT: Horizontal flex by default (wide containers) ===== */
+/* ============================================================================
+ * DEFAULT LAYOUT: Flex row (wide + tall containers)
+ * Icon | Temp | Stacked Info
+ * ============================================================================ */
+
 .weather-widget__content {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: clamp(4px, 3cqi, 24px);
+    gap: clamp(6px, 3cqi, 24px);
     width: fit-content;
     max-width: 100%;
     flex-wrap: nowrap;
 }
 
-/* Weather Icon - scales fluidly with container size */
+/* Weather Icon */
 .weather-widget__icon {
     width: clamp(16px, min(12cqi, 40cqb), 56px);
     height: clamp(16px, min(12cqi, 40cqb), 56px);
@@ -141,7 +158,7 @@
     opacity: 0.8;
 }
 
-/* Temperature - primary text, scales fluidly */
+/* Temperature — primary element, always visible */
 .weather-widget__temp {
     font-size: clamp(1rem, min(10cqi, 50cqb), 4rem);
     font-weight: 700;
@@ -151,14 +168,15 @@
     white-space: nowrap;
 }
 
-/* Info section - contains location, condition, high/low */
+/* Info section — stacks vertically by default */
 .weather-widget__info {
     display: flex;
     flex-direction: column;
     gap: clamp(1px, 0.5cqi, 4px);
+    min-width: 0;
 }
 
-/* Location - city name with pin icon */
+/* Location */
 .weather-widget__location {
     display: flex;
     align-items: center;
@@ -196,8 +214,110 @@
     white-space: nowrap;
 }
 
-/* ===== STACKED LAYOUT: Narrow containers — grid with centered rows ===== */
-@container weather (max-width: 557px) {
+/* ============================================================================
+ * TIER 1: SHORT HEIGHT (h=1) + WIDE — 4-column grid
+ * [Icon] [42°] [📍 Location ........] [Condition · H/L]
+ * ============================================================================ */
+
+@container weather (max-height: 70px) and (min-width: 250px) {
+    .weather-widget__content {
+        display: grid;
+        grid-template-columns: auto auto 1fr auto auto;
+        align-items: center;
+        gap: 0 clamp(8px, 2.5cqi, 20px);
+        width: 100%;
+        padding: 0 clamp(4px, 1cqi, 12px);
+    }
+
+    .weather-widget__icon {
+        grid-column: 1;
+        width: clamp(18px, 20cqb, 36px);
+        height: clamp(18px, 20cqb, 36px);
+    }
+
+    .weather-widget__temp {
+        grid-column: 2;
+        font-size: clamp(1.2rem, 40cqb, 2.2rem);
+    }
+
+    /* Dissolve info wrapper so children join the parent grid */
+    .weather-widget__info {
+        display: contents;
+    }
+
+    /* Location fills the flexible middle */
+    .weather-widget__location {
+        grid-column: 3;
+        align-self: center;
+        font-size: clamp(0.6rem, 2.5cqi, 0.85rem);
+    }
+
+    /* Condition — lighter weight, right side */
+    .weather-widget__condition {
+        grid-column: 4;
+        font-size: clamp(0.65rem, 3cqi, 0.95rem);
+        font-weight: 400;
+        color: var(--text-tertiary);
+        white-space: nowrap;
+    }
+
+    /* H/L — bolder, right after condition */
+    .weather-widget__highlow {
+        grid-column: 5;
+        font-size: clamp(0.7rem, 3cqi, 1rem);
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+}
+
+/* Tier 1 narrower: hide icon when width is tight */
+@container weather (max-height: 70px) and (min-width: 250px) and (max-width: 400px) {
+    .weather-widget__icon {
+        display: none;
+    }
+}
+
+/* ============================================================================
+ * TIER 2: SHORT HEIGHT + NARROW — simple inline
+ * [42°] [Condition] [H/L]
+ * ============================================================================ */
+
+@container weather (max-height: 70px) and (max-width: 249px) {
+    .weather-widget__content {
+        gap: clamp(4px, 2cqi, 10px);
+    }
+
+    .weather-widget__icon {
+        display: none;
+    }
+
+    .weather-widget__info {
+        flex-direction: row;
+        align-items: center;
+        gap: clamp(3px, 1.5cqi, 8px);
+    }
+
+    .weather-widget__location {
+        display: none;
+    }
+
+    .weather-widget__condition {
+        font-size: clamp(0.6rem, 4cqi, 0.85rem);
+    }
+
+    .weather-widget__highlow {
+        font-size: clamp(0.55rem, 3.5cqi, 0.8rem);
+    }
+}
+
+/* ============================================================================
+ * TIER 3: STACKED LAYOUT — Narrow + Tall (enough height)
+ * Row 1: Icon + Temp + Condition
+ * Row 2: H/L centered
+ * Row 3: Location centered (if tall enough)
+ * ============================================================================ */
+
+@container weather (max-width: 400px) and (min-height: 71px) {
     .weather-widget__content {
         display: grid;
         grid-template-rows: auto auto;
@@ -227,11 +347,10 @@
     }
 
     .weather-widget__condition {
-        order: -1;
         font-size: clamp(0.7rem, 5cqi, 1.1rem);
     }
 
-    /* Row 2: High/Low + Location, centered */
+    /* Row 2: High/Low centered */
     .weather-widget__highlow {
         grid-column: 1 / -1;
         grid-row: 2;
@@ -239,14 +358,14 @@
         font-size: clamp(0.65rem, 4cqi, 1rem);
     }
 
-    /* Location hidden by default in stacked — shown again in taller containers */
+    /* Location hidden by default in stacked */
     .weather-widget__location {
         display: none;
     }
 }
 
-/* ===== TALL STACKED: Enough height to show location row ===== */
-@container weather (max-width: 557px) and (min-height: 80px) {
+/* Stacked + tall enough: show location as row 3 */
+@container weather (max-width: 400px) and (min-height: 100px) {
     .weather-widget__content {
         grid-template-rows: auto auto auto;
     }
@@ -260,8 +379,63 @@
     }
 }
 
-/* ===== COMPACT: Very small - hide location and high/low ===== */
-@container weather (max-width: 150px) {
+/* ============================================================================
+ * TIER 3b: TALL + SKINNY — Full vertical stack (e.g. 4w × 4h)
+ * Icon → Temp → Condition → H/L → Location, all centered
+ * ============================================================================ */
+
+@container weather (max-width: 200px) and (min-height: 120px) {
+    .weather-widget__content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(2px, 2cqb, 8px);
+        width: 100%;
+    }
+
+    .weather-widget__icon {
+        width: clamp(24px, 20cqi, 48px);
+        height: clamp(24px, 20cqi, 48px);
+    }
+
+    .weather-widget__temp {
+        font-size: clamp(1.5rem, 25cqi, 3rem);
+    }
+
+    .weather-widget__info {
+        align-items: center;
+        text-align: center;
+        gap: clamp(1px, 1cqb, 4px);
+    }
+
+    .weather-widget__condition {
+        font-size: clamp(0.7rem, 6cqi, 1rem);
+        order: 0;
+    }
+
+    .weather-widget__highlow {
+        font-size: clamp(0.65rem, 5cqi, 0.9rem);
+        order: 1;
+    }
+
+    .weather-widget__location {
+        font-size: clamp(0.6rem, 5cqi, 0.85rem);
+    }
+}
+
+/* Tall + skinny but not quite enough height: hide location */
+@container weather (max-width: 200px) and (min-height: 71px) and (max-height: 119px) {
+    .weather-widget__location {
+        display: none;
+    }
+}
+
+/* ============================================================================
+ * TIER 4: COMPACT — Very narrow, hide secondary info
+ * ============================================================================ */
+
+@container weather (max-width: 150px) and (min-height: 71px) {
 
     .weather-widget__location,
     .weather-widget__highlow {
@@ -269,11 +443,30 @@
     }
 }
 
-/* ===== ULTRA COMPACT: Tiny container - temp only ===== */
+/* ============================================================================
+ * TIER 5: ULTRA COMPACT — Tiny container, temp only
+ * ============================================================================ */
+
 @container weather (max-width: 100px) {
 
     .weather-widget__icon,
     .weather-widget__info {
         display: none;
+    }
+}
+
+/* ============================================================================
+ * SHORT + ULTRA NARROW: just temp
+ * ============================================================================ */
+
+@container weather (max-height: 70px) and (max-width: 120px) {
+
+    .weather-widget__icon,
+    .weather-widget__info {
+        display: none;
+    }
+
+    .weather-widget__temp {
+        font-size: clamp(1rem, 35cqb, 1.8rem);
     }
 }

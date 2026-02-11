@@ -23,6 +23,7 @@ import { UptimeKumaForm } from '../../integrations/uptime-kuma';
 import { getIntegrationIcon } from '../../integrations/_core/iconMapping';
 import { useIntegrationSettings } from './hooks/useIntegrationSettings';
 import { useIntegrationSchemas } from '../../api/hooks';
+import { useAdminNotificationConfig } from '../../api/hooks/useSettings';
 import { useRealtimeSSE, type LibrarySyncProgressEvent } from '../../hooks/useRealtimeSSE';
 import { widgetFetch } from '../../utils/widgetFetch';
 import type { PlexConfig } from './types';
@@ -99,6 +100,10 @@ const IntegrationSettings: React.FC = () => {
 
     // Fetch plugin schemas for dynamic form generation (P4 Phase 4.4)
     const { data: schemas } = useIntegrationSchemas();
+
+    // Fetch admin notification config for webhookBaseUrl
+    const { data: adminNotifConfig } = useAdminNotificationConfig();
+    const webhookBaseUrl = adminNotifConfig?.webhookBaseUrl;
 
     // Transform schemas to service list for dropdown
     const serviceList = useMemo(() => {
@@ -358,6 +363,7 @@ const IntegrationSettings: React.FC = () => {
                     onMonitorSave={handleMonitorSave}
                     onMonitorCancel={handleMonitorCancel}
                     onUptimeKumaSave={handleUptimeKumaSave}
+                    webhookBaseUrl={webhookBaseUrl}
                 />
             </SettingsSection>
         </SettingsPage>

@@ -52,6 +52,8 @@ export const ThemeProvider = ({ children }: ThemeProviderProps): React.JSX.Eleme
     useEffect(() => {
         if (themeData?.theme?.preset) {
             setLocalTheme(themeData.theme.preset);
+            // Persist to localStorage so splash screen uses correct theme on refresh
+            localStorage.setItem('framerr-theme', themeData.theme.preset);
         }
     }, [themeData]);
 

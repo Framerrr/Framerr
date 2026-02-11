@@ -70,8 +70,8 @@ const ServiceStatusPreview: React.FC<ServiceStatusPreviewProps> = ({ containerHe
         gap: `${layoutGap}px`,
         justifyContent: 'center',
         alignItems: 'center',
-        // Anchor rows to top for expanded (multi-row), center for compact variants
-        alignContent: layout.variant === 'expanded' ? 'flex-start' : 'center',
+        // Center cards within the container
+        alignContent: 'center',
         overflow: 'hidden',
         width: '100%',
         height: '100%',
@@ -272,8 +272,8 @@ const ServiceStatusWidget: React.FC<ServiceStatusWidgetProps> = ({ widget, isEdi
         gap: `${layoutGap}px`,
         justifyContent: 'center',
         alignItems: 'center',
-        // Anchor rows to top for expanded (multi-row), center for compact variants
-        alignContent: layout.variant === 'expanded' ? 'flex-start' : 'center',
+        // Center cards within the container
+        alignContent: 'center',
         overflow: 'hidden',
         width: '100%',
         height: '100%',
@@ -322,7 +322,7 @@ const ServiceStatusWidget: React.FC<ServiceStatusWidgetProps> = ({ widget, isEdi
                                 width: `${layout.cardSize}px`,
                                 height: `${COMPACT_CARD_HEIGHT}px`,
                                 background: 'rgba(255, 255, 255, 0.05)',
-                                borderRadius: '0.5rem',
+                                borderRadius: '0.75rem',
                                 border: 'none',
                                 cursor: 'pointer',
                             }
@@ -335,7 +335,7 @@ const ServiceStatusWidget: React.FC<ServiceStatusWidgetProps> = ({ widget, isEdi
                                     width: `${layout.cardSize}px`,
                                     height: `${COMPACT_CARD_HEIGHT}px`,
                                     background: 'rgba(255, 255, 255, 0.05)',
-                                    borderRadius: '0.5rem',
+                                    borderRadius: '0.75rem',
                                     border: 'none',
                                     cursor: 'pointer',
                                 }

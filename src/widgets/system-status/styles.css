@@ -1,103 +1,517 @@
 /**
- * System Status Widget - Container Query-based Responsive Styles
- * 
- * Uses CSS Container Queries for responsive adjustments.
- * Flexbox gap ensures equal spacing from edges and between metrics.
+ * System Status Widget - 4-Column Priority Grid
+ *
+ * Uses CSS container queries for adaptive layout.
+ * Card tiles with neutral themed styling.
+ * Collapses to single column at narrow widths.
  */
 
-/* Container setup - enables @container queries */
+/* Container setup */
 .system-status-widget {
     container-type: size;
     container-name: system-status;
     width: 100%;
     height: 100%;
-    display: flex;
-    align-items: stretch;
-    justify-content: center;
     box-sizing: border-box;
     overflow: hidden;
 }
 
-/* Content wrapper - flex with gap for equal spacing */
-.system-status-widget__content {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    height: 100%;
+/* 4-column priority grid */
+.system-status-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: minmax(2.5rem, 1fr);
+    gap: 0.5rem;
     width: 100%;
+    min-height: 100%;
     box-sizing: border-box;
+    padding: 0.25rem;
 }
 
-/* Individual metric row - flex to grow/shrink with min/max */
-.system-status-widget__metric {
-    width: 100%;
+/* ===== Span classes ===== */
+.metric-card--span-1 {
+    grid-column: span 1;
+}
+
+.metric-card--span-2 {
+    grid-column: span 2;
+}
+
+.metric-card--span-3 {
+    grid-column: span 3;
+}
+
+.metric-card--span-4 {
+    grid-column: span 4;
+}
+
+/* ===== Metric Card ===== */
+.metric-card {
+    background: transparent;
+    border: none;
+    border-radius: 1rem;
+    padding: 0.375rem 0.5rem;
+    min-height: 0;
+    overflow: hidden;
+    transition: background 0.15s ease;
+    container-type: inline-size;
+    container-name: metric;
+}
+
+/* Inner flex wrapper — this is the layout target */
+.metric-card__inner {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    flex: 1 1 auto;
-    min-height: 28px;
-    max-height: 60px;
+    width: 100%;
+    height: 100%;
+    gap: 0;
 }
 
-/* Metric header row with icon, label, and value */
-.system-status-widget__metric-header {
+/* Clickable metric cards (ones with graph popovers) */
+.metric-card--clickable {
+    cursor: pointer;
+}
+
+/* Hover only on pointer devices (no sticky hover on touch) */
+@media (hover: hover) {
+    .metric-card--clickable:hover {
+        background: color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary));
+    }
+}
+
+/* Active state — shown when popover is open (works on touch + pointer) */
+.metric-card--active {
+    background: color-mix(in srgb, var(--accent) 8%, var(--bg-tertiary));
+}
+
+.metric-card__header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: clamp(2px, 1cqb, 6px);
-    font-size: clamp(0.7rem, 2cqi, 0.9rem);
+    font-size: clamp(0.625rem, 8cqi, 0.95rem);
     color: var(--text-primary);
+    gap: 0.375rem;
+    min-width: 0;
+    overflow: hidden;
 }
 
-.system-status-widget__metric-label {
+.metric-card__label {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.375rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.system-status-widget__metric-value {
-    font-size: clamp(0.65rem, 1.8cqi, 0.8rem);
+.metric-card__label svg {
+    flex-shrink: 0;
+    color: var(--text-secondary);
 }
 
-/* Progress bar container - flexible height with bounds */
-.system-status-widget__progress {
-    height: clamp(5px, 1.5cqb, 12px);
+.metric-card__value {
+    font-size: clamp(0.6rem, 7cqi, 0.9rem);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    min-width: 0;
+    flex-shrink: 1;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+/* Progress bar — grows to fill available card height */
+.metric-card__progress {
+    flex: 1 1 auto;
+    min-height: clamp(5px, 1.5cqb, 5px);
+    max-height: clamp(8px, 3cqb, 10px);
     border-radius: 9999px;
     background: var(--bg-tertiary);
     overflow: hidden;
+    margin-top: clamp(4px, 1cqb, 8px);
 }
 
-/* Progress bar fill */
-.system-status-widget__progress-fill {
+.metric-card__progress-fill {
     height: 100%;
     border-radius: 9999px;
-    transition: width 0.3s ease;
+    transition: width 0.4s ease;
 }
 
-/* ===== COMPACT MODE: Smaller container - tighten min heights ===== */
+/* Borderless variant — no box, just floating content */
+.metric-card--borderless {
+    background: transparent;
+    border-color: transparent;
+}
+
+.metric-card--borderless:hover {
+    background: transparent;
+}
+
+/* Vertical layout variant — label/icon stacked above value */
+.metric-card--vertical .metric-card__inner {
+    align-items: center;
+    text-align: center;
+    gap: 0;
+}
+
+.metric-card--vertical .metric-card__header {
+    flex-direction: column;
+    gap: 0;
+}
+
+/* Tight padding for vertical cards — fits in compact spaces */
+.metric-card--vertical {
+    padding-top: 0.125rem;
+    padding-bottom: 0.125rem;
+}
+
+
+.metric-card--vertical .metric-card__label {
+    font-size: clamp(0.55rem, 6cqi, 0.75rem);
+    color: var(--text-secondary);
+}
+
+.metric-card--vertical .metric-card__value {
+    font-size: clamp(0.6rem, 12cqi, 1.3rem);
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.15;
+}
+
+/* ===== INLINE MODE: short widget (h=1) ===== */
+/* Toggled by hook — same pattern as header auto-hide */
+/* Layout: [icon name] [====bar====] [value] */
+.system-status--inline .metric-card {
+    padding: 0 0.25rem;
+}
+
+.system-status--inline .metric-card:not(.metric-card--vertical) .metric-card__inner {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Header becomes transparent — children join the main flex row (non-vertical only) */
+.system-status--inline .metric-card:not(.metric-card--vertical) .metric-card__header {
+    display: contents;
+}
+
+/* Label: first in line */
+.system-status--inline .metric-card__label {
+    order: 0;
+    flex-shrink: 0;
+}
+
+/* Progress bar: fills space between label and value */
+.system-status--inline .metric-card__progress {
+    order: 1;
+    flex: 1 1 0;
+    height: 6px;
+    min-height: 6px;
+    max-height: 6px;
+    margin-top: 0;
+}
+
+/* Value: end of line */
+.system-status--inline .metric-card__value {
+    order: 2;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* Vertical cards (uptime) stay stacked even in inline mode */
+.system-status--inline .metric-card--vertical .metric-card__inner {
+    flex-direction: column;
+    gap: 0;
+}
+
+.system-status--inline .metric-card--vertical .metric-card__header {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+/* ===== STACKED MODE ===== */
+.system-status-grid--stacked {
+    grid-template-columns: 1fr;
+}
+
+.system-status-grid--stacked .metric-card--span-1,
+.system-status-grid--stacked .metric-card--span-2,
+.system-status-grid--stacked .metric-card--span-3,
+.system-status-grid--stacked .metric-card--span-4 {
+    grid-column: span 1;
+}
+
+/* In stacked mode, vertical cards (uptime) stay stacked at all widths.
+   Height-based container queries below handle the short widget case. */
+
+/* ===== NARROW COLLAPSE: < 280px width → single column ===== */
+@container system-status (max-width: 279px) {
+    .system-status-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .metric-card--span-1,
+    .metric-card--span-2,
+    .metric-card--span-3,
+    .metric-card--span-4 {
+        grid-column: span 1;
+    }
+}
+
+/* ===== COMPACT HEIGHT: tighten padding ===== */
 @container system-status (max-height: 160px) {
-    .system-status-widget__metric {
-        min-height: 22px;
-        max-height: 45px;
+    .metric-card {
+        padding: 0.375rem 0.5rem;
     }
 
-    .system-status-widget__metric-header {
-        margin-bottom: 2px;
+    .metric-card__progress {
+        min-height: 3px;
+        max-height: 5px;
+        margin-top: 2px;
     }
 }
 
-/* ===== ULTRA COMPACT: Very small - minimal elements ===== */
+/* ===== ULTRA COMPACT: minimal (h=3) ===== */
 @container system-status (max-height: 120px) {
-    .system-status-widget__metric {
-        min-height: 18px;
-        max-height: 35px;
+    .system-status-grid {
+        gap: 0.25rem;
+        padding: 0.125rem;
     }
 
-    .system-status-widget__metric-header {
-        margin-bottom: 1px;
+    .metric-card {
+        padding: 0.25rem 0.375rem;
     }
 
-    .system-status-widget__progress {
-        height: clamp(2px, 0.8cqb, 4px);
+    .metric-card__progress {
+        min-height: 2px;
+        max-height: 3px;
+        margin-top: 1px;
     }
+}
+
+/* ===== MICRO COMPACT: h=1 or h=2 (under 80px) ===== */
+@container system-status (max-height: 79px) {
+    .system-status-grid {
+        gap: 0;
+        padding: 0;
+        align-content: center;
+    }
+
+    .metric-card {
+        padding: 0.125rem 0.375rem;
+    }
+
+    /* Vertical cards go inline at micro — JS .system-status--inline handles this,
+       but CSS backup ensures correct layout even before JS runs */
+    .metric-card--vertical .metric-card__header {
+        flex-direction: row;
+        justify-content: space-between;
+    }
+}
+
+
+/* ============================================================================
+ * METRIC LAYOUT EDITOR (Config Modal — Custom Row Grid)
+ * ============================================================================ */
+
+.metric-layout-editor {
+    width: 100%;
+}
+
+/* Row counter buttons */
+.metric-row-counter-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 0.375rem;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, opacity 0.15s ease;
+    line-height: 1;
+    padding: 0;
+}
+
+.metric-row-counter-btn:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+}
+
+.metric-row-counter-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.metric-row-counter-value {
+    min-width: 1.25rem;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+}
+
+.metric-layout-grid-wrapper {
+    background: var(--bg-primary);
+}
+
+.metric-layout-rows {
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- Row --- */
+.metric-row {
+    display: flex;
+    align-items: stretch;
+}
+
+/* Slots container */
+.metric-row-slots {
+    display: flex;
+    align-items: stretch;
+    flex: 1;
+    min-width: 0;
+    gap: 0;
+}
+
+/* --- Individual Metric Slot --- */
+.metric-slot {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+    transition: width 0.15s ease;
+}
+
+.metric-slot-card {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    width: 100%;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    user-select: none;
+    cursor: grab;
+    transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    position: relative;
+}
+
+.metric-slot-card:hover {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+}
+
+.metric-slot-card:active {
+    cursor: grabbing;
+}
+
+.metric-slot-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    pointer-events: none;
+    /* Allow drag through info area */
+}
+
+.metric-slot-remove {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+
+.metric-slot-card:hover .metric-slot-remove {
+    opacity: 1;
+}
+
+.metric-slot-remove:hover {
+    color: var(--error);
+    background: var(--bg-hover);
+}
+
+/* --- Drag-to-swap visual states --- */
+.metric-slot--dragging {
+    opacity: 0.4;
+}
+
+.metric-slot--dragging .metric-slot-card {
+    border-color: var(--accent);
+    border-style: dashed;
+}
+
+.metric-slot--drop-target .metric-slot-card {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+    box-shadow: 0 0 0 2px var(--accent), 0 0 12px rgba(var(--accent-rgb, 59, 130, 246), 0.2);
+}
+
+/* --- Resize Handle between paired items --- */
+.metric-resize-handle-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 20px;
+    flex-shrink: 0;
+    padding: 4px 0;
+}
+
+.metric-resize-divider {
+    width: 2px;
+    flex: 1;
+    background: var(--border);
+    border-radius: 1px;
+    opacity: 0.5;
+}
+
+.metric-resize-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.metric-resize-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--bg-hover);
+}
+
+.metric-resize-btn:disabled {
+    opacity: 0.25;
+    cursor: default;
 }

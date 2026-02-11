@@ -110,7 +110,7 @@ export interface GridRenderConfig {
     /** Breakpoints for responsive mode */
     breakpoints: { lg: number; sm: number };
     /** Row height in pixels */
-    rowHeight: number;
+    rowHeight: number | 'auto';
     /** Margin between widgets [horizontal, vertical] */
     margin: [number, number];
     /** Padding around container [horizontal, vertical] */

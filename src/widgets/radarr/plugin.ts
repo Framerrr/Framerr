@@ -17,7 +17,7 @@ export const plugin: WidgetPlugin = {
     icon: Film,
     sizing: {
         default: { w: 6, h: 6 },
-        min: { w: 6, h: 3 },
+        min: { w: 4, h: 3 },
         max: { w: 24, h: 18 },
     },
     component: lazy(() => import('./RadarrWidget')),

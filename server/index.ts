@@ -19,6 +19,7 @@ import { initializeIntegrationManager, shutdownIntegrationManager } from './serv
 import logger from './utils/logger';
 import { getSystemConfig } from './db/systemConfig';
 import { getUser, createUser, getUserById } from './db/users';
+import { getUserConfig } from './db/userConfig';
 import { hashPassword } from './auth/password';
 import { validateSession } from './auth/session';
 import { validateProxyWhitelist } from './middleware/proxyWhitelist';
@@ -284,11 +285,26 @@ app.use('/api/jobs', jobsRoutes);
 app.use('/api/icons', iconsRoutes);
 
 
+// Theme splash color map — server injects these into index.html template
+const THEME_SPLASH_COLORS: Record<string, { bg: string; text: string; accent: string }> = {
+    'dark-pro': { bg: '#0a0e1a', text: '#94a3b8', accent: '#3b82f6' },
+    'light': { bg: '#ffffff', text: '#6b7280', accent: '#3b82f6' },
+    'nord': { bg: '#2e3440', text: '#81a1c1', accent: '#88c0d0' },
+    'catppuccin': { bg: '#1e1e2e', text: '#bac2de', accent: '#89b4fa' },
+    'dracula': { bg: '#282a36', text: '#e6e6e6', accent: '#bd93f9' },
+    'noir': { bg: '#0f0f12', text: '#888888', accent: '#8a9ba8' },
+    'nebula': { bg: '#0d0d1a', text: '#94a3b8', accent: '#a855f7' },
+};
+const DEFAULT_SPLASH_COLORS = THEME_SPLASH_COLORS['dark-pro'];
+
 // In production, serve built frontend
 if (NODE_ENV === 'production') {
     // In compiled TypeScript, __dirname is server/dist/server, so go up to app root then into dist
     // Production: /app/server/dist/server -> /app/dist
     const distPath = path.join(__dirname, '../../../dist');
+
+    // Cache the HTML template for theme injection
+    let indexHtmlTemplate: string | null = null;
 
     // Service Worker - prevent caching to ensure updates are picked up
     app.get('/sw.js', (req: Request, res: Response) => {
@@ -307,13 +323,72 @@ if (NODE_ENV === 'production') {
         res.sendFile(path.join(distPath, 'login-complete.html'));
     });
 
-    // SPA fallback - send index.html for all non-API routes
-    app.get('*', (req: Request, res: Response, next: NextFunction) => {
-        // Skip API routes
+    // SPA fallback - inject user's theme into index.html before sending
+    app.get('*', async (req: Request, res: Response, next: NextFunction) => {
+        // Skip API routes and static assets
         if (req.path.startsWith('/api') || req.path.startsWith('/favicon') || req.path.startsWith('/profile-pictures')) {
             return next();
         }
-        res.sendFile(path.join(distPath, 'index.html'));
+
+        try {
+            // Load template once and cache
+            if (!indexHtmlTemplate) {
+                indexHtmlTemplate = fs.readFileSync(path.join(distPath, 'index.html'), 'utf8');
+            }
+
+            // Determine splash theme for this request
+            let themeName = 'dark-pro';
+            let splashColors = DEFAULT_SPLASH_COLORS;
+
+            if (req.user) {
+                // Authenticated — use the user's personal theme
+                try {
+                    const userId = (req.user as { id?: string }).id;
+                    if (userId) {
+                        const config = await getUserConfig(userId);
+                        const userTheme = (config?.theme as { preset?: string; mode?: string; customColors?: Record<string, string> });
+                        const preset = userTheme?.preset || userTheme?.mode || 'dark-pro';
+                        themeName = preset;
+
+                        if (preset === 'custom' && userTheme?.customColors?.['bg-primary']) {
+                            splashColors = {
+                                bg: userTheme.customColors['bg-primary'],
+                                text: userTheme.customColors['text-secondary'] || DEFAULT_SPLASH_COLORS.text,
+                                accent: userTheme.customColors['accent'] || DEFAULT_SPLASH_COLORS.accent,
+                            };
+                        } else {
+                            splashColors = THEME_SPLASH_COLORS[preset] || DEFAULT_SPLASH_COLORS;
+                        }
+                    }
+                } catch (err) {
+                    logger.debug(`[SPA] Could not load user theme, using default: ${(err as Error).message}`);
+                }
+            } else {
+                // Not authenticated — use loginTheme from system config (admin's theme)
+                try {
+                    const sysConfig = await getSystemConfig();
+                    const loginTheme = sysConfig.loginTheme || 'dark-pro';
+                    themeName = loginTheme;
+                    splashColors = THEME_SPLASH_COLORS[loginTheme] || DEFAULT_SPLASH_COLORS;
+                } catch {
+                    // Fall through to defaults
+                }
+            }
+
+            // Inject theme into template
+            const html = indexHtmlTemplate
+                .replace('{{SPLASH_THEME}}', themeName)
+                .replace('{{SPLASH_BG}}', splashColors.bg)
+                .replace('{{SPLASH_TEXT}}', splashColors.text)
+                .replace('{{SPLASH_ACCENT}}', splashColors.accent);
+
+            res.setHeader('Content-Type', 'text/html');
+            res.send(html);
+        } catch (err) {
+            logger.error(`[SPA] Failed to serve index.html: ${(err as Error).message}`);
+            // Fallback to static file
+            res.sendFile(path.join(distPath, 'index.html'));
+        }
     });
 }
 

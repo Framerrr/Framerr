@@ -73,13 +73,15 @@ export interface MetricGraphPopoverProps {
     integrationId?: string;
     /** Set to false to disable the graph popover (e.g., for Glances which has no /history endpoint) */
     historyEnabled?: boolean;
+    /** CSS class for grid column span (e.g., 'metric-card--span-2') */
+    spanClass?: string;
 }
 
 // ============================================================================
 // Component
 // ============================================================================
 
-const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, icon: Icon, integrationId, historyEnabled = true }) => {
+const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, icon: Icon, integrationId, historyEnabled = true, spanClass = '' }) => {
     const { isOpen, onOpenChange } = usePopoverState();
     const [currentRange, setCurrentRange] = useState<TimeRange>('1h');
     const [graphData, setGraphData] = useState<GraphDataPoint[]>([]);
@@ -230,26 +232,28 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
         return null;
     };
 
-    // Static metric bar (no popover) - used when history is disabled (e.g., Glances)
+    // Static metric card (no popover) - used when history is disabled (e.g., Glances)
     const StaticMetricBar = (
-        <div className="system-status-widget__metric">
-            <div className="system-status-widget__metric-header">
-                <span className="system-status-widget__metric-label">
-                    <Icon size={14} />
-                    {config.label}
-                </span>
-                <span className="system-status-widget__metric-value">
-                    {Number(value || 0).toFixed(metric === 'temperature' ? 0 : 1)}{config.unit}
-                </span>
-            </div>
-            <div className="system-status-widget__progress">
-                <div
-                    className="system-status-widget__progress-fill"
-                    style={{
-                        width: `${metric === 'temperature' ? Math.min(value, 100) : value}%`,
-                        backgroundColor: getColor(value)
-                    }}
-                />
+        <div className={`metric-card ${spanClass}`}>
+            <div className="metric-card__inner">
+                <div className="metric-card__header">
+                    <span className="metric-card__label">
+                        <Icon size={14} />
+                        {config.label}
+                    </span>
+                    <span className="metric-card__value">
+                        {Number(value || 0).toFixed(metric === 'temperature' ? 0 : 1)}{config.unit}
+                    </span>
+                </div>
+                <div className="metric-card__progress">
+                    <div
+                        className="metric-card__progress-fill"
+                        style={{
+                            width: `${metric === 'temperature' ? Math.min(value, 100) : value}%`,
+                            backgroundColor: getColor(value)
+                        }}
+                    />
+                </div>
             </div>
         </div>
     );
@@ -262,24 +266,26 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
     return (
         <Popover open={isOpen} onOpenChange={onOpenChange}>
             <Popover.Trigger asChild>
-                <div className="system-status-widget__metric cursor-pointer group">
-                    <div className="system-status-widget__metric-header group-hover:text-accent transition-colors">
-                        <span className="system-status-widget__metric-label">
-                            <Icon size={14} />
-                            {config.label}
-                        </span>
-                        <span className="system-status-widget__metric-value">
-                            {Number(value || 0).toFixed(metric === 'temperature' ? 0 : 1)}{config.unit}
-                        </span>
-                    </div>
-                    <div className="system-status-widget__progress">
-                        <div
-                            className="system-status-widget__progress-fill"
-                            style={{
-                                width: `${metric === 'temperature' ? Math.min(value, 100) : value}%`,
-                                backgroundColor: getColor(value)
-                            }}
-                        />
+                <div className={`metric-card metric-card--clickable${isOpen ? ' metric-card--active' : ''} ${spanClass}`}>
+                    <div className="metric-card__inner">
+                        <div className="metric-card__header">
+                            <span className="metric-card__label">
+                                <Icon size={14} />
+                                {config.label}
+                            </span>
+                            <span className="metric-card__value">
+                                {Number(value || 0).toFixed(metric === 'temperature' ? 0 : 1)}{config.unit}
+                            </span>
+                        </div>
+                        <div className="metric-card__progress">
+                            <div
+                                className="metric-card__progress-fill"
+                                style={{
+                                    width: `${metric === 'temperature' ? Math.min(value, 100) : value}%`,
+                                    backgroundColor: getColor(value)
+                                }}
+                            />
+                        </div>
                     </div>
                 </div>
             </Popover.Trigger>

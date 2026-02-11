@@ -35,6 +35,8 @@ interface MediaSearchInfoModalProps {
     item: MediaItem | null;
     onClose: () => void;
     onOpenInApp?: (item: MediaItem) => void;
+    /** z-index for the modal (pass higher value when rendering above other overlays) */
+    zIndex?: number;
 }
 
 // ============================================================================
@@ -44,7 +46,8 @@ interface MediaSearchInfoModalProps {
 const MediaSearchInfoModal: React.FC<MediaSearchInfoModalProps> = ({
     item,
     onClose,
-    onOpenInApp
+    onOpenInApp,
+    zIndex
 }) => {
     if (!item) return null;
 
@@ -72,7 +75,8 @@ const MediaSearchInfoModal: React.FC<MediaSearchInfoModalProps> = ({
     };
 
     return (
-        <Modal open={true} onOpenChange={(open) => !open && onClose()} size="lg">
+        <Modal open={true} onOpenChange={(open) => !open && onClose()} size="lg" zIndex={zIndex}>
+
             <Modal.Header title="Media Info" />
             <Modal.Body>
                 <div className="space-y-6">

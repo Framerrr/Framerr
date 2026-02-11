@@ -26,6 +26,7 @@ import {
 // Vendored GridStack types and CSS
 import type { GridStackOptions, GridStackWidget, GridStackNode } from '../../../vendor/gridstack';
 import { DDManager } from '../../../vendor/gridstack';
+import { DDTouch } from '../../../vendor/gridstack/dd-touch';
 import '../../../vendor/gridstack/gridstack.min.css';
 import '../../../vendor/gridstack/gridstack-extra.min.css';
 import '../../../vendor/gridstack/gridstack-columns.css';
@@ -35,6 +36,9 @@ import type { FramerrWidget, GridPolicy, GridEventHandlers, Breakpoint } from '.
 
 // Widget registry for constraints
 import { getWidgetMetadata } from '../../../widgets/registry';
+
+// FLIP animation support
+import { getLastHelperRect, getLastMorphContent } from './setupExternalDragSources';
 
 // Logger
 import logger from '../../../utils/logger';
@@ -281,6 +285,30 @@ function GridStackInner({
         DDManager.touchTolerance = 10;
     }, []);
 
+    // FRAMERR: Watchdog timer — safety net for stalled DD state.
+    // If mouseHandled is stuck true with no active drag for 3 seconds, auto-reset.
+    useEffect(() => {
+        const watchdogInterval = setInterval(() => {
+            if (DDManager.mouseHandled && !DDManager.dragElement) {
+                // Check if any element is actually being dragged in the DOM
+                const activeDrag = document.querySelector('.ui-draggable-dragging');
+                if (!activeDrag) {
+                    // Stalled! Reset DD state to recover
+                    DDManager.mouseHandled = false;
+                    DDTouch.touchHandled = false;
+                    DDManager.touchActivated = false;
+                    DDManager.savedTouchEvent = null;
+                    if (DDManager.touchTimeoutId) {
+                        clearTimeout(DDManager.touchTimeoutId);
+                        DDManager.touchTimeoutId = null;
+                    }
+                }
+            }
+        }, 3000);
+
+        return () => clearInterval(watchdogInterval);
+    }, []);
+
     // Get updated widgets from grid state
     const getUpdatedWidgets = useCallback((): FramerrWidget[] => {
         if (!gridStack || !gridStack.engine) return widgetsRef.current;
@@ -350,12 +378,16 @@ function GridStackInner({
             // Instead of remove+add (which causes all widgets to reflow twice),
             // reuse the dropped element by updating its ID and adding portal target
             if (el) {
+                // Capture helper's last screen position
+                const helperRect = getLastHelperRect();
+                // Get the pre-detached morph-content DOM node (saved during mouseup,
+                // before GridStack stripped the helper's children)
+                const morphContent = getLastMorphContent();
+
                 // Update the element's ID to match the new widget
                 el.setAttribute('gs-id', newId);
 
                 // Remove ALL child elements except GridStack resize handles
-                // This is more aggressive than targeting specific classes because
-                // the drag helper structure can vary between desktop and mobile touch
                 const children = Array.from(el.children);
                 for (const child of children) {
                     const isResizeHandle = child.classList.contains('ui-resizable-handle');
@@ -364,9 +396,11 @@ function GridStackInner({
                     }
                 }
 
-                // Create fresh content element
+                // Create fresh content element - starts invisible
                 const contentEl = document.createElement('div');
                 contentEl.className = 'grid-stack-item-content';
+                contentEl.style.opacity = '0';
+                contentEl.style.transition = 'opacity 0.25s ease-in';
                 el.appendChild(contentEl);
 
                 // Add our portal target to the content element
@@ -378,14 +412,78 @@ function GridStackInner({
                     node.id = newId;
                 }
 
-                // IMMEDIATELY add the portal container to state before onExternalDrop triggers re-render
-                // This prevents the flash where the widget renders with no portal for one frame
+                // IMMEDIATELY add the portal container to state
                 const portalEl = contentEl.querySelector(`[data-widget-portal="${newId}"]`) as HTMLElement | null;
                 if (portalEl) {
                     setPortalContainersRef.current?.(prev => {
                         const next = new Map(prev);
                         next.set(newId, portalEl);
                         return next;
+                    });
+                }
+
+                // FLIP Animation: slide morph-content from drop position to grid cell
+                const gridRect = el.getBoundingClientRect();
+
+                if (helperRect && gridRect.width > 0) {
+                    // Create overlay at helper's last position
+                    const overlay = document.createElement('div');
+                    overlay.style.cssText = `
+                        position: fixed;
+                        z-index: 10000;
+                        left: ${helperRect.left}px;
+                        top: ${helperRect.top}px;
+                        width: ${helperRect.width}px;
+                        height: ${helperRect.height}px;
+                        border-radius: 1rem;
+                        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+                        pointer-events: none;
+                        transition: left 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+                                   top 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+                                   width 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+                                   height 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+                                   opacity 0.2s ease-out;
+                        overflow: hidden;
+                    `;
+
+                    // Put the pre-detached morph-content into the overlay
+                    if (morphContent) {
+                        morphContent.style.position = 'absolute';
+                        morphContent.style.inset = '0';
+                        morphContent.style.overflow = 'hidden';
+                        morphContent.style.borderRadius = '1rem';
+                        overlay.appendChild(morphContent);
+                    } else {
+                        // Safety fallback — glass-like background if morph-content is missing
+                        overlay.style.background = 'var(--bg-secondary, #1e293b)';
+                    }
+
+                    // Append synchronously
+                    document.body.appendChild(overlay);
+
+                    // Slide to grid position
+                    requestAnimationFrame(() => {
+                        overlay.style.left = `${gridRect.left}px`;
+                        overlay.style.top = `${gridRect.top}px`;
+                        overlay.style.width = `${gridRect.width}px`;
+                        overlay.style.height = `${gridRect.height}px`;
+
+                        // After slide completes, cross-fade
+                        setTimeout(() => {
+                            contentEl.style.opacity = '1';
+                            requestAnimationFrame(() => {
+                                overlay.style.opacity = '0';
+                                setTimeout(() => {
+                                    overlay.remove();
+                                }, 250);
+                            });
+                        }, 300);
+                    });
+                } else {
+                    // No helper rect, just fade in
+                    if (morphContent) morphContent.remove();
+                    requestAnimationFrame(() => {
+                        contentEl.style.opacity = '1';
                     });
                 }
             }
@@ -619,6 +717,12 @@ function GridStackInner({
             prevColsRef.current = newCols;
         }
     }, [widgets, gridStack, policy.view.breakpoint, policy.layout.cols, widgetVisibility, policy.interaction.canDrag, mainGridSelector]);
+
+    // Handle cellHeight changes (e.g. square cells toggle)
+    useEffect(() => {
+        if (!gridStack || !gridStack.engine) return;
+        gridStack.cellHeight(policy.layout.rowHeight === 'auto' ? 'auto' : policy.layout.rowHeight);
+    }, [gridStack, policy.layout.rowHeight]);
 
     // Handle drag/resize enable state
     useEffect(() => {

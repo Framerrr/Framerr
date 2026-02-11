@@ -81,12 +81,23 @@ export function useCustomizationState(options: UseCustomizationStateOptions = {}
     const [savingFlattenUI, setSavingFlattenUI] = useState<boolean>(false);
 
     // Greeting State
-    const [greetingEnabled, setGreetingEnabled] = useState<boolean>(true);
-    const [greetingText, setGreetingText] = useState<string>('Your personal dashboard');
+    const [greetingMode, setGreetingMode] = useState<'auto' | 'manual'>('auto');
+    const [greetingText, setGreetingText] = useState<string>('Welcome back, {user}');
+    const [headerVisible, setHeaderVisible] = useState<boolean>(true);
+    const [taglineEnabled, setTaglineEnabled] = useState<boolean>(true);
+    const [taglineText, setTaglineText] = useState<string>('Your personal dashboard');
+    const [tones, setTones] = useState<string[]>(['standard', 'witty', 'nerdy']);
+    const [loadingMessagesEnabled, setLoadingMessagesEnabled] = useState<boolean>(true);
     const [savingGreeting, setSavingGreeting] = useState<boolean>(false);
     const [originalGreeting, setOriginalGreeting] = useState<OriginalGreeting>({
         enabled: true,
-        text: 'Your personal dashboard'
+        mode: 'auto',
+        text: 'Welcome back, {user}',
+        headerVisible: true,
+        taglineEnabled: true,
+        taglineText: 'Your personal dashboard',
+        tones: ['standard', 'witty', 'nerdy'],
+        loadingMessages: true
     });
     const [hasGreetingChanges, setHasGreetingChanges] = useState<boolean>(false);
 
@@ -138,7 +149,7 @@ export function useCustomizationState(options: UseCustomizationStateOptions = {}
         }
 
         // Flatten UI initialization
-        const prefs = userConfig.preferences as { ui?: { flattenUI?: boolean }; dashboardGreeting?: { enabled?: boolean; text?: string } } | undefined;
+        const prefs = userConfig.preferences as { ui?: { flattenUI?: boolean }; dashboardGreeting?: { enabled?: boolean; mode?: string; text?: string; headerVisible?: boolean; taglineEnabled?: boolean; taglineText?: string } } | undefined;
         if (prefs?.ui?.flattenUI !== undefined) {
             const shouldFlatten = prefs.ui.flattenUI;
             setFlattenUI(shouldFlatten);
@@ -149,12 +160,33 @@ export function useCustomizationState(options: UseCustomizationStateOptions = {}
 
         // Greeting initialization
         if (prefs?.dashboardGreeting) {
-            const greeting = prefs.dashboardGreeting;
-            const enabled = greeting.enabled ?? true;
-            const text = greeting.text || 'Your personal dashboard';
-            setGreetingEnabled(enabled);
-            setGreetingText(text);
-            setOriginalGreeting({ enabled, text });
+            const greeting = prefs.dashboardGreeting as typeof prefs.dashboardGreeting & { tones?: string[]; loadingMessages?: boolean };
+            const mode = greeting.mode || 'auto';
+            const text = greeting.text || 'Welcome back, {user}';
+            const displayName = user?.displayName || user?.username || 'User';
+            const resolvedText = text.replace(/\{user\}/gi, displayName);
+            const hdrVisible = greeting.headerVisible ?? true;
+            const tEnabled = greeting.taglineEnabled ?? greeting.enabled ?? true;
+            const tText = greeting.taglineText || greeting.text || 'Your personal dashboard';
+            setGreetingMode(mode as 'auto' | 'manual');
+            setGreetingText(resolvedText);
+            setHeaderVisible(hdrVisible);
+            setTaglineEnabled(tEnabled);
+            setTaglineText(tText);
+            const gTones = greeting.tones || ['standard', 'witty', 'nerdy'];
+            const gLoadingMsgs = greeting.loadingMessages ?? true;
+            setTones(gTones);
+            setLoadingMessagesEnabled(gLoadingMsgs);
+            setOriginalGreeting({
+                enabled: tEnabled,
+                mode: mode as 'auto' | 'manual',
+                text: resolvedText,
+                headerVisible: hdrVisible,
+                taglineEnabled: tEnabled,
+                taglineText: tText,
+                tones: gTones,
+                loadingMessages: gLoadingMsgs
+            });
         }
 
         setInitialized(true);
@@ -213,10 +245,15 @@ export function useCustomizationState(options: UseCustomizationStateOptions = {}
     // Track changes for Greeting
     useEffect(() => {
         setHasGreetingChanges(
-            greetingEnabled !== originalGreeting.enabled ||
-            greetingText !== originalGreeting.text
+            greetingMode !== originalGreeting.mode ||
+            greetingText !== originalGreeting.text ||
+            headerVisible !== originalGreeting.headerVisible ||
+            taglineEnabled !== originalGreeting.taglineEnabled ||
+            taglineText !== originalGreeting.taglineText ||
+            JSON.stringify(tones) !== JSON.stringify(originalGreeting.tones) ||
+            loadingMessagesEnabled !== originalGreeting.loadingMessages
         );
-    }, [greetingEnabled, greetingText, originalGreeting]);
+    }, [greetingMode, greetingText, headerVisible, taglineEnabled, taglineText, tones, loadingMessagesEnabled, originalGreeting]);
 
     // ========================================================================
     // Helpers
@@ -405,17 +442,43 @@ export function useCustomizationState(options: UseCustomizationStateOptions = {}
             await updateUserMutation.mutateAsync({
                 preferences: {
                     dashboardGreeting: {
-                        enabled: greetingEnabled,
-                        text: greetingText
+                        enabled: taglineEnabled,
+                        mode: greetingMode,
+                        text: greetingText,
+                        headerVisible,
+                        taglineEnabled,
+                        taglineText,
+                        tones,
+                        loadingMessages: loadingMessagesEnabled
                     }
                 }
             });
 
-            setOriginalGreeting({ enabled: greetingEnabled, text: greetingText });
+            setOriginalGreeting({
+                enabled: taglineEnabled,
+                mode: greetingMode,
+                text: greetingText,
+                headerVisible,
+                taglineEnabled,
+                taglineText,
+                tones,
+                loadingMessages: loadingMessagesEnabled
+            });
 
             window.dispatchEvent(new CustomEvent('greetingUpdated', {
-                detail: { enabled: greetingEnabled, text: greetingText }
+                detail: {
+                    mode: greetingMode,
+                    text: greetingText,
+                    headerVisible,
+                    taglineEnabled,
+                    taglineText,
+                    tones,
+                    loadingMessages: loadingMessagesEnabled
+                }
             }));
+
+            // Persist to localStorage for instant splash screen preference on next load
+            localStorage.setItem('framerr-loading-messages', String(loadingMessagesEnabled));
 
             logger.info('Greeting saved successfully');
             showSuccess('Greeting Saved', 'Dashboard greeting updated');
@@ -425,12 +488,18 @@ export function useCustomizationState(options: UseCustomizationStateOptions = {}
         } finally {
             setSavingGreeting(false);
         }
-    }, [greetingEnabled, greetingText, updateUserMutation, showSuccess, showError]);
+    }, [greetingMode, greetingText, headerVisible, taglineEnabled, taglineText, tones, loadingMessagesEnabled, updateUserMutation, showSuccess, showError]);
 
     // Reset greeting
     const handleResetGreeting = useCallback((): void => {
-        setGreetingEnabled(true);
-        setGreetingText('Your personal dashboard');
+        setGreetingMode('auto');
+        const displayName = user?.displayName || user?.username || 'User';
+        setGreetingText(`Welcome back, ${displayName}`);
+        setHeaderVisible(true);
+        setTaglineEnabled(true);
+        setTaglineText('Your personal dashboard');
+        setTones(['standard', 'witty', 'nerdy']);
+        setLoadingMessagesEnabled(true);
     }, []);
 
     // ========================================================================
@@ -464,10 +533,20 @@ export function useCustomizationState(options: UseCustomizationStateOptions = {}
         savingFlattenUI,
 
         // Greeting State
-        greetingEnabled,
-        setGreetingEnabled,
+        greetingMode,
+        setGreetingMode,
         greetingText,
         setGreetingText,
+        headerVisible,
+        setHeaderVisible,
+        taglineEnabled,
+        setTaglineEnabled,
+        taglineText,
+        setTaglineText,
+        tones,
+        setTones,
+        loadingMessagesEnabled,
+        setLoadingMessagesEnabled,
         savingGreeting,
         hasGreetingChanges,
 

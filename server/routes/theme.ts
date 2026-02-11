@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getUserConfig, updateUserConfig, ThemeConfig } from '../db/userConfig';
+import { getSystemConfig, updateSystemConfig } from '../db/systemConfig';
 import { requireAuth } from '../middleware/auth';
 import { broadcastToUser } from '../services/sseStreamService';
 import logger from '../utils/logger';
@@ -20,48 +21,13 @@ interface ThemeBody {
 
 /**
  * GET /api/theme/default
- * Get the default/admin theme (public - no auth required)
- * Used for login page theming
+ * Get the login page theme (public - no auth required)
+ * Reads from system config loginTheme (auto-synced when admin changes theme)
  */
 router.get('/default', async (req: Request, res: Response) => {
     try {
-        // Get the first admin user to use their theme as default
-        const { getDb } = await import('../database/db');
-        const db = getDb();
-        const adminUser = db.prepare(`
-            SELECT id FROM users WHERE group_id = 'admin' LIMIT 1
-        `).get() as { id: string } | undefined;
-
-        if (adminUser) {
-            const userConfig = await getUserConfig(adminUser.id);
-            const themeConfig = userConfig.theme;
-
-            // Check for preset (set when user changes theme via UI)
-            if (themeConfig?.preset) {
-                res.json({ theme: themeConfig.preset });
-                return;
-            }
-
-            // Check raw theme_config in database
-            const rawConfig = db.prepare(`
-                SELECT theme_config FROM user_preferences WHERE user_id = ?
-            `).get(adminUser.id) as { theme_config: string | null } | undefined;
-
-            if (rawConfig?.theme_config) {
-                try {
-                    const parsed = JSON.parse(rawConfig.theme_config);
-                    if (parsed.preset) {
-                        res.json({ theme: parsed.preset });
-                        return;
-                    }
-                } catch {
-                    // Parse error - continue to default
-                }
-            }
-        }
-
-        // Default fallback
-        res.json({ theme: 'dark-pro' });
+        const config = await getSystemConfig();
+        res.json({ theme: config.loginTheme || 'dark-pro' });
     } catch (error) {
         logger.error(`[Theme] Failed to get default: error="${(error as Error).message}"`);
         res.json({ theme: 'dark-pro' });
@@ -136,6 +102,16 @@ router.put('/', requireAuth, async (req: Request, res: Response) => {
         });
 
         logger.debug(`[Theme] Updated: user=${authReq.user!.id} preset=${updatedTheme.preset}`);
+
+        // Auto-sync loginTheme when an admin changes their theme
+        if (authReq.user!.group === 'admin' && updatedTheme.preset) {
+            try {
+                await updateSystemConfig({ loginTheme: updatedTheme.preset });
+                logger.debug(`[Theme] Login theme synced: ${updatedTheme.preset}`);
+            } catch (syncErr) {
+                logger.warn(`[Theme] Failed to sync login theme: ${(syncErr as Error).message}`);
+            }
+        }
 
         // SSE: Broadcast theme change to all user's connected sessions
         broadcastToUser(authReq.user!.id, 'settings:theme', {

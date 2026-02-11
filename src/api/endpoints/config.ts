@@ -28,7 +28,13 @@ export interface UIPreferences {
 
 export interface DashboardGreeting {
     enabled?: boolean;
+    mode?: 'auto' | 'manual';
     text?: string;
+    headerVisible?: boolean;
+    taglineEnabled?: boolean;
+    taglineText?: string;
+    tones?: string[];
+    loadingMessages?: boolean;
 }
 
 export interface UserPreferences {

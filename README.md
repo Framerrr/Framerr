@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/branding/framerr-banner.png" alt="Framerr" width="600">
+  <img src="docs/branding/framerr-banner.png" alt="Framerr" width="100%">
 </p>
 
 <p align="center">
@@ -8,15 +8,26 @@
 
 <p align="center">
   <a href="https://hub.docker.com/r/pickels23/framerr"><img src="https://img.shields.io/docker/pulls/pickels23/framerr" alt="Docker Pulls"></a>
-  <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version">
+  <img src="https://img.shields.io/github/package-json/v/Framerrr/Framerr" alt="Version">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Framerrr/Framerr" alt="License"></a>
 </p>
+
+> [!WARNING]
+> Framerr is in early development (`0.x.x`). Expect breaking changes between releases. Not recommended for critical production use yet.
 
 ---
 
 <p align="center">
-  <img src="docs/branding/screenshots/framerr-dashboard-desktop-1.png" alt="Framerr Dashboard" width="800">
+  <img src="docs/branding/screenshots/framerr-dashboard-desktop-1.png" alt="Framerr Dashboard" width="100%">
 </p>
+<h3 align="center">⚡ Powerful, Modern Dashboard</h3>
+<p align="center">Real-time widgets, drag-and-drop layout, and deep integration with your homelab services — all in one customizable view.</p>
+
+<p align="center">
+  <img src="docs/branding/screenshots/framerr-dashboard-mobile-1.png" alt="Framerr Mobile" width="280">
+</p>
+<h3 align="center">📱 Responsive Mobile Design</h3>
+<p align="center">Dedicated mobile layout with independent widget arrangement and touch-friendly controls. Your dashboard, anywhere.</p>
 
 ## Features
 

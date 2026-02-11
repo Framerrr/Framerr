@@ -1,16 +1,14 @@
 /**
  * SessionCard Component
  *
- * Renders a single media session with artwork, progress bar, and controls.
+ * Renders a single media session as a full-image card with gradient overlay.
+ * Title, meta, and status are overlaid on the bottom of the image.
  * Handles hover/tap interactions for mobile and desktop.
  * Supports Plex, Jellyfin, and Emby through normalized MediaSession type.
- *
- * Phase 4: Updated to use MediaSession and adapter pattern.
  */
 
 import React, { useState } from 'react';
 import { Film, Network, Info, ExternalLink, StopCircle, Play, Pause } from 'lucide-react';
-import { ScrollingTitle } from './ScrollingTitle';
 import { getAdapter, type MediaSession } from '../adapters';
 
 interface SessionCardProps {
@@ -67,7 +65,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
     // Episode/subtitle info
     let subtitle = '';
     if (session.type === 'episode' && session.parentIndex && session.index) {
-        subtitle = `S${session.parentIndex} • E${session.index}`;
+        subtitle = `S${session.parentIndex} · E${session.index}`;
     } else if (session.type === 'movie') {
         subtitle = 'Movie';
     } else if (session.type === 'track') {
@@ -104,104 +102,96 @@ export const SessionCard: React.FC<SessionCardProps> = ({
             className="plex-card"
             onMouseEnter={() => setIsActive(true)}
             onMouseLeave={() => setIsActive(false)}
+            onClick={handleImageClick}
         >
-            {/* Image Section */}
-            <div className="plex-card__image" onClick={handleImageClick}>
-                {imageUrl ? (
-                    <img src={imageUrl} alt={displayTitle} />
-                ) : (
-                    <div className="plex-card__image-placeholder">
-                        <Film size={32} className="text-theme-secondary" style={{ opacity: 0.3 }} />
-                    </div>
-                )}
-
-                {/* Title overlay for compact mode */}
-                <div className="plex-card__title-overlay">{displayTitle}</div>
-
-                {/* Hover/Tap Controls Overlay */}
-                <div
-                    className={`plex-card__controls no-drag ${isActive ? 'plex-card__controls--active' : ''}`}
-                >
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onShowPlaybackData(session);
-                        }}
-                        className="w-9 h-9 rounded-lg bg-theme-hover border border-theme flex items-center justify-center text-theme-primary hover:bg-theme-tertiary transition-colors"
-                        title="Playback Data"
-                    >
-                        <Network size={18} />
-                    </button>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onShowMediaInfo(session);
-                        }}
-                        className="w-9 h-9 rounded-lg bg-theme-hover border border-theme flex items-center justify-center text-theme-primary hover:bg-theme-tertiary transition-colors"
-                        title="Media Info"
-                    >
-                        <Info size={18} />
-                    </button>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            const link = getDeepLink();
-                            if (link) window.open(link, '_blank');
-                        }}
-                        className="w-9 h-9 rounded-lg bg-theme-hover border border-theme flex items-center justify-center text-theme-primary hover:bg-theme-tertiary transition-colors"
-                        title={externalLinkTitle}
-                    >
-                        <ExternalLink size={18} />
-                    </button>
-                    {/* Stop button - Admin only */}
-                    {userIsAdmin && (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onConfirmStop(session);
-                            }}
-                            className="w-9 h-9 rounded-lg border flex items-center justify-center transition-colors"
-                            style={{
-                                background: 'rgba(239, 68, 68, 0.2)',
-                                borderColor: 'var(--error)',
-                                color: 'var(--error)',
-                            }}
-                            title="Stop Playback"
-                        >
-                            <StopCircle size={18} />
-                        </button>
-                    )}
+            {/* Full Image */}
+            {imageUrl ? (
+                <img src={imageUrl} alt={displayTitle} className="plex-card__image" />
+            ) : (
+                <div className="plex-card__placeholder">
+                    <Film size={32} className="text-theme-secondary" style={{ opacity: 0.3 }} />
                 </div>
+            )}
 
-                {/* Progress Bar - glassmorphic, over image */}
+            {/* Play/Pause Status Badge */}
+            <div className="plex-card__badge">
+                {isPlaying ? (
+                    <Play size={10} style={{ color: 'var(--success)' }} />
+                ) : (
+                    <Pause size={10} style={{ color: 'var(--warning)' }} />
+                )}
+                <span>{userName}</span>
+            </div>
+
+            {/* Hover/Tap Controls Overlay */}
+            <div
+                className={`plex-card__controls no-drag ${isActive ? 'plex-card__controls--active' : ''}`}
+            >
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onShowPlaybackData(session);
+                    }}
+                    className="w-9 h-9 rounded-lg bg-theme-hover border border-theme flex items-center justify-center text-theme-primary hover:bg-theme-tertiary transition-colors"
+                    title="Playback Data"
+                >
+                    <Network size={18} />
+                </button>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onShowMediaInfo(session);
+                    }}
+                    className="w-9 h-9 rounded-lg bg-theme-hover border border-theme flex items-center justify-center text-theme-primary hover:bg-theme-tertiary transition-colors"
+                    title="Media Info"
+                >
+                    <Info size={18} />
+                </button>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        const link = getDeepLink();
+                        if (link) window.open(link, '_blank');
+                    }}
+                    className="w-9 h-9 rounded-lg bg-theme-hover border border-theme flex items-center justify-center text-theme-primary hover:bg-theme-tertiary transition-colors"
+                    title={externalLinkTitle}
+                >
+                    <ExternalLink size={18} />
+                </button>
+                {/* Stop button - Admin only */}
+                {userIsAdmin && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onConfirmStop(session);
+                        }}
+                        className="w-9 h-9 rounded-lg border flex items-center justify-center transition-colors"
+                        style={{
+                            background: 'rgba(239, 68, 68, 0.2)',
+                            borderColor: 'var(--error)',
+                            color: 'var(--error)',
+                        }}
+                        title="Stop Playback"
+                    >
+                        <StopCircle size={18} />
+                    </button>
+                )}
+            </div>
+
+            {/* Bottom Gradient Overlay with Info */}
+            <div className="plex-card__overlay">
+                {/* Progress Bar - above title */}
                 <div className="plex-card__progress">
                     <div className="plex-card__progress-fill" style={{ width: `${percent}%` }} />
                     <span className="plex-card__progress-text">{percent}%</span>
                 </div>
-            </div>
-
-            {/* Info Section */}
-            <div className="plex-card__info">
-                <ScrollingTitle title={displayTitle} />
+                <div className="plex-card__title">{displayTitle}</div>
                 <div className="plex-card__meta">
-                    <span className="plex-card__episode">{subtitle}</span>
-                    <span className="plex-card__user" title={userName}>
-                        {userName}
+                    <span className="plex-card__meta-left">
+                        {subtitle && <><span>{subtitle}</span><span>·</span></>}
+                        <span>{percent}%</span>
                     </span>
-                </div>
-                <div className="plex-card__status">
-                    {isPlaying ? (
-                        <Play size={10} className="plex-card__status-icon" />
-                    ) : (
-                        <Pause
-                            size={10}
-                            className="plex-card__status-icon"
-                            style={{ color: 'var(--warning)' }}
-                        />
-                    )}
-                    <span>
-                        {playedStr} / {durationStr}
-                    </span>
+                    <span className="plex-card__timer">{playedStr} / {durationStr}</span>
                 </div>
             </div>
         </div>

@@ -2,12 +2,18 @@
  * Cache Routes
  * 
  * Serves cached images to the frontend.
+ * 
+ * NOTE: These routes intentionally do NOT use requireAuth because:
+ * 1. Browser <img> tags cannot send Authorization headers
+ * 2. Behind proxy auth (Authentik/etc), sub-resource requests may not carry auth headers
+ * 3. These images are already security-gated: they were fetched server-side using
+ *    the user's integration credentials. The cached files are just poster art thumbnails.
+ * 4. Filenames are validated against strict patterns to prevent path traversal.
  */
 
 import { Router, Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
-import { requireAuth } from '../../middleware/auth';
 import { getDb } from '../../database/db';
 import { getInstanceById } from '../../db/integrationInstances';
 import {
@@ -27,9 +33,9 @@ const LIBRARY_CACHE_DIR = path.join(DATA_DIR, 'cache', 'library');
 /**
  * GET /api/cache/images/:filename
  * 
- * Serve a cached TMDB image file
+ * Serve a cached TMDB image file (no auth required - see module comment)
  */
-router.get('/images/:filename', requireAuth, (req: Request, res: Response): void => {
+router.get('/images/:filename', (req: Request, res: Response): void => {
     const { filename } = req.params;
 
     // Security: Only allow specific filename patterns (tmdb_*_*.jpg)
@@ -59,10 +65,11 @@ router.get('/images/:filename', requireAuth, (req: Request, res: Response): void
  * GET /api/cache/library/:integrationId/:filename
  * 
  * Serve a cached library image (Plex/Jellyfin/Emby thumbnails)
+ * No auth required - see module comment
  * Query params:
  *   - size=lg: Fetch/serve large image (480x720) with LRU caching
  */
-router.get('/library/:integrationId/:filename', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.get('/library/:integrationId/:filename', async (req: Request, res: Response): Promise<void> => {
     const { integrationId, filename } = req.params;
     const { size } = req.query;
 

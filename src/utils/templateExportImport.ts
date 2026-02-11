@@ -13,6 +13,7 @@ import { stripSensitiveConfig, hasSensitiveConfig } from '../../shared/widgetInt
 export interface TemplateWidget {
     type: string;
     layout: { x: number; y: number; w: number; h: number };
+    mobileLayout?: { x: number; y: number; w: number; h: number };
     config?: Record<string, unknown>;
     shareSensitiveConfig?: boolean;
 }
@@ -53,6 +54,11 @@ function processWidgetsForExport(widgets: TemplateWidget[], includeConfigs: bool
             type: widget.type,
             layout: { ...widget.layout },
         };
+
+        // Include mobileLayout if present (independent mode widgets)
+        if (widget.mobileLayout) {
+            processed.mobileLayout = { ...widget.mobileLayout };
+        }
 
         if (widget.config) {
             if (includeConfigs || !hasSensitiveConfig(widget.type)) {

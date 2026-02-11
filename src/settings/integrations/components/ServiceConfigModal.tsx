@@ -10,7 +10,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { TestTube, Loader, CheckCircle2, AlertCircle, RotateCcw, Save, LucideIcon, Pencil, Settings, Bell } from 'lucide-react';
+import { TestTube, Loader, CheckCircle2, AlertCircle, RotateCcw, Save, Pencil, Settings, Bell } from 'lucide-react';
 import { Modal } from '../../../shared/ui';
 import { Switch } from '../../../shared/ui';
 import { Button } from '../../../shared/ui';
@@ -76,7 +76,7 @@ interface ServiceConfigModalProps {
     service: {
         id: string;
         name: string;
-        icon: LucideIcon;
+        icon: React.ComponentType<{ size?: number; className?: string }>;
         /** Whether this integration has a connection test button. Defaults to true. */
         hasConnectionTest?: boolean;
         /** Whether this integration supports webhooks (shows Notifications tab) */
@@ -201,8 +201,8 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
                     <button
                         onClick={() => setActiveTab('connection')}
                         className={`flex items-center gap-2 py-3 px-4 text-sm font-medium border-b-2 -mb-px transition-colors ${activeTab === 'connection'
-                                ? 'border-accent text-accent'
-                                : 'border-transparent text-theme-secondary hover:text-theme-primary'
+                            ? 'border-accent text-accent'
+                            : 'border-transparent text-theme-secondary hover:text-theme-primary'
                             }`}
                     >
                         <Settings size={16} />
@@ -211,8 +211,8 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
                     <button
                         onClick={() => setActiveTab('notifications')}
                         className={`flex items-center gap-2 py-3 px-4 text-sm font-medium border-b-2 -mb-px transition-colors ${activeTab === 'notifications'
-                                ? 'border-accent text-accent'
-                                : 'border-transparent text-theme-secondary hover:text-theme-primary'
+                            ? 'border-accent text-accent'
+                            : 'border-transparent text-theme-secondary hover:text-theme-primary'
                             }`}
                     >
                         <Bell size={16} />

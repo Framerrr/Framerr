@@ -155,6 +155,13 @@ function cancelPendingDrag(): void {
 export function touchstart(e: TouchEvent): void {
   // Ignore the event if another widget is already being handled
   if (DDTouch.touchHandled) return;
+
+  // FRAMERR: Skip touch handling for elements with .no-drag class (e.g., config button).
+  // Without this, touchstart sets touchHandled=true but the matching touchend may not
+  // properly reset DDManager.mouseHandled, permanently stalling the DD system.
+  const target = e.target as HTMLElement;
+  if (target?.closest?.('.no-drag')) return;
+
   DDTouch.touchHandled = true;
 
   const touch = e.changedTouches[0];
@@ -167,7 +174,6 @@ export function touchstart(e: TouchEvent): void {
 
   // FRAMERR: Resize handles should respond instantly (no hold delay).
   // Only drag (widget body) needs hold-to-drag to allow scrolling.
-  const target = e.target as HTMLElement;
   const isResizeHandle = target?.closest?.('.ui-resizable-handle');
   if (isResizeHandle || DDManager.touchDelay <= 0) {
     activateDrag();

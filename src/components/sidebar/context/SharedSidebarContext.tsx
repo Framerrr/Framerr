@@ -92,6 +92,8 @@ export function useSharedSidebar() {
         // From SidebarUIContext
         isExpanded: ui.isExpanded,
         setIsExpanded: ui.setIsExpanded,
+        isSidebarHidden: ui.isSidebarHidden,
+        setSidebarHidden: ui.setSidebarHidden,
         isMobileMenuOpen: ui.isMobileMenuOpen,
         setIsMobileMenuOpen: ui.setIsMobileMenuOpen,
         isMobile: ui.isMobile,

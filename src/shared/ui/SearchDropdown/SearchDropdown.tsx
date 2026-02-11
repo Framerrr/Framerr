@@ -34,6 +34,8 @@ import React, {
 import * as RadixPopover from '@radix-ui/react-popover';
 import { motion } from 'framer-motion';
 import { popIn } from '../animations';
+import { useCloseOnScroll } from '../../../hooks/useCloseOnScroll';
+import { useOverlayScrollLock } from '../../../hooks/useOverlayScrollLock';
 
 // ===========================
 // Context
@@ -77,6 +79,9 @@ export interface SearchDropdownProps {
     align?: 'start' | 'center' | 'end';
     /** The anchor element (search input container) */
     anchor: React.ReactNode;
+    /** Max width of the popover container. Without this, the container matches the anchor width
+     *  which can create invisible click-blocking areas if the visible content is narrower. */
+    maxWidth?: number;
     /** The dropdown content */
     children: React.ReactNode;
 }
@@ -90,6 +95,7 @@ export function SearchDropdown({
     sideOffset = 4,
     align = 'start',
     anchor,
+    maxWidth,
     children,
 }: SearchDropdownProps) {
     const anchorWrapperRef = useRef<HTMLDivElement>(null);
@@ -128,28 +134,11 @@ export function SearchDropdown({
         [ignoreCloseRefs, ignoreCloseSelectors, onOpenChange]
     );
 
-    // Close on scroll behavior
-    useEffect(() => {
-        if (!open || !closeOnScroll) return;
-
-        const handleScroll = () => {
-            onOpenChange(false);
-        };
-
-        // Listen on main scroll containers
-        const mainScroll = document.getElementById('main-scroll');
-        const settingsScroll = document.getElementById('settings-scroll');
-
-        mainScroll?.addEventListener('scroll', handleScroll, { passive: true });
-        settingsScroll?.addEventListener('scroll', handleScroll, { passive: true });
-        window.addEventListener('scroll', handleScroll, { passive: true });
-
-        return () => {
-            mainScroll?.removeEventListener('scroll', handleScroll);
-            settingsScroll?.removeEventListener('scroll', handleScroll);
-            window.removeEventListener('scroll', handleScroll);
-        };
-    }, [open, closeOnScroll, onOpenChange]);
+    // Close on scroll via shared hook
+    useCloseOnScroll(
+        open && closeOnScroll,
+        () => onOpenChange(false)
+    );
 
     // Close on escape key
     useEffect(() => {
@@ -170,8 +159,11 @@ export function SearchDropdown({
         close: () => onOpenChange(false),
     };
 
-    // Get anchor width for dropdown
+    // Clamp popover width: use anchor width, but cap at maxWidth if specified
     const anchorWidth = anchorWrapperRef.current?.offsetWidth;
+    const popoverWidth = anchorWidth && maxWidth
+        ? Math.min(anchorWidth, maxWidth)
+        : anchorWidth;
 
     return (
         <SearchDropdownContext.Provider value={contextValue}>
@@ -198,7 +190,7 @@ export function SearchDropdown({
                                 onOpenChange(false);
                             }}
                             style={{
-                                width: anchorWidth,
+                                width: popoverWidth,
                                 outline: 'none',
                                 zIndex: 50, // Above GridStack items (z ~10), below Modal (z-[100])
                             }}
@@ -254,12 +246,22 @@ const SearchDropdownContent = forwardRef<HTMLDivElement, SearchDropdownContentPr
                 : maxWidth
             : undefined;
 
+        const contentRef = useRef<HTMLDivElement>(null);
+
+        // Prevent touch scroll from bleeding through
+        useOverlayScrollLock(true, contentRef);
+
         return (
             <div
-                ref={ref}
+                ref={(node) => {
+                    // Assign to both refs
+                    (contentRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+                    if (typeof ref === 'function') ref(node);
+                    else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+                }}
                 className={`
                     z-[150]
-                    bg-theme-primary border border-theme rounded-xl
+                    bg-theme-primary border border-theme rounded-2xl
                     shadow-xl
                     p-2
                     overflow-y-auto
@@ -270,9 +272,9 @@ const SearchDropdownContent = forwardRef<HTMLDivElement, SearchDropdownContentPr
                     maxHeight: maxHeightValue,
                     minWidth: minWidthValue,
                     maxWidth: maxWidthValue,
+                    overscrollBehavior: 'contain',
                 }}
-                // Prevent scroll from bubbling to parent containers
-                onWheel={(e) => e.stopPropagation()}
+            // Scroll containment handled by useOverlayScrollLock on the parent
             >
                 {children}
             </div>

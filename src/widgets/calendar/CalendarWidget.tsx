@@ -175,14 +175,29 @@ const CombinedCalendarWidget: React.FC<CalendarWidgetProps> = ({ widget, preview
         radarrIntegrationId?: string;  // Legacy
     } | undefined;
 
-    // Parse IDs with backward compatibility
-    const configuredSonarrIds: string[] = config?.sonarrIntegrationIds
-        ?? (config?.sonarrIntegrationId ? [config.sonarrIntegrationId] : []);
-    const configuredRadarrIds: string[] = config?.radarrIntegrationIds
-        ?? (config?.radarrIntegrationId ? [config.radarrIntegrationId] : []);
+    // Get all integrations for name lookup + stale ID filtering
+    const { data: allIntegrations } = useIntegrations();
+
+    // Build a set of valid integration IDs for fast lookup
+    const validIntegrationIds = useMemo(() => {
+        if (!allIntegrations) return new Set<string>();
+        return new Set(allIntegrations.map(i => i.id));
+    }, [allIntegrations]);
+
+    // Parse IDs with backward compatibility, then filter out deleted/orphaned IDs
+    const configuredSonarrIds: string[] = useMemo(() => {
+        const raw = config?.sonarrIntegrationIds
+            ?? (config?.sonarrIntegrationId ? [config.sonarrIntegrationId] : []);
+        return validIntegrationIds.size > 0 ? raw.filter(id => validIntegrationIds.has(id)) : raw;
+    }, [config?.sonarrIntegrationIds, config?.sonarrIntegrationId, validIntegrationIds]);
+
+    const configuredRadarrIds: string[] = useMemo(() => {
+        const raw = config?.radarrIntegrationIds
+            ?? (config?.radarrIntegrationId ? [config.radarrIntegrationId] : []);
+        return validIntegrationIds.size > 0 ? raw.filter(id => validIntegrationIds.has(id)) : raw;
+    }, [config?.radarrIntegrationIds, config?.radarrIntegrationId, validIntegrationIds]);
 
     // For useMultiWidgetIntegration, we pass the first configured ID for access checking
-    // TODO: In future, useMultiWidgetIntegration should accept arrays
     const {
         integrations,
         status: accessStatus,
@@ -194,7 +209,7 @@ const CombinedCalendarWidget: React.FC<CalendarWidgetProps> = ({ widget, preview
     }, widget.id);
 
     // Use configured IDs directly for SSE (access check is handled by hook)
-    // Filter to only use IDs that are accessible per access resolution
+    // IDs are already filtered against valid integrations above
     const sonarrIds = integrations.sonarr?.isAccessible ? configuredSonarrIds : [];
     const radarrIds = integrations.radarr?.isAccessible ? configuredRadarrIds : [];
 
@@ -207,8 +222,6 @@ const CombinedCalendarWidget: React.FC<CalendarWidgetProps> = ({ widget, preview
     const hasMultipleSonarr = sonarrIds.length > 1;
     const hasMultipleRadarr = radarrIds.length > 1;
 
-    // Get all integrations for name lookup
-    const { data: allIntegrations } = useIntegrations();
 
     // Build instanceId -> displayName lookup map
     const instanceNameMap = useMemo(() => {

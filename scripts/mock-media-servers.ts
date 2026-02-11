@@ -156,7 +156,7 @@ const OVERSEERR_REQUESTS = [
             mediaType: 'movie',
             status: 1,  // Unknown/Pending
             title: 'Wicked',
-            posterPath: '/2C0A2gj4kqW2s9z2jOJD8WvmA5s.jpg',
+            posterPath: '/c5Tqxeo1UpBvnAc3csUm7j3hlQl.jpg',
         },
         requestedBy: { id: 4, displayName: 'Jordan' },
         serverId: 0,
@@ -583,7 +583,7 @@ const TMDB_MOVIE_DETAILS: Record<number, { title: string; posterPath: string; ov
     98: { title: 'Gladiator', posterPath: '/ehGpN04mLJIrSnxcZBMvHeG0eDc.jpg', overview: 'In the year 180, the death of emperor Marcus Aurelius throws the Roman Empire into chaos.', releaseDate: '2000-05-01', voteAverage: 8.2, runtime: 155 },
     693134: { title: 'Dune: Part Two', posterPath: '/8b8R8l88Qje9dn9OE8PY05Nxl1X.jpg', overview: 'Paul Atreides unites with Chani and the Fremen while seeking revenge against those who destroyed his family.', releaseDate: '2024-02-27', voteAverage: 8.1, runtime: 166 },
     872585: { title: 'Oppenheimer', posterPath: '/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg', overview: 'The story of J. Robert Oppenheimer and the creation of the atomic bomb.', releaseDate: '2023-07-19', voteAverage: 8.1, runtime: 180 },
-    402431: { title: 'Wicked', posterPath: '/2C0A2gj4kqW2s9z2jOJD8WvmA5s.jpg', overview: 'The story of how a green-skinned woman becomes the Wicked Witch of the West.', releaseDate: '2024-11-22', voteAverage: 7.6, runtime: 160 },
+    402431: { title: 'Wicked', posterPath: '/c5Tqxeo1UpBvnAc3csUm7j3hlQl.jpg', overview: 'The story of how a green-skinned woman becomes the Wicked Witch of the West.', releaseDate: '2024-11-22', voteAverage: 7.6, runtime: 160 },
     558449: { title: 'Gladiator II', posterPath: '/2cxhvwyEwRlysAmRH4iodkvo0z5.jpg', overview: 'Lucius must enter the Colosseum and find the courage to return the glory of Rome to its people.', releaseDate: '2024-11-13', voteAverage: 6.8, runtime: 148 },
     346698: { title: 'Barbie', posterPath: '/iuFNMS8U5cb6xfzi51Dbkovj7vM.jpg', overview: 'Barbie and Ken are having the time of their lives in the colorful and seemingly perfect world of Barbie Land.', releaseDate: '2023-07-19', voteAverage: 7.0, runtime: 114 },
     157336: { title: 'Interstellar', posterPath: '/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg', overview: 'Interstellar chronicles the adventures of a group of explorers who travel through a wormhole in search of a new home for humanity.', releaseDate: '2014-11-05', voteAverage: 8.4, runtime: 169 },

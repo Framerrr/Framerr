@@ -213,7 +213,7 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
     };
 
     return (
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <Popover open={isOpen} onOpenChange={setIsOpen} closeOnScroll={false}>
             <Popover.Trigger asChild>
                 <button
                     ref={triggerRef}
@@ -238,6 +238,12 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
                 align="start"
                 sideOffset={8}
                 className="w-[min(calc(100vw-48px),24rem)] min-w-[280px] max-w-[24rem] max-h-[min(400px,calc(100vh-200px))] p-0 flex flex-col"
+                onPointerDownOutside={(e) => {
+                    // On iOS, tapping inputs inside portal content can trigger false 
+                    // "outside" dismissals. Prevent automatic dismiss — the IconPicker 
+                    // closes via the X button or icon selection instead.
+                    e.preventDefault();
+                }}
             >
                 {/* Header - fixed */}
                 <div className="flex items-center justify-between px-4 py-2 border-b border-theme flex-shrink-0">
@@ -299,8 +305,6 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
                 <div
                     className="p-4 flex-1 min-h-0 overflow-y-auto"
                     style={{ touchAction: 'pan-y', WebkitOverflowScrolling: 'touch' }}
-                    onWheel={(e) => e.stopPropagation()}
-                    onTouchMove={(e) => e.stopPropagation()}
                 >
                     <AnimatePresence mode="wait">
                         {activeTab === 'icons' ? (
@@ -389,7 +393,7 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
                                         type="text"
                                         value={uploadSearch}
                                         onChange={(e) => setUploadSearch(e.target.value)}
-                                        placeholder="Search service icons..."
+                                        placeholder="Search 2000+ icons..."
                                         className="w-full pl-10 pr-4 py-2 bg-theme-secondary border-theme rounded-lg text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-accent transition-colors"
                                     />
                                 </div>

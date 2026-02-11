@@ -1,0 +1,132 @@
+/**
+ * CodeEditor Styles
+ * 
+ * Overlay pattern: transparent textarea sits on top of a syntax-highlighted <pre>.
+ * Both share identical font/spacing so text aligns perfectly.
+ * Token colors use theme-aware values that work in both light and dark modes.
+ */
+
+.code-editor-wrapper {
+    position: relative;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    overflow: hidden;
+    transition: border-color 0.2s ease;
+}
+
+.code-editor-wrapper:focus-within {
+    border-color: var(--accent);
+}
+
+/* Shared base styles for both layers */
+.code-editor-highlight,
+.code-editor-input {
+    font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', 'Monaco', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    padding: 0.625rem 0.75rem;
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    tab-size: 2;
+}
+
+/* Highlighted pre (behind) */
+.code-editor-highlight {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    color: var(--text-primary);
+}
+
+/* Editable textarea (in front) */
+.code-editor-input {
+    position: relative;
+    display: block;
+    width: 100%;
+    min-height: 100%;
+    color: transparent;
+    caret-color: var(--accent);
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    overflow-y: auto;
+    z-index: 1;
+    -webkit-text-fill-color: transparent;
+}
+
+.code-editor-input::placeholder {
+    -webkit-text-fill-color: var(--text-tertiary);
+    color: var(--text-tertiary);
+}
+
+.code-editor-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ============================================================================
+ * Syntax Token Colors
+ * Uses theme-aware colors that adapt to light/dark modes.
+ * ============================================================================ */
+
+/* HTML tags, CSS selectors */
+.ce-tag {
+    color: #e06c75;
+}
+
+/* Attribute names, CSS properties */
+.ce-attr {
+    color: #d19a66;
+}
+
+/* String values */
+.ce-string {
+    color: #98c379;
+}
+
+/* Numbers, hex colors */
+.ce-number {
+    color: #d19a66;
+}
+
+/* CSS functions (var, calc, rgba, etc.) */
+.ce-fn {
+    color: #61afef;
+}
+
+/* Comments */
+.ce-comment {
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+/* Brackets and operators */
+.ce-bracket {
+    color: var(--text-secondary);
+}
+
+/* Light theme adjustments */
+[data-theme^="light"] .ce-tag {
+    color: #c9362b;
+}
+
+[data-theme^="light"] .ce-attr {
+    color: #9e6d20;
+}
+
+[data-theme^="light"] .ce-string {
+    color: #50862a;
+}
+
+[data-theme^="light"] .ce-number {
+    color: #9e6d20;
+}
+
+[data-theme^="light"] .ce-fn {
+    color: #2b6cb0;
+}

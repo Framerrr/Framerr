@@ -40,7 +40,13 @@ export interface UserConfigResponse {
         hideMobileEditButton?: boolean;
         dashboardGreeting?: {
             enabled?: boolean;
+            mode?: 'auto' | 'manual';
             text?: string;
+            headerVisible?: boolean;
+            taglineEnabled?: boolean;
+            taglineText?: string;
+            tones?: string[];
+            loadingMessages?: boolean;
         };
     };
 }

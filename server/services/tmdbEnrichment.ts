@@ -44,6 +44,7 @@ export interface EnrichedRequest {
         status: number;
         posterPath: string | null;
         localPosterPath: string | null;
+        backdropPath: string | null;
         overview?: string | null;
         releaseDate?: string | null;
         voteAverage?: number | null;
@@ -260,6 +261,7 @@ export async function enrichRequests(
                 localPosterPath: imageCache.isImageCached(tmdbId, 'poster')
                     ? imageCache.getImageFilename(tmdbId, 'poster')
                     : null,
+                backdropPath: cached?.backdropPath ?? null,
                 overview: cached?.overview,
                 releaseDate: cached?.releaseDate,
                 voteAverage: cached?.voteAverage

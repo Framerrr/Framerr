@@ -30,7 +30,13 @@ export interface CustomColors {
 
 export interface OriginalGreeting {
     enabled: boolean;
+    mode: 'auto' | 'manual';
     text: string;
+    headerVisible: boolean;
+    taglineEnabled: boolean;
+    taglineText: string;
+    tones: string[];
+    loadingMessages: boolean;
 }
 
 export interface ThemeDefinition {
@@ -73,10 +79,20 @@ export interface CustomizationState {
     savingFlattenUI: boolean;
 
     // Greeting State
-    greetingEnabled: boolean;
-    setGreetingEnabled: (enabled: boolean) => void;
+    greetingMode: 'auto' | 'manual';
+    setGreetingMode: (mode: 'auto' | 'manual') => void;
     greetingText: string;
     setGreetingText: (text: string) => void;
+    headerVisible: boolean;
+    setHeaderVisible: (visible: boolean) => void;
+    taglineEnabled: boolean;
+    setTaglineEnabled: (enabled: boolean) => void;
+    taglineText: string;
+    setTaglineText: (text: string) => void;
+    tones: string[];
+    setTones: (tones: string[]) => void;
+    loadingMessagesEnabled: boolean;
+    setLoadingMessagesEnabled: (enabled: boolean) => void;
     savingGreeting: boolean;
     hasGreetingChanges: boolean;
 

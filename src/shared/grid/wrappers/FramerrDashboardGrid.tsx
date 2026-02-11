@@ -81,6 +81,9 @@ export interface FramerrDashboardGridProps {
 
     /** Pending unlink state (for debug coloring) */
     pendingUnlink?: boolean;
+
+    /** Whether to use square cells (cellHeight = 'auto') */
+    squareCells?: boolean;
 }
 
 // ============================================================================
@@ -104,6 +107,7 @@ export function FramerrDashboardGrid({
     mobileLayoutMode = 'linked',
     pendingUnlink = false,
     emptyOverlay,
+    squareCells = false,
 }: FramerrDashboardGridProps): ReactElement {
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -114,7 +118,7 @@ export function FramerrDashboardGrid({
             responsive: true,
             cols: { lg: GRID_COLS.lg, sm: GRID_COLS.sm },
             breakpoints: { lg: GRID_BREAKPOINTS.lg, sm: GRID_BREAKPOINTS.sm },
-            rowHeight: ROW_HEIGHT,
+            rowHeight: (squareCells && currentBreakpoint === 'lg') ? 'auto' : ROW_HEIGHT,
             margin: GRID_MARGIN,
             containerPadding: [0, 0] as [number, number],
             compactType: COMPACT_TYPE,
@@ -145,6 +149,7 @@ export function FramerrDashboardGrid({
         editMode,
         isGlobalDragEnabled,
         currentBreakpoint,
+        squareCells,
     ]);
 
     // ========== EVENT HANDLERS ==========

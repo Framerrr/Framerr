@@ -23,7 +23,7 @@
 /* Base card styling - glassmorphism */
 .service-card {
     background: rgba(255, 255, 255, 0.05);
-    border-radius: 0.5rem;
+    border-radius: 0.75rem;
     border: none;
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.2s ease;

@@ -11,18 +11,90 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { widgetsApi, configApi } from '../../../api/endpoints';
-import { Link, RefreshCw, Trash2, AlertTriangle, Smartphone, LayoutGrid } from 'lucide-react';
+import { Link, RefreshCw, Trash2, AlertTriangle, Smartphone, LayoutGrid, PanelLeftClose, Monitor } from 'lucide-react';
 import { Button, Switch } from '../../../shared/ui';
 import { SettingsPage, SettingsSection, SettingsItem } from '../../../shared/ui/settings';
 import { Modal } from '../../../shared/ui/Modal';
 import { useLayout } from '../../../context/LayoutContext';
 import logger from '../../../utils/logger';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
+import { useSidebarUI } from '../../../components/sidebar/context/SidebarUIContext';
 
 type MobileLayoutMode = 'linked' | 'independent';
 
 interface LayoutSectionProps {
     className?: string;
+}
+
+/**
+ * Sidebar auto-hide toggle - separate component because it uses SidebarUI context
+ */
+function SidebarAutoHideToggle() {
+    const { isSidebarHidden, setSidebarHidden } = useSidebarUI();
+    return (
+        <SettingsItem
+            label="Auto-hide Sidebar"
+            description="Automatically hide the sidebar to maximize dashboard space. Hover the left edge to peek, or slide to the edge of the screen to open."
+            icon={PanelLeftClose}
+            iconColor="text-accent"
+        >
+            <Switch
+                checked={isSidebarHidden}
+                onCheckedChange={(checked) => setSidebarHidden(checked)}
+            />
+        </SettingsItem>
+    );
+}
+
+/**
+ * Square cells toggle - experimental feature for auto cell height
+ */
+function SquareCellsToggle() {
+    const [squareCells, setSquareCells] = useState(false);
+
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const response = await configApi.getUser();
+                if (response?.preferences?.squareCells) setSquareCells(true);
+            } catch { /* ignore */ }
+        };
+        load();
+    }, []);
+
+    const handleChange = async (checked: boolean) => {
+        setSquareCells(checked);
+        try {
+            await configApi.updateUser({
+                preferences: { squareCells: checked }
+            });
+            window.dispatchEvent(new CustomEvent('user-preferences-changed', {
+                detail: { squareCells: checked }
+            }));
+        } catch (error) {
+            logger.error('Failed to save square cells preference:', { error });
+            setSquareCells(!checked);
+        }
+    };
+
+    return (
+        <SettingsItem
+            label={
+                <span className="flex items-center gap-2">
+                    Square Cells
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent font-medium uppercase tracking-wider">Experimental</span>
+                </span>
+            }
+            description="Make each grid cell height equal to its width, creating square proportions. Widget heights will change dynamically with window size."
+            icon={LayoutGrid}
+            iconColor="text-accent"
+        >
+            <Switch
+                checked={squareCells}
+                onCheckedChange={handleChange}
+            />
+        </SettingsItem>
+    );
 }
 
 export function LayoutSection({ className = '' }: LayoutSectionProps) {
@@ -143,9 +215,38 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
             title="General"
             description="Manage your dashboard layout and preferences"
         >
-            {/* Dashboard Management Card */}
-            <SettingsSection title="Dashboard Management" icon={LayoutGrid}>
+            {/* General Section */}
+            <SettingsSection title="General" icon={LayoutGrid}>
+                {/* Reset All Widgets */}
+                <SettingsItem
+                    label="Reset Dashboard"
+                    description="Remove all widgets from your dashboard. This cannot be undone."
+                    icon={Trash2}
+                    iconColor="text-error"
+                >
+                    <Button
+                        variant="danger"
+                        size="md"
+                        textSize="sm"
+                        onClick={() => setShowResetModal(true)}
+                        disabled={actionLoading || widgetCount === 0}
+                    >
+                        Reset All Widgets
+                    </Button>
+                </SettingsItem>
+            </SettingsSection>
 
+            {/* Desktop Section */}
+            <SettingsSection title="Desktop" icon={Monitor}>
+                {/* Auto-hide Sidebar Toggle */}
+                <SidebarAutoHideToggle />
+
+                {/* Square Cells Toggle (Experimental) */}
+                <SquareCellsToggle />
+            </SettingsSection>
+
+            {/* Mobile Section */}
+            <SettingsSection title="Mobile" icon={Smartphone}>
                 {/* Mobile Layout Status */}
                 <SettingsItem
                     label="Mobile Layout"
@@ -195,104 +296,86 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
                         </SettingsItem>
                     )}
                 </AnimatePresence>
+            </SettingsSection>
 
-                {/* Reset All Widgets */}
-                <SettingsItem
-                    label="Reset Dashboard"
-                    description="Remove all widgets from your dashboard. This cannot be undone."
-                    icon={Trash2}
-                    iconColor="text-error"
-                >
+            {/* Reconnect Confirmation Modal */}
+            <Modal
+                open={showReconnectModal}
+                onOpenChange={(open) => !open && setShowReconnectModal(false)}
+                size="sm"
+            >
+                <Modal.Header title="Reconnect Mobile Layout?" />
+                <Modal.Body>
+                    <div className="space-y-4">
+                        <div className="flex items-start gap-3 p-3 rounded-lg bg-warning/10 border border-warning/20">
+                            <AlertTriangle size={20} className="text-warning flex-shrink-0 mt-0.5" />
+                            <div className="text-sm text-theme-secondary">
+                                Your custom mobile layout will be replaced with the current desktop layout.
+                                Any mobile-only widgets will be removed.
+                            </div>
+                        </div>
+
+                        <p className="text-theme-secondary text-sm">
+                            After reconnecting, changes made on desktop will automatically update mobile.
+                        </p>
+                    </div>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button
+                        variant="secondary"
+                        onClick={() => setShowReconnectModal(false)}
+                        disabled={actionLoading}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="primary"
+                        onClick={handleReconnect}
+                        disabled={actionLoading}
+                    >
+                        {actionLoading ? 'Reconnecting...' : 'Reconnect'}
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
+            {/* Reset Confirmation Modal */}
+            <Modal
+                open={showResetModal}
+                onOpenChange={(open) => !open && setShowResetModal(false)}
+                size="sm"
+            >
+                <Modal.Header title="Reset All Widgets?" />
+                <Modal.Body>
+                    <div className="space-y-4">
+                        <div className="flex items-start gap-3 p-3 rounded-lg bg-error/10 border border-error/20">
+                            <AlertTriangle size={20} className="text-error flex-shrink-0 mt-0.5" />
+                            <div className="text-sm text-theme-secondary">
+                                This will permanently delete all widgets from both your desktop and mobile dashboards.
+                            </div>
+                        </div>
+
+                        <p className="text-theme-secondary text-sm">
+                            This action cannot be undone. You will start with an empty dashboard.
+                        </p>
+                    </div>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button
+                        variant="secondary"
+                        onClick={() => setShowResetModal(false)}
+                        disabled={actionLoading}
+                    >
+                        Cancel
+                    </Button>
                     <Button
                         variant="danger"
-                        size="md"
-                        textSize="sm"
-                        onClick={() => setShowResetModal(true)}
-                        disabled={actionLoading || widgetCount === 0}
+                        onClick={handleReset}
+                        disabled={actionLoading}
                     >
-                        Reset All Widgets
+                        {actionLoading ? 'Resetting...' : 'Reset Dashboard'}
                     </Button>
-                </SettingsItem>
-
-                {/* Reconnect Confirmation Modal */}
-                <Modal
-                    open={showReconnectModal}
-                    onOpenChange={(open) => !open && setShowReconnectModal(false)}
-                    size="sm"
-                >
-                    <Modal.Header title="Reconnect Mobile Layout?" />
-                    <Modal.Body>
-                        <div className="space-y-4">
-                            <div className="flex items-start gap-3 p-3 rounded-lg bg-warning/10 border border-warning/20">
-                                <AlertTriangle size={20} className="text-warning flex-shrink-0 mt-0.5" />
-                                <div className="text-sm text-theme-secondary">
-                                    Your custom mobile layout will be replaced with the current desktop layout.
-                                    Any mobile-only widgets will be removed.
-                                </div>
-                            </div>
-
-                            <p className="text-theme-secondary text-sm">
-                                After reconnecting, changes made on desktop will automatically update mobile.
-                            </p>
-                        </div>
-                    </Modal.Body>
-                    <Modal.Footer>
-                        <Button
-                            variant="secondary"
-                            onClick={() => setShowReconnectModal(false)}
-                            disabled={actionLoading}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="primary"
-                            onClick={handleReconnect}
-                            disabled={actionLoading}
-                        >
-                            {actionLoading ? 'Reconnecting...' : 'Reconnect'}
-                        </Button>
-                    </Modal.Footer>
-                </Modal>
-
-                {/* Reset Confirmation Modal */}
-                <Modal
-                    open={showResetModal}
-                    onOpenChange={(open) => !open && setShowResetModal(false)}
-                    size="sm"
-                >
-                    <Modal.Header title="Reset All Widgets?" />
-                    <Modal.Body>
-                        <div className="space-y-4">
-                            <div className="flex items-start gap-3 p-3 rounded-lg bg-error/10 border border-error/20">
-                                <AlertTriangle size={20} className="text-error flex-shrink-0 mt-0.5" />
-                                <div className="text-sm text-theme-secondary">
-                                    This will permanently delete all widgets from both your desktop and mobile dashboards.
-                                </div>
-                            </div>
-
-                            <p className="text-theme-secondary text-sm">
-                                This action cannot be undone. You will start with an empty dashboard.
-                            </p>
-                        </div>
-                    </Modal.Body>
-                    <Modal.Footer>
-                        <Button
-                            variant="secondary"
-                            onClick={() => setShowResetModal(false)}
-                            disabled={actionLoading}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="danger"
-                            onClick={handleReset}
-                            disabled={actionLoading}
-                        >
-                            {actionLoading ? 'Resetting...' : 'Reset Dashboard'}
-                        </Button>
-                    </Modal.Footer>
-                </Modal>
-            </SettingsSection>
+                </Modal.Footer>
+            </Modal>
         </SettingsPage>
     );
 }

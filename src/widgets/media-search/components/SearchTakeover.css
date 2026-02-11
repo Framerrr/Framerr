@@ -1,0 +1,158 @@
+/* Search Takeover - Spotlight-style overlay */
+
+/* Full-page backdrop with blur */
+.search-takeover-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* Desktop: ~35% from top for Spotlight-style positioning */
+    padding-top: 25vh;
+}
+
+/* Mobile: bar at top of viewport */
+@media (max-width: 768px) {
+    .search-takeover-backdrop {
+        padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        background: rgba(0, 0, 0, 0.55);
+    }
+}
+
+/* Container for bar + dropdown */
+.search-takeover-container {
+    position: relative;
+    width: min(700px, 90vw);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Close button - rounded square, above-right */
+.search-takeover-close {
+    position: absolute;
+    top: -2.5rem;
+    right: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--bg-secondary);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    transition: all 0.15s;
+    opacity: 0.8;
+}
+
+.search-takeover-close:hover {
+    opacity: 1;
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+/* Search bar */
+.search-takeover-bar {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.search-takeover-search-icon {
+    position: absolute;
+    left: 1rem;
+    color: var(--text-tertiary);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.search-takeover-input {
+    width: 100%;
+    height: 3rem;
+    padding: 0 1rem;
+    padding-left: 2.75rem;
+    padding-right: 2.5rem;
+    font-size: 1rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+.search-takeover-input::placeholder {
+    color: var(--text-tertiary);
+}
+
+.search-takeover-input:focus {
+    border-color: var(--border);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Clear button inside the search bar */
+.search-takeover-clear {
+    position: absolute;
+    right: 0.75rem;
+    padding: 0.25rem;
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border-radius: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-takeover-clear:hover {
+    color: var(--text-secondary);
+    background: var(--bg-hover);
+}
+
+/* Dropdown area */
+.search-takeover-dropdown {
+    width: 100%;
+    max-height: 400px;
+    overflow-y: auto;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: var(--bg-primary);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+    padding: 0.5rem;
+}
+
+/* Custom scrollbar for dropdown */
+.search-takeover-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+
+.search-takeover-dropdown::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.search-takeover-dropdown::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+}
+
+@media (max-width: 768px) {
+    .search-takeover-container {
+        width: calc(100vw - 2rem);
+    }
+
+    /* Account for: safe-area (notch) + 3.5rem padding + 2.5rem close btn + 3rem bar + 0.5rem gap + 1rem bottom buffer */
+    .search-takeover-dropdown {
+        max-height: calc(100dvh - 10.5rem - env(safe-area-inset-top, 0px));
+    }
+}

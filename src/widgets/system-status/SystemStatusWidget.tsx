@@ -1,21 +1,115 @@
 /**
  * System Status Widget
- * 
- * Displays CPU, Memory, Temperature, and Uptime metrics.
- * Each metric (except uptime) opens a graph popover on click.
- * Uses CSS Container Queries for responsive vertical centering.
+ *
+ * Displays CPU, Memory, Temperature, and Uptime metrics as card tiles
+ * in a responsive 4-column priority grid.
+ *
+ * Layout modes:
+ * - grid: Smart 4-column grid with span-based row packing (default)
+ * - stacked: Forced single column, all metrics full-width
+ *
+ * Layout editing (resize, reorder, visibility) is handled in the
+ * config modal via MetricLayoutEditor.
  */
 
 import React, { useState, useMemo } from 'react';
-import { Activity, Disc, Thermometer, Clock } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useLayout } from '../../context/LayoutContext';
 import { isAdmin } from '../../utils/permissions';
 import { WidgetStateMessage, useWidgetIntegration, useIntegrationSSE } from '../../shared/widgets';
 import MetricGraphPopover from './popovers/MetricGraphPopover';
+import { useMetricConfig, PackedMetric } from './hooks/useMetricConfig';
 import { StatusData, SystemStatusWidgetProps } from './types';
 import './styles.css';
 
-// Preview mode mock data
+// ============================================================================
+// COLOR HELPERS
+// ============================================================================
+
+function getValueColor(value: number): string {
+    if (value < 50) return 'var(--success)';
+    if (value < 80) return 'var(--warning)';
+    return 'var(--error)';
+}
+
+function formatValue(key: string, value: number | string, unit: string): string {
+    if (key === 'uptime') return String(value);
+    const num = Number(value || 0);
+    const decimals = key === 'temperature' ? 0 : 1;
+    return `${num.toFixed(decimals)}${unit}`;
+}
+
+function getProgressWidth(key: string, value: number): number {
+    if (key === 'temperature') return Math.min(value, 100);
+    return value;
+}
+
+// ============================================================================
+// METRIC CARD CLASSES BUILDER
+// ============================================================================
+
+function buildCardClasses(metric: PackedMetric, visibleCount: number): string {
+    const classes = [
+        'metric-card',
+        `metric-card--span-${metric.effectiveSpan}`,
+    ];
+
+    if (!metric.hasProgress) {
+        classes.push('metric-card--vertical');
+        if (visibleCount > 2) {
+            classes.push('metric-card--borderless');
+        }
+    }
+
+    return classes.filter(Boolean).join(' ');
+}
+
+// ============================================================================
+// STATIC METRIC CARD (no popover)
+// ============================================================================
+
+interface MetricCardProps {
+    metric: PackedMetric;
+    value: number | string;
+    visibleCount: number;
+}
+
+const MetricCard: React.FC<MetricCardProps> = ({ metric, value, visibleCount }) => {
+    const numValue = Number(value || 0);
+    const cardClasses = buildCardClasses(metric, visibleCount);
+
+    return (
+        <div className={cardClasses}>
+            <div className="metric-card__inner">
+                <div className="metric-card__header">
+                    <span className="metric-card__label">
+                        <metric.icon size={14} />
+                        {metric.label}
+                    </span>
+                    <span className="metric-card__value">
+                        {formatValue(metric.key, value, metric.unit)}
+                    </span>
+                </div>
+                {metric.hasProgress && (
+                    <div className="metric-card__progress">
+                        <div
+                            className="metric-card__progress-fill"
+                            style={{
+                                width: `${getProgressWidth(metric.key, numValue)}%`,
+                                backgroundColor: getValueColor(numValue),
+                            }}
+                        />
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// ============================================================================
+// PREVIEW / DEFAULT DATA
+// ============================================================================
+
 const PREVIEW_DATA: StatusData = {
     cpu: 45,
     memory: 68,
@@ -23,7 +117,6 @@ const PREVIEW_DATA: StatusData = {
     uptime: '14d 6h'
 };
 
-// Default data for when no valid source data is available
 const DEFAULT_DATA: StatusData = {
     cpu: 0,
     memory: 0,
@@ -31,82 +124,93 @@ const DEFAULT_DATA: StatusData = {
     uptime: '--'
 };
 
-const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({ widget, previewMode = false }) => {
-    // Preview mode: render mock data without hooks
+// ============================================================================
+// MAIN WIDGET
+// ============================================================================
+
+const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({
+    widget,
+    previewMode = false,
+}) => {
+    const config = widget.config as Record<string, unknown> | undefined;
+
+    // Get widget dimensions and header config for row arithmetic
+    // At runtime, widget may be FramerrWidget (layout.h / mobileLayout.h) or WidgetData (h directly)
+    const { isMobile } = useLayout();
+    const fw = widget as unknown as { layout?: { h?: number }; mobileLayout?: { h?: number } };
+    const widgetH = (isMobile ? fw.mobileLayout?.h : null) ?? fw.layout?.h ?? widget.h ?? 2;
+    const showHeader = config?.showHeader !== false;
+
+    const {
+        packedMetrics,
+        visibleCount,
+        visibleRows,
+        isInline,
+        layout,
+    } = useMetricConfig({
+        widgetId: widget.id,
+        config,
+        widgetH,
+        showHeader,
+    });
+
+    // Grid class based on layout mode
+    const gridClassName = `system-status-grid${layout === 'stacked' ? ' system-status-grid--stacked' : ''}`;
+    const widgetClassName = `system-status-widget${isInline ? ' system-status--inline' : ''}`;
+    // Even row distribution via CSS grid
+    const gridStyle = { gridTemplateRows: `repeat(${visibleRows}, 1fr)` };
+
+    // ========================================================================
+    // PREVIEW MODE — render mock data without hooks
+    // ========================================================================
     if (previewMode) {
         return (
-            <div className="system-status-widget">
-                <div className="system-status-widget__content">
-                    {[
-                        { icon: Activity, label: 'CPU', value: PREVIEW_DATA.cpu, unit: '%' },
-                        { icon: Disc, label: 'Memory', value: PREVIEW_DATA.memory, unit: '%' },
-                        { icon: Thermometer, label: 'Temp', value: PREVIEW_DATA.temperature, unit: '°C' },
-                        { icon: Clock, label: 'Uptime', value: null, display: PREVIEW_DATA.uptime },
-                    ].map((m, i) => {
-                        const getColor = (v: number) => v < 50 ? 'var(--success)' : v < 80 ? 'var(--warning)' : 'var(--error)';
-                        return (
-                            <div key={i} className="system-status-widget__metric">
-                                <div className="system-status-widget__metric-header">
-                                    <span className="system-status-widget__metric-label">
-                                        <m.icon size={14} />
-                                        {m.label}
-                                    </span>
-                                    <span className="system-status-widget__metric-value">{m.display || `${m.value}${m.unit}`}</span>
-                                </div>
-                                {m.value !== null && (
-                                    <div className="system-status-widget__progress">
-                                        <div
-                                            className="system-status-widget__progress-fill"
-                                            style={{ width: `${m.value}%`, background: getColor(m.value) }}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
+            <div className={widgetClassName}>
+                <div className={gridClassName} style={gridStyle}>
+                    {packedMetrics.map((metric) => (
+                        <MetricCard
+                            key={metric.key}
+                            metric={metric}
+                            value={PREVIEW_DATA[metric.key as keyof StatusData]}
+                            visibleCount={visibleCount}
+                        />
+                    ))}
                 </div>
             </div>
         );
     }
 
+    // ========================================================================
+    // LIVE MODE — hooks and data fetching
+    // ========================================================================
+
     const { user } = useAuth();
     const userIsAdmin = isAdmin(user);
 
-    // Check if integration is bound
-    const config = widget.config as { integrationId?: string } | undefined;
-    const configuredIntegrationId = config?.integrationId;
+    const configuredIntegrationId = config?.integrationId as string | undefined;
 
-    // Use unified access hook for widget + integration access
     const {
         effectiveIntegrationId,
         status: accessStatus,
         loading: accessLoading,
     } = useWidgetIntegration('system-status', configuredIntegrationId, widget.id);
 
-    // Use the effective integration ID (may be fallback)
     const integrationId = effectiveIntegrationId || undefined;
     const isIntegrationBound = !!integrationId;
-
-    // Glances doesn't have a compatible /history endpoint
     const isGlances = integrationId?.startsWith('glances-');
     const historyEnabled = !isGlances;
 
-    // State includes sourceId to prevent stale data display when switching integrations
-    // This prevents flashing when both old and new SSE subscriptions briefly overlap
     const [statusState, setStatusState] = useState<{
         sourceId: string | null;
         data: StatusData;
     }>({ sourceId: null, data: DEFAULT_DATA });
 
-    // Phase 24: Use reusable SSE hook for real-time updates
-    // P9: Also get isConnected to prevent premature empty state
     const integrationType = integrationId?.split('-')[0] || 'glances';
     const { loading, isConnected } = useIntegrationSSE<StatusData>({
         integrationType,
         integrationId,
         enabled: isIntegrationBound,
         onData: (sseData) => {
-            // Tag data with the integration ID at subscription time
             setStatusState({
                 sourceId: integrationId || null,
                 data: {
@@ -119,8 +223,6 @@ const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({ widget, preview
         },
     });
 
-    // Derive display data - only use if source matches current integration
-    // This prevents stale data from old subscription from being displayed
     const statusData = useMemo(() => {
         return statusState.sourceId === integrationId
             ? statusState.data
@@ -129,91 +231,62 @@ const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({ widget, preview
 
     // Early returns after hooks
 
-    // Handle access loading state
     if (accessLoading) {
         return <WidgetStateMessage variant="loading" />;
     }
 
-    // Widget not shared to user
     if (accessStatus === 'noAccess') {
-        return (
-            <WidgetStateMessage
-                variant="noAccess"
-                serviceName="System Health"
-            />
-        );
+        return <WidgetStateMessage variant="noAccess" serviceName="System Health" />;
     }
 
-    // Widget shared but no integrations available
     if (accessStatus === 'disabled') {
-        return (
-            <WidgetStateMessage
-                variant="disabled"
-                serviceName="System Health"
-                isAdmin={userIsAdmin}
-            />
-        );
+        return <WidgetStateMessage variant="disabled" serviceName="System Health" isAdmin={userIsAdmin} />;
     }
 
-    // No integration configured
     if (accessStatus === 'notConfigured' || !isIntegrationBound) {
-        return (
-            <WidgetStateMessage
-                variant="notConfigured"
-                serviceName="System Health"
-                isAdmin={userIsAdmin}
-            />
-        );
+        return <WidgetStateMessage variant="notConfigured" serviceName="System Health" isAdmin={userIsAdmin} />;
     }
 
-    // P9: Show loading while SSE not connected OR waiting for first data
     if (loading || !isConnected) {
         return <WidgetStateMessage variant="loading" />;
     }
 
     return (
-        <div className="system-status-widget">
-            <div className="system-status-widget__content">
-                {/* CPU */}
-                <MetricGraphPopover
-                    metric="cpu"
-                    value={statusData.cpu}
-                    icon={Activity}
-                    integrationId={integrationId}
-                    historyEnabled={historyEnabled}
-                />
+        <div className={widgetClassName}>
+            <div className={gridClassName} style={gridStyle}>
+                {packedMetrics.map((metric) => {
+                    const value = statusData[metric.key as keyof StatusData];
+                    const numValue = Number(value || 0);
 
-                {/* Memory */}
-                <MetricGraphPopover
-                    metric="memory"
-                    value={statusData.memory}
-                    icon={Disc}
-                    integrationId={integrationId}
-                    historyEnabled={historyEnabled}
-                />
+                    // Metrics with graph popover
+                    if (metric.hasGraph) {
+                        return (
+                            <MetricGraphPopover
+                                key={metric.key}
+                                metric={metric.key as 'cpu' | 'memory' | 'temperature'}
+                                value={numValue}
+                                icon={metric.icon}
+                                integrationId={integrationId}
+                                historyEnabled={historyEnabled}
+                                spanClass={`metric-card--span-${metric.effectiveSpan}`}
+                            />
+                        );
+                    }
 
-                {/* Temperature */}
-                <MetricGraphPopover
-                    metric="temperature"
-                    value={statusData.temperature}
-                    icon={Thermometer}
-                    integrationId={integrationId}
-                    historyEnabled={historyEnabled}
-                />
-
-                {/* Uptime (no graph) */}
-                <div className="system-status-widget__metric">
-                    <div className="system-status-widget__metric-header">
-                        <span className="system-status-widget__metric-label">
-                            <Clock size={14} />
-                            Uptime
-                        </span>
-                        <span className="system-status-widget__metric-value">{statusData.uptime}</span>
-                    </div>
-                </div>
+                    // Static metrics (no popover)
+                    return (
+                        <MetricCard
+                            key={metric.key}
+                            metric={metric}
+                            value={value}
+                            visibleCount={visibleCount}
+                        />
+                    );
+                })}
             </div>
         </div>
     );
 };
 
 export default SystemStatusWidget;
+

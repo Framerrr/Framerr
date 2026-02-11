@@ -98,6 +98,8 @@ interface FullSystemConfig {
     webPushEnabled?: boolean;
     backupSchedule?: BackupScheduleConfig;
     monitorDefaults?: MonitorDefaultsConfig;
+    /** Theme preset shown on the login page — auto-synced when admin changes theme */
+    loginTheme?: string;
 }
 
 // Default system configuration
@@ -234,6 +236,9 @@ function buildConfigFromKeyValues(rows: SystemConfigRow[]): FullSystemConfig {
             case 'monitorDefaults':
                 config.monitorDefaults = parsed;
                 break;
+            case 'loginTheme':
+                config.loginTheme = parsed;
+                break;
         }
     }
 
@@ -345,6 +350,7 @@ export async function updateSystemConfig(updates: Partial<FullSystemConfig>): Pr
         monitorDefaults: updates.monitorDefaults !== undefined
             ? { ...currentConfig.monitorDefaults, ...updates.monitorDefaults }
             : currentConfig.monitorDefaults,
+        loginTheme: updates.loginTheme !== undefined ? updates.loginTheme : currentConfig.loginTheme,
     };
 
     try {
@@ -402,6 +408,9 @@ export async function updateSystemConfig(updates: Partial<FullSystemConfig>): Pr
             }
             if (updates.monitorDefaults !== undefined) {
                 upsert.run('monitorDefaults', JSON.stringify(newConfig.monitorDefaults));
+            }
+            if (updates.loginTheme !== undefined) {
+                upsert.run('loginTheme', JSON.stringify(newConfig.loginTheme));
             }
         });
 

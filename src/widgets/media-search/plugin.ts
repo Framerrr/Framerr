@@ -24,12 +24,21 @@ export const plugin: WidgetPlugin = {
     compatibleIntegrations: ['plex', 'jellyfin', 'emby'],
     multiIntegration: true,
     defaultConfig: {
-        showHeader: false // Default h:1 can't display header (requires h:2)
+        showHeader: false, // Default h:1 can't display header (requires h:2)
+        searchTakeover: true, // Spotlight-style search takeover mode
     },
     configConstraints: {
         headerHeightMode: 'hard',   // Height strictly controls header (h:1 = no header, h:2 = header)
         minHeightForHeader: 2,
-        contentPadding: 'none'      // Widget handles its own padding
+        contentPadding: 'none',     // Widget handles its own padding
+        options: [
+            {
+                key: 'searchTakeover',
+                label: 'Focus Mode',
+                type: 'toggle',
+                defaultValue: true,
+            }
+        ]
     }
 };
 

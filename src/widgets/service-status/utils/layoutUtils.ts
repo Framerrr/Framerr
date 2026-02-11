@@ -27,8 +27,8 @@ export const ULTRA_COMPACT_CONFIG: LayoutConfig = {
 export const ULTRA_COMPACT_THRESHOLD = 80; // Width threshold for switching from compact to ultra-compact
 
 export const EXPANDED_CONFIG: LayoutConfig = {
-    minSize: 64,   // minimum square card size
-    maxSize: 120,  // maximum square card size
+    minSize: 48,   // minimum square card size (lowered from 64 to fit 2h-with-header)
+    maxSize: 500,  // effectively uncapped - let cards fill available space
     gap: 8,
 };
 
@@ -40,7 +40,8 @@ export const COMPACT_CARD_HEIGHT = 36; // Fixed height for compact cards
 
 /**
  * "Pack as Large as Possible" algorithm
- * Finds the largest card size that fits all cards in the available space
+ * Tries all possible row arrangements and picks the one that produces
+ * the LARGEST card size, filling the container as much as possible.
  */
 export function calculateOptimalLayout(
     contentWidth: number,
@@ -49,11 +50,11 @@ export function calculateOptimalLayout(
     useCompact: boolean
 ): LayoutResult {
     if (cardCount === 0 || contentWidth <= 0 || contentHeight <= 0) {
-        return { cardSize: 64, cardsPerRow: 1, rowCount: 1, visibleCount: 0, variant: 'expanded' };
+        return { cardSize: 48, cardsPerRow: 1, rowCount: 1, visibleCount: 0, variant: 'expanded' };
     }
 
     const config = useCompact ? COMPACT_CONFIG : EXPANDED_CONFIG;
-    const { minSize, maxSize, gap } = config;
+    const { minSize, gap } = config;
 
     // For compact cards, height is fixed - but may degrade to ultra-compact
     if (useCompact) {
@@ -106,7 +107,9 @@ export function calculateOptimalLayout(
         };
     }
 
-    // Expanded cards (square) - try from 1 row up to cardCount rows
+    // Expanded cards (square) - try ALL row counts and pick the one with LARGEST cards
+    let bestLayout: { cardSize: number; cardsPerRow: number; rows: number } | null = null;
+
     for (let rows = 1; rows <= cardCount; rows++) {
         const cardsPerRow = Math.ceil(cardCount / rows);
 
@@ -118,19 +121,24 @@ export function calculateOptimalLayout(
         const heightBasedSize = availableHeight / rows;
 
         // Card size limited by smaller dimension (maintain 1:1 aspect ratio)
-        let cardSize = Math.min(widthBasedSize, heightBasedSize);
-        cardSize = Math.min(cardSize, maxSize);
+        const cardSize = Math.min(widthBasedSize, heightBasedSize);
 
-        // Check if layout works (cards >= minSize)
+        // Only consider layouts where cards >= minSize
         if (cardSize >= minSize) {
-            return {
-                cardSize: Math.floor(cardSize),
-                cardsPerRow,
-                rowCount: rows,
-                visibleCount: cardCount,
-                variant: 'expanded'
-            };
+            if (!bestLayout || cardSize > bestLayout.cardSize) {
+                bestLayout = { cardSize, cardsPerRow, rows };
+            }
         }
+    }
+
+    if (bestLayout) {
+        return {
+            cardSize: Math.floor(bestLayout.cardSize),
+            cardsPerRow: bestLayout.cardsPerRow,
+            rowCount: bestLayout.rows,
+            visibleCount: cardCount,
+            variant: 'expanded'
+        };
     }
 
     // Fallback: Can't fit all cards at minSize, show as many as we can

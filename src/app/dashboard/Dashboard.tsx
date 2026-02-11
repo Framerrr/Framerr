@@ -1,7 +1,10 @@
-import React, { useEffect, useRef, Suspense } from 'react';
+import React, { useEffect, useRef, useMemo, useState, Suspense } from 'react';
 import { Edit, Plus, LucideIcon, Link, Unlink, LayoutGrid } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getIconComponent } from '../../utils/iconUtils';
+import { getGreeting, getLoadingMessage } from '../../utils/greetings';
+import type { GreetingTone } from '../../utils/greetings';
+import { signalAppReady, setSplashMessage } from '../../utils/splash';
 import { useAuth } from '../../context/AuthContext';
 import { useLayout } from '../../context/LayoutContext';
 import { LAYOUT } from '../../constants/layout';
@@ -105,10 +108,20 @@ const Dashboard = (): React.JSX.Element => {
         setIsUsingTouch,
         widgetVisibility,
         handleWidgetVisibilityChange,
-        greetingEnabled,
-        setGreetingEnabled,
+        greetingMode,
+        setGreetingMode,
         greetingText,
         setGreetingText,
+        headerVisible,
+        setHeaderVisible,
+        taglineEnabled,
+        setTaglineEnabled,
+        taglineText,
+        setTaglineText,
+        tones,
+        setTones,
+        loadingMessagesEnabled,
+        setLoadingMessagesEnabled,
         mobileDisclaimerDismissed,
         setMobileDisclaimerDismissed,
         hideMobileEditButton,
@@ -148,8 +161,13 @@ const Dashboard = (): React.JSX.Element => {
         setLoading,
         mobileDisclaimerDismissed,
         setIsUsingTouch,
-        setGreetingEnabled,
+        setGreetingMode,
         setGreetingText,
+        setHeaderVisible,
+        setTaglineEnabled,
+        setTaglineText,
+        setTones,
+        setLoadingMessagesEnabled,
         dashboardEditContext,
         showError,
     });
@@ -183,6 +201,24 @@ const Dashboard = (): React.JSX.Element => {
 
     // ========== RESIZE MODAL STATE ==========
     const [resizeModalWidgetId, setResizeModalWidgetId] = React.useState<string | null>(null);
+
+    // ========== SQUARE CELLS (EXPERIMENTAL) ==========
+    const [squareCells, setSquareCells] = React.useState(false);
+    useEffect(() => {
+        const loadPref = async () => {
+            try {
+                const response = await configApi.getUser();
+                if (response?.preferences?.squareCells) setSquareCells(true);
+            } catch { /* ignore */ }
+        };
+        loadPref();
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail?.squareCells !== undefined) setSquareCells(!!detail.squareCells);
+        };
+        window.addEventListener('user-preferences-changed', handler);
+        return () => window.removeEventListener('user-preferences-changed', handler);
+    }, []);
 
     // ========== AUTO-SCROLL HOOK ==========
     const {
@@ -388,22 +424,108 @@ const Dashboard = (): React.JSX.Element => {
         );
     };
 
+    // ========== GREETING LOGIC (must be before early return) ==========
+
+    // Auto greeting - memoized so it doesn't change on every render
+    const autoGreeting = useMemo(() => {
+        if (greetingMode !== 'auto') return null;
+        return getGreeting(user?.displayName || user?.username || 'User', tones as GreetingTone[]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [greetingMode, user?.displayName, user?.username, tones]);
+
+    // Loading message - memoized so it persists during a single load
+    const loadingMsg = useMemo(() => {
+        if (!loadingMessagesEnabled) return null;
+        return getLoadingMessage(user?.displayName || user?.username || 'User');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loadingMessagesEnabled, user?.displayName, user?.username]);
+
+    // Resolve the greeting icon component if available
+    const GreetingIcon = useMemo(() => {
+        if (!autoGreeting?.icon) return null;
+        return getIconComponent(autoGreeting.icon);
+    }, [autoGreeting?.icon]);
+
+    // Determine greeting text to display
+    const username = user?.displayName || user?.username || 'User';
+    const displayGreetingText = greetingMode === 'auto'
+        ? (autoGreeting?.text || `Welcome back, ${username}`)
+        : ((greetingText || `Welcome back, ${username}`).replace(/\{user\}/gi, username));
+
+
+    // ========== SPLASH SCREEN INTEGRATION ==========
+
+    // Update splash message while loading
+    useEffect(() => {
+        if (loading && loadingMsg) {
+            setSplashMessage(loadingMsg.text);
+        }
+    }, [loading, loadingMsg]);
+
+    // Signal app ready when data loads — triggers theme airlock + splash dismiss
+    useEffect(() => {
+        if (!loading) {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark-pro';
+            signalAppReady(currentTheme);
+        }
+    }, [loading]);
+
     // ========== RENDER ==========
 
+    // Splash screen covers the viewport while loading — render nothing underneath
     if (loading) {
-        return <div className="h-full w-full flex items-center justify-center"><LoadingSpinner /></div>;
+        return <div className="h-full w-full" />;
     }
 
     const isEmpty = widgets.length === 0;
 
+
+
     return (
-        <div className={`w-full min-h-screen max-w-[2000px] mx-auto fade-in p-2 md:p-8 ${editMode ? 'dashboard-edit-mode' : ''}`}>
-            {/* Header */}
-            <header className={`flex items-center justify-between transition-[margin] duration-300 ${(greetingEnabled || editMode) ? 'mb-8' : 'mb-4'}`}>
-                <div>
-                    <h1 className="text-4xl font-bold mb-2 gradient-text">
-                        Welcome back, {user?.displayName || user?.username || 'User'}
-                    </h1>
+        <div className={`w-full min-h-screen max-w-[2000px] mx-auto fade-in p-2 md:p-4 ${editMode ? 'dashboard-edit-mode' : ''}`}>
+            {/* Edit Button - standalone when header is hidden */}
+            {!headerVisible && !editMode && !(isMobile && hideMobileEditButton) && (
+                <div className="flex justify-end">
+                    <button
+                        onPointerUp={(e) => {
+                            const isTouch = e.pointerType === 'touch';
+                            handleToggleEdit(isTouch);
+                        }}
+                        className="p-2 rounded-lg text-theme-tertiary opacity-40 hover:opacity-90 hover:bg-theme-hover transition-all duration-300"
+                        title="Edit dashboard"
+                    >
+                        <Edit size={16} />
+                    </button>
+                </div>
+            )}
+
+            {/* Header - conditionally visible */}
+            {headerVisible && (
+                <header className={`transition-[margin] duration-300 ${(taglineEnabled || editMode) ? 'mb-8' : 'mb-4'}`}>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            {GreetingIcon && autoGreeting?.iconColor && (
+                                <span style={{ color: autoGreeting.iconColor }} className="flex-shrink-0 flex items-center">
+                                    <GreetingIcon size={28} />
+                                </span>
+                            )}
+                            <h1 className="text-4xl font-bold gradient-text">
+                                {displayGreetingText}
+                            </h1>
+                        </div>
+                        {!editMode && !(isMobile && hideMobileEditButton) && (
+                            <button
+                                onPointerUp={(e) => {
+                                    const isTouch = e.pointerType === 'touch';
+                                    handleToggleEdit(isTouch);
+                                }}
+                                className="p-2 rounded-lg text-theme-tertiary opacity-40 hover:opacity-90 hover:bg-theme-hover transition-all duration-300 flex-shrink-0"
+                                title="Edit dashboard"
+                            >
+                                <Edit size={16} />
+                            </button>
+                        )}
+                    </div>
                     <AnimatePresence mode="wait">
                         {editMode ? (
                             <motion.div
@@ -419,8 +541,10 @@ const Dashboard = (): React.JSX.Element => {
                                 style={{ overflow: 'hidden' }}
                             >
                                 <div>
-                                    <p className="text-lg text-slate-400">
-                                        Editing mode - Drag to rearrange widgets
+                                    <p className="text-lg text-theme-secondary mt-2">
+                                        {isMobile
+                                            ? 'Hold to drag and rearrange widgets'
+                                            : 'Editing mode - Drag to rearrange widgets'}
                                     </p>
                                     {isMobile && (
                                         <div className="flex items-center gap-2 mt-2">
@@ -446,15 +570,15 @@ const Dashboard = (): React.JSX.Element => {
                                     )}
                                 </div>
                             </motion.div>
-                        ) : greetingEnabled ? (
+                        ) : taglineEnabled ? (
                             <motion.p
-                                key="greeting"
+                                key="tagline"
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="text-lg text-slate-400"
+                                className="text-lg text-theme-secondary mt-2"
                             >
-                                {greetingText}
+                                {taglineText}
                             </motion.p>
                         ) : null}
                     </AnimatePresence>
@@ -476,23 +600,21 @@ const Dashboard = (): React.JSX.Element => {
                             )}
                         </div>
                     )}
-                </div>
+                </header>
+            )}
 
-                <div className="flex items-center gap-2 sm:gap-3">
-                    {!editMode && !(isMobile && hideMobileEditButton) && (
-                        <button
-                            onPointerUp={(e) => {
-                                const isTouch = e.pointerType === 'touch';
-                                handleToggleEdit(isTouch);
-                            }}
-                            className="px-4 py-2 text-sm font-medium text-theme-secondary hover:text-theme-primary hover:bg-theme-tertiary rounded-lg transition-all duration-300 flex items-center gap-2"
-                        >
-                            <Edit size={16} />
-                            Edit
-                        </button>
-                    )}
+
+
+            {/* Hidden header + edit mode: show compact edit text */}
+            {!headerVisible && editMode && (
+                <div className="mb-4">
+                    <p className="text-lg text-theme-secondary">
+                        {isMobile
+                            ? 'Hold to drag and rearrange widgets'
+                            : 'Editing mode - Drag to rearrange widgets'}
+                    </p>
                 </div>
-            </header>
+            )}
 
             {/* Desktop Edit Bar */}
             <AnimatePresence>
@@ -564,6 +686,7 @@ const Dashboard = (): React.JSX.Element => {
                     debugOverlayEnabled={debugOverlayEnabled}
                     mobileLayoutMode={mobileLayoutMode}
                     pendingUnlink={pendingUnlink}
+                    squareCells={squareCells}
                     emptyOverlay={isEmpty ? (
                         <div className="empty-dashboard-overlay absolute inset-0 flex items-center justify-center pointer-events-none">
                             {/* Card - visual only, no pointer events */}

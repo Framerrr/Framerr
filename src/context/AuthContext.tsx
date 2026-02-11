@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi } from '../api/endpoints';
 import { setLogoutFunction } from '../api/client';
 import logger from '../utils/logger';
+import { showLogoutSplash, showLoginSplash } from '../utils/splash';
 import useRealtimeSSE, { initializeSSE, disconnectSSE } from '../hooks/useRealtimeSSE';
 import type { User, LoginResult } from '../../shared/types/user';
 import type { AuthContextValue } from '../types/context/auth';
@@ -27,11 +28,18 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
         navigate('/login', { replace: true });
     }, [navigate]);
 
-    // Logout function - uses browser navigation for seamless auth proxy support
+    // Logout function - shows splash overlay, transitions theme, then navigates
     const logout = useCallback((): void => {
-        // Browser-native logout - server handles redirect
-        // This eliminates race conditions with auth proxy
-        window.location.href = '/api/auth/logout';
+        // Fetch the admin's login page theme, then show splash with cross-fade
+        fetch('/api/theme/default')
+            .then(r => r.json())
+            .then(data => data.theme || 'dark-pro')
+            .catch(() => 'dark-pro')
+            .then(loginTheme => {
+                showLogoutSplash(loginTheme, () => {
+                    window.location.href = '/api/auth/logout';
+                });
+            });
     }, []);
 
     /**
@@ -115,17 +123,40 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
         checkSetupAndAuth();
     }, [checkSetupAndAuth]);
 
-    // Hide splash screen when auth check completes
+    // Splash screen lifecycle — theme airlock
+    // Not authenticated: dismiss immediately (login page renders)
+    // Authenticated: wait for page to signal readiness via 'framerr:app-ready'
     useEffect(() => {
-        if (!loading) {
+        if (loading) return;
+
+        if (!user) {
+            // Not authenticated — dismiss splash so login page shows
             const splash = document.getElementById('framerr-splash');
             if (splash) {
                 splash.classList.add('fade-out');
-                // Remove from DOM after fade animation completes
                 setTimeout(() => splash.remove(), 300);
             }
+            return;
         }
-    }, [loading]);
+
+        // Authenticated — wait for page content + theme airlock to complete
+        const dismiss = () => {
+            // signalAppReady in splash.ts handles the actual fade-out
+            // This is just a safety net event listener
+        };
+        const safetyTimeout = setTimeout(() => {
+            // Safety: if nothing signals ready in 8s, force dismiss
+            const splash = document.getElementById('framerr-splash');
+            if (splash) {
+                splash.classList.add('fade-out');
+                setTimeout(() => splash.remove(), 300);
+            }
+        }, 8000);
+
+        return () => {
+            clearTimeout(safetyTimeout);
+        };
+    }, [loading, user]);
 
     // Register session expiry handler with axios interceptor for auto-logout on 401
     // Use handleSessionExpiry (just clears state) - don't call full logout() which makes API calls
@@ -203,6 +234,7 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
     const login = useCallback(async (username: string, password: string, rememberMe: boolean): Promise<LoginResult> => {
         try {
             const response = await authApi.login({ username, password, rememberMe });
+            showLoginSplash(); // Show splash before navigating to dashboard
             setUser(response.user);
             return { success: true };
         } catch (err) {
@@ -236,6 +268,7 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
 
             // Normal login
             if (response.user) {
+                showLoginSplash(); // Show splash before navigating to dashboard
                 setUser(response.user);
                 return { success: true };
             }

@@ -12,7 +12,7 @@ import { settingsItem } from '../animations';
 
 export interface SettingsItemProps {
     /** Setting label */
-    label: string;
+    label: React.ReactNode;
     /** Optional description text */
     description?: string;
     /** Optional icon displayed before label */

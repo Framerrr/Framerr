@@ -96,7 +96,7 @@ export interface GridPolicy {
         /** Column counts per breakpoint */
         cols: Record<string, number>;
         /** Row height in pixels */
-        rowHeight: number;
+        rowHeight: number | 'auto';
         /** Margin between items [horizontal, vertical] */
         margin: [number, number];
         /** Container padding [horizontal, vertical] */

@@ -120,6 +120,8 @@ interface ServiceSettingsGridProps {
     activeModal: string | null;
     setActiveModal: (id: string | null) => void;
     newInstanceId: string | null; // For cancel-to-delete behavior
+    // Webhook base URL from admin notification config
+    webhookBaseUrl?: string;
     // Custom renderers for complex services
     renderPlex: (instanceId: string) => React.ReactNode;
     renderJellyfin: (instanceId: string) => React.ReactNode;
@@ -153,6 +155,7 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
     activeModal,
     setActiveModal,
     newInstanceId,
+    webhookBaseUrl,
     renderPlex,
     renderJellyfin,
     renderEmby,
@@ -327,16 +330,17 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
                         s => s.category === category.key
                     );
 
-                    if (servicesInCategory.length === 0) return null;
+                    // Skip category if no services have instances to display
+                    const hasVisibleServices = servicesInCategory.some(
+                        s => savedInstances.some(i => i.type === s.id)
+                    );
+                    if (!hasVisibleServices) return null;
 
                     return (
                         <div key={category.key}>
                             {/* Category Header */}
-                            <h3 className="text-lg font-semibold text-theme-primary mb-3 capitalize flex items-center gap-2">
+                            <h3 className="text-lg font-semibold text-theme-primary mb-3 capitalize">
                                 {category.label}
-                                <span className="text-sm text-theme-secondary font-normal">
-                                    ({servicesInCategory.length})
-                                </span>
                             </h3>
 
                             {/* All services use IntegrationTypeCard */}
@@ -441,7 +445,7 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
                                 instanceType={instance.type}
                                 config={webhookConfig}
                                 events={webhookEvents}
-                                webhookBaseUrl={window.location.origin}
+                                webhookBaseUrl={webhookBaseUrl || window.location.origin}
                                 onConfigChange={(config) => {
                                     // Store webhook config in integration state as object (not string)
                                     // The backend handles JSON serialization of the config column

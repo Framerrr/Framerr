@@ -127,3 +127,5 @@ export type { ViewMode } from './ViewModeToggle';
 export { IntegrationNotificationsTab } from './notifications';
 export type { NotificationMode, NotificationEvent, NotificationConfigData } from './notifications';
 
+// CodeEditor - Lightweight syntax-highlighted code editor
+export { CodeEditor } from './CodeEditor';

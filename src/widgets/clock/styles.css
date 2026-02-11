@@ -1,13 +1,22 @@
 /**
  * ClockWidget - Fluid Container Query-based Responsive Styles
  * 
- * Uses CSS Container Queries with clamp() and container query units (cqi/cqb)
- * for fluid, dynamic sizing that scales with container size.
+ * Layout tiers (matching weather widget approach):
  * 
- * NO PADDING - WidgetWrapper handles padding consistently.
+ * 1. SHORT HEIGHT (h=1)     → Inline: [Time] [Date · Timezone]
+ * 2. WIDE + TALL (default)  → Flex row: [Time] [Date / Timezone stacked]
+ * 3. NARROW + TALL          → Stacked: Time on top, date below, centered
+ * 4. TALL + SKINNY          → Full vertical stack, centered
+ * 5. COMPACT                → Hide date
+ * 6. ULTRA COMPACT          → Time only
+ * 
+ * RULE: Never clip. Hide elements progressively rather than overflow.
  */
 
-/* Container setup - enables @container queries with size tracking */
+/* ============================================================================
+ * Container Setup
+ * ============================================================================ */
+
 .clock-widget {
     container-type: size;
     container-name: clock;
@@ -20,18 +29,22 @@
     overflow: hidden;
 }
 
-/* ===== MAIN CONTENT: Flex layout for time + date ===== */
+/* ============================================================================
+ * DEFAULT LAYOUT: Flex row (wide + tall containers)
+ * [Time] [Date / Timezone stacked]
+ * ============================================================================ */
+
 .clock-widget__content {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: clamp(4px, 3cqi, 24px);
+    gap: clamp(6px, 3cqi, 24px);
     width: fit-content;
     max-width: 100%;
     flex-wrap: nowrap;
 }
 
-/* Time Display - main visual element, scales fluidly */
+/* Time Display — primary element, always visible */
 .clock-widget__time {
     font-size: clamp(1rem, min(12cqi, 50cqb), 4rem);
     font-weight: 700;
@@ -41,11 +54,12 @@
     flex-shrink: 0;
 }
 
-/* Date/Info section - secondary information */
+/* Info section — stacks vertically by default */
 .clock-widget__info {
     display: flex;
     flex-direction: column;
     gap: clamp(1px, 0.5cqi, 4px);
+    min-width: 0;
 }
 
 /* Date text */
@@ -65,8 +79,59 @@
     opacity: 0.7;
 }
 
-/* ===== LAYOUT: Vertical (stacked) by default, horizontal only when very wide (>557px) ===== */
-@container clock (max-width: 557px) {
+/* ============================================================================
+ * TIER 1: SHORT HEIGHT (h=1) — everything inline
+ * [Time] [Date · Timezone]
+ * Matches weather widget's short-height approach
+ * ============================================================================ */
+
+@container clock (max-height: 70px) {
+    .clock-widget__content {
+        gap: clamp(6px, 2.5cqi, 20px);
+    }
+
+    .clock-widget__time {
+        font-size: clamp(1.1rem, 40cqb, 2.2rem);
+    }
+
+    /* Info becomes single inline row */
+    .clock-widget__info {
+        flex-direction: row;
+        align-items: baseline;
+        gap: clamp(4px, 1cqi, 8px);
+    }
+
+    .clock-widget__date {
+        font-size: clamp(0.6rem, 3cqi, 0.95rem);
+        font-weight: 400;
+        color: var(--text-secondary);
+    }
+
+    .clock-widget__timezone {
+        font-size: clamp(0.55rem, 2.5cqi, 0.8rem);
+    }
+}
+
+/* Short + narrow: hide timezone */
+@container clock (max-height: 70px) and (max-width: 250px) {
+    .clock-widget__timezone {
+        display: none;
+    }
+}
+
+/* Short + very narrow: hide date too */
+@container clock (max-height: 70px) and (max-width: 150px) {
+    .clock-widget__info {
+        display: none;
+    }
+}
+
+/* ============================================================================
+ * TIER 2: STACKED LAYOUT — Narrow + Tall
+ * Time on top, date below, centered
+ * ============================================================================ */
+
+@container clock (max-width: 400px) and (min-height: 71px) {
     .clock-widget__content {
         display: grid;
         grid-template-rows: auto auto;
@@ -77,13 +142,12 @@
         width: 100%;
     }
 
-    /* Time on row 1, centered */
     .clock-widget__time {
         grid-row: 1;
         text-align: center;
+        font-size: clamp(1.2rem, 14cqi, 2.5rem);
     }
 
-    /* Info section on row 2, centered */
     .clock-widget__info {
         grid-row: 2;
         align-items: center;
@@ -91,17 +155,53 @@
     }
 }
 
-/* ===== COMPACT: Very small container - hide secondary info ===== */
-@container clock (max-width: 150px) {
+/* ============================================================================
+ * TIER 3: TALL + SKINNY — Full vertical stack
+ * ============================================================================ */
+
+@container clock (max-width: 200px) and (min-height: 120px) {
+    .clock-widget__content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(2px, 2cqb, 8px);
+        width: 100%;
+    }
+
+    .clock-widget__time {
+        font-size: clamp(1.5rem, 25cqi, 3rem);
+    }
+
+    .clock-widget__info {
+        align-items: center;
+        text-align: center;
+    }
+
+    .clock-widget__date {
+        font-size: clamp(0.65rem, 5cqi, 0.9rem);
+    }
+
+    .clock-widget__timezone {
+        font-size: clamp(0.55rem, 4cqi, 0.75rem);
+    }
+}
+
+/* ============================================================================
+ * TIER 4: COMPACT — Very narrow, hide date
+ * ============================================================================ */
+
+@container clock (max-width: 150px) and (min-height: 71px) {
     .clock-widget__date {
         display: none;
     }
 }
 
-/* ===== ULTRA COMPACT: Tiny container - hide timezone too ===== */
-@container clock (max-width: 100px) {
+/* ============================================================================
+ * TIER 5: ULTRA COMPACT — Time only
+ * ============================================================================ */
 
-    .clock-widget__timezone,
+@container clock (max-width: 100px) {
     .clock-widget__info {
         display: none;
     }

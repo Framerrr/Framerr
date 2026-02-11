@@ -34,9 +34,7 @@
  * ======================================== */
 .react-grid-item.widget-drag-ready {
     /* Use box-shadow for visual "lift" effect instead of scale */
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35),
-        0 0 0 3px var(--accent-edit),
-        inset 0 0 0 1px var(--accent-edit-soft) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35) !important;
     transition: box-shadow 150ms ease-out !important;
     z-index: 100 !important;
     /* CRITICAL: Re-enable pointer events when drag-ready */
@@ -47,7 +45,7 @@
 .react-grid-item {
     transition: all 200ms ease;
     transition-property: left, top, width, height, border, box-shadow;
-    border-radius: 0.75rem;
+    border-radius: 1rem;
     overflow: visible;
     /* Default border for transition - invisible */
     border: 2px dashed transparent;
@@ -68,7 +66,7 @@
 /* Edit Mode Styles - applied to inner wrapper div */
 .react-grid-item .edit-mode {
     border: 2px dashed var(--accent-edit-soft);
-    border-radius: 0.75rem;
+    border-radius: 1rem;
 }
 
 /* Hover effect only on devices with true hover capability (not touch) */
@@ -174,7 +172,7 @@
 .react-grid-item.react-grid-placeholder {
     background: var(--accent-edit-soft) !important;
     border: 2px dashed var(--accent-edit) !important;
-    border-radius: 0.75rem;
+    border-radius: 1rem;
     opacity: 1 !important;
     transition-duration: 100ms;
     z-index: 2;
@@ -460,32 +458,59 @@
  * ======================================== */
 
 /* GridStack widget dashed border in edit mode */
+/* Uses ::after pseudo-element overlay so border renders ABOVE widget content (glass-card) */
 .dashboard-edit-mode .grid-stack-item>.grid-stack-item-content {
+    transition: box-shadow 200ms ease;
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
+.dashboard-edit-mode .grid-stack-item>.grid-stack-item-content::after {
+    content: '';
+    position: absolute;
+    inset: 0;
     border: 2px dashed var(--accent-edit-soft);
-    border-radius: 0.75rem;
-    transition: border-color 200ms ease, box-shadow 200ms ease;
+    border-radius: 1rem;
+    z-index: 200;
+    pointer-events: none;
+    transition: border-color 200ms ease;
 }
 
 /* Hover effect for GridStack widgets in edit mode */
 @media (hover: hover) {
-    .dashboard-edit-mode .grid-stack-item>.grid-stack-item-content:hover {
+    .dashboard-edit-mode .grid-stack-item>.grid-stack-item-content:hover::after {
         border-color: var(--accent-edit);
+    }
+
+    .dashboard-edit-mode .grid-stack-item>.grid-stack-item-content:hover {
         box-shadow: 0 4px 20px var(--accent-edit-soft);
     }
 }
 
 /* Active/dragging state for GridStack widgets */
-.dashboard-edit-mode .grid-stack-item.ui-draggable-dragging>.grid-stack-item-content {
+.dashboard-edit-mode .grid-stack-item.ui-draggable-dragging>.grid-stack-item-content::after {
     border-color: var(--accent-edit);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35),
-        0 0 0 3px var(--accent-edit);
+}
+
+.dashboard-edit-mode .grid-stack-item.ui-draggable-dragging>.grid-stack-item-content {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+/* Override GridStack default drag helper styles (box-shadow, opacity) */
+/* Applies to both internal drags and external drag helpers */
+.ui-draggable-dragging>.grid-stack-item-content {
+    box-shadow: none !important;
+    opacity: 1 !important;
+    outline: none !important;
+    border: none !important;
+    border-radius: 1rem;
 }
 
 /* GridStack placeholder styling */
 .grid-stack>.grid-stack-placeholder>.placeholder-content {
     background: var(--accent-edit-soft) !important;
     border: 2px dashed var(--accent-edit) !important;
-    border-radius: 0.75rem;
+    border-radius: 1rem;
     opacity: 1 !important;
 }
 
@@ -504,29 +529,49 @@
  * ======================================== */
 
 /* Template Builder widget dashed border (always active) */
+/* Uses ::after pseudo-element overlay so border renders ABOVE widget content */
 .template-grid-layout .grid-stack-item>.grid-stack-item-content {
+    transition: box-shadow 200ms ease;
+    border-radius: 1rem;
+    overflow: hidden;
+}
+
+.template-grid-layout .grid-stack-item>.grid-stack-item-content::after {
+    content: '';
+    position: absolute;
+    inset: 0;
     border: 2px dashed var(--accent-edit-soft);
-    border-radius: 0.75rem;
-    transition: border-color 200ms ease, box-shadow 200ms ease;
+    border-radius: 1rem;
+    z-index: 200;
+    pointer-events: none;
+    transition: border-color 200ms ease;
 }
 
 /* Hover effect for Template Builder widgets */
 @media (hover: hover) {
-    .template-grid-layout .grid-stack-item>.grid-stack-item-content:hover {
+    .template-grid-layout .grid-stack-item>.grid-stack-item-content:hover::after {
         border-color: var(--accent-edit);
+    }
+
+    .template-grid-layout .grid-stack-item>.grid-stack-item-content:hover {
         box-shadow: 0 4px 20px var(--accent-edit-soft);
     }
 }
 
 /* Active/dragging state for Template Builder widgets */
-.template-grid-layout .grid-stack-item.ui-draggable-dragging>.grid-stack-item-content {
+.template-grid-layout .grid-stack-item.ui-draggable-dragging>.grid-stack-item-content::after {
     border-color: var(--accent-edit);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35),
-        0 0 0 3px var(--accent-edit);
+}
+
+.template-grid-layout .grid-stack-item.ui-draggable-dragging>.grid-stack-item-content {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
 
 /* Selected widget in Template Builder - same as hover but persists */
-.template-grid-layout .grid-stack-item>.grid-stack-item-content:has(.widget-selected) {
+.template-grid-layout .grid-stack-item>.grid-stack-item-content:has(.widget-selected)::after {
     border-color: var(--accent-edit) !important;
+}
+
+.template-grid-layout .grid-stack-item>.grid-stack-item-content:has(.widget-selected) {
     box-shadow: 0 4px 20px var(--accent-edit-soft) !important;
 }

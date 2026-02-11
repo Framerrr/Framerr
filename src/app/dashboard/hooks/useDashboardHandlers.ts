@@ -74,8 +74,13 @@ interface UseDashboardHandlersOptions {
     setLoading: (loading: boolean) => void;
     mobileDisclaimerDismissed: boolean;
     setIsUsingTouch: (isTouch: boolean) => void;
-    setGreetingEnabled: (enabled: boolean) => void;
+    setGreetingMode: (mode: 'auto' | 'manual') => void;
     setGreetingText: (text: string) => void;
+    setHeaderVisible: (visible: boolean) => void;
+    setTaglineEnabled: (enabled: boolean) => void;
+    setTaglineText: (text: string) => void;
+    setTones: (tones: string[]) => void;
+    setLoadingMessagesEnabled: (enabled: boolean) => void;
 
     // Context
     dashboardEditContext: DashboardEditContextType | null;
@@ -147,8 +152,13 @@ export function useDashboardHandlers({
     setLoading,
     mobileDisclaimerDismissed,
     setIsUsingTouch,
-    setGreetingEnabled,
+    setGreetingMode,
     setGreetingText,
+    setHeaderVisible,
+    setTaglineEnabled,
+    setTaglineText,
+    setTones,
+    setLoadingMessagesEnabled,
     dashboardEditContext,
     showError,
 }: UseDashboardHandlersOptions): UseDashboardHandlersReturn {
@@ -348,24 +358,30 @@ export function useDashboardHandlers({
         const widget = widgets.find(w => w.id === widgetId);
         if (!widget) return;
 
-        const lgLayout = layouts.lg.find(l => l.id === widgetId);
+        // Get source widget's current position from grid layout state
+        const breakpoint = isMobile ? 'sm' : 'lg';
+        const sourceLayout = layouts[breakpoint].find(l => l.id === widgetId);
 
-        // Create FramerrWidget format with same dimensions
+        // Create FramerrWidget format with same dimensions, positioned at source's Y
+        // GridStack compaction will handle finding the actual insertion point
         const newWidget: FramerrWidget = {
             id: `widget-${Date.now()}`,
             type: widget.type,
             layout: {
                 x: 0,
-                y: 0,
-                w: lgLayout?.w ?? widget.layout.w ?? 4,
-                h: lgLayout?.h ?? widget.layout.h ?? 4
+                y: sourceLayout?.y ?? widget.layout.y ?? 0,
+                w: sourceLayout?.w ?? widget.layout.w ?? 4,
+                h: sourceLayout?.h ?? widget.layout.h ?? 4
             },
-            mobileLayout: widget.mobileLayout ? { ...widget.mobileLayout } : undefined,
+            mobileLayout: widget.mobileLayout ? {
+                ...widget.mobileLayout,
+                y: (isMobile && sourceLayout) ? sourceLayout.y : (widget.mobileLayout.y ?? 0),
+            } : undefined,
             config: { ...widget.config }
         };
 
         addWidget(newWidget);
-    }, [widgets, layouts, addWidget]);
+    }, [widgets, layouts, isMobile, addWidget]);
 
     const handleEditWidget = useCallback((widgetId: string): void => {
         setConfigModalWidgetId(widgetId);
@@ -431,10 +447,24 @@ export function useDashboardHandlers({
         };
 
         const handleGreetingUpdated = (event: Event): void => {
-            const customEvent = event as CustomEvent<{ enabled: boolean; text: string }>;
+            const customEvent = event as CustomEvent<{
+                mode?: 'auto' | 'manual';
+                text?: string;
+                headerVisible?: boolean;
+                taglineEnabled?: boolean;
+                taglineText?: string;
+                tones?: string[];
+                loadingMessages?: boolean;
+            }>;
             if (customEvent.detail) {
-                setGreetingEnabled(customEvent.detail.enabled);
-                setGreetingText(customEvent.detail.text);
+                const d = customEvent.detail;
+                if (d.mode !== undefined) setGreetingMode(d.mode);
+                if (d.text !== undefined) setGreetingText(d.text);
+                if (d.headerVisible !== undefined) setHeaderVisible(d.headerVisible);
+                if (d.taglineEnabled !== undefined) setTaglineEnabled(d.taglineEnabled);
+                if (d.taglineText !== undefined) setTaglineText(d.taglineText);
+                if (d.tones !== undefined) setTones(d.tones);
+                if (d.loadingMessages !== undefined) setLoadingMessagesEnabled(d.loadingMessages);
             }
         };
 
@@ -462,7 +492,7 @@ export function useDashboardHandlers({
             window.removeEventListener('greetingUpdated', handleGreetingUpdated);
             window.removeEventListener('widget-config-changed', handleWidgetConfigChanged);
         };
-    }, [editMode, isMobile, currentBreakpoint, mobileLayoutMode, updateWidgetConfig, setGreetingEnabled, setGreetingText]);
+    }, [editMode, isMobile, currentBreakpoint, mobileLayoutMode, updateWidgetConfig, setGreetingMode, setGreetingText, setHeaderVisible, setTaglineEnabled, setTaglineText, setTones, setLoadingMessagesEnabled]);
 
     // Keyboard shortcuts for undo/redo
     useEffect(() => {

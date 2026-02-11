@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { LucideIcon, ChevronDown, Pencil } from 'lucide-react';
+import { ChevronDown, Pencil } from 'lucide-react';
 import { ConfirmButton } from '../../../shared/ui';
 
 interface IntegrationInstance {
@@ -21,7 +21,7 @@ interface IntegrationTypeCardProps {
     type: string;
     name: string;
     description: string;
-    icon: LucideIcon;
+    icon: React.ComponentType<{ size?: number; className?: string }>;
     instances: IntegrationInstance[];
     onEditInstance: (instanceId: string) => void;
     onDeleteInstance: (instanceId: string) => Promise<void>;

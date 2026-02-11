@@ -273,8 +273,6 @@ const TemplateSharingDropdown: React.FC<TemplateSharingDropdownProps> = ({
                 {(mode === 'users' || mode === 'everyone') && (
                     <div
                         className="border-t border-theme mt-1 pt-1 max-h-48 overflow-y-scroll overscroll-contain"
-                        onWheel={(e) => e.stopPropagation()}
-                        data-scroll-lock-allow
                     >
                         <p className="px-3 py-1 text-xs text-theme-secondary">
                             Select users:

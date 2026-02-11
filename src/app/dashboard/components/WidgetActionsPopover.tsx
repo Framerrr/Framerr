@@ -75,16 +75,15 @@ const WidgetActionsPopover: React.FC<WidgetActionsPopoverProps> = ({
         <Popover open={isOpen} onOpenChange={handleOpenChange}>
             <Popover.Trigger asChild>
                 <button
-                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
-                    className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-md
+                    className="w-6 h-6 rounded bg-white/20 backdrop-blur-md
                         flex items-center justify-center text-white/80 hover:text-white hover:bg-white/30
                         transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
-                    style={{ pointerEvents: 'auto', cursor: 'pointer', touchAction: 'none' }}
+                    style={{ pointerEvents: 'auto', cursor: 'pointer' }}
                     aria-label="Widget actions"
                     data-widget-id={widgetId}
                 >
-                    <Settings size={18} />
+                    <Settings size={14} />
                 </button>
             </Popover.Trigger>
 

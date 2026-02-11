@@ -74,6 +74,8 @@ export interface ModalProps {
     size?: ModalSize;
     children: React.ReactNode;
     className?: string;
+    /** z-index for the overlay and content wrapper (default: 100) */
+    zIndex?: number;
 }
 
 export function Modal({
@@ -82,6 +84,7 @@ export function Modal({
     size = 'md',
     children,
     className = '',
+    zIndex = 100,
 }: ModalProps) {
     // Use our iOS-compatible scroll lock
     useScrollLock(open);
@@ -99,12 +102,13 @@ export function Modal({
                                     initial="hidden"
                                     animate="visible"
                                     exit="exit"
-                                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+                                    className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+                                    style={{ zIndex }}
                                 />
                             </Dialog.Overlay>
 
                             {/* Content wrapper - centers the modal */}
-                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
+                            <div className="fixed inset-0 flex items-center justify-center p-2 sm:p-4" style={{ zIndex }}>
                                 <Dialog.Content asChild>
                                     <motion.div
                                         variants={scaleIn}

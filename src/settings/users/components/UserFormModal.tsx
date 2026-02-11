@@ -106,8 +106,6 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
                                 <Popover.Content align="start" className="w-64 p-1">
                                     <div
                                         className="max-h-48 overflow-y-scroll overscroll-contain"
-                                        onWheel={(e) => e.stopPropagation()}
-                                        data-scroll-lock-allow
                                     >
                                         {groups.map(group => {
                                             const isSelected = (formData.groupIds || []).includes(group.id);

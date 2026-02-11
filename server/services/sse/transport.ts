@@ -38,59 +38,78 @@ let cachedRadarrQueue: QueueItem[] = [];
  * Broadcast event to all subscribers of a topic.
  * Uses JSON Patch (RFC 6902) for delta updates.
  * 
+ * For realtime topics (Plex WS, etc.), always sends full payloads to avoid
+ * race conditions where concurrent fetchSessions calls skip broadcasts
+ * due to the shared cache dedup.
+ * 
  * @param topic - The topic name
  * @param data - The data to broadcast
+ * @param options - Optional broadcast options
+ * @param options.forceFullPayload - Always send full payload (skip delta dedup)
  */
-export function broadcastToTopic(topic: string, data: unknown): void {
+export function broadcastToTopic(
+    topic: string,
+    data: unknown,
+    options?: { forceFullPayload?: boolean }
+): void {
     const sub = subscriptions.get(topic);
     if (!sub) {
         return;
     }
 
-    // Compare with cached data to generate patches
-    const previousData = sub.cachedData;
     const timestamp = Date.now();
-
     let payload: SSEEventPayload;
 
-    if (previousData === null) {
-        // First update - send full payload
+    if (options?.forceFullPayload) {
+        // Realtime topics: always send full payload to avoid dedup races
         payload = {
             type: 'full',
             data,
             timestamp
         };
     } else {
-        // Generate patches
-        const patches = compare(
-            previousData as object,
-            data as object
-        );
+        // Compare with cached data to generate patches
+        const previousData = sub.cachedData;
 
-        if (patches.length === 0) {
-            // No changes - skip broadcast
-            return;
-        }
-
-        // Heuristic: Send full payload if patches are too complex
-        // This prevents OPERATION_PATH_UNRESOLVABLE errors when client cache differs
-        const shouldSendFull = patches.length > 10 || patches.some(p =>
-            (p.op === 'add' || p.op === 'replace') &&
-            (p.path.split('/').length > 3) // Deep path like /sessions/0/Session
-        );
-
-        if (shouldSendFull) {
+        if (previousData === null) {
+            // First update - send full payload
             payload = {
                 type: 'full',
                 data,
                 timestamp
             };
         } else {
-            payload = {
-                type: 'delta',
-                patches,
-                timestamp
-            };
+            // Generate patches
+            const patches = compare(
+                previousData as object,
+                data as object
+            );
+
+            if (patches.length === 0) {
+                // No changes - skip broadcast
+                return;
+            }
+
+            // Heuristic: Send full payload if patches are too complex
+            // This prevents OPERATION_PATH_UNRESOLVABLE errors when client cache differs
+            const shouldSendFull = patches.length > 10 || patches.some(p =>
+                (p.op === 'add' || p.op === 'replace') &&
+                (p.path.split('/').length > 3) // Deep path like /sessions/0/Session
+            );
+
+            if (shouldSendFull) {
+                payload = {
+                    type: 'full',
+                    data,
+                    timestamp
+                };
+            } else {
+                payload = {
+                    type: 'delta',
+                    patches,
+                    timestamp
+                };
+            }
         }
     }
 
@@ -100,17 +119,21 @@ export function broadcastToTopic(topic: string, data: unknown): void {
 
     // Broadcast to all subscribers
     const eventStr = `event: ${topic}\ndata: ${JSON.stringify(payload)}\n\n`;
+    let sent = 0;
 
     for (const connectionId of sub.subscribers) {
         const connection = clientConnections.get(connectionId);
         if (connection) {
             try {
                 connection.res.write(eventStr);
+                sent++;
             } catch (error) {
                 removeClientConnection(connection.res);
             }
         }
     }
+
+    logger.debug(`[SSE] Broadcast: topic=${topic} type=${payload.type} subscribers=${sent}/${sub.subscribers.size}`);
 }
 
 /**

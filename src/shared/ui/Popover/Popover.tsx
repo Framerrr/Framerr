@@ -20,11 +20,13 @@
  * </Popover>
  */
 
-import React, { forwardRef, useEffect, useState } from 'react';
+import React, { forwardRef, useEffect, useState, useRef } from 'react';
 import * as RadixPopover from '@radix-ui/react-popover';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { popIn } from '../animations';
+import { useCloseOnScroll } from '../../../hooks/useCloseOnScroll';
+import { useOverlayScrollLock } from '../../../hooks/useOverlayScrollLock';
 
 // ===========================
 // Popover Root
@@ -58,31 +60,6 @@ export function Popover({
         }
     }, [props.open]);
 
-    // Close on scroll (key difference from Select/DropdownMenu)
-    // Can be disabled via closeOnScroll={false} for popovers with scrollable content
-    useEffect(() => {
-        if (!isOpen || !closeOnScroll) return;
-
-        const handleScroll = () => {
-            setIsOpen(false);
-            onOpenChange?.(false);
-        };
-
-        // Listen on main scroll containers
-        const mainScroll = document.getElementById('main-scroll');
-        const settingsScroll = document.getElementById('settings-scroll');
-
-        mainScroll?.addEventListener('scroll', handleScroll, { passive: true });
-        settingsScroll?.addEventListener('scroll', handleScroll, { passive: true });
-        window.addEventListener('scroll', handleScroll, { passive: true });
-
-        return () => {
-            mainScroll?.removeEventListener('scroll', handleScroll);
-            settingsScroll?.removeEventListener('scroll', handleScroll);
-            window.removeEventListener('scroll', handleScroll);
-        };
-    }, [isOpen, onOpenChange, closeOnScroll]);
-
     const handleOpenChange = (open: boolean) => {
         // Block opening when disabled
         if (disabled && open) return;
@@ -90,6 +67,12 @@ export function Popover({
         setIsOpen(open);
         onOpenChange?.(open);
     };
+
+    // Close on scroll via shared hook
+    useCloseOnScroll(
+        closeOnScroll && isOpen,
+        () => handleOpenChange(false)
+    );
 
     return (
         <RadixPopover.Root
@@ -141,6 +124,12 @@ export interface PopoverContentProps {
     maxHeight?: string;
     /** When set, limits content width (e.g. '320px', '80vw') */
     maxWidth?: string;
+    /** Called when a pointer down event occurs outside the content. Call e.preventDefault() to prevent dismiss. */
+    onPointerDownOutside?: (e: Event) => void;
+    /** Called when an interaction (pointer or focus) happens outside the content. Call e.preventDefault() to prevent dismiss. */
+    onInteractOutside?: (e: Event) => void;
+    /** Called when focus moves outside the content. Call e.preventDefault() to prevent dismiss. */
+    onFocusOutside?: (e: Event) => void;
 }
 
 const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
@@ -157,6 +146,11 @@ const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
         maxWidth,
         ...props
     }, ref) => {
+        const contentRef = useRef<HTMLDivElement>(null);
+
+        // Prevent touch scroll from bleeding through to the page behind
+        useOverlayScrollLock(true, contentRef);
+
         return (
             <RadixPopover.Portal>
                 <RadixPopover.Content
@@ -169,12 +163,13 @@ const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
                     {...props}
                 >
                     <motion.div
+                        ref={contentRef}
                         variants={popIn}
                         initial="hidden"
                         animate="visible"
                         exit="exit"
                         style={maxHeight || maxWidth ? {
-                            ...(maxHeight ? { maxHeight, overflowY: 'auto' as const } : {}),
+                            ...(maxHeight ? { maxHeight, overflowY: 'auto' as const, overscrollBehavior: 'contain' as const } : {}),
                             ...(maxWidth ? { maxWidth } : {})
                         } : undefined}
                         className={`

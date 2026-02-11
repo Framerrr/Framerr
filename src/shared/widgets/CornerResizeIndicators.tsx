@@ -32,28 +32,28 @@ const SIDE_HANDLE_THRESHOLD_PX = 100;
 const LBracket: React.FC<{
     position: 'nw' | 'ne' | 'sw' | 'se';
 }> = ({ position }) => {
-    // Curved L-bracket paths with ~8px radius curve - shorter tails
-    // SVG is 20x20, path draws an L with curved corner
+    // Curved L-bracket paths with ~16px radius curve — matches widget 1rem border-radius
+    // SVG is 28x28, path draws an L with curved corner
     const paths: Record<string, string> = {
-        nw: 'M2 13 L2 10 Q2 2 10 2 L13 2',     // Top-left: down→curve→right
-        ne: 'M18 13 L18 10 Q18 2 10 2 L7 2',   // Top-right: down→curve→left
-        sw: 'M2 7 L2 10 Q2 18 10 18 L13 18',   // Bottom-left: up→curve→right  
-        se: 'M18 7 L18 10 Q18 18 10 18 L7 18', // Bottom-right: up→curve→left
+        nw: 'M2 18 L2 16 Q2 2 16 2 L18 2',     // Top-left: down→curve→right
+        ne: 'M26 18 L26 16 Q26 2 12 2 L10 2',   // Top-right: down→curve→left
+        sw: 'M2 10 L2 12 Q2 26 16 26 L18 26',   // Bottom-left: up→curve→right
+        se: 'M26 10 L26 12 Q26 26 12 26 L10 26', // Bottom-right: up→curve→left
     };
 
-    // Position at corners - small offset to sit inside widget border
+    // Position at corners — inset to sit inside widget border
     const positionStyles: Record<string, React.CSSProperties> = {
-        nw: { top: 4, left: 4 },
-        ne: { top: 4, right: 4 },
-        sw: { bottom: 4, left: 4 },
-        se: { bottom: 4, right: 4 },
+        nw: { top: 0, left: 0 },
+        ne: { top: 0, right: 0 },
+        sw: { bottom: 0, left: 0 },
+        se: { bottom: 0, right: 0 },
     };
 
     return (
         <svg
-            width="20"
-            height="20"
-            viewBox="0 0 20 20"
+            width="28"
+            height="28"
+            viewBox="0 0 28 28"
             style={{
                 position: 'absolute',
                 ...positionStyles[position],
@@ -79,24 +79,24 @@ const LBracket: React.FC<{
 const SideLine: React.FC<{
     position: 'n' | 'e' | 's' | 'w';
 }> = ({ position }) => {
-    // Line is ~24px long (slightly longer than L-bracket legs)
+    // Line is ~28px long (slightly longer than L-bracket legs)
     const isVertical = position === 'e' || position === 'w';
 
-    // SVG size: 28x8 for horizontal, 8x28 for vertical
-    const width = isVertical ? 8 : 28;
-    const height = isVertical ? 28 : 8;
+    // SVG size: 32x8 for horizontal, 8x32 for vertical
+    const width = isVertical ? 8 : 32;
+    const height = isVertical ? 32 : 8;
 
     // Path: horizontal line or vertical line, centered
     const path = isVertical
-        ? 'M4 2 L4 26'  // Vertical: top to bottom (24px)
-        : 'M2 4 L26 4'; // Horizontal: left to right (24px)
+        ? 'M4 2 L4 30'  // Vertical: top to bottom (28px)
+        : 'M2 4 L30 4'; // Horizontal: left to right (28px)
 
     // Position at center of each edge
     const positionStyles: Record<string, React.CSSProperties> = {
-        n: { top: 4, left: '50%', transform: 'translateX(-50%)' },
-        s: { bottom: 4, left: '50%', transform: 'translateX(-50%)' },
-        e: { right: 4, top: '50%', transform: 'translateY(-50%)' },
-        w: { left: 4, top: '50%', transform: 'translateY(-50%)' },
+        n: { top: -3, left: '50%', transform: 'translateX(-50%)' },
+        s: { bottom: -3, left: '50%', transform: 'translateX(-50%)' },
+        e: { right: -3, top: '50%', transform: 'translateY(-50%)' },
+        w: { left: -3, top: '50%', transform: 'translateY(-50%)' },
     };
 
     return (

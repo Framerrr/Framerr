@@ -203,6 +203,10 @@ router.post('/', requireAuth, requireAdmin, async (req: Request, res: Response) 
 
         logger.info(`[Integrations] Created: id=${instance.id} type=${type} name="${finalDisplayName}" by=${authReq.user?.id}`);
 
+        // Notify IntegrationManager of the creation (for auto-starting library sync, etc.)
+        const { onIntegrationCreated } = await import('../../../services/IntegrationManager');
+        await onIntegrationCreated(instance);
+
         res.status(201).json({ integration: instance });
     } catch (error) {
         logger.error(`[Integrations] Failed to create: error="${(error as Error).message}"`);
@@ -267,6 +271,10 @@ router.put('/:id', requireAuth, requireAdmin, async (req: Request, res: Response
 router.delete('/:id', requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
         const authReq = req as AuthenticatedRequest;
+
+        // Get instance BEFORE deletion (need type for cleanup routing)
+        const instance = integrationInstancesDb.getInstanceById(req.params.id);
+
         const deleted = integrationInstancesDb.deleteInstance(req.params.id);
 
         if (!deleted) {
@@ -274,7 +282,19 @@ router.delete('/:id', requireAuth, requireAdmin, async (req: Request, res: Respo
             return;
         }
 
-        logger.info(`[Integrations] Deleted: id=${req.params.id} by=${authReq.user?.id}`);
+        // Cleanup: library sync data, cached images, SSE connections
+        if (instance) {
+            const { onIntegrationDeleted } = await import('../../../services/IntegrationManager');
+            await onIntegrationDeleted(req.params.id, instance.type);
+        }
+
+        // Notify all widgets to refetch integration data
+        // This triggers single-integration widgets to auto-fallback
+        // and multi-integration widgets to drop the deleted ID
+        invalidateSystemSettings('integrations');
+        invalidateSystemSettings('media-search-sync');
+
+        logger.info(`[Integrations] Deleted: id=${req.params.id} type=${instance?.type} by=${authReq.user?.id}`);
 
         res.json({ success: true });
     } catch (error) {

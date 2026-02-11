@@ -23,7 +23,11 @@ export const plugin: WidgetPlugin = {
     component: lazy(() => import('./WeatherWidget')),
     isGlobal: true,
     defaultConfig: {
-        locationMode: 'auto',
+        locationMode: 'search',
+        citySearch: 'New York, New York',
+        cityName: 'New York, New York',
+        latitude: 40.7128,
+        longitude: -74.006,
         showCity: true,
     },
     configConstraints: {
@@ -34,7 +38,7 @@ export const plugin: WidgetPlugin = {
                 key: 'locationMode',
                 label: 'Location',
                 type: 'buttons',
-                defaultValue: 'auto',
+                defaultValue: 'search',
                 choices: [
                     { value: 'auto', label: 'Auto' },
                     { value: 'search', label: 'City Search' },

@@ -269,6 +269,7 @@ export interface UseDashboardLayoutReturn {
         mobileWidgets?: FramerrWidget[];
         mobileLayoutMode?: MobileLayoutMode;
         preserveCache?: boolean; // If true, don't reset the cached manual layout
+        editMode?: boolean; // If provided, set editMode to this value instead of false
     }) => void;
 }
 

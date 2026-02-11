@@ -113,9 +113,8 @@ export const WidgetGalleryPage: React.FC = () => {
                     ) : (
                         Object.entries(filteredWidgets).map(([category, widgets]) => (
                             <div key={category} className="mb-8">
-                                <h3 className="text-lg font-semibold text-theme-primary mb-4 capitalize flex items-center gap-2">
+                                <h3 className="text-lg font-semibold text-theme-primary mb-4 capitalize">
                                     {category}
-                                    <span className="text-sm text-theme-secondary font-normal">({widgets.length})</span>
                                 </h3>
 
                                 <div className="grid grid-cols-1 min-[1000px]:grid-cols-2 min-[1280px]:grid-cols-3 gap-4">

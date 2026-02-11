@@ -19,7 +19,7 @@
  * />
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ChevronDown, CheckSquare, XSquare } from 'lucide-react';
 import { Checkbox } from '../Checkbox';
 import { Popover } from '../Popover';
@@ -58,6 +58,8 @@ export interface MultiSelectDropdownProps {
     maxSelections?: number;
     /** Whether trigger should fill full width of container */
     fullWidth?: boolean;
+    /** Close dropdown when main scroll container is scrolled */
+    closeOnScroll?: boolean;
 }
 
 // ============================================================================
@@ -96,13 +98,31 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
     emptyText = 'No options',
     maxSelections,
     fullWidth = false,
+    closeOnScroll = false,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const config = sizeConfig[size];
 
-    // Check if max selections reached
-    const isAtLimit = maxSelections !== undefined && selectedIds.length >= maxSelections;
+    // Filter selectedIds to only include IDs that exist in options
+    // This prevents stale/deleted integration IDs from inflating the count
+    const validOptionIds = useMemo(() => new Set(options.map(o => o.id)), [options]);
+    const validSelectedIds = useMemo(
+        () => selectedIds.filter(id => validOptionIds.has(id)),
+        [selectedIds, validOptionIds]
+    );
+
+    // Auto-clean stale IDs: if selectedIds contains IDs not in options, notify parent
+    useEffect(() => {
+        if (validSelectedIds.length !== selectedIds.length) {
+            onChange(validSelectedIds);
+        }
+        // Only run when the valid count changes (not on every render)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [validSelectedIds.length, selectedIds.length]);
+
+    // Check if max selections reached (use valid count)
+    const isAtLimit = maxSelections !== undefined && validSelectedIds.length >= maxSelections;
 
     const handleToggle = (optionId: string) => {
         if (selectedIds.includes(optionId)) {
@@ -128,19 +148,19 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
         onChange([]);
     };
 
-    // Display text based on selection (include max indicator if applicable)
+    // Display text based on selection (use valid count for accuracy)
     const getDisplayText = () => {
-        if (selectedIds.length === 0) return placeholder;
-        if (selectedIds.length === 1) {
-            return options.find(o => o.id === selectedIds[0])?.label || '1 selected';
+        if (validSelectedIds.length === 0) return placeholder;
+        if (validSelectedIds.length === 1) {
+            return options.find(o => o.id === validSelectedIds[0])?.label || '1 selected';
         }
-        if (selectedIds.length === options.length && !maxSelections) {
+        if (validSelectedIds.length === options.length && !maxSelections) {
             return allSelectedText;
         }
         if (maxSelections) {
-            return `${selectedIds.length}/${maxSelections} selected`;
+            return `${validSelectedIds.length}/${maxSelections} selected`;
         }
-        return `${selectedIds.length} selected`;
+        return `${validSelectedIds.length} selected`;
     };
     const displayText = getDisplayText();
 
@@ -154,7 +174,7 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
     }
 
     return (
-        <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <Popover open={isOpen} onOpenChange={setIsOpen} closeOnScroll={closeOnScroll}>
             <Popover.Trigger asChild>
                 <button
                     ref={triggerRef}
@@ -204,7 +224,6 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                 {/* Scrollable Options List */}
                 <div
                     className="max-h-[200px] overflow-y-scroll overscroll-contain"
-                    onWheel={(e) => e.stopPropagation()}
                 >
                     {options.map(option => {
                         const isSelected = selectedIds.includes(option.id);

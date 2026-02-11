@@ -41,10 +41,20 @@ export function GeneralSection({ state }: GeneralSectionProps) {
 
             {/* Dashboard Greeting Section */}
             <GreetingSection
-                greetingEnabled={state.greetingEnabled}
-                setGreetingEnabled={state.setGreetingEnabled}
+                headerVisible={state.headerVisible}
+                setHeaderVisible={state.setHeaderVisible}
+                greetingMode={state.greetingMode}
+                setGreetingMode={state.setGreetingMode}
                 greetingText={state.greetingText}
                 setGreetingText={state.setGreetingText}
+                tones={state.tones}
+                setTones={state.setTones}
+                loadingMessagesEnabled={state.loadingMessagesEnabled}
+                setLoadingMessagesEnabled={state.setLoadingMessagesEnabled}
+                taglineEnabled={state.taglineEnabled}
+                setTaglineEnabled={state.setTaglineEnabled}
+                taglineText={state.taglineText}
+                setTaglineText={state.setTaglineText}
                 savingGreeting={state.savingGreeting}
                 hasGreetingChanges={state.hasGreetingChanges}
                 handleSaveGreeting={state.handleSaveGreeting}

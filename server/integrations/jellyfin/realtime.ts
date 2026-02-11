@@ -27,9 +27,10 @@ class JellyfinRealtimeManager implements RealtimeManager {
     private refreshInterval: NodeJS.Timeout | null = null;
     private isShuttingDown = false;
     private lastSessions: string = '';
+    private fetchDebounceTimer: NodeJS.Timeout | null = null;
 
     // Constants
-    private static readonly REFRESH_INTERVAL = 30000;
+    private static readonly REFRESH_INTERVAL = 10000; // 10 seconds (reduced from 30s for faster recovery)
 
     // Lifecycle hooks for RealtimeOrchestrator
     onConnect?: () => void;
@@ -134,9 +135,23 @@ class JellyfinRealtimeManager implements RealtimeManager {
             type === 'PlaybackStart' ||
             type === 'PlaybackStopped' ||
             type === 'PlaybackProgress') {
-            logger.debug('[Jellyfin] Playback event - fetching sessions');
-            this.fetchSessions();
+            logger.debug('[Jellyfin] Playback event - debounced fetch');
+            this.debouncedFetchSessions();
         }
+    }
+
+    /**
+     * Debounced fetch - prevents concurrent HTTP requests when rapid WS
+     * notifications arrive. Waits 200ms for events to settle.
+     */
+    private debouncedFetchSessions(): void {
+        if (this.fetchDebounceTimer) {
+            clearTimeout(this.fetchDebounceTimer);
+        }
+        this.fetchDebounceTimer = setTimeout(() => {
+            this.fetchDebounceTimer = null;
+            this.fetchSessions();
+        }, 200);
     }
 
     /**
@@ -203,6 +218,12 @@ class JellyfinRealtimeManager implements RealtimeManager {
         this.isShuttingDown = true;
 
         this.stopPeriodicRefresh();
+
+        // Clear any pending debounced fetch
+        if (this.fetchDebounceTimer) {
+            clearTimeout(this.fetchDebounceTimer);
+            this.fetchDebounceTimer = null;
+        }
 
         if (this.ws) {
             this.ws.close();

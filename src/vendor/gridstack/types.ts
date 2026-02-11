@@ -13,7 +13,7 @@ export const gridDefaults: GridStackOptions = {
   alwaysShowResizeHandle: 'mobile',
   animate: true,
   auto: true,
-  cellHeight: 50,  // FRAMERR: was 'auto', now matches ROW_HEIGHT
+  cellHeight: 60,  // FRAMERR: was 'auto', now matches ROW_HEIGHT
   cellHeightThrottle: 100,
   cellHeightUnit: 'px',
   column: 12,
