@@ -1,14 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { hashPassword, verifyPassword } from '../auth/password';
 import { createUserSession, validateSession } from '../auth/session';
-import { getUser, getUserById, listUsers, revokeSession, createUser, hasLocalPassword } from '../db/users';
+import { getUser, getUserById, listUsers, revokeSession, revokeAllUserSessions, createUser, updateUser, hasLocalPassword, getRequirePasswordReset, setRequirePasswordReset, createSession } from '../db/users';
 import { getUserConfig } from '../db/userConfig';
 import { getSystemConfig } from '../db/systemConfig';
-import { findUserByExternalId, linkAccount } from '../db/linkedAccounts';
+import { findUserByExternalId, linkAccount, getLinkedAccount, updateLinkedAccountMetadata } from '../db/linkedAccounts';
 import { createPlexSetupToken } from '../db/plexSetupTokens';
+import { checkPlexLibraryAccess } from '../utils/plexLibraryAccess';
 import logger from '../utils/logger';
 import axios from 'axios';
-import xml2js from 'xml2js';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
@@ -30,20 +30,6 @@ interface PlexUserResponse {
     username: string;
     email?: string;
     thumb?: string;
-}
-
-interface SharedServer {
-    userID?: string;
-    invitedId?: string;
-    id?: string;
-    username?: string;
-    email?: string;
-}
-
-interface ParsedSharedServersXML {
-    MediaContainer?: {
-        SharedServer?: SharedServer | SharedServer[];
-    };
 }
 
 interface SessionConfig {
@@ -96,12 +82,15 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
         // Set cookie
         res.cookie('sessionId', session.id, {
             httpOnly: true,
-            secure: false, // Allow HTTP for Docker/IP access
+            secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
             sameSite: 'lax',
             maxAge: expiresIn
         });
 
         logger.info(`[Auth] User logged in: username=${username}`);
+
+        // Check if user must change password
+        const requirePasswordChange = getRequirePasswordReset(user.id);
 
         // Fetch displayName from preferences
         const config = await getUserConfig(user.id);
@@ -114,7 +103,8 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
                 displayName,
                 group: user.group,
                 preferences: user.preferences
-            }
+            },
+            requirePasswordChange
         });
     } catch (error) {
         logger.error(`[Auth] Login error: error="${(error as Error).message}"`);
@@ -210,7 +200,8 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
                     profilePicture,
                     group: req.user.group,
                     preferences: req.user.preferences
-                }
+                },
+                requirePasswordChange: getRequirePasswordReset(req.user.id)
             });
             return;
         }
@@ -251,7 +242,8 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
                 profilePicture,
                 group: user.group,
                 preferences: user.preferences
-            }
+            },
+            requirePasswordChange: getRequirePasswordReset(user.id)
         });
     } catch (error) {
         logger.error(`[Auth] Auth check error: error="${(error as Error).message}"`);
@@ -293,79 +285,40 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
 
         const plexUser = userResponse.data;
 
-        // Check if this Plex user is the admin or has library access
-        const isPlexAdmin = plexUser.id.toString() === ssoConfig.adminPlexId?.toString();
+        // Check if this Plex user has library access (or is admin)
+        logger.info(`[PlexSSO] Checking user access: plexUserId=${plexUser.id} plexUsername=${plexUser.username} adminPlexId=${ssoConfig.adminPlexId} machineId=${ssoConfig.machineId}`);
 
-        logger.info(`[PlexSSO] Checking user access: plexUserId=${plexUser.id} plexUsername=${plexUser.username} adminPlexId=${ssoConfig.adminPlexId} isPlexAdmin=${isPlexAdmin} machineId=${ssoConfig.machineId}`);
-
-        if (!isPlexAdmin) {
-            // Verify user has library access on the specific Plex server
-            if (!ssoConfig.machineId) {
-                logger.error('[PlexSSO] No machine ID configured');
-                res.status(500).json({ error: 'Plex server not configured' });
-                return;
-            }
-
-            let sharedUsers: SharedServer[] = [];
+        let isPlexAdmin = false;
+        if (ssoConfig.machineId && ssoConfig.adminToken) {
             try {
-                const sharedServersResponse = await axios.get<string>(
-                    `https://plex.tv/api/servers/${ssoConfig.machineId}/shared_servers`,
+                const accessResult = await checkPlexLibraryAccess(
+                    plexUser.id.toString(),
                     {
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-Plex-Token': ssoConfig.adminToken as string,
-                            'X-Plex-Client-Identifier': clientId as string
-                        }
+                        adminToken: ssoConfig.adminToken as string,
+                        machineId: ssoConfig.machineId as string,
+                        clientIdentifier: (ssoConfig.clientIdentifier as string) || '',
+                        adminPlexId: ssoConfig.adminPlexId as string,
                     }
                 );
-
-                const responseData = sharedServersResponse.data;
-                logger.info(`[PlexSSO] shared_servers raw response: status=${sharedServersResponse.status} dataType=${typeof responseData}`);
-
-                // API returns XML, not JSON - need to parse it
-                if (typeof responseData === 'string' && responseData.includes('<?xml')) {
-                    const parser = new xml2js.Parser({ explicitArray: false, mergeAttrs: true });
-                    const parsed = await parser.parseStringPromise(responseData) as ParsedSharedServersXML;
-
-                    const sharedServers = parsed?.MediaContainer?.SharedServer;
-                    if (sharedServers) {
-                        sharedUsers = Array.isArray(sharedServers) ? sharedServers : [sharedServers];
-                    }
-
-                    logger.info(`[PlexSSO] Parsed XML shared users: count=${sharedUsers.length}`);
-                } else if (typeof responseData === 'object' && (responseData as unknown as ParsedSharedServersXML)?.MediaContainer?.SharedServer) {
-                    const data = responseData as unknown as ParsedSharedServersXML;
-                    const sharedServers = data.MediaContainer!.SharedServer;
-                    sharedUsers = Array.isArray(sharedServers) ? sharedServers : [sharedServers!];
+                isPlexAdmin = accessResult.isAdmin;
+                if (!accessResult.hasAccess) {
+                    logger.warn(`[PlexSSO] User does not have library access: plexUserId=${plexUser.id} plexUsername=${plexUser.username}`);
+                    res.status(403).json({ error: 'Login failed. Please check your credentials and try again.' });
+                    return;
                 }
-            } catch (apiError) {
-                const err = apiError as { message: string; response?: { status: number; data: unknown } };
-                logger.error(`[PlexSSO] Failed to fetch shared servers: error="${err.message}" status=${err.response?.status}`);
+            } catch (accessError) {
+                logger.error(`[PlexSSO] Failed to verify library access: error="${(accessError as Error).message}"`);
                 res.status(500).json({ error: 'Failed to verify library access' });
                 return;
             }
-
-            logger.info(`[PlexSSO] Checking library access: machineId=${ssoConfig.machineId} sharedUserCount=${sharedUsers.length} lookingForId=${plexUser.id} lookingForUsername=${plexUser.username}`);
-
-            // Check if logging-in user has library access on this server
-            const hasLibraryAccess = sharedUsers.some(sharedUser => {
-                const sharedUserId = sharedUser.userID || sharedUser.invitedId || sharedUser.id;
-                const matches = sharedUserId?.toString() === plexUser.id.toString();
-                if (matches) {
-                    logger.debug(`[PlexSSO] Found matching shared user: userId=${sharedUserId} username=${sharedUser.username || sharedUser.email}`);
-                }
-                return matches;
-            });
-
-            if (!hasLibraryAccess) {
-                logger.warn(`[PlexSSO] User does not have library access: plexUserId=${plexUser.id} plexUsername=${plexUser.username} machineId=${ssoConfig.machineId}`);
-                res.status(403).json({ error: 'Login failed. Please check your credentials and try again.' });
+        } else {
+            // No machineId/adminToken configured — check admin by plexId only
+            isPlexAdmin = plexUser.id.toString() === ssoConfig.adminPlexId?.toString();
+            if (!isPlexAdmin) {
+                logger.error('[PlexSSO] No machine ID configured for library access check');
+                res.status(500).json({ error: 'Plex server not configured' });
                 return;
             }
-
-            logger.info(`[PlexSSO] User has library access: plexUsername=${plexUser.username}`);
-        } else {
-            logger.info(`[PlexSSO] User is Plex admin, skipping library access check: plexUsername=${plexUser.username}`);
         }
 
         // Find or create Framerr user for this Plex user
@@ -380,6 +333,18 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
             user = await getUserById(linkedUserId);
             logger.debug(`[PlexSSO] Found existing linked account: plexUsername=${plexUser.username} framerUser=${user?.username}`);
 
+            // Refresh stored Plex token (used for personalized recommendations)
+            if (user) {
+                const existingLink = getLinkedAccount(user.id, 'plex');
+                if (existingLink) {
+                    updateLinkedAccountMetadata(user.id, 'plex', {
+                        ...existingLink.metadata,
+                        plexToken: plexToken,
+                        tokenUpdatedAt: Date.now()
+                    });
+                }
+            }
+
             // Check if user needs to set up a local password (migration)
             if (user && !hasLocalPassword(user.id)) {
                 needsPasswordSetup = true;
@@ -393,7 +358,12 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
                     externalId: plexUser.id.toString(),
                     externalUsername: plexUser.username,
                     externalEmail: plexUser.email,
-                    metadata: { thumb: plexUser.thumb, linkedVia: 'sso-admin' }
+                    metadata: {
+                        thumb: plexUser.thumb,
+                        linkedVia: 'sso-admin',
+                        plexToken: plexToken,
+                        tokenUpdatedAt: Date.now()
+                    }
                 });
                 logger.info(`[PlexSSO] Linked Plex admin to Framerr user: plexUsername=${plexUser.username} framerUser=${user.username}`);
             }
@@ -434,12 +404,15 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
 
         res.cookie('sessionId', session.id, {
             httpOnly: true,
-            secure: false,
+            secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
             sameSite: 'lax',
             maxAge: expiresIn
         });
 
         logger.info(`[PlexSSO] User logged in: ${user.username}`);
+
+        // Fire-and-forget: try to auto-match/refresh Overseerr account
+        import('../services/overseerrAutoMatch').then(m => m.tryAutoMatchSingleUser(user.id)).catch(() => { });
 
         res.json({
             user: {
@@ -455,6 +428,91 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
     } catch (error) {
         logger.error(`[PlexSSO] Login error: error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Plex login failed' });
+    }
+});
+
+/**
+ * POST /api/auth/change-password
+ * Force-change password (used after admin reset)
+ * Requires active session (user just logged in with temp password)
+ */
+router.post('/change-password', async (req: Request, res: Response): Promise<void> => {
+    try {
+        // Validate session
+        const sessionId = req.cookies?.sessionId;
+        if (!sessionId) {
+            res.status(401).json({ error: 'Not authenticated' });
+            return;
+        }
+
+        const sessionData = await validateSession(sessionId);
+        if (!sessionData) {
+            res.status(401).json({ error: 'Invalid session' });
+            return;
+        }
+
+        const { newPassword } = req.body as { newPassword?: string };
+
+        if (!newPassword || newPassword.trim().length < 4) {
+            res.status(400).json({ error: 'Password must be at least 4 characters' });
+            return;
+        }
+
+        // Verify that this user actually needs a password change
+        const requireChange = getRequirePasswordReset(sessionData.userId);
+        if (!requireChange) {
+            res.status(400).json({ error: 'Password change not required' });
+            return;
+        }
+
+        // Hash and update password
+        const passwordHash = await hashPassword(newPassword);
+        await updateUser(sessionData.userId, { passwordHash });
+
+        // Clear the force-change flag
+        setRequirePasswordReset(sessionData.userId, false);
+
+        // Revoke all sessions and create a fresh one
+        await revokeAllUserSessions(sessionData.userId);
+
+        const user = await getUserById(sessionData.userId);
+        if (!user) {
+            res.status(500).json({ error: 'User not found after password change' });
+            return;
+        }
+
+        const newSession = await createSession(user.id, {
+            ipAddress: req.ip || undefined,
+            userAgent: req.headers['user-agent'] || undefined
+        });
+
+        // Set new session cookie (30 day default)
+        res.cookie('sessionId', newSession.id, {
+            httpOnly: true,
+            secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+            sameSite: 'lax',
+            maxAge: 2592000000 // 30 days
+        });
+
+        // Fetch displayName
+        const config = await getUserConfig(user.id);
+        const displayName = config.preferences?.displayName || user.displayName || user.username;
+
+        logger.info(`[Auth] Password changed (force-change): username="${user.username}"`);
+
+        res.json({
+            success: true,
+            user: {
+                id: user.id,
+                username: user.username,
+                displayName,
+                group: user.group,
+                preferences: user.preferences
+            }
+        });
+    } catch (error) {
+        logger.error(`[Auth] Change password error: error="${(error as Error).message}"`);
+        res.status(500).json({ error: 'Failed to change password' });
     }
 });
 

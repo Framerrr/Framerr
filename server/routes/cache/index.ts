@@ -52,8 +52,8 @@ router.get('/images/:filename', (req: Request, res: Response): void => {
         return;
     }
 
-    // Set cache headers (1 week since these rarely change)
-    res.setHeader('Cache-Control', 'public, max-age=604800');
+    // Set cache headers (1 day — prevents browser from accumulating poster images indefinitely)
+    res.setHeader('Cache-Control', 'public, max-age=86400');
     res.setHeader('Content-Type', 'image/jpeg');
 
     // Stream the file

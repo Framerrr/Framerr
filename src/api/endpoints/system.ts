@@ -60,15 +60,6 @@ export interface Resources {
     };
 }
 
-export interface IntegrationHealth {
-    success: boolean;
-    integrations: Array<{
-        name: string;
-        status: 'healthy' | 'error' | 'warning';
-        message?: string;
-    }>;
-}
-
 export interface SseStatus {
     success: boolean;
     connected: boolean;
@@ -213,12 +204,6 @@ export const systemApi = {
     // =========================================================================
     // Health & Diagnostics (used by useSystemSettings)
     // =========================================================================
-
-    /**
-     * Get integration health status
-     */
-    getIntegrationHealth: () =>
-        api.get<IntegrationHealth>('/api/diagnostics/integration-health'),
 
     /**
      * Get SSE connection status

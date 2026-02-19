@@ -18,10 +18,12 @@ export interface LoginCredentials {
 
 export interface LoginResponse {
     user: User;
+    requirePasswordChange?: boolean;
 }
 
 export interface SessionResponse {
     user: User;
+    requirePasswordChange?: boolean;
 }
 
 
@@ -111,6 +113,11 @@ export const authApi = {
                 }
             }
         }),
+    /**
+     * Force-change password (after admin reset)
+     */
+    changePassword: (data: { newPassword: string }) =>
+        api.post<{ success: boolean; user: User }>('/api/auth/change-password', data),
 };
 
 export default authApi;

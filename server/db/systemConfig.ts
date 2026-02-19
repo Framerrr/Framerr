@@ -82,6 +82,21 @@ export interface MonitorDefaultsConfig {
     expectedStatusCodes: string[];   // Default expected HTTP status codes
 }
 
+export interface MetricHistoryDefaultsConfig {
+    mode: 'auto' | 'internal' | 'external'; // Default source mode (excludes 'off')
+    retentionDays: number;                   // Default retention period (1-30)
+}
+
+export interface MetricHistoryIntegrationConfig {
+    mode: 'auto' | 'internal' | 'external' | 'off';
+    retentionDays: number; // 1-30, default 3
+}
+
+export interface MetricHistoryConfig {
+    enabled: boolean; // Global kill switch
+    integrations?: Record<string, MetricHistoryIntegrationConfig>;
+}
+
 // Standalone FullSystemConfig - not extending external types to avoid conflicts
 interface FullSystemConfig {
     server: ServerConfig;
@@ -98,8 +113,11 @@ interface FullSystemConfig {
     webPushEnabled?: boolean;
     backupSchedule?: BackupScheduleConfig;
     monitorDefaults?: MonitorDefaultsConfig;
+    metricHistoryDefaults?: MetricHistoryDefaultsConfig;
     /** Theme preset shown on the login page — auto-synced when admin changes theme */
     loginTheme?: string;
+    /** Metric history recording — experimental feature */
+    metricHistory?: MetricHistoryConfig;
 }
 
 // Default system configuration
@@ -171,6 +189,13 @@ const DEFAULT_CONFIG: FullSystemConfig = {
         degradedThresholdMs: 2000,
         expectedStatusCodes: ['200-299'],
     },
+    metricHistoryDefaults: {
+        mode: 'auto',
+        retentionDays: 3,
+    },
+    metricHistory: {
+        enabled: false,
+    },
 };
 
 /**
@@ -236,8 +261,14 @@ function buildConfigFromKeyValues(rows: SystemConfigRow[]): FullSystemConfig {
             case 'monitorDefaults':
                 config.monitorDefaults = parsed;
                 break;
+            case 'metricHistoryDefaults':
+                config.metricHistoryDefaults = parsed;
+                break;
             case 'loginTheme':
                 config.loginTheme = parsed;
+                break;
+            case 'metricHistory':
+                config.metricHistory = parsed;
                 break;
         }
     }
@@ -350,7 +381,13 @@ export async function updateSystemConfig(updates: Partial<FullSystemConfig>): Pr
         monitorDefaults: updates.monitorDefaults !== undefined
             ? { ...currentConfig.monitorDefaults, ...updates.monitorDefaults }
             : currentConfig.monitorDefaults,
+        metricHistoryDefaults: updates.metricHistoryDefaults !== undefined
+            ? { ...currentConfig.metricHistoryDefaults, ...updates.metricHistoryDefaults }
+            : currentConfig.metricHistoryDefaults,
         loginTheme: updates.loginTheme !== undefined ? updates.loginTheme : currentConfig.loginTheme,
+        metricHistory: updates.metricHistory !== undefined
+            ? { ...currentConfig.metricHistory, ...updates.metricHistory }
+            : currentConfig.metricHistory,
     };
 
     try {
@@ -409,8 +446,14 @@ export async function updateSystemConfig(updates: Partial<FullSystemConfig>): Pr
             if (updates.monitorDefaults !== undefined) {
                 upsert.run('monitorDefaults', JSON.stringify(newConfig.monitorDefaults));
             }
+            if (updates.metricHistoryDefaults !== undefined) {
+                upsert.run('metricHistoryDefaults', JSON.stringify(newConfig.metricHistoryDefaults));
+            }
             if (updates.loginTheme !== undefined) {
                 upsert.run('loginTheme', JSON.stringify(newConfig.loginTheme));
+            }
+            if (updates.metricHistory !== undefined) {
+                upsert.run('metricHistory', JSON.stringify(newConfig.metricHistory));
             }
         });
 
@@ -443,4 +486,10 @@ export { DEFAULT_CONFIG };
 export async function getMonitorDefaults(): Promise<MonitorDefaultsConfig> {
     const config = await getSystemConfig();
     return config.monitorDefaults ?? DEFAULT_CONFIG.monitorDefaults!;
+}
+
+/** Get current metric history defaults (from config or fallback) */
+export async function getMetricHistoryDefaults(): Promise<MetricHistoryDefaultsConfig> {
+    const config = await getSystemConfig();
+    return config.metricHistoryDefaults ?? DEFAULT_CONFIG.metricHistoryDefaults!;
 }

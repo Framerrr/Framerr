@@ -24,12 +24,17 @@ const WelcomeStep: React.FC<WelcomeStepProps> = ({ goNext }) => {
                     delay: 0.2
                 }}
             >
-                <img
-                    src="/framerr-logo.png"
-                    alt="Framerr"
-                    className="w-24 h-24 mx-auto rounded-[10px] shadow-2xl"
+                <div
+                    className="w-24 h-24 mx-auto rounded-[14px] overflow-hidden"
                     style={{ boxShadow: '0 0 40px var(--accent-glow)' }}
-                />
+                >
+                    <img
+                        src="/framerr-logo.png"
+                        alt="Framerr"
+                        className="w-full h-full object-cover"
+                        style={{ transform: 'scale(1.22)' }}
+                    />
+                </div>
             </motion.div>
 
             {/* Title */}

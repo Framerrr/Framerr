@@ -25,9 +25,6 @@ interface SystemConfigResponse {
 interface SharedIntegration {
     name: string;
     enabled: boolean;
-    url?: string;
-    apiKey?: string;
-    token?: string;
     [key: string]: unknown;
 }
 
@@ -109,8 +106,6 @@ export const AppDataProvider = ({ children }: AppDataProviderProps): React.JSX.E
                         const { name, ...restIntegration } = integration;
                         sharedIntegrations[name] = {
                             ...restIntegration,
-                            // Plex uses 'token' - ensure it's set from token or apiKey
-                            token: integration.token || integration.apiKey
                         };
                     }
                     setIntegrations(sharedIntegrations);

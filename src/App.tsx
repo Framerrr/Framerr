@@ -1,9 +1,10 @@
-import React, { useEffect, ReactNode } from 'react';
+import React, { useEffect, useMemo, ReactNode } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { configApi } from './api/endpoints';
 import logger from './utils/logger';
+import api from './api/client';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { SystemConfigProvider } from './context/SystemConfigContext';
@@ -12,6 +13,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { LayoutProvider, useLayout } from './context/LayoutContext';
 import { DashboardEditProvider } from './context/DashboardEditContext';
 import { SharedSidebarProvider, useSharedSidebar } from './components/sidebar/SharedSidebarContext';
+import { WalkthroughProvider, WalkthroughOverlay } from './features/walkthrough';
 import { LAYOUT } from './constants/layout';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import Sidebar from './components/Sidebar';
@@ -23,6 +25,7 @@ import { useConnectionToasts } from './hooks/useConnectionToasts';
 
 import Login from './app/login/Login';
 import PlexLoading from './app/login/PlexLoading';
+import ChangePassword from './app/change-password/ChangePassword';
 import Setup from './app/setup/Setup';
 import PlexSetup from './app/plex-setup/PlexSetup';
 import MainContent from './app/MainContent';
@@ -130,6 +133,9 @@ const MainLayoutContent: React.FC = () => {
                     </div>
                 </ProtectedRoute>
             </div>
+
+            {/* Walkthrough overlay — renders above everything when active */}
+            <WalkthroughOverlay />
         </>
     );
 };
@@ -138,11 +144,38 @@ const MainLayoutContent: React.FC = () => {
 // NOTE: DashboardEditProvider MUST wrap SharedSidebarProvider so that
 // SharedSidebarContext can access dashboardEdit state for navigation guards
 const MainLayout: React.FC = () => {
+    const { user } = useAuth();
+    const userRole = user?.group === 'admin' ? 'admin' : 'user';
+
+    // Walkthrough persistence — injected to keep engine app-agnostic
+    const walkthroughPersistence = useMemo(() => ({
+        onFlowComplete: async (flowId: string) => {
+            await api.post('/api/walkthrough/complete', { flowId });
+        },
+        fetchCompletedFlows: async () => {
+            const data = await api.get<{ flows: Record<string, boolean> }>('/api/walkthrough/status');
+            return data.flows;
+        },
+        resetFlow: async (_flowId: string) => {
+            await api.post('/api/walkthrough/reset', {});
+        },
+    }), []);
+
     return (
         <DashboardEditProvider>
-            <SharedSidebarProvider>
-                <MainLayoutContent />
-            </SharedSidebarProvider>
+            <WalkthroughProvider
+                userRole={userRole}
+                persistence={walkthroughPersistence}
+                autoStartFlowId="onboarding"
+                onFlowComplete={(flowId) => {
+                    // Dispatch event for Dashboard to save and exit edit mode
+                    window.dispatchEvent(new CustomEvent('walkthrough-flow-complete', { detail: { flowId } }));
+                }}
+            >
+                <SharedSidebarProvider>
+                    <MainLayoutContent />
+                </SharedSidebarProvider>
+            </WalkthroughProvider>
         </DashboardEditProvider>
     );
 };
@@ -169,6 +202,7 @@ const App: React.FC = () => {
                                         <Routes>
                                             <Route path="/login" element={<Login />} />
                                             <Route path="/login/plex/loading" element={<PlexLoading />} />
+                                            <Route path="/change-password" element={<ChangePassword />} />
                                             <Route path="/setup" element={<Setup />} />
                                             <Route path="/plex-setup" element={<PlexSetup />} />
 

@@ -21,7 +21,6 @@ export type {
     DiagnosticsInfo,
     SystemInfo,
     Resources,
-    IntegrationHealth,
     SseStatus,
     DbStatus,
     ApiHealth,
@@ -72,7 +71,7 @@ export { profileApi } from './profile';
 export type { ProfileData, UpdateProfileData, ChangePasswordData } from './profile';
 
 export { linkedAccountsApi } from './linkedAccounts';
-export type { LinkedAccount, LinkedAccounts, OverseerrStatusResponse } from './linkedAccounts';
+export type { LinkedAccount, LinkedAccounts } from './linkedAccounts';
 
 export { widgetSharesApi } from './widgetShares';
 export type { UserShareState, UserData, GroupData, UsersAndGroupsResponse, ExistingSharesResponse, MyAccessResponse, SaveSharesData } from './widgetShares';

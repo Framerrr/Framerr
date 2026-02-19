@@ -86,7 +86,7 @@ export const adminSettingsCategories: SidebarSettingsCategory[] = [
         adminOnly: true,
         children: [
             { id: 'proxy', label: 'Auth Proxy', icon: 'Network' },
-            { id: 'plex', label: 'Plex', icon: 'Tv2' },
+            { id: 'plex', label: 'Plex SSO', icon: 'Tv2' },
             { id: 'iframe', label: 'iFrame Auth', icon: 'Frame' },
         ]
     },
@@ -102,7 +102,7 @@ export const adminSettingsCategories: SidebarSettingsCategory[] = [
             { id: 'backup', label: 'Backup', icon: 'Archive' },
             { id: 'jobs', label: 'Jobs & Cache', icon: 'Clock' },
             { id: 'experimental', label: 'Experimental', icon: 'Beaker' },
-            { id: 'developer', label: 'Developer', icon: 'Code' },
+            // { id: 'developer', label: 'Developer', icon: 'Code' }, // TODO: Re-enable when docs/support content is ready
         ]
     },
 ];

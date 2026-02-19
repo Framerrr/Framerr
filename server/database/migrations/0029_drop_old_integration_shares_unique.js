@@ -17,18 +17,18 @@ module.exports = {
     version: 29,
     name: 'drop_old_integration_shares_unique',
     up(db) {
-        logger.info('[Migration 0029] Dropping old integration_name-based unique constraint...');
+        logger.debug('[Migration 0029] Dropping old integration_name-based unique constraint...');
 
         // SQLite doesn't support DROP INDEX IF EXISTS directly in some versions,
         // so we'll try-catch it
         try {
             db.exec(`DROP INDEX idx_integration_shares_unique;`);
-            logger.info('[Migration 0029] Successfully dropped idx_integration_shares_unique');
+            logger.debug('[Migration 0029] Dropped idx_integration_shares_unique');
         } catch (error) {
             // Index might not exist (already dropped or never applied)
             logger.debug(`[Migration 0029] Index may not exist: ${error.message}`);
         }
 
-        logger.info('[Migration 0029] Complete: Old constraint removed, instance-based sharing now works correctly');
+        logger.debug('[Migration 0029] Complete: Old constraint removed, instance-based sharing now works correctly');
     }
 };

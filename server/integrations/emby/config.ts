@@ -22,7 +22,8 @@ export const configSchema: ConfigSchema = {
         },
         {
             key: 'apiKey',
-            type: 'password',
+            type: 'text',
+            sensitive: true,
             label: 'API Key',
             placeholder: 'Your Emby API key',
             hint: 'Generate in Settings → Advanced → API Keys',

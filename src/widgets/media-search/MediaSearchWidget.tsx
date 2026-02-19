@@ -10,14 +10,21 @@ import { Search, X, Film, Tv, Loader2, Clock, ChevronRight, AlertCircle } from '
 import { motion, LayoutGroup } from 'framer-motion';
 import { SearchDropdown, Button } from '../../shared/ui';
 import { WidgetStateMessage } from '../../shared/widgets';
-import { useIntegrations } from '../../api/hooks/useIntegrations';
+import { useRoleAwareIntegrations } from '../../api/hooks/useIntegrations';
 import { useRealtimeSSE } from '../../hooks/useRealtimeSSE';
+import { useNotification } from '../../hooks/useNotification';
 import { useMediaSearch } from './useMediaSearch';
+import { useOverseerrRequest, needsModal, getDefaultServerId } from './hooks/useOverseerrRequest';
+import { RequestButton, getInitialRequestState } from './components/RequestButton';
+import { RequestModal } from './modals/RequestModal';
 import MediaSearchInfoModal from './modals/MediaSearchInfoModal';
 import SearchTakeover from './components/SearchTakeover';
+import RecommendationRow from './components/RecommendationRow';
+import { useRecommendations } from './hooks/useRecommendations';
+import type { RecommendationItem } from './hooks/useRecommendations';
 import { openInApp } from './mediaUrls';
 import type { WidgetProps } from '../types';
-import type { MediaItem } from './types';
+import type { MediaItem, OverseerrMediaResult, RequestButtonState } from './types';
 import './styles.css';
 
 // ============================================================================
@@ -40,19 +47,24 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
     const inputRef = useRef<HTMLInputElement>(null);
     const takeoverInputRef = useRef<HTMLInputElement>(null);
 
+    // Phase 4: Request state
+    const [requestModalItem, setRequestModalItem] = useState<OverseerrMediaResult | null>(null);
+    const [itemRequestStates, setItemRequestStates] = useState<Map<number, RequestButtonState>>(new Map());
+    const { success: toastSuccess, error: toastError } = useNotification();
+
     // Read takeover config (default: true)
     const isTakeoverEnabled = (widget.config as Record<string, unknown>)?.searchTakeover !== false;
 
     // Get all integrations to filter out deleted/orphaned IDs
-    const { data: allIntegrations } = useIntegrations();
+    const { data: allIntegrations } = useRoleAwareIntegrations();
     const validIntegrationIds = useMemo(() => {
         if (!allIntegrations) return new Set<string>();
         return new Set(allIntegrations.map(i => i.id));
     }, [allIntegrations]);
 
-    // Extract configured integrations from widget config
-    // Config uses keys like plexIntegrationIds, jellyfinIntegrationIds, embyIntegrationIds (arrays)
-    // Also support legacy singular keys: plexIntegrationId, etc.
+    // Extract configured library integrations from widget config
+    // Config uses groupKey: libraryIntegrationIds (array) from integrationGroups
+    // Backward compat: also check legacy per-type keys (plexIntegrationIds, etc.)
     // Filter out any IDs that no longer exist (deleted integrations)
     const configuredIntegrations = useMemo(() => {
         const config = widget.config as Record<string, unknown> | undefined;
@@ -60,24 +72,47 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
 
         const ids: string[] = [];
 
-        // Check each integration type for configured IDs
-        for (const type of ['plex', 'jellyfin', 'emby']) {
-            // Check array key (new format)
-            const arrayKey = `${type}IntegrationIds`;
-            const arrayValue = config[arrayKey];
-            if (Array.isArray(arrayValue)) {
-                ids.push(...arrayValue as string[]);
-            }
+        // Primary: read from group key (new format)
+        const groupIds = config.libraryIntegrationIds;
+        if (Array.isArray(groupIds)) {
+            ids.push(...groupIds as string[]);
+        }
 
-            // Check singular key (legacy format)
-            const singularKey = `${type}IntegrationId`;
-            const singularValue = config[singularKey];
-            if (typeof singularValue === 'string' && singularValue) {
-                ids.push(singularValue);
+        // Backward compat: check legacy per-type keys if group key is empty
+        if (ids.length === 0) {
+            for (const type of ['plex', 'jellyfin', 'emby']) {
+                const arrayKey = `${type}IntegrationIds`;
+                const arrayValue = config[arrayKey];
+                if (Array.isArray(arrayValue)) {
+                    ids.push(...arrayValue as string[]);
+                }
+
+                const singularKey = `${type}IntegrationId`;
+                const singularValue = config[singularKey];
+                if (typeof singularValue === 'string' && singularValue) {
+                    ids.push(singularValue);
+                }
             }
         }
 
         // Filter out deleted/orphaned integration IDs
+        if (validIntegrationIds.size > 0) {
+            return ids.filter(id => validIntegrationIds.has(id));
+        }
+        return ids;
+    }, [widget.config, validIntegrationIds]);
+
+    // Extract configured Overseerr integration IDs (for request feature)
+    const overseerrIntegrationIds = useMemo(() => {
+        const config = widget.config as Record<string, unknown> | undefined;
+        if (!config) return [];
+
+        const ids: string[] = [];
+        const groupIds = config.overseerrIntegrationIds;
+        if (Array.isArray(groupIds)) {
+            ids.push(...groupIds as string[]);
+        }
+
         if (validIntegrationIds.size > 0) {
             return ids.filter(id => validIntegrationIds.has(id));
         }
@@ -92,6 +127,9 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
         }
         return names;
     }, [configuredIntegrations]);
+
+    // Read hideOverseerrAvailable from config (default: true)
+    const hideOverseerrAvailable = (widget.config as Record<string, unknown>)?.hideOverseerrAvailable !== false;
 
     // Use the media search hook (skip in preview mode)
     const {
@@ -110,14 +148,124 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
         machineIds,
         serverUrls,
         loadMore,
-        isLoadingMore
+        isLoadingMore,
+        overseerrResults,
+        hasOverseerr,
     } = useMediaSearch({
         widgetId: widget.id,
         integrationIds: previewMode ? [] : configuredIntegrations,
-        integrationNames
+        integrationNames,
+        overseerrIntegrationIds: previewMode ? [] : overseerrIntegrationIds,
+        hideOverseerrAvailable,
     });
 
-    const hasIntegrations = configuredIntegrations.length > 0 || previewMode;
+    // Recommendations hook (only when search overlay could be used)
+    const { items: recommendationItems, source: recommendationSource, isLoading: isRecsLoading } = useRecommendations(
+        configuredIntegrations.length > 0 && !previewMode
+    );
+
+    // Handle recommendation card click → open info modal
+    const handleRecommendationClick = useCallback((rec: RecommendationItem) => {
+        const item: MediaItem = {
+            id: rec.ratingKey,
+            externalId: rec.ratingKey,
+            title: rec.title,
+            year: rec.year ?? undefined,
+            mediaType: rec.mediaType,
+            posterUrl: rec.thumb ?? undefined,
+            summary: rec.summary ?? undefined,
+            genres: rec.genres ?? undefined,
+            rating: rec.rating ?? undefined,
+            tmdbId: rec.tmdbId ?? undefined,
+            imdbId: rec.imdbId ?? undefined,
+            integrationId: rec.integrationId,
+            integrationName: '',
+            integrationType: 'plex',
+        };
+        setSelectedItem(item);
+    }, []);
+
+    // Phase 4: Overseerr request hook (uses first configured Overseerr instance)
+    const firstOverseerrId = overseerrIntegrationIds[0] || '';
+    const {
+        servers: overseerrServers,
+        fetchServers: fetchOverseerrServers,
+        submitRequest: submitOverseerrRequest,
+    } = useOverseerrRequest({ overseerrInstanceId: firstOverseerrId });
+
+    // Fetch servers once when we have Overseerr
+    useEffect(() => {
+        if (firstOverseerrId) fetchOverseerrServers();
+    }, [firstOverseerrId, fetchOverseerrServers]);
+
+    // Get or initialize request state for an Overseerr item
+    const getItemState = useCallback((item: OverseerrMediaResult): RequestButtonState => {
+        return itemRequestStates.get(item.id) ?? getInitialRequestState(item);
+    }, [itemRequestStates]);
+
+    // Handle inline request button click
+    const handleRequestClick = useCallback(async (item: OverseerrMediaResult) => {
+        // Check if we need a modal (TV show or 4K available)
+        if (needsModal(item, overseerrServers)) {
+            setRequestModalItem(item);
+            return;
+        }
+
+        // Inline fire for simple cases (movie, single non-4K server)
+        setItemRequestStates(prev => new Map(prev).set(item.id, 'loading'));
+
+        try {
+            const serverId = getDefaultServerId(item, overseerrServers);
+            await submitOverseerrRequest({
+                mediaType: item.mediaType === 'tv' ? 'tv' : 'movie',
+                mediaId: item.id,
+                serverId,
+            });
+
+            setItemRequestStates(prev => new Map(prev).set(item.id, 'success'));
+            toastSuccess('Request Sent', `${item.title || item.name || 'Title'} has been requested`);
+
+            // Transition to permanent "requested" after brief success display
+            setTimeout(() => {
+                setItemRequestStates(prev => new Map(prev).set(item.id, 'requested'));
+            }, 1500);
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : 'Request failed';
+            setItemRequestStates(prev => new Map(prev).set(item.id, 'error'));
+
+            // Context-aware toast messages
+            if (msg.includes('link your') || msg.includes('403')) {
+                toastError('Account Required', 'Link your Overseerr account to make requests');
+            } else if (msg.includes('already') || msg.includes('409')) {
+                toastError('Already Requested', `${item.title || item.name} has already been requested`);
+            } else {
+                toastError('Request Failed', msg);
+            }
+
+            // Auto-reset to idle after 1s
+            setTimeout(() => {
+                setItemRequestStates(prev => new Map(prev).set(item.id, 'idle'));
+            }, 1000);
+        }
+    }, [overseerrServers, submitOverseerrRequest, toastSuccess, toastError]);
+
+    // Handle modal request completion
+    // For TV: success=true means ALL seasons requested, success=false means partial (more to go)
+    const handleModalComplete = useCallback((success: boolean) => {
+        if (!requestModalItem) return;
+
+        if (success) {
+            toastSuccess('Request Sent', `${requestModalItem.title || requestModalItem.name || 'Title'} has been requested`);
+            // All done — show success → requested transition on inline button
+            setItemRequestStates(prev => new Map(prev).set(requestModalItem.id, 'success'));
+            setTimeout(() => {
+                setItemRequestStates(prev => new Map(prev).set(requestModalItem.id, 'requested'));
+            }, 1500);
+        }
+        // If !success: either error (modal shows inline error) or TV partial (user can request more)
+    }, [requestModalItem, toastSuccess]);
+
+    const hasIntegrations = configuredIntegrations.length > 0 || overseerrIntegrationIds.length > 0 || previewMode;
 
     // Listen for SSE invalidation when sync settings change
     const { onSettingsInvalidate } = useRealtimeSSE();
@@ -134,6 +282,19 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
 
         return unsubscribe;
     }, [onSettingsInvalidate, refetchSyncStatuses, clearResults, previewMode]);
+
+    // Clear stale results when integration bindings change (e.g. unbinding Plex in config modal)
+    const integrationKey = configuredIntegrations.join(',');
+    const overseerrKey = overseerrIntegrationIds.join(',');
+    const prevIntegrationKeyRef = useRef(integrationKey);
+    const prevOverseerrKeyRef = useRef(overseerrKey);
+    useEffect(() => {
+        if (prevIntegrationKeyRef.current !== integrationKey || prevOverseerrKeyRef.current !== overseerrKey) {
+            clearResults();
+            prevIntegrationKeyRef.current = integrationKey;
+            prevOverseerrKeyRef.current = overseerrKey;
+        }
+    }, [integrationKey, overseerrKey, clearResults]);
 
     // Handle query change with debounce (handled by hook)
     const handleQueryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -212,7 +373,7 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
     }, [results]);
 
     // Show single integration mode (hide headers if only one integration)
-    const showGroupHeaders = integrationCount > 1;
+    const showGroupHeaders = integrationCount >= 1;
     const isMultiIntegration = integrationCount > 1;
 
     // Get visible items (backend handles pagination now)
@@ -240,25 +401,42 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
         return names[type];
     };
 
-    // Determine what to show in dropdown
-    const hasQuery = query.length >= 2;
-    const hasResults = results && Object.keys(results).length > 0;
+    // ═══════════════════════════════════════════════════════════════════
+    // UNIFIED STATE FLAGS — governs all dropdown visibility and content
+    // ═══════════════════════════════════════════════════════════════════
+    const hasLibrary = configuredIntegrations.length > 0;
     const hasRecents = recentSearches.length > 0;
-    const showDropdown = isDropdownOpen && !previewMode && (hasRecents || hasQuery || isSearching);
-    const showTakeoverDropdown = isTakeoverActive && !previewMode && (hasRecents || hasQuery || isSearching);
+    const hasRecommendations = hasLibrary && (recommendationItems.length > 0 || isRecsLoading);
+    const hasResults = results && Object.keys(results).length > 0;
+    const hasOverseerrResults = overseerrResults && Object.keys(overseerrResults).length > 0;
+
+    // Effective minimum chars: 1 if library configured, 2 if Overseerr-only
+    const effectiveMinChars = hasLibrary ? 1 : 2;
+    // isQuerySearchable = query meets the minimum for at least one configured search to fire
+    const isQuerySearchable = query.length >= effectiveMinChars;
+    // Did Overseerr actually participate in this search? (only at 2+ chars with Overseerr configured)
+    const overseerrWasSearched = hasOverseerr && query.length >= 2;
+
+    // Dropdown visible ONLY when there is content to show
+    // Idle: recs or recents to show | Searching: spinner | Done: results or no-results message
+    const hasDropdownContent =
+        (!isQuerySearchable && (hasRecents || hasRecommendations)) ||
+        (isQuerySearchable); // spinner, results, or "no results" — always something when searchable
+    const showDropdown = isDropdownOpen && !previewMode && hasDropdownContent;
+    const showTakeoverDropdown = isTakeoverActive && !previewMode && hasDropdownContent;
 
     // Shared dropdown content (used by both inline and takeover modes)
     const renderDropdownContent = () => (
         <>
-            {/* All Syncing Message */}
-            {allSyncing && hasQuery && (
+            {/* All Syncing Message (library-specific) */}
+            {hasLibrary && allSyncing && isQuerySearchable && (
                 <div className="flex items-center justify-center gap-2 py-4 px-3 text-sm text-theme-tertiary">
                     <Loader2 size={16} className="animate-spin" />
                     <span>Libraries are syncing...</span>
                 </div>
             )}
 
-            {/* Loading State */}
+            {/* Universal Searching Spinner — one spinner, stays until ALL searches done */}
             {isSearching && !allSyncing && (
                 <div className="flex items-center justify-center gap-2 py-4 px-3 text-sm text-theme-tertiary">
                     <Loader2 size={16} className="animate-spin" />
@@ -266,8 +444,18 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
                 </div>
             )}
 
-            {/* Recent Searches (when no query AND library is synced) */}
-            {!isSearching && !hasQuery && hasRecents && !hasNoSyncedLibrary && (
+            {/* Recommendations (library-only, idle state) */}
+            {!isSearching && !isQuerySearchable && hasRecommendations && !allSyncing && (
+                <RecommendationRow
+                    items={recommendationItems}
+                    source={recommendationSource}
+                    isLoading={isRecsLoading}
+                    onItemClick={handleRecommendationClick}
+                />
+            )}
+
+            {/* Recent Searches (idle state, widget-level — works for any config) */}
+            {!isSearching && !isQuerySearchable && hasRecents && (
                 <div>
                     <div className="flex items-center justify-between w-full px-2 py-1">
                         <div className="flex items-center gap-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-theme-tertiary">
@@ -297,8 +485,8 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
                 </div>
             )}
 
-            {/* No Synced Library message */}
-            {!isSearching && !hasQuery && hasNoSyncedLibrary && !allSyncing && (
+            {/* No Synced Library (library-specific, idle) */}
+            {hasLibrary && !isSearching && !isQuerySearchable && hasNoSyncedLibrary && !allSyncing && (
                 <div className="py-4 px-3 text-center text-sm text-theme-tertiary">
                     <div className="flex flex-col items-center gap-1">
                         <span className="text-theme-secondary">No synced library available.</span>
@@ -309,8 +497,8 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
                 </div>
             )}
 
-            {/* No Synced Library - with query */}
-            {!isSearching && hasQuery && hasNoSyncedLibrary && !allSyncing && (
+            {/* No Synced Library - with query (library-specific) */}
+            {hasLibrary && !isSearching && isQuerySearchable && hasNoSyncedLibrary && !allSyncing && (
                 <div className="py-4 px-3 text-center text-sm text-theme-tertiary">
                     <div className="flex flex-col items-center gap-1">
                         <span className="text-theme-secondary">No synced library available.</span>
@@ -321,15 +509,20 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
                 </div>
             )}
 
-            {/* No Results */}
-            {!isSearching && hasQuery && !hasResults && !allSyncing && !hasNoSyncedLibrary && (
-                <div className="py-4 px-3 text-center text-sm text-theme-tertiary">
-                    No results for "{query}"
-                </div>
-            )}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* RESULTS — only rendered when ALL searches are done         */}
+            {/* ═══════════════════════════════════════════════════════════ */}
 
-            {/* Search Results */}
-            {!isSearching && hasResults && Object.entries(results!).map(([integrationId, group]) => {
+            {/* Global "No results" — when nothing found in ANY searched source */}
+            {!isSearching && isQuerySearchable && !hasResults && !hasNoSyncedLibrary && !allSyncing &&
+                (!overseerrWasSearched || !hasOverseerrResults) && hasLibrary && (
+                    <div className="py-4 px-3 text-center text-sm text-theme-tertiary">
+                        No results for "{query}"
+                    </div>
+                )}
+
+            {/* Library Results */}
+            {hasLibrary && !isSearching && isQuerySearchable && hasResults && Object.entries(results!).map(([integrationId, group]) => {
                 const visibleItems = getVisibleItems(integrationId, group.items);
 
                 return (
@@ -398,7 +591,7 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
                                     size="sm"
                                     textSize="sm"
                                     onClick={(e) => handleOpenIn(item, e)}
-                                    className="media-search-open-btn"
+                                    className="media-search-request-btn"
                                 >
                                     Open in {getAppName(item.integrationType)}
                                 </Button>
@@ -418,6 +611,145 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
                     </div>
                 );
             })}
+
+            {/* Library "no results" with header (only when Overseerr HAS results) */}
+            {hasLibrary && !isSearching && isQuerySearchable && !hasResults && !hasNoSyncedLibrary &&
+                overseerrWasSearched && hasOverseerrResults && (
+                    <div className="media-search-group">
+                        {showGroupHeaders && (
+                            <div className="media-search-group-header">Library</div>
+                        )}
+                        <div className="py-3 px-3 text-center text-sm text-theme-tertiary">
+                            No library results
+                        </div>
+                    </div>
+                )}
+
+            {/* ═══════════════════════════════════════════ */}
+            {/* Overseerr "Request" Section                 */}
+            {/* ═══════════════════════════════════════════ */}
+
+            {/* Overseerr Results (only at 2+ chars, only when ALL searches done) */}
+            {hasOverseerr && !isSearching && overseerrWasSearched && hasOverseerrResults && (
+                <div className="media-search-overseerr-section">
+                    <div className="media-search-section-header">
+                        <Search size={12} />
+                        <span>Request</span>
+                    </div>
+                    {Object.values(overseerrResults!).map(group => (
+                        group.error ? (
+                            <div key={group.integrationId} className="px-3 py-2 text-xs text-theme-tertiary">
+                                <AlertCircle size={12} className="inline mr-1" />
+                                {group.error}
+                            </div>
+                        ) : (
+                            group.items.map(item => {
+                                const title = item.title || item.name || 'Unknown';
+                                const year = (item.releaseDate || item.firstAirDate || '').slice(0, 4);
+                                const posterUrl = item.posterPath
+                                    ? `https://image.tmdb.org/t/p/w92${item.posterPath}`
+                                    : undefined;
+                                const mediaLabel = item.mediaType === 'movie' ? 'Movie' : 'TV';
+                                const status = item.mediaInfo?.status;
+                                const { requestedSeasonCount, totalSeasonCount } = item.mediaInfo ?? {};
+                                // TV shows: show badge only for partial requests (not all seasons covered)
+                                const isTvPartial = item.mediaType === 'tv' && status !== undefined && status >= 2 && status < 5
+                                    && (requestedSeasonCount === undefined || totalSeasonCount === undefined || requestedSeasonCount < totalSeasonCount);
+                                // Status 4 = Partially Available (some downloaded), 2/3 = Partially Requested
+                                const partialBadgeText = status === 4 ? 'Partially Available' : 'Partially Requested';
+
+                                return (
+                                    <div
+                                        key={`${group.integrationId}-${item.id}`}
+                                        className="media-search-item media-search-overseerr-item"
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => setRequestModalItem(item)}
+                                    >
+                                        {/* Poster */}
+                                        {posterUrl ? (
+                                            <img
+                                                src={posterUrl}
+                                                alt={title}
+                                                className="media-search-poster"
+                                            />
+                                        ) : (
+                                            <div className="media-search-poster-placeholder">
+                                                {item.mediaType === 'movie' ? (
+                                                    <Film size={14} />
+                                                ) : (
+                                                    <Tv size={14} />
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Info */}
+                                        <div className="media-search-info">
+                                            <div className="media-search-title" title={title}>
+                                                {title}
+                                            </div>
+                                            <div className="media-search-meta">
+                                                {year && (
+                                                    <span className="media-search-year">{year}</span>
+                                                )}
+                                                <span className="media-search-type-badge">{mediaLabel}</span>
+                                                {item.voteAverage !== undefined && item.voteAverage > 0 && (
+                                                    <span className="media-search-rating">★ {item.voteAverage.toFixed(1)}</span>
+                                                )}
+                                                {isTvPartial && (
+                                                    <span style={{
+                                                        fontSize: '0.5625rem',
+                                                        fontWeight: 500,
+                                                        padding: '0.0625rem 0.25rem',
+                                                        borderRadius: '0.1875rem',
+                                                        background: 'var(--warning-glass, rgba(234, 179, 8, 0.15))',
+                                                        color: 'var(--warning)',
+                                                        whiteSpace: 'nowrap',
+                                                    }}>
+                                                        {partialBadgeText}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Request Button (Phase 4) */}
+                                        <RequestButton
+                                            state={getItemState(item)}
+                                            onClick={() => handleRequestClick(item)}
+                                        />
+                                    </div>
+                                );
+                            })
+                        )
+                    ))}
+                </div>
+            )}
+
+            {/* Overseerr "no results" with Request header */}
+            {/* Shows when: Overseerr-only and no results, OR both configs and library has results but Overseerr doesn't */}
+            {hasOverseerr && !isSearching && overseerrWasSearched && !hasOverseerrResults &&
+                (hasResults || !hasLibrary) && (
+                    <div className="media-search-overseerr-section">
+                        <div className="media-search-section-header">
+                            <Search size={12} />
+                            <span>Request</span>
+                        </div>
+                        <div className="py-3 px-3 text-center text-sm text-theme-tertiary">
+                            No request results
+                        </div>
+                    </div>
+                )}
+
+            {/* Request Modal */}
+            {requestModalItem && firstOverseerrId && (
+                <RequestModal
+                    item={requestModalItem}
+                    overseerrInstanceId={firstOverseerrId}
+                    onClose={() => setRequestModalItem(null)}
+                    onRequestComplete={handleModalComplete}
+                    zIndex={250}
+                    itemState={itemRequestStates.get(requestModalItem.id) || getInitialRequestState(requestModalItem)}
+                />
+            )}
         </>
     );
 
@@ -484,7 +816,7 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
                                 placeholder="Search movies, shows, actors..."
                                 value={query}
                                 onChange={handleQueryChange}
-                                onFocus={handleFocus}
+                                onFocus={(e) => { handleFocus(); e.target.select(); }}
                                 disabled={previewMode}
                             />
                             {query && (

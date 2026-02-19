@@ -27,6 +27,7 @@ import { X } from 'lucide-react';
 import { popIn } from '../animations';
 import { useCloseOnScroll } from '../../../hooks/useCloseOnScroll';
 import { useOverlayScrollLock } from '../../../hooks/useOverlayScrollLock';
+import { useInsideModal } from '../Modal/Modal';
 
 // ===========================
 // Popover Root
@@ -53,6 +54,11 @@ export function Popover({
 }: PopoverProps) {
     const [isOpen, setIsOpen] = useState(props.open ?? props.defaultOpen ?? false);
 
+    // Guard against trigger-click reopening immediately after close.
+    // On desktop, clicking the trigger while open fires: close (pointer-down-outside) → reopen (trigger click).
+    // We set a synchronous flag on close and clear it on the next animation frame.
+    const closingRef = useRef(false);
+
     // Sync internal state with controlled prop
     useEffect(() => {
         if (props.open !== undefined) {
@@ -63,6 +69,15 @@ export function Popover({
     const handleOpenChange = (open: boolean) => {
         // Block opening when disabled
         if (disabled && open) return;
+
+        // Block reopen if we just closed in this same event cycle
+        if (open && closingRef.current) return;
+
+        // Track close with a synchronous flag, clear on next frame
+        if (!open) {
+            closingRef.current = true;
+            requestAnimationFrame(() => { closingRef.current = false; });
+        }
 
         setIsOpen(open);
         onOpenChange?.(open);
@@ -124,6 +139,8 @@ export interface PopoverContentProps {
     maxHeight?: string;
     /** When set, limits content width (e.g. '320px', '80vw') */
     maxWidth?: string;
+    /** z-index for the popover content (default: 150) */
+    zIndex?: number;
     /** Called when a pointer down event occurs outside the content. Call e.preventDefault() to prevent dismiss. */
     onPointerDownOutside?: (e: Event) => void;
     /** Called when an interaction (pointer or focus) happens outside the content. Call e.preventDefault() to prevent dismiss. */
@@ -144,6 +161,7 @@ const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
         showClose = false,
         maxHeight,
         maxWidth,
+        zIndex = 150,
         ...props
     }, ref) => {
         const contentRef = useRef<HTMLDivElement>(null);
@@ -151,51 +169,67 @@ const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
         // Prevent touch scroll from bleeding through to the page behind
         useOverlayScrollLock(true, contentRef);
 
-        return (
-            <RadixPopover.Portal>
-                <RadixPopover.Content
-                    ref={ref}
-                    side={side}
-                    sideOffset={sideOffset}
-                    align={align}
-                    alignOffset={alignOffset}
-                    asChild
-                    {...props}
-                >
-                    <motion.div
-                        ref={contentRef}
-                        variants={popIn}
-                        initial="hidden"
-                        animate="visible"
-                        exit="exit"
-                        style={maxHeight || maxWidth ? {
+        const insideModal = useInsideModal();
+
+        // When inside a modal, render WITHOUT portal so content stays within
+        // react-remove-scroll's scope (Dialog.Content) and scrolling works.
+        // When outside a modal, portal to body to escape overflow:hidden on widgets/cards.
+        const content = (
+            <RadixPopover.Content
+                ref={ref}
+                side={side}
+                sideOffset={sideOffset}
+                align={align}
+                alignOffset={alignOffset}
+                asChild
+                {...props}
+            >
+                <motion.div
+                    ref={contentRef}
+                    data-scroll-lock-allow
+                    variants={popIn}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    style={{
+                        ...(maxHeight || maxWidth ? {
                             ...(maxHeight ? { maxHeight, overflowY: 'auto' as const, overscrollBehavior: 'contain' as const } : {}),
-                            ...(maxWidth ? { maxWidth } : {})
-                        } : undefined}
-                        className={`
-              z-[150]
+                            ...(maxWidth ? { maxWidth } : {}),
+                        } : {}),
+                        zIndex,
+                    }}
+                    className={`
               bg-theme-primary border border-theme rounded-xl
               shadow-xl
               p-4
               ${className}
             `}
-                    >
-                        {showClose && (
-                            <RadixPopover.Close
-                                className="absolute top-2 right-2 p-1 rounded-md text-theme-secondary hover:text-theme-primary hover:bg-theme-hover transition-colors"
-                                aria-label="Close"
-                            >
-                                <X size={16} />
-                            </RadixPopover.Close>
-                        )}
+                >
+                    {showClose && (
+                        <RadixPopover.Close
+                            className="absolute top-2 right-2 p-1 rounded-md text-theme-secondary hover:text-theme-primary hover:bg-theme-hover transition-colors"
+                            aria-label="Close"
+                        >
+                            <X size={16} />
+                        </RadixPopover.Close>
+                    )}
 
-                        {children}
+                    {children}
 
-                        {showArrow && (
-                            <RadixPopover.Arrow className="fill-theme-primary" />
-                        )}
-                    </motion.div>
-                </RadixPopover.Content>
+                    {showArrow && (
+                        <RadixPopover.Arrow className="fill-theme-primary" />
+                    )}
+                </motion.div>
+            </RadixPopover.Content>
+        );
+
+        if (insideModal) {
+            return content;
+        }
+
+        return (
+            <RadixPopover.Portal>
+                {content}
             </RadixPopover.Portal>
         );
     }

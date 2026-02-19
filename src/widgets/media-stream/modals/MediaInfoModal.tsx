@@ -1,6 +1,7 @@
 import React from 'react';
 import { Star, Calendar, Building2, Users } from 'lucide-react';
 import { Modal } from '../../../shared/ui';
+import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
 import { widgetFetch } from '../../../utils/widgetFetch';
 import logger from '../../../utils/logger';
 
@@ -48,6 +49,7 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
     const [fullSession, setFullSession] = React.useState<PlexSession | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
+    const [externalIds, setExternalIds] = React.useState<{ tmdbId: number | null; imdbId: string | null }>({ tmdbId: null, imdbId: null });
 
     // Fetch full session data from API when modal opens
     React.useEffect(() => {
@@ -90,6 +92,17 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
         fetchSessionData();
     }, [session?.sessionKey]);
 
+    // Fetch external IDs (TMDB/IMDB) by ratingKey
+    React.useEffect(() => {
+        const ratingKey = fullSession?.Media?.ratingKey || session?.Media?.ratingKey;
+        if (!ratingKey || !integrationId) return;
+
+        fetch(`/api/media/external-ids?itemKey=${ratingKey}&integrationId=${integrationId}`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data) setExternalIds(data); })
+            .catch(() => { });
+    }, [fullSession?.Media?.ratingKey, session?.Media?.ratingKey, integrationId]);
+
     if (!session) return null;
 
     // Use fetched data or fall back to passed session
@@ -105,7 +118,7 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
         : null;
 
     return (
-        <Modal open={true} onOpenChange={(open) => !open && onClose()} size="lg">
+        <Modal open={true} onOpenChange={(open) => !open && onClose()} size="lg" fixedHeight>
             <Modal.Header title="Media Info" />
             <Modal.Body>
                 {/* Loading indicator */}
@@ -221,6 +234,13 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                         <span>{Media.studio}</span>
                                     </div>
                                 )}
+
+                                <ExternalMediaLinks
+                                    tmdbId={externalIds.tmdbId}
+                                    imdbId={externalIds.imdbId}
+                                    mediaType={type === 'episode' || type === 'show' ? 'tv' : 'movie'}
+                                    className="mt-2"
+                                />
                             </div>
                         </div>
 

@@ -54,7 +54,8 @@ const JellyfinForm: React.FC<JellyfinFormProps> = ({
             {/* API Key */}
             <Input
                 label="API Key"
-                type="password"
+                type="text"
+                redacted
                 value={config.apiKey || ''}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFieldChange('apiKey', e.target.value)}
                 placeholder="Enter your API key"

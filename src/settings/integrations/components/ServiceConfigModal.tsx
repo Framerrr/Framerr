@@ -10,7 +10,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { TestTube, Loader, CheckCircle2, AlertCircle, RotateCcw, Save, Pencil, Settings, Bell } from 'lucide-react';
+import { TestTube, Loader, CheckCircle2, AlertCircle, Save, Pencil, Settings, Bell } from 'lucide-react';
 import { Modal } from '../../../shared/ui';
 import { Switch } from '../../../shared/ui';
 import { Button } from '../../../shared/ui';
@@ -88,7 +88,7 @@ interface ServiceConfigModalProps {
     /** Callback when display name changes */
     onDisplayNameChange?: (name: string) => void;
     onTest?: () => void;
-    onReset?: () => void;
+
     onSave: () => void;
     onToggle?: () => void;  // Toggle enabled/disabled state
     testState?: TestState | null;
@@ -112,7 +112,7 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
     displayName,
     onDisplayNameChange,
     onTest,
-    onReset,
+
     onSave,
     onToggle,
     testState,
@@ -161,20 +161,6 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
                     onCheckedChange={() => onToggle()}
                     aria-label={isEnabled ? 'Disable integration' : 'Enable integration'}
                 />
-            )}
-            {/* Reset button in header - always visible */}
-            {onReset && (
-                <button
-                    onClick={onReset}
-                    className="
-                        p-2 rounded-lg text-error
-                        transition-colors
-                        hover:[background-color:rgba(239,68,68,0.2)]
-                    "
-                    title="Reset to defaults"
-                >
-                    <RotateCcw size={18} />
-                </button>
             )}
         </>
     );
@@ -234,10 +220,10 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
             </Modal.Body>
 
             {/* Footer */}
-            <Modal.Footer className="flex-col items-stretch">
+            <Modal.Footer>
                 <div className="flex items-center justify-between gap-3 w-full">
-                    {/* Left side - Test button */}
-                    <div className="flex items-center gap-2">
+                    {/* Left side - Test button + result */}
+                    <div className="flex items-center gap-3 flex-wrap min-w-0">
                         {showTestButton && (
                             <Button
                                 onClick={onTest}
@@ -256,15 +242,20 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
                                             : TestTube
                                     )
                                 }
-                                className={testState && !testState.loading && testState.success
+                                className={`flex-shrink-0 ${testState && !testState.loading && testState.success
                                     ? 'bg-success border-success'
                                     : ''
-                                }
+                                    }`}
                             >
                                 {testState?.loading ? 'Testing...' :
                                     testState?.success ? 'Connected' :
                                         testState ? 'Failed' : 'Test'}
                             </Button>
+                        )}
+                        {testState?.message && !testState.loading && (
+                            <span className={`text-sm ${testState.success ? 'text-success' : 'text-error'}`}>
+                                {testState.message}
+                            </span>
                         )}
                     </div>
 
@@ -278,16 +269,6 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
                         {saving ? 'Saving...' : 'Save'}
                     </Button>
                 </div>
-
-                {/* Test result message */}
-                {testState?.message && !testState.loading && (
-                    <p className={`
-                        mt-3 text-sm
-                        ${testState.success ? 'text-success' : 'text-error'}
-                    `}>
-                        {testState.message}
-                    </p>
-                )}
             </Modal.Footer>
         </Modal>
     );

@@ -24,9 +24,11 @@ export interface FieldDefinition {
     key: string;
     label: string;
     placeholder: string;
-    type: 'text' | 'password' | 'checkbox';
+    type: 'text' | 'checkbox';
     hint?: string; // Optional hint text for checkbox fields
     required?: boolean; // Defaults to true for 'url', false for others
+    /** If true, this field's value is redacted in API responses */
+    sensitive?: boolean;
 }
 
 /**

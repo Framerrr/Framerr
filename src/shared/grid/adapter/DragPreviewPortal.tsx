@@ -21,6 +21,7 @@ import { createPortal } from 'react-dom';
 
 // Production widget registry
 import { getWidgetComponent, getWidgetMetadata } from '../../../widgets/registry';
+import { resolveAutoBinding } from '../../../widgets/resolveAutoBinding';
 
 // Integration data hook - uses React Query cache
 import { useRoleAwareIntegrations } from '../../../api/hooks/useIntegrations';
@@ -60,6 +61,9 @@ export interface DragPreviewPortalProps {
      * When provided, the preview will render widgets EXACTLY like the grid does.
      */
     renderWidget?: (widget: FramerrWidget) => ReactNode;
+
+    /** Transform scale factor (for template builder scaled grids, default 1) */
+    transformScale?: number;
 }
 
 // ============================================================================
@@ -70,7 +74,7 @@ export interface DragPreviewPortalProps {
  * Manages React portals for drag preview widgets.
  * Mount this component at the surface level (Dashboard or Template Builder).
  */
-export function DragPreviewPortal({ previewMode, getIntegrationBinding, renderWidget }: DragPreviewPortalProps) {
+export function DragPreviewPortal({ previewMode, getIntegrationBinding, renderWidget, transformScale = 1 }: DragPreviewPortalProps) {
     const [previews, setPreviews] = useState<DragPreview[]>([]);
 
     // Watch for drag preview elements in the DOM
@@ -152,6 +156,7 @@ export function DragPreviewPortal({ previewMode, getIntegrationBinding, renderWi
                     previewMode={previewMode}
                     getIntegrationBinding={getIntegrationBinding}
                     renderWidget={renderWidget}
+                    transformScale={transformScale}
                 />
             ))}
         </>
@@ -167,12 +172,13 @@ interface PreviewWidgetProps {
     previewMode: boolean;
     getIntegrationBinding?: (widgetType: string) => string | null;
     renderWidget?: (widget: FramerrWidget) => ReactNode;
+    transformScale: number;
 }
 
 /**
  * Renders a single preview widget into its portal container.
  */
-function PreviewWidget({ preview, previewMode, getIntegrationBinding, renderWidget }: PreviewWidgetProps) {
+function PreviewWidget({ preview, previewMode, getIntegrationBinding, renderWidget, transformScale }: PreviewWidgetProps) {
     const Component = getWidgetComponent(preview.widgetType);
     const metadata = getWidgetMetadata(preview.widgetType);
 
@@ -192,38 +198,18 @@ function PreviewWidget({ preview, previewMode, getIntegrationBinding, renderWidg
         );
     }
 
-    // Get integration binding - use callback if provided, otherwise lookup from cache
-    const integrationId = useMemo(() => {
-        if (previewMode) return undefined;
-
-        // If callback provided, use it
-        if (getIntegrationBinding) {
-            return getIntegrationBinding(preview.widgetType);
-        }
-
-        // Otherwise lookup from cached integrations
-        const compatibleTypes = metadata?.compatibleIntegrations || [];
-        if (compatibleTypes.length === 0) return undefined;
-
-        // Find first enabled integration instance of a compatible type
-        for (const integrationType of compatibleTypes) {
-            const instance = allIntegrations.find(
-                (int: { type: string; enabled: boolean }) =>
-                    int.type === integrationType && int.enabled
-            );
-            if (instance) {
-                return instance.id;
-            }
-        }
-        return undefined;
-    }, [previewMode, getIntegrationBinding, preview.widgetType, metadata?.compatibleIntegrations, allIntegrations]);
+    // Get integration binding via shared resolver
+    const autoBinding = useMemo(() => {
+        if (previewMode) return {};
+        return resolveAutoBinding(preview.widgetType, allIntegrations);
+    }, [previewMode, preview.widgetType, allIntegrations]);
 
     // Build FULL widget config matching handleAddWidgetFromModal pattern
     // This ensures drag preview looks identical to the actual widget
     const widgetConfig: Record<string, unknown> = {
         ...metadata?.defaultConfig, // Apply plugin defaults (e.g., showHeader: false)
         title: metadata?.name,
-        integrationId,
+        ...autoBinding,
     };
 
     // Build widgetData as FramerrWidget format
@@ -239,6 +225,7 @@ function PreviewWidget({ preview, previewMode, getIntegrationBinding, renderWidg
     // Works for both Dashboard mode and Template Builder mode
     if (renderWidget) {
         const renderedContent = renderWidget(widgetData);
+        const needsScale = transformScale < 1;
         return createPortal(
             <div
                 style={{
@@ -248,7 +235,14 @@ function PreviewWidget({ preview, previewMode, getIntegrationBinding, renderWidg
                     overflow: 'hidden',
                 }}
             >
-                {renderedContent}
+                <div style={{
+                    width: needsScale ? `${100 / transformScale}%` : '100%',
+                    height: needsScale ? `${100 / transformScale}%` : '100%',
+                    transform: needsScale ? `scale(${transformScale})` : undefined,
+                    transformOrigin: 'top left',
+                }}>
+                    {renderedContent}
+                </div>
             </div>,
             preview.element
         );

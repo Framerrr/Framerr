@@ -28,6 +28,7 @@ export interface RawOverseerrRequest {
         mediaType?: string;
     };
     requestedBy?: {
+        id?: number;
         displayName?: string;
     };
     seasons?: Array<{ seasonNumber?: number }>;
@@ -50,6 +51,7 @@ export interface EnrichedRequest {
         voteAverage?: number | null;
     };
     requestedBy?: {
+        id?: number;
         displayName: string;
     };
 }
@@ -267,6 +269,7 @@ export async function enrichRequests(
                 voteAverage: cached?.voteAverage
             } : undefined,
             requestedBy: req.requestedBy ? {
+                id: req.requestedBy.id,
                 displayName: req.requestedBy.displayName || 'Unknown'
             } : undefined
         };

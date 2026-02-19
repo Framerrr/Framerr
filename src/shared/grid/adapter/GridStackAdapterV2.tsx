@@ -39,6 +39,8 @@ import { getWidgetMetadata } from '../../../widgets/registry';
 
 // FLIP animation support
 import { getLastHelperRect, getLastMorphContent } from './setupExternalDragSources';
+import { DROP_TRANSITION_EVENT } from './DropTransitionOverlay';
+import type { DropTransitionEvent } from './DropTransitionOverlay';
 
 // Logger
 import logger from '../../../utils/logger';
@@ -181,8 +183,6 @@ function applyGridStackChanges(
     useMobileLayout: boolean
 ): FramerrWidget[] {
     const gsMap = new Map(gsWidgets.map(gs => [gs.id, gs]));
-    const DESKTOP_COLS = 24;
-    const MOBILE_COLS = 4;
 
     return widgets.map(widget => {
         const gsWidget = gsMap.get(widget.id);
@@ -196,17 +196,12 @@ function applyGridStackChanges(
         const gsW = gsWidget.w ?? currentLayout.w;
         const gsH = gsWidget.h ?? currentLayout.h;
 
-        // Linked mode on mobile: scale back to desktop
+        // Linked mode on mobile: preserve desktop .layout, only update .mobileLayout
+        // Desktop layout should NEVER be modified by mobile drags.
+        // In linked mode, changes flow downward (desktop → mobile), not upward.
         if (breakpoint === 'sm' && !useMobileLayout) {
-            const scale = DESKTOP_COLS / MOBILE_COLS;
-            const scaledLayout = {
-                x: Math.round(gsX * scale),
-                y: gsY,
-                w: Math.round(gsW * scale),
-                h: gsH,
-            };
             const mobileLayout = { x: gsX, y: gsY, w: gsW, h: gsH };
-            return { ...widget, layout: scaledLayout, mobileLayout };
+            return { ...widget, mobileLayout };
         }
 
         const newLayout = { x: gsX, y: gsY, w: gsW, h: gsH };
@@ -397,10 +392,13 @@ function GridStackInner({
                 }
 
                 // Create fresh content element - starts invisible
+                // Use both opacity:0 AND visibility:hidden to also hide the
+                // edit-mode ::after dashed border pseudo-element
                 const contentEl = document.createElement('div');
                 contentEl.className = 'grid-stack-item-content';
                 contentEl.style.opacity = '0';
-                contentEl.style.transition = 'opacity 0.25s ease-in';
+                contentEl.style.visibility = 'hidden';
+                contentEl.style.transition = 'opacity 0.1s ease-in';
                 el.appendChild(contentEl);
 
                 // Add our portal target to the content element
@@ -422,67 +420,33 @@ function GridStackInner({
                     });
                 }
 
-                // FLIP Animation: slide morph-content from drop position to grid cell
-                const gridRect = el.getBoundingClientRect();
+                // FLIP Animation via React overlay component
+                // Use contentEl rect (inner area) instead of el rect (outer)
+                // to match the actual widget content area dimensions
+                const gridRect = contentEl.getBoundingClientRect();
+
+                // Discard stale morph-content — we use a live React overlay instead
+                if (morphContent) morphContent.remove();
 
                 if (helperRect && gridRect.width > 0) {
-                    // Create overlay at helper's last position
-                    const overlay = document.createElement('div');
-                    overlay.style.cssText = `
-                        position: fixed;
-                        z-index: 10000;
-                        left: ${helperRect.left}px;
-                        top: ${helperRect.top}px;
-                        width: ${helperRect.width}px;
-                        height: ${helperRect.height}px;
-                        border-radius: 1rem;
-                        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-                        pointer-events: none;
-                        transition: left 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-                                   top 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-                                   width 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-                                   height 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-                                   opacity 0.2s ease-out;
-                        overflow: hidden;
-                    `;
-
-                    // Put the pre-detached morph-content into the overlay
-                    if (morphContent) {
-                        morphContent.style.position = 'absolute';
-                        morphContent.style.inset = '0';
-                        morphContent.style.overflow = 'hidden';
-                        morphContent.style.borderRadius = '1rem';
-                        overlay.appendChild(morphContent);
-                    } else {
-                        // Safety fallback — glass-like background if morph-content is missing
-                        overlay.style.background = 'var(--bg-secondary, #1e293b)';
-                    }
-
-                    // Append synchronously
-                    document.body.appendChild(overlay);
-
-                    // Slide to grid position
-                    requestAnimationFrame(() => {
-                        overlay.style.left = `${gridRect.left}px`;
-                        overlay.style.top = `${gridRect.top}px`;
-                        overlay.style.width = `${gridRect.width}px`;
-                        overlay.style.height = `${gridRect.height}px`;
-
-                        // After slide completes, cross-fade
-                        setTimeout(() => {
-                            contentEl.style.opacity = '1';
-                            requestAnimationFrame(() => {
-                                overlay.style.opacity = '0';
-                                setTimeout(() => {
-                                    overlay.remove();
-                                }, 250);
-                            });
-                        }, 300);
-                    });
+                    // Dispatch event for DropTransitionOverlay React component
+                    const transitionDetail: DropTransitionEvent = {
+                        helperRect,
+                        gridRect,
+                        widgetType,
+                        widgetId: newId,
+                        contentEl,
+                        retryPortalUpdate: () => {
+                            updatePortalContainersRef.current?.(widgetsRef.current);
+                        },
+                    };
+                    window.dispatchEvent(
+                        new CustomEvent(DROP_TRANSITION_EVENT, { detail: transitionDetail })
+                    );
                 } else {
-                    // No helper rect, just fade in
-                    if (morphContent) morphContent.remove();
+                    // No helper rect, just fade in immediately
                     requestAnimationFrame(() => {
+                        contentEl.style.visibility = 'visible';
                         contentEl.style.opacity = '1';
                     });
                 }

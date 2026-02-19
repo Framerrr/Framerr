@@ -36,6 +36,9 @@ export type { GridStackAdapterV2Props } from './GridStackAdapterV2';
 export { DragPreviewPortal } from './DragPreviewPortal';
 export type { DragPreviewPortalProps } from './DragPreviewPortal';
 
+export { DropTransitionOverlay, DROP_TRANSITION_EVENT } from './DropTransitionOverlay';
+export type { DropTransitionOverlayProps, DropTransitionEvent } from './DropTransitionOverlay';
+
 // ============================================================================
 // External Drag Setup (GridStack)
 // ============================================================================

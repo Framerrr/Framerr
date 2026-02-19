@@ -9,7 +9,11 @@
  * - Dynamic grid sizing (40-80px cells)
  * - Left-align in edit mode, center-justify in view mode
  * - Inline add/edit forms
- * - Drag-to-reorder (desktop and mobile)
+ *
+ * NOTE: Live drag-to-reorder (useDesktopDrag / useTouchDrag) is DISABLED.
+ * Reordering now happens in the config modal via LinkOrderEditor.
+ * The drag hooks are preserved in hooks/ for potential future use elsewhere.
+ * See: hooks/useDesktopDrag.ts, hooks/useTouchDrag.ts
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -28,13 +32,15 @@ import {
 
 // Hooks
 import { useLinkForm } from './hooks/useLinkForm';
-import { useDesktopDrag } from './hooks/useDesktopDrag';
-import { useTouchDrag } from './hooks/useTouchDrag';
+// DISABLED: Live drag reorder — now handled in config modal (LinkOrderEditor).
+// import { useDesktopDrag } from './hooks/useDesktopDrag';
+// import { useTouchDrag } from './hooks/useTouchDrag';
 
 // Components
 import { GridOutlines } from './components/GridOutlines';
 import { AddButton } from './components/AddButton';
-import { DragOverlay } from './components/DragOverlay';
+// DISABLED: Drag overlay no longer needed without live drag.
+// import { DragOverlay } from './components/DragOverlay';
 import { LinkItem } from './components/LinkItem';
 import { LinkFormModal } from './modals/LinkFormModal';
 
@@ -87,38 +93,19 @@ export const LinkGridWidget: React.FC<LinkGridWidgetProps> = ({
         setGlobalDragEnabled
     });
 
-    // === Desktop Drag Hook ===
-    const {
-        draggedLinkId,
-        dragOverLinkId,
-        previewLinks,
-        handleDragStart,
-        handleDragEnd,
-        handleDragOver,
-        handleDragLeave,
-        handleDrop
-    } = useDesktopDrag({
-        links,
-        widgetId,
-        config
-    });
-
-    // === Touch Drag Hook ===
-    const {
-        touchDragLinkId,
-        touchDragPosition,
-        touchDragTargetSlot,
-        handleLinkTouchStart,
-        handleLinkTouchMoveLocal,
-        handleLinkTouchEndLocal
-    } = useTouchDrag({
-        links,
-        editMode,
-        editingLinkId,
-        containerRef,
-        widgetId,
-        config
-    });
+    // === DISABLED: Desktop & Touch Drag Hooks ===
+    // Reordering now handled via config modal (LinkOrderEditor component).
+    // Hooks preserved in hooks/ for potential future reuse.
+    // No-op stubs to keep LinkItem props stable:
+    const draggedLinkId: string | null = null;
+    const dragOverLinkId: string | null = null;
+    const previewLinks: Link[] = [];
+    const touchDragLinkId: string | null = null;
+    const touchDragPosition = null;
+    const touchDragTargetSlot: number | null = null;
+    const noop = () => { };
+    const noopDrag = (_e: React.DragEvent, _id?: string) => { };
+    const noopTouch = (_e: React.TouchEvent, _id?: string) => { };
 
     // === Container Measurement ===
     useEffect(() => {
@@ -262,14 +249,14 @@ export const LinkGridWidget: React.FC<LinkGridWidgetProps> = ({
                                     setEditingLinkId(linkId);
                                     setShowAddForm(false);
                                 }}
-                                onDragStart={handleDragStart}
-                                onDragEnd={handleDragEnd}
-                                onDragOver={handleDragOver}
-                                onDragLeave={handleDragLeave}
-                                onDrop={handleDrop}
-                                onTouchStart={handleLinkTouchStart}
-                                onTouchMove={handleLinkTouchMoveLocal}
-                                onTouchEnd={handleLinkTouchEndLocal}
+                                onDragStart={noopDrag}
+                                onDragEnd={noopDrag}
+                                onDragOver={noopDrag}
+                                onDragLeave={noop}
+                                onDrop={noopDrag}
+                                onTouchStart={noopTouch}
+                                onTouchMove={noopTouch}
+                                onTouchEnd={noop}
                             />
                         ) : null;
                     })}
@@ -290,8 +277,8 @@ export const LinkGridWidget: React.FC<LinkGridWidgetProps> = ({
                 </div>
             )}
 
-            {/* Touch drag overlay */}
-            {touchDragLinkId && touchDragPosition && (() => {
+            {/* DISABLED: Touch drag overlay — reorder now in config modal */}
+            {/* {touchDragLinkId && touchDragPosition && (() => {
                 const draggedLink = links.find(l => l.id === touchDragLinkId);
                 return draggedLink ? (
                     <DragOverlay
@@ -300,7 +287,7 @@ export const LinkGridWidget: React.FC<LinkGridWidgetProps> = ({
                         cellSize={cellSize}
                     />
                 ) : null;
-            })()}
+            })()} */}
 
             {/* Form modal */}
             {editMode && (

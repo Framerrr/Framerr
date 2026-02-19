@@ -12,7 +12,7 @@ module.exports = {
     version: 30,
     name: 'add_media_library',
     up(db) {
-        logger.info('[Migration 0030] Creating media_library tables...');
+        logger.debug('[Migration 0030] Creating media_library tables...');
 
         // Main media library table - stores indexed media items
         db.exec(`
@@ -60,7 +60,7 @@ module.exports = {
             ON media_library(tmdb_id);
         `);
 
-        logger.info('[Migration 0030] Created media_library table');
+        logger.debug('[Migration 0030] Created media_library table');
 
         // Library sync status table - tracks sync progress per integration
         db.exec(`
@@ -75,7 +75,7 @@ module.exports = {
             );
         `);
 
-        logger.info('[Migration 0030] Created library_sync_status table');
+        logger.debug('[Migration 0030] Created library_sync_status table');
 
         // FTS5 virtual table for full-text search
         db.exec(`
@@ -90,7 +90,7 @@ module.exports = {
             );
         `);
 
-        logger.info('[Migration 0030] Created FTS5 virtual table');
+        logger.debug('[Migration 0030] Created FTS5 virtual table');
 
         // Triggers to keep FTS in sync with main table
         db.exec(`
@@ -115,7 +115,7 @@ module.exports = {
             END;
         `);
 
-        logger.info('[Migration 0030] Created FTS sync triggers');
-        logger.info('[Migration 0030] Complete: media_library, library_sync_status, and FTS5 tables ready');
+        logger.debug('[Migration 0030] Created FTS sync triggers');
+        logger.debug('[Migration 0030] Complete: media_library, library_sync_status, and FTS5 tables ready');
     }
 };

@@ -646,7 +646,7 @@ export const getMockWidget = (type: string): React.FC => {
         'plex': MockPlexWidget,           // Legacy/backward compatibility
         'radarr': MockRadarrWidget,
         'sonarr': MockSonarrWidget,
-        'qbittorrent': MockQBittorrentWidget,
+        'downloads': MockQBittorrentWidget,
         'system-status': MockSystemStatusWidget,
         'service-status': MockServiceStatusWidget,
         'calendar': MockCalendarWidget,

@@ -13,7 +13,7 @@
 
 import { useMemo, useEffect, type ReactElement, type ReactNode } from 'react';
 
-import { GridStackAdapterV2, setupExternalDragSources, DragPreviewPortal } from '../adapter';
+import { GridStackAdapterV2, setupExternalDragSources, DragPreviewPortal, DropTransitionOverlay } from '../adapter';
 import type {
     GridPolicy,
     LayoutEvent,
@@ -190,7 +190,8 @@ export function FramerrTemplateGrid({
                 mainGridSelector={mainGridSelector}
             />
             {/* Drag preview portal with preview mode for Template Builder - uses same renderWidget */}
-            <DragPreviewPortal previewMode={true} renderWidget={renderWidget} />
+            <DragPreviewPortal previewMode={true} renderWidget={renderWidget} transformScale={transformScale} />
+            <DropTransitionOverlay renderWidget={renderWidget} transformScale={transformScale} />
         </div>
     );
 }

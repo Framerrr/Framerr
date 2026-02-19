@@ -19,6 +19,8 @@ export interface AddWidgetModalProps {
     isOpen: boolean;
     onClose: () => void;
     onAddWidget: (widgetType: string) => Promise<void>;
+    /** When true, prevent Radix from auto-closing the modal (e.g., during walkthrough) */
+    preventClose?: boolean;
 }
 
 /**
@@ -28,7 +30,8 @@ export interface AddWidgetModalProps {
 const AddWidgetModal = ({
     isOpen,
     onClose,
-    onAddWidget
+    onAddWidget,
+    preventClose = false,
 }: AddWidgetModalProps): React.JSX.Element | null => {
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -36,6 +39,8 @@ const AddWidgetModal = ({
 
     // Track if drag is in progress for modal visibility
     const isDraggingRef = useRef(false);
+    // When true, the modal unmounts instantly (no exit animation)
+    const [skipExit, setSkipExit] = useState(false);
 
     // Use shared hook for integration/visibility logic
     const {
@@ -54,6 +59,9 @@ const AddWidgetModal = ({
     useEffect(() => {
         if (!isOpen) return;
 
+        // Reset skipExit on fresh open so we get normal animations
+        setSkipExit(false);
+
         const observer = new MutationObserver((mutations) => {
             for (const mutation of mutations) {
                 if (mutation.type === 'childList') {
@@ -66,25 +74,23 @@ const AddWidgetModal = ({
                             // Find and hide the modal's portal elements directly.
                             // Our Modal renders fixed z-[100] elements into body via Radix portal.
                             // We hide them with opacity:0 but keep DOM alive for touch events.
-                            const portalElements: HTMLElement[] = [];
                             document.querySelectorAll('body > div').forEach(el => {
                                 const htmlEl = el as HTMLElement;
                                 const style = window.getComputedStyle(htmlEl);
                                 if (style.position === 'fixed' && style.zIndex === '100') {
-                                    portalElements.push(htmlEl);
                                     htmlEl.style.opacity = '0';
                                     htmlEl.style.pointerEvents = 'none';
                                     htmlEl.style.zIndex = '-1';
                                 }
                             });
 
-                            // Always close modal when drag ends — whether dropped on grid or not.
-                            // Re-opening the modal is trivial, and trying to restore visibility
-                            // causes z-index stacking issues.
+                            // Close modal when drag ends. Skip exit animation since
+                            // the portal is already hidden — instant unmount, no stale DOM.
                             const closeDragModal = () => {
                                 isDraggingRef.current = false;
                                 document.removeEventListener('mouseup', closeDragModal);
                                 document.removeEventListener('touchend', closeDragModal);
+                                setSkipExit(true);
                                 onClose();
                             };
                             document.addEventListener('mouseup', closeDragModal as EventListener);
@@ -140,16 +146,16 @@ const AddWidgetModal = ({
         }
     };
 
-    // Handle modal close - sync to parent
+    // Handle modal close - sync to parent (skip during walkthrough to prevent Radix auto-close)
     const handleOpenChange = (open: boolean): void => {
-        if (!open) {
+        if (!open && !preventClose) {
             onClose();
         }
     };
 
     // Render modal with direct isOpen prop
     return (
-        <Modal open={isOpen} onOpenChange={handleOpenChange} size="xl">
+        <Modal open={isOpen} onOpenChange={handleOpenChange} size="xl" className="add-widget-modal" skipExitAnimation={skipExit}>
             <Modal.Header
                 title={
                     <div>
@@ -157,6 +163,7 @@ const AddWidgetModal = ({
                         <p className="text-sm text-theme-secondary font-normal">Choose a widget to add to your dashboard</p>
                     </div>
                 }
+                closeButtonProps={{ 'data-walkthrough': 'modal-close-button' } as React.HTMLAttributes<HTMLButtonElement>}
             />
             <Modal.Body>
                 {/* Filters */}

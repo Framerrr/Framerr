@@ -6,8 +6,8 @@
  */
 
 import React from 'react';
-import { GeneralPage } from './pages/GeneralPage';
-import { TemplatesPage } from './pages/TemplatesPage';
+import { LayoutSection } from './sections/LayoutSection';
+import { TemplateSettings } from '../templates';
 
 type SubTabId = 'general' | 'templates';
 
@@ -20,11 +20,11 @@ export const DashboardSettings: React.FC<DashboardSettingsProps> = ({ activeSubT
     const activeSubTab: SubTabId = (propSubTab as SubTabId) || 'general';
 
     // Simple conditional routing
-    if (activeSubTab === 'general') return <GeneralPage />;
-    if (activeSubTab === 'templates') return <TemplatesPage />;
+    if (activeSubTab === 'general') return <LayoutSection />;
+    if (activeSubTab === 'templates') return <TemplateSettings />;
 
     // Default fallback
-    return <GeneralPage />;
+    return <LayoutSection />;
 };
 
 export default DashboardSettings;

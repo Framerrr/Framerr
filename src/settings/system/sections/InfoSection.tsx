@@ -12,6 +12,17 @@ interface InfoSectionProps {
 }
 
 /**
+ * Format memory value in MB to a human-friendly string.
+ * >= 1024 MB → show in GB (e.g., "18.3 GB"), otherwise MB (e.g., "512 MB").
+ */
+function formatMemory(mb: number): string {
+    if (mb >= 1024) {
+        return `${(mb / 1024).toFixed(1)} GB`;
+    }
+    return `${mb} MB`;
+}
+
+/**
  * InfoSection - System information and resource usage display
  */
 export function InfoSection({
@@ -80,7 +91,7 @@ export function InfoSection({
                     <div className="flex justify-between mb-2">
                         <span className="text-theme-secondary text-sm">Memory Usage</span>
                         <span className="text-theme-primary font-medium">
-                            {resources?.memory?.used || 0} MB / {resources?.memory?.total || 0} MB
+                            {formatMemory(resources?.memory?.used || 0)} / {formatMemory(resources?.memory?.total || 0)}
                         </span>
                     </div>
                     <div className="h-2 bg-theme-tertiary rounded-full overflow-hidden">

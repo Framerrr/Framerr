@@ -127,9 +127,20 @@ router.post('/uptimekuma/monitors-preview', requireAuth, async (req: Request, re
         return;
     }
 
-    const { url, apiKey } = req.body;
+    const { url, apiKey, instanceId } = req.body;
 
-    if (!url || !apiKey) {
+    // Resolve sentinel values if editing an existing instance
+    let resolvedApiKey = apiKey;
+    if (instanceId) {
+        const existing = integrationInstancesDb.getInstanceById(instanceId);
+        if (existing) {
+            const { mergeConfigWithExisting } = await import('../_core/redact');
+            const merged = mergeConfigWithExisting({ url, apiKey }, existing.config, 'uptimekuma');
+            resolvedApiKey = merged.apiKey as string;
+        }
+    }
+
+    if (!url || !resolvedApiKey) {
         res.status(400).json({ error: 'URL and API key required' });
         return;
     }
@@ -138,7 +149,7 @@ router.post('/uptimekuma/monitors-preview', requireAuth, async (req: Request, re
         const translatedUrl = translateHostUrl(url);
 
         // Basic auth with empty username, API key as password
-        const authHeader = `Basic ${Buffer.from(':' + apiKey).toString('base64')}`;
+        const authHeader = `Basic ${Buffer.from(':' + resolvedApiKey).toString('base64')}`;
 
         const response = await axios.get(`${translatedUrl}/metrics`, {
             headers: { 'Authorization': authHeader },

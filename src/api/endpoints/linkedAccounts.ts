@@ -18,9 +18,7 @@ export interface LinkedAccounts {
     overseerr?: LinkedAccount;
 }
 
-export interface OverseerrStatusResponse {
-    enabled: boolean;
-}
+
 
 // Endpoints
 export const linkedAccountsApi = {
@@ -54,11 +52,6 @@ export const linkedAccountsApi = {
     unlinkOverseerr: () =>
         api.delete<ApiResponse<void>>('/api/linked-accounts/overseerr'),
 
-    /**
-     * Check if Overseerr is enabled (has integration)
-     */
-    getOverseerrStatus: () =>
-        api.get<OverseerrStatusResponse>('/api/integrations/overseerr/status'),
 };
 
 export default linkedAccountsApi;

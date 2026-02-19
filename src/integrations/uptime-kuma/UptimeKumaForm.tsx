@@ -77,7 +77,8 @@ const UptimeKumaForm = forwardRef<UptimeKumaFormRef, UptimeKumaFormProps>((
                 headers: { 'Content-Type': 'application/json', 'X-Framerr-Client': '1' },
                 body: JSON.stringify({
                     service: 'uptimekuma',
-                    config: { url: formUrl, apiKey: formApiKey }
+                    config: { url: formUrl, apiKey: formApiKey },
+                    instanceId: instanceId || undefined
                 })
             });
 
@@ -92,7 +93,7 @@ const UptimeKumaForm = forwardRef<UptimeKumaFormRef, UptimeKumaFormProps>((
             const listResponse = await fetch('/api/integrations/uptimekuma/monitors-preview', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-Framerr-Client': '1' },
-                body: JSON.stringify({ url: formUrl, apiKey: formApiKey })
+                body: JSON.stringify({ url: formUrl, apiKey: formApiKey, instanceId: instanceId || undefined })
             });
 
             if (!listResponse.ok) {

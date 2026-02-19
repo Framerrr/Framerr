@@ -147,7 +147,7 @@ export function createBackup(): string | null {
 
     try {
         fs.copyFileSync(DB_PATH, backupPath);
-        logger.info(`[Migrator] Backup created: ${backupPath}`);
+        logger.debug(`[Migrator] Backup created: ${backupPath}`);
 
         // Clean up old backups
         cleanupOldBackups();
@@ -242,7 +242,7 @@ export function runMigrations(db: DatabaseInstance): MigrationResult {
     }
 
     const pending = getPendingMigrations(db);
-    logger.info(`[Migrator] Running ${pending.length} migrations (v${status.currentVersion} → v${status.expectedVersion})`);
+    logger.debug(`[Migrator] Running ${pending.length} migrations (v${status.currentVersion} → v${status.expectedVersion})`);
 
     // Create backup before migration
     const backupPath = createBackup();
@@ -267,7 +267,7 @@ export function runMigrations(db: DatabaseInstance): MigrationResult {
             logger.debug(`[Migrator] ✓ Migration ${migration.version} complete`);
         }
 
-        logger.info(`[Migrator] All migrations complete (v${status.currentVersion} → v${lastSuccessfulVersion})`);
+        logger.debug(`[Migrator] All migrations complete (v${status.currentVersion} → v${lastSuccessfulVersion})`);
         return {
             success: true,
             migratedFrom: status.currentVersion,

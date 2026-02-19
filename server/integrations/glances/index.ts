@@ -24,4 +24,12 @@ export const plugin: IntegrationPlugin = {
         intervalMs: poller.intervalMs,
         poll: poller.poll,
     },
+    metrics: [
+        { key: 'cpu', recordable: true },
+        { key: 'memory', recordable: true },
+        { key: 'temperature', recordable: true },
+        { key: 'uptime', recordable: false },
+        { key: 'networkUp', recordable: false },
+        { key: 'networkDown', recordable: false },
+    ],
 };

@@ -37,11 +37,6 @@ export interface PlexResourcesResponse {
     servers: PlexServer[];
 }
 
-export interface PlexTestResponse {
-    success: boolean;
-    serverName?: string;
-    error?: string;
-}
 
 // Endpoints
 export const plexApi = {
@@ -69,12 +64,6 @@ export const plexApi = {
      */
     getResources: (token: string) =>
         api.get<PlexServer[]>(`/api/plex/resources?token=${token}`),
-
-    /**
-     * Test Plex server connection
-     */
-    testConnection: (url: string, token: string) =>
-        api.get<PlexTestResponse>('/api/plex/test', { params: { url, token } }),
 
     /**
      * Configure Plex SSO settings

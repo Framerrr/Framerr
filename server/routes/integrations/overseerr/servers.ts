@@ -33,8 +33,6 @@ interface OverseerrServer {
 interface ServerMapping {
     overseerServerId: number;
     serverName: string;
-    hostname: string;
-    port: number;
     is4k: boolean;
     framerIntegrationId?: string;
     framerIntegrationName?: string;
@@ -114,8 +112,6 @@ router.get('/:id/servers', requireAuth, async (req: Request, res: Response): Pro
             return {
                 overseerServerId: server.id,
                 serverName: server.name,
-                hostname: server.hostname,
-                port: server.port,
                 is4k: server.is4k || false,
                 framerIntegrationId: matchedIntegration?.id,
                 framerIntegrationName: matchedIntegration?.displayName
@@ -132,8 +128,6 @@ router.get('/:id/servers', requireAuth, async (req: Request, res: Response): Pro
             return {
                 overseerServerId: server.id,
                 serverName: server.name,
-                hostname: server.hostname,
-                port: server.port,
                 is4k: server.is4k || false,
                 framerIntegrationId: matchedIntegration?.id,
                 framerIntegrationName: matchedIntegration?.displayName

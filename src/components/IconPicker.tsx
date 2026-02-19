@@ -219,7 +219,7 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
                     ref={triggerRef}
                     type="button"
                     className={compact
-                        ? "flex items-center justify-center p-2 bg-theme-tertiary border border-theme rounded-lg text-theme-primary hover:border-accent hover:bg-theme-hover transition-colors"
+                        ? "flex items-center justify-center p-[15px] aspect-square bg-theme-tertiary border border-theme rounded-lg text-theme-primary hover:border-accent hover:bg-theme-hover transition-colors"
                         : "flex items-center gap-2 px-4 py-2.5 bg-theme-tertiary border border-theme rounded-lg text-theme-primary hover:border-accent hover:bg-theme-hover transition-colors w-full"
                     }
                     title={getIconDisplayName()}

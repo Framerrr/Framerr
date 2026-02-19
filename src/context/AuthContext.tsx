@@ -19,6 +19,7 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [needsSetup, setNeedsSetup] = useState<boolean>(false);
+    const [requirePasswordChange, setRequirePasswordChange] = useState<boolean>(false);
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -95,10 +96,12 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
         try {
             const response = await withRetry(() => authApi.getSession());
             setUser(response.user);
+            setRequirePasswordChange(!!response.requirePasswordChange);
         } catch (err) {
             // 401/403 = not authenticated (normal on first load)
             // Transient errors already retried - if we get here, give up gracefully
             setUser(null);
+            setRequirePasswordChange(false);
         }
     }, [withRetry]);
 
@@ -215,7 +218,12 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
         if (currentPath === '/setup') {
             navigate('/login', { replace: true });
         }
-    }, [needsSetup, loading, location.pathname, navigate]);
+
+        // Force-change password redirect
+        if (requirePasswordChange && user && currentPath !== '/change-password') {
+            navigate('/change-password', { replace: true });
+        }
+    }, [needsSetup, loading, location.pathname, navigate, requirePasswordChange, user]);
 
     // SSE: Listen for user-profile changes to refresh session (displayName, picture)
     const { onSettingsInvalidate } = useRealtimeSSE();
@@ -231,10 +239,20 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
         return unsubscribe;
     }, [onSettingsInvalidate, checkAuth, user]);
 
-    const login = useCallback(async (username: string, password: string, rememberMe: boolean): Promise<LoginResult> => {
+    const login = useCallback(async (username: string, password: string, rememberMe: boolean, silent?: boolean): Promise<LoginResult> => {
         try {
             const response = await authApi.login({ username, password, rememberMe });
-            showLoginSplash(); // Show splash before navigating to dashboard
+
+            // Check if password change is required (admin reset)
+            if (response.requirePasswordChange) {
+                setUser(response.user);
+                setRequirePasswordChange(true);
+                return { success: true, requirePasswordChange: true };
+            }
+
+            if (!silent) {
+                showLoginSplash(); // Show splash before navigating to dashboard
+            }
             setUser(response.user);
             return { success: true };
         } catch (err) {
@@ -287,14 +305,16 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
         loading,
         error,
         needsSetup,
+        requirePasswordChange,
         login,
         loginWithPlex,
         logout,
         checkAuth,
         checkSetupStatus,
+        setRequirePasswordChange,
         isAuthenticated: !!user
         // isAdmin removed - use isAdmin(user, systemConfig) utility instead
-    }), [user, loading, error, needsSetup, login, loginWithPlex, logout, checkAuth, checkSetupStatus]);
+    }), [user, loading, error, needsSetup, requirePasswordChange, login, loginWithPlex, logout, checkAuth, checkSetupStatus]);
 
     return (
         <AuthContext.Provider value={value}>

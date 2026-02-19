@@ -55,10 +55,12 @@
     z-index: 10;
 }
 
-.weather-widget__refresh-btn:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border-color: var(--accent);
+@media (hover: hover) {
+    .weather-widget__refresh-btn:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border-color: var(--accent);
+    }
 }
 
 .weather-widget__refresh-btn:disabled {
@@ -119,9 +121,11 @@
     color: var(--text-secondary);
 }
 
-.weather-widget__confirm-btn--cancel:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+@media (hover: hover) {
+    .weather-widget__confirm-btn--cancel:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+    }
 }
 
 .weather-widget__confirm-btn--confirm {
@@ -130,8 +134,10 @@
     border-color: var(--accent);
 }
 
-.weather-widget__confirm-btn--confirm:hover {
-    filter: brightness(1.1);
+@media (hover: hover) {
+    .weather-widget__confirm-btn--confirm:hover {
+        filter: brightness(1.1);
+    }
 }
 
 /* ============================================================================
@@ -215,70 +221,58 @@
 }
 
 /* ============================================================================
- * TIER 1: SHORT HEIGHT (h=1) + WIDE — 4-column grid
- * [Icon] [42°] [📍 Location ........] [Condition · H/L]
+ * TIER 1: SHORT HEIGHT (h=1) + WIDE — centered inline
+ * [Icon] [42°] [📍 Location] [Condition] [H/L]
+ * Centered in the widget like the clock, not spread to edges
  * ============================================================================ */
 
 @container weather (max-height: 70px) and (min-width: 250px) {
     .weather-widget__content {
-        display: grid;
-        grid-template-columns: auto auto 1fr auto auto;
-        align-items: center;
-        gap: 0 clamp(8px, 2.5cqi, 20px);
-        width: 100%;
-        padding: 0 clamp(4px, 1cqi, 12px);
+        gap: clamp(6px, 2.5cqi, 20px);
     }
 
     .weather-widget__icon {
-        grid-column: 1;
         width: clamp(18px, 20cqb, 36px);
         height: clamp(18px, 20cqb, 36px);
     }
 
     .weather-widget__temp {
-        grid-column: 2;
         font-size: clamp(1.2rem, 40cqb, 2.2rem);
     }
 
-    /* Dissolve info wrapper so children join the parent grid */
+    /* Info goes inline row */
     .weather-widget__info {
-        display: contents;
+        flex-direction: row;
+        align-items: baseline;
+        gap: clamp(4px, 1.5cqi, 12px);
     }
 
-    /* Location fills the flexible middle */
     .weather-widget__location {
-        grid-column: 3;
-        align-self: center;
         font-size: clamp(0.6rem, 2.5cqi, 0.85rem);
     }
 
-    /* Condition — lighter weight, right side */
     .weather-widget__condition {
-        grid-column: 4;
         font-size: clamp(0.65rem, 3cqi, 0.95rem);
-        font-weight: 400;
-        color: var(--text-tertiary);
-        white-space: nowrap;
     }
 
-    /* H/L — bolder, right after condition */
     .weather-widget__highlow {
-        grid-column: 5;
-        font-size: clamp(0.7rem, 3cqi, 1rem);
-        font-weight: 600;
-        color: var(--text-secondary);
+        font-size: clamp(0.6rem, 2.5cqi, 0.9rem);
     }
 }
 
-/* Tier 1 narrower: hide icon when width is tight */
+/* Tier 1 narrower: hide icon + location when width is tight */
 @container weather (max-height: 70px) and (min-width: 250px) and (max-width: 400px) {
     .weather-widget__icon {
+        display: none;
+    }
+
+    .weather-widget__location {
         display: none;
     }
 }
 
 /* ============================================================================
- * TIER 2: SHORT HEIGHT + NARROW — simple inline
+ * TIER 2: SHORT HEIGHT + NARROW — simple inline, centered
  * [42°] [Condition] [H/L]
  * ============================================================================ */
 
@@ -293,7 +287,7 @@
 
     .weather-widget__info {
         flex-direction: row;
-        align-items: center;
+        align-items: baseline;
         gap: clamp(3px, 1.5cqi, 8px);
     }
 

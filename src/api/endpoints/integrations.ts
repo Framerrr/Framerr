@@ -48,7 +48,10 @@ export interface ConfigField {
     placeholder?: string;
     hint?: string;
     required?: boolean;
+    /** If true, this field's value is redacted in API responses (replaced with sentinel) */
+    sensitive?: boolean;
     options?: Array<{ value: string; label: string }>;
+    default?: string; // Default value (e.g., 'true' for checkboxes)
 }
 
 export interface ConfigSchema {
@@ -68,6 +71,7 @@ export interface IntegrationSchemaInfo {
     configSchema: ConfigSchema;
     hasCustomForm: boolean;
     hasConnectionTest: boolean;
+    metrics?: Array<{ key: string; recordable: boolean }>;
 }
 
 export interface TestConnectionResult {
@@ -139,8 +143,8 @@ export const integrationsApi = {
     /**
      * Test integration connection with config (not saved instance)
      */
-    testByConfig: (service: string, config: IntegrationConfig) =>
-        api.post<TestConnectionResult>('/api/integrations/test', { service, config }),
+    testByConfig: (service: string, config: IntegrationConfig, instanceId?: string) =>
+        api.post<TestConnectionResult>('/api/integrations/test', { service, config, instanceId }),
 
     /**
      * Bulk update integrations (for webhook configs)

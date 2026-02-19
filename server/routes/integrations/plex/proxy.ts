@@ -174,8 +174,16 @@ router.get('/:id/proxy/sessions', requireAuth, async (req: Request, res: Respons
 /**
  * GET /:id/proxy/image - Proxy Plex images
  */
-router.get('/:id/proxy/image', requireAuth, async (req: Request, res: Response): Promise<void> => {
+router.get('/:id/proxy/image', requireAuth, async (req: Request, res: Response, next): Promise<void> => {
     const { id } = req.params;
+
+    // Check if this is a Plex integration FIRST — if not, pass to next router
+    const instance = integrationInstancesDb.getInstanceById(id);
+    if (!instance || instance.type !== 'plex') {
+        next();
+        return;
+    }
+
     const { path: imagePath } = req.query;
 
     if (!imagePath || typeof imagePath !== 'string') {
@@ -186,12 +194,6 @@ router.get('/:id/proxy/image', requireAuth, async (req: Request, res: Response):
     const pathValidation = validatePlexPath(imagePath);
     if (!pathValidation.valid) {
         res.status(400).json({ error: pathValidation.error });
-        return;
-    }
-
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'plex') {
-        res.status(404).json({ error: 'Plex integration not found' });
         return;
     }
 

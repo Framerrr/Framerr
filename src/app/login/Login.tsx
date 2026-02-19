@@ -4,7 +4,7 @@ import { plexApi, themeApi } from '../../api/endpoints';
 import { resetSessionExpiredFlag } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { Lock, User, AlertCircle, Loader, ExternalLink } from 'lucide-react';
+import { Lock, User, AlertCircle, Loader, ExternalLink, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Checkbox } from '../../shared/ui';
 
@@ -18,6 +18,7 @@ interface LocationState {
 const Login = (): React.JSX.Element => {
     const [username, setUsername] = useState<string>('');
     const [password, setPassword] = useState<string>('');
+    const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
     const [loading, setLoading] = useState<boolean>(false);
@@ -157,8 +158,13 @@ const Login = (): React.JSX.Element => {
         try {
             const result = await login(username, password, rememberMe);
             if (result.success) {
-                showSuccess('Welcome!', 'You have successfully logged in');
-                navigate(from, { replace: true });
+                if (result.requirePasswordChange) {
+                    // User must change password before accessing dashboard
+                    navigate('/change-password', { replace: true });
+                } else {
+                    showSuccess('Welcome!', 'You have successfully logged in');
+                    navigate(from, { replace: true });
+                }
             } else {
                 setError(result.error || 'Login failed');
             }
@@ -284,14 +290,22 @@ const Login = (): React.JSX.Element => {
                         <div className="relative">
                             <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-theme-tertiary transition-colors peer-focus:text-accent" />
                             <input
-                                type="password"
+                                type={showPassword ? 'text' : 'password'}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
-                                className="peer w-full py-3.5 px-4 pl-12 bg-theme-primary border-2 border-theme rounded-xl text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-accent transition-all"
+                                className="peer w-full py-3.5 px-4 pl-12 pr-12 bg-theme-primary border-2 border-theme rounded-xl text-theme-primary placeholder-theme-tertiary focus:outline-none focus:border-accent transition-all"
                                 style={{ boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.1)' }}
                                 placeholder="Enter your password"
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(prev => !prev)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-theme-secondary opacity-50 hover:opacity-100 transition-all"
+                                tabIndex={-1}
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
                         </div>
                     </div>
 

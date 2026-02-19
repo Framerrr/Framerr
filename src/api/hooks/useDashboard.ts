@@ -227,17 +227,6 @@ export function useSystemResources() {
 }
 
 /**
- * Fetch integration health status
- */
-export function useIntegrationHealth() {
-    return useQuery({
-        queryKey: queryKeys.system.integrationHealth(),
-        queryFn: () => systemApi.getIntegrationHealth(),
-        staleTime: 30 * 1000, // 30 seconds
-    });
-}
-
-/**
  * Fetch SSE connection status
  */
 export function useSseStatus() {

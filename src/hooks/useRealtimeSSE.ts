@@ -327,6 +327,39 @@ function setupVisibilityHandlers() {
 // Setup handlers immediately
 setupVisibilityHandlers();
 
+/**
+ * Link this browser's push subscription endpoint to its SSE connection.
+ * Called after SSE connects, so server knows which push subscription
+ * belongs to which SSE connection (for cross-device push suppression).
+ */
+async function linkPushEndpoint(connectionId: string): Promise<void> {
+    try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (!subscription?.endpoint) return;
+
+        await fetch('/api/realtime/push-endpoint', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Framerr-Client': '1'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                connectionId,
+                pushEndpoint: subscription.endpoint
+            })
+        });
+
+        logger.debug('[SSE] Push endpoint linked to SSE connection');
+    } catch (err) {
+        // Non-critical: push suppression just won't work for this device
+        logger.debug('[SSE] Failed to link push endpoint', { error: err });
+    }
+}
+
 function connect() {
     // P9: Auth guard - don't connect if SSE is not enabled
     if (!isSSEEnabled) {
@@ -367,6 +400,10 @@ function connect() {
                 if (data.connectionId) {
                     setState({ connectionId: data.connectionId });
                     logger.info('[SSE] Connected', { connectionId: data.connectionId });
+
+                    // Link push subscription endpoint to this SSE connection
+                    // so the server can skip sending push to devices with active SSE
+                    linkPushEndpoint(data.connectionId);
                 }
             } catch (err) {
                 logger.warn('[SSE] Parse error connected event', { error: err });
@@ -594,11 +631,14 @@ async function subscribeToTopicInternal(
                     // Delta - apply patches to cached data
                     const currentData = topicDataCache.get(topic) || {};
                     try {
+                        // Use structuredClone (native, faster than JSON.parse(JSON.stringify()))
+                        // Clone is needed so patch failure doesn't corrupt the cached data
+                        const clonedData = structuredClone(currentData);
                         const result = applyPatch(
-                            JSON.parse(JSON.stringify(currentData)), // Deep clone
+                            clonedData,
                             payload.patches,
                             true, // validate
-                            false // mutate
+                            true  // mutate the clone directly (avoid internal clone)
                         );
                         newData = result.newDocument;
                         topicDataCache.set(topic, newData);

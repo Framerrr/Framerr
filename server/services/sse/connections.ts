@@ -20,6 +20,7 @@ export interface ClientConnection {
     res: Response;
     subscriptions: Set<string>;  // topic names
     userId: string;
+    pushEndpoint: string | null;  // linked push subscription endpoint
 }
 
 /**
@@ -163,7 +164,8 @@ export function addClientConnection(res: Response, userId: string): string {
         id: connectionId,
         res,
         subscriptions: new Set(),
-        userId
+        userId,
+        pushEndpoint: null
     };
 
     clientConnections.set(connectionId, connection);
@@ -261,4 +263,31 @@ export function hasUserConnection(userId: string): boolean {
  */
 export function getClientCount(): number {
     return clientConnections.size;
+}
+
+/**
+ * Link a push subscription endpoint to an SSE connection.
+ * Called when a client reports its push endpoint after connecting.
+ */
+export function setPushEndpoint(connectionId: string, endpoint: string): boolean {
+    const connection = clientConnections.get(connectionId);
+    if (!connection) return false;
+
+    connection.pushEndpoint = endpoint;
+    logger.debug(`[SSE] Push endpoint linked: connection=${connectionId} endpoint=${endpoint.slice(-30)}`);
+    return true;
+}
+
+/**
+ * Get all push endpoints with active SSE connections for a user.
+ * Used by notificationEmitter to skip push to devices that have the app open.
+ */
+export function getActiveEndpointsForUser(userId: string): Set<string> {
+    const endpoints = new Set<string>();
+    for (const connection of clientConnections.values()) {
+        if (connection.userId === userId && connection.pushEndpoint) {
+            endpoints.add(connection.pushEndpoint);
+        }
+    }
+    return endpoints;
 }

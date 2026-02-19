@@ -3,6 +3,7 @@ import { getUserConfig, updateUserConfig } from '../db/userConfig';
 import { requireAuth } from '../middleware/auth';
 import logger from '../utils/logger';
 import { invalidateUserSettings } from '../utils/invalidateUserSettings';
+import { clearSearchHistoryForWidgets } from '../db/mediaSearchHistory';
 
 const router = Router();
 
@@ -90,6 +91,27 @@ router.put('/', requireAuth, async (req: Request, res: Response) => {
 
         // Broadcast after response for faster UX
         invalidateUserSettings(authReq.user!.id, 'widgets');
+
+        // Cleanup orphaned search history for removed widgets
+        try {
+            const oldWidgetIds = new Set(
+                [...(userConfig.dashboard?.widgets || []) as DashboardWidget[], ...(userConfig.dashboard?.mobileWidgets || []) as DashboardWidget[]]
+                    .map(w => w.id)
+            );
+            const newWidgetIds = new Set(
+                [...widgets as DashboardWidget[], ...(mobileWidgets || []) as DashboardWidget[]]
+                    .map(w => w.id)
+            );
+            const removedIds = [...oldWidgetIds].filter(id => !newWidgetIds.has(id));
+            if (removedIds.length > 0) {
+                const cleaned = clearSearchHistoryForWidgets(removedIds);
+                if (cleaned > 0) {
+                    logger.debug(`[Widgets] Cleaned up ${cleaned} orphaned search history entries for removed widgets`);
+                }
+            }
+        } catch (cleanupErr) {
+            logger.warn(`[Widgets] Search history cleanup failed: ${(cleanupErr as Error).message}`);
+        }
 
     } catch (error) {
         const authReq = req as AuthenticatedRequest;
@@ -207,6 +229,13 @@ router.post('/reset', requireAuth, async (req: Request, res: Response) => {
     try {
         const authReq = req as AuthenticatedRequest;
 
+        // Get old widget IDs before reset (for search history cleanup)
+        const userConfig = await getUserConfig(authReq.user!.id);
+        const oldWidgetIds = [
+            ...(userConfig.dashboard?.widgets || []) as DashboardWidget[],
+            ...(userConfig.dashboard?.mobileWidgets || []) as DashboardWidget[]
+        ].map(w => w.id);
+
         // Reset widgets and mobile state to defaults
         const updatedDashboard = {
             layout: [],
@@ -229,6 +258,18 @@ router.post('/reset', requireAuth, async (req: Request, res: Response) => {
         });
 
         invalidateUserSettings(authReq.user!.id, 'widgets');
+
+        // Cleanup search history for the removed widgets
+        if (oldWidgetIds.length > 0) {
+            try {
+                const cleaned = clearSearchHistoryForWidgets(oldWidgetIds);
+                if (cleaned > 0) {
+                    logger.debug(`[Widgets] Reset cleaned up ${cleaned} orphaned search history entries`);
+                }
+            } catch (cleanupErr) {
+                logger.warn(`[Widgets] Search history cleanup on reset failed: ${(cleanupErr as Error).message}`);
+            }
+        }
 
     } catch (error) {
         const authReq = req as AuthenticatedRequest;

@@ -41,6 +41,8 @@ import { uptimekumaProxyRouter } from './uptimekuma';
 import { proxyRouter as monitorProxyRouter } from './monitor';
 import { jellyfinProxyRouter } from './jellyfin';
 import { embyProxyRouter } from './emby';
+import { tautulliProxyRouter } from './tautulli';
+import { sabnzbdProxyRouter } from './sabnzbd';
 
 
 const router = Router();
@@ -67,6 +69,8 @@ router.use('/', uptimekumaProxyRouter);
 router.use('/', monitorProxyRouter);
 router.use('/', jellyfinProxyRouter);
 router.use('/', embyProxyRouter);
+router.use('/', tautulliProxyRouter);
+router.use('/', sabnzbdProxyRouter);
 
 // Overseerr-specific: actions and server discovery
 router.use('/', overseerrActionsRouter);

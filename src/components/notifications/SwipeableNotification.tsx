@@ -1,5 +1,6 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { motion, useMotionValue, useTransform, animate, PanInfo } from 'framer-motion';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { useDrag } from '@use-gesture/react';
 import { Check, Trash2 } from 'lucide-react';
 import { triggerHaptic } from '../../utils/haptics';
 
@@ -10,11 +11,19 @@ interface SwipeableNotificationProps {
     isRead?: boolean;
 }
 
-// Thresholds for swipe actions (matched to SwipeableStack)
-const REVEAL_THRESHOLD = 25;   // Start showing action button (more lenient)
+// Thresholds for swipe actions
+const REVEAL_THRESHOLD = 30;   // Start showing action button
 const SNAP_THRESHOLD = 90;     // If released here, snap to show full button (matches BUTTON_WIDTH)
-const COMMIT_THRESHOLD = 180;  // If swiped this far, execute action immediately (harder)
+const COMMIT_THRESHOLD = 200;  // Full commit — execute action (requires intentional swipe)
 const BUTTON_WIDTH = 90;       // Width to snap to when showing button (80px button + padding)
+
+// Velocity thresholds (px/ms for @use-gesture)
+const VELOCITY_COMMIT = 1.0;   // Very fast swipe for instant commit
+const VELOCITY_ASSIST = 0.5;   // Moderate velocity that assists distance-based decisions
+
+// Drag constraints
+const MAX_LEFT = -180;
+const MAX_RIGHT_DEFAULT = 180;
 
 /**
  * SwipeableNotification - iOS-style swipe gestures for notifications
@@ -23,7 +32,9 @@ const BUTTON_WIDTH = 90;       // Width to snap to when showing button (80px but
  * - Swipe left: Delete (red)
  * - Card follows finger position
  * - Two thresholds: reveal action vs execute action
- * - Matches SwipeableStack design
+ * - When snapped, swiping back returns to center (no crossover to opposite action)
+ * 
+ * Uses @use-gesture/react for gesture detection, Framer Motion for animations.
  */
 const SwipeableNotification = ({
     children,
@@ -33,6 +44,9 @@ const SwipeableNotification = ({
 }: SwipeableNotificationProps): React.JSX.Element => {
     const x = useMotionValue(0);
     const [isSnapped, setIsSnapped] = useState<'left' | 'right' | null>(null);
+    const cardRef = useRef<HTMLDivElement>(null);
+
+    const maxRight = (isRead || !onMarkAsRead) ? 0 : MAX_RIGHT_DEFAULT;
 
     // Transform x position to opacity for action buttons
     const leftActionOpacity = useTransform(x, [-COMMIT_THRESHOLD, -REVEAL_THRESHOLD, 0], [1, 0.8, 0]);
@@ -42,35 +56,84 @@ const SwipeableNotification = ({
     const leftActionScale = useTransform(x, [-COMMIT_THRESHOLD, -REVEAL_THRESHOLD, 0], [1.2, 1, 0.8]);
     const rightActionScale = useTransform(x, [0, REVEAL_THRESHOLD, COMMIT_THRESHOLD], [0.8, 1, 1.2]);
 
-    const handleDragEnd = useCallback((_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-        const velocity = info.velocity.x;
-        const offset = info.offset.x;  // How far user actually swiped this gesture
+    // Spring config used throughout
+    const springConfig = { type: 'spring' as const, stiffness: 500, damping: 30 };
+
+    const handleRelease = useCallback((velocity: number) => {
         const currentX = x.get();
 
-        // iOS-like thresholds combining velocity and distance
-        const VELOCITY_COMMIT = 800;   // Fast swipe threshold (increased)
-        const VELOCITY_ASSIST = 300;   // Velocity that assists distance-based decisions (increased)
-
-        // Right direction (mark as read)
-        if (velocity > 0 || currentX > 0 || offset > 0) {
-            if (!onMarkAsRead || isRead) {
-                animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 });
+        // =====================================================================
+        // CROSSOVER PREVENTION: When snapped, swiping back always returns to 0.
+        // =====================================================================
+        if (isSnapped === 'right') {
+            if (velocity < 0 || currentX < BUTTON_WIDTH * 0.5) {
+                // Swiping back toward center
+                animate(x, 0, springConfig);
                 setIsSnapped(null);
                 return;
             }
+            // Swiping further right from snapped — check for commit
+            if (currentX >= COMMIT_THRESHOLD || velocity > VELOCITY_COMMIT ||
+                (velocity > VELOCITY_ASSIST && currentX > SNAP_THRESHOLD * 1.2)) {
+                if (onMarkAsRead && !isRead) {
+                    animate(x, COMMIT_THRESHOLD + 20, {
+                        type: 'spring', stiffness: 800, damping: 35,
+                        onComplete: () => {
+                            onMarkAsRead();
+                            animate(x, 0, { type: 'spring', stiffness: 600, damping: 30 });
+                        }
+                    });
+                    setIsSnapped(null);
+                    return;
+                }
+            }
+            // Stay snapped
+            animate(x, BUTTON_WIDTH, springConfig);
+            return;
+        }
 
-            // Commit conditions (any of these):
-            // 1. Fast swipe regardless of distance
-            // 2. Current position past commit threshold
-            // 3. Swiped far enough (offset > commit threshold)
-            // 4. Moderate velocity + good distance (offset > snap threshold)
-            // 5. Any velocity + position past snap + good swipe distance
+        if (isSnapped === 'left') {
+            if (velocity > 0 || currentX > -BUTTON_WIDTH * 0.5) {
+                animate(x, 0, springConfig);
+                setIsSnapped(null);
+                return;
+            }
+            // Swiping further left from snapped — check for commit
+            if (currentX <= -COMMIT_THRESHOLD || velocity < -VELOCITY_COMMIT ||
+                (velocity < -VELOCITY_ASSIST && currentX < -SNAP_THRESHOLD * 1.2)) {
+                animate(x, -400, {
+                    type: 'spring', stiffness: 400, damping: 30,
+                    onComplete: () => { onDelete(); }
+                });
+                setIsSnapped(null);
+                return;
+            }
+            // Stay snapped
+            animate(x, -BUTTON_WIDTH, springConfig);
+            return;
+        }
+
+        // =====================================================================
+        // NOT SNAPPED: Fresh swipe from center position.
+        // =====================================================================
+        const DEAD_ZONE = 20;
+
+        if (Math.abs(currentX) < DEAD_ZONE) {
+            animate(x, 0, springConfig);
+            return;
+        }
+
+        // Right direction (mark as read)
+        if (currentX > 0) {
+            if (!onMarkAsRead || isRead) {
+                animate(x, 0, springConfig);
+                return;
+            }
+
             const shouldCommit =
-                velocity > VELOCITY_COMMIT ||
+                (velocity > VELOCITY_COMMIT && currentX > SNAP_THRESHOLD * 0.5) ||
                 currentX >= COMMIT_THRESHOLD ||
-                offset >= COMMIT_THRESHOLD ||
-                (velocity > VELOCITY_ASSIST && offset > SNAP_THRESHOLD) ||
-                (velocity > 100 && currentX > SNAP_THRESHOLD && offset > SNAP_THRESHOLD * 0.7);
+                (velocity > VELOCITY_ASSIST && currentX > SNAP_THRESHOLD);
 
             if (shouldCommit) {
                 animate(x, COMMIT_THRESHOLD + 20, {
@@ -80,81 +143,94 @@ const SwipeableNotification = ({
                         animate(x, 0, { type: 'spring', stiffness: 600, damping: 30 });
                     }
                 });
-                setIsSnapped(null);
                 return;
             }
 
-            // Snap to button conditions:
-            // 1. Position past ~60% of snap threshold
-            // 2. Swiped more than half snap threshold with some velocity
-            // 3. Low velocity but decent offset
             const shouldSnap =
-                currentX > SNAP_THRESHOLD * 0.6 ||
-                (offset > SNAP_THRESHOLD * 0.5 && velocity > 50) ||
-                (velocity > 100 && offset > 30);
+                currentX > SNAP_THRESHOLD * 0.8 ||
+                (currentX > SNAP_THRESHOLD * 0.6 && velocity > 0.1);
 
             if (shouldSnap) {
-                animate(x, BUTTON_WIDTH, { type: 'spring', stiffness: 500, damping: 30 });
+                animate(x, BUTTON_WIDTH, springConfig);
                 setIsSnapped('right');
                 return;
             }
 
-            // Return to center
-            animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 });
-            setIsSnapped(null);
+            animate(x, 0, springConfig);
             return;
         }
 
         // Left direction (delete)
-        if (velocity < 0 || currentX < 0 || offset < 0) {
+        if (currentX < 0) {
             const shouldCommit =
-                velocity < -VELOCITY_COMMIT ||
+                (velocity < -VELOCITY_COMMIT && currentX < -SNAP_THRESHOLD * 0.5) ||
                 currentX <= -COMMIT_THRESHOLD ||
-                offset <= -COMMIT_THRESHOLD ||
-                (velocity < -VELOCITY_ASSIST && offset < -SNAP_THRESHOLD) ||
-                (velocity < -100 && currentX < -SNAP_THRESHOLD && offset < -SNAP_THRESHOLD * 0.7);
+                (velocity < -VELOCITY_ASSIST && currentX < -SNAP_THRESHOLD);
 
             if (shouldCommit) {
                 animate(x, -400, {
                     type: 'spring', stiffness: 400, damping: 30,
                     onComplete: () => { onDelete(); }
                 });
-                setIsSnapped(null);
                 return;
             }
 
             const shouldSnap =
-                currentX < -SNAP_THRESHOLD * 0.6 ||
-                (offset < -SNAP_THRESHOLD * 0.5 && velocity < -50) ||
-                (velocity < -100 && offset < -30);
+                currentX < -SNAP_THRESHOLD * 0.8 ||
+                (currentX < -SNAP_THRESHOLD * 0.6 && velocity < -0.1);
 
             if (shouldSnap) {
-                animate(x, -BUTTON_WIDTH, { type: 'spring', stiffness: 500, damping: 30 });
+                animate(x, -BUTTON_WIDTH, springConfig);
                 setIsSnapped('left');
                 return;
             }
 
-            animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 });
-            setIsSnapped(null);
+            animate(x, 0, springConfig);
             return;
         }
 
-        // No movement - stay where appropriate
-        if (isSnapped === 'right') {
-            animate(x, BUTTON_WIDTH, { type: 'spring', stiffness: 500, damping: 30 });
-        } else if (isSnapped === 'left') {
-            animate(x, -BUTTON_WIDTH, { type: 'spring', stiffness: 500, damping: 30 });
-        } else {
-            animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 });
-        }
+        animate(x, 0, springConfig);
     }, [x, onMarkAsRead, onDelete, isRead, isSnapped]);
+
+    // @use-gesture drag handler — replaces Framer Motion drag + manual direction detection
+    useDrag(
+        ({ down, movement: [mx], velocity: [vx], direction: [dx], event, cancel, tap }) => {
+            if (tap) return;
+
+            // Stop the event from reaching the pull-to-close gesture handler
+            event.stopPropagation();
+
+            if (down) {
+                // Clamp within constraints with elastic overshoot
+                const elastic = 0.15;
+                let newX = mx;
+                if (newX < MAX_LEFT) {
+                    newX = MAX_LEFT + (newX - MAX_LEFT) * elastic;
+                } else if (newX > maxRight) {
+                    newX = maxRight + (newX - maxRight) * elastic;
+                }
+                x.set(newX);
+            } else {
+                // Released — pass velocity (direction-aware) to threshold logic
+                handleRelease(vx * dx);
+            }
+        },
+        {
+            target: cardRef,
+            axis: 'lock',        // Auto-detect horizontal vs vertical, lock to one
+            filterTaps: true,
+            threshold: [8, 8],   // 8px dead zone matches original direction detection
+            eventOptions: { passive: true },
+            from: () => [x.get(), 0],  // Start from current position (important for snapped state)
+        }
+    );
 
     // Handle action button clicks when snapped
     const handleRightActionClick = useCallback(() => {
         if (isSnapped === 'right' && onMarkAsRead && !isRead) {
             triggerHaptic('light');
             onMarkAsRead();
-            animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 });
+            animate(x, 0, springConfig);
             setIsSnapped(null);
         }
     }, [isSnapped, isRead, onMarkAsRead, x]);
@@ -173,12 +249,11 @@ const SwipeableNotification = ({
 
         const handleScroll = () => {
             if (isSnapped) {
-                animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 });
+                animate(x, 0, springConfig);
                 setIsSnapped(null);
             }
         };
 
-        // Find the scrollable parent
         const scrollContainer = containerRef.current?.closest('.overflow-y-auto');
         if (scrollContainer) {
             scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
@@ -191,7 +266,7 @@ const SwipeableNotification = ({
     useEffect(() => {
         const handleReset = () => {
             if (isSnapped) {
-                animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 });
+                animate(x, 0, springConfig);
                 setIsSnapped(null);
             }
         };
@@ -202,7 +277,7 @@ const SwipeableNotification = ({
 
     return (
         <div ref={containerRef} className="relative">
-            {/* Action buttons container - no overflow hidden so card goes off screen */}
+            {/* Action buttons container */}
             <div className="absolute inset-0 overflow-hidden rounded-xl">
                 {/* Left action - Delete (revealed when swiping left) */}
                 <motion.div
@@ -243,15 +318,11 @@ const SwipeableNotification = ({
                 )}
             </div>
 
-            {/* Draggable notification card - can go off screen */}
+            {/* Notification card — @use-gesture handles drag, Framer Motion handles position */}
             <motion.div
+                ref={cardRef}
                 data-draggable="true"
-                style={{ x, touchAction: 'none' }}
-                drag="x"
-                dragDirectionLock
-                dragElastic={0.1}
-                dragConstraints={{ left: -150, right: isRead || !onMarkAsRead ? 0 : 150 }}
-                onDragEnd={handleDragEnd}
+                style={{ x, touchAction: 'pan-y' }}
                 className="relative bg-theme-primary rounded-xl cursor-grab active:cursor-grabbing overflow-hidden"
             >
                 {children}

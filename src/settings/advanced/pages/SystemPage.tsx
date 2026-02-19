@@ -21,7 +21,6 @@ export const SystemPage = (): React.JSX.Element => {
         formatUptime,
 
         // Health Status
-        integrationHealth,
         sseStatus,
         healthLoading,
         fetchHealthStatus,
@@ -66,7 +65,6 @@ export const SystemPage = (): React.JSX.Element => {
             />
 
             <DiagnosticsSection
-                integrationHealth={integrationHealth}
                 sseStatus={sseStatus}
                 healthLoading={healthLoading}
                 onFetchHealthStatus={fetchHealthStatus}

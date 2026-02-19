@@ -7,9 +7,9 @@
 
 import React from 'react';
 import { CheckCircle2, AlertCircle, ExternalLink, Loader, RefreshCw, Server } from 'lucide-react';
+import { Input } from '../../components/common/Input';
 import { Select } from '../../shared/ui';
 import { PlexConfig } from '../_core/definitions';
-import { Input } from '../../components/common/Input';
 import { LibrarySyncSection, type SyncStatus } from '../shared';
 
 interface PlexFormProps {
@@ -134,17 +134,15 @@ const PlexForm: React.FC<PlexFormProps> = ({
             />
 
             {/* Token */}
-            <div>
-                <label className="block text-sm font-medium text-theme-primary mb-2">Plex Token</label>
-                <input
-                    type="password"
-                    value={config.token || ''}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFieldChange('token', e.target.value)}
-                    placeholder="Auto-filled via Plex login"
-                    className="w-full px-4 py-2 bg-theme-primary border border-theme rounded-lg text-theme-primary text-sm focus:border-accent focus:outline-none transition-all"
-                />
-                <p className="text-xs text-theme-tertiary mt-1">Auto-filled when you login with Plex, or enter manually</p>
-            </div>
+            <Input
+                label="Plex Token"
+                type="text"
+                redacted
+                value={config.token || ''}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFieldChange('token', e.target.value)}
+                placeholder="Auto-filled via Plex login"
+                helperText="Auto-filled when you login with Plex, or enter manually"
+            />
 
             {/* Library Sync */}
             <LibrarySyncSection

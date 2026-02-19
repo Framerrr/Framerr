@@ -14,7 +14,7 @@
  * Phase 4: Refactored to support multiple media server integrations.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Film, Play, Pause, Network, Info, ExternalLink, StopCircle } from 'lucide-react';
 
 // Types
@@ -167,18 +167,26 @@ export const MediaStreamWidget: React.FC<MediaStreamWidgetProps> = ({
     // Container ref for row layout measurement
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Stable wrapper ref for auto view mode (persists across mode switches)
-    const wrapperRef = useRef<HTMLDivElement>(null);
+    // Callback ref for auto view mode dimension measurement.
+    // Using a callback ref instead of useRef+useEffect because the widget has
+    // early returns (loading, no access, etc.) that prevent the wrapper div from
+    // mounting on the first render. A callback ref fires when the element actually
+    // mounts, regardless of when that happens in the component lifecycle.
     const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
-
-    useEffect(() => {
-        if (configViewMode !== 'auto' || !wrapperRef.current) return;
+    const roRef = useRef<ResizeObserver | null>(null);
+    const wrapperRef = useCallback((node: HTMLDivElement | null) => {
+        // Disconnect previous observer
+        if (roRef.current) {
+            roRef.current.disconnect();
+            roRef.current = null;
+        }
+        if (configViewMode !== 'auto' || !node) return;
         const ro = new ResizeObserver(([entry]) => {
             const { width, height } = entry.contentRect;
             setContainerSize({ w: width, h: height });
         });
-        ro.observe(wrapperRef.current);
-        return () => ro.disconnect();
+        ro.observe(node);
+        roRef.current = ro;
     }, [configViewMode]);
 
     // Get row layout based on container dimensions

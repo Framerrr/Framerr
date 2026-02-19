@@ -22,7 +22,8 @@ export const configSchema: ConfigSchema = {
         },
         {
             key: 'token',
-            type: 'password',
+            type: 'text',
+            sensitive: true,
             label: 'X-Plex-Token',
             placeholder: 'Your Plex authentication token',
             hint: 'Find your token in Plex Web → Settings → Account',

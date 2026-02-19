@@ -1,11 +1,10 @@
 import React from 'react';
-import { Activity, RefreshCw, Wifi, CheckCircle, AlertCircle, XCircle, Database, Loader, Zap, Clock, Download, Upload } from 'lucide-react';
+import { Activity, RefreshCw, Wifi, CheckCircle, XCircle, Database, Loader, Zap, Clock, Download, Upload } from 'lucide-react';
 import { Button } from '../../../shared/ui';
-import type { IntegrationHealth, SseStatus, DbStatus, SpeedTestState, ApiHealth, HealthStatus } from '../types';
+import type { SseStatus, DbStatus, SpeedTestState, ApiHealth, HealthStatus } from '../types';
 
 interface DiagnosticsSectionProps {
     // Health Status
-    integrationHealth: IntegrationHealth | null;
     sseStatus: SseStatus | null;
     healthLoading: boolean;
     onFetchHealthStatus: () => Promise<void>;
@@ -35,7 +34,6 @@ interface DiagnosticsSectionProps {
  * DiagnosticsSection - Health checks, database test, speed test, API health
  */
 export function DiagnosticsSection({
-    integrationHealth,
     sseStatus,
     healthLoading,
     onFetchHealthStatus,
@@ -90,7 +88,7 @@ export function DiagnosticsSection({
                     </Button>
                 </div>
 
-                {healthLoading && !sseStatus && !integrationHealth && (
+                {healthLoading && !sseStatus && (
                     <div className="flex items-center gap-2 text-theme-secondary">
                         <Loader size={16} className="animate-spin" />
                         <span>Loading health status...</span>
@@ -119,52 +117,6 @@ export function DiagnosticsSection({
                         </div>
                     )}
 
-                    {/* Integration Health Summary */}
-                    {integrationHealth && (() => {
-                        const enabledIntegrations = integrationHealth.integrations.filter(i => i.enabled);
-                        const failedIntegrations = enabledIntegrations.filter(i => !i.connected);
-                        const allHealthy = failedIntegrations.length === 0;
-
-                        return (
-                            <div className="p-3 bg-theme-tertiary/50 rounded-lg">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        {allHealthy ? (
-                                            <CheckCircle size={18} className="text-success" />
-                                        ) : (
-                                            <AlertCircle size={18} className="text-warning" />
-                                        )}
-                                        <div>
-                                            <p className="text-theme-primary font-medium">Integrations</p>
-                                            <p className="text-theme-secondary text-sm">
-                                                {allHealthy
-                                                    ? `All ${enabledIntegrations.length} integrations connected`
-                                                    : `${failedIntegrations.length} of ${enabledIntegrations.length} integrations having issues`
-                                                }
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                                {/* Only show individual integrations if there are failures */}
-                                {failedIntegrations.length > 0 && (
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
-                                        {failedIntegrations.map((integration) => (
-                                            <div
-                                                key={integration.name}
-                                                className="flex items-center gap-2 p-2 bg-error/10 rounded-lg"
-                                                title={integration.error || 'Connection failed'}
-                                            >
-                                                <XCircle size={14} className="text-error flex-shrink-0" />
-                                                <span className="text-theme-primary text-sm capitalize truncate">
-                                                    {integration.name === 'systemstatus' ? 'System Status' : integration.name}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })()}
                 </div>
             </div>
 

@@ -13,6 +13,7 @@ import { requireAuth, requireAdmin } from '../../../middleware/auth';
 import * as integrationInstancesDb from '../../../db/integrationInstances';
 import logger from '../../../utils/logger';
 import { getPlugin } from '../../../integrations/registry';
+import { mergeConfigWithExisting } from './redact';
 
 const router = Router();
 
@@ -20,10 +21,13 @@ const router = Router();
  * POST /test
  * Test integration connection with provided config (ADMIN ONLY)
  * Used for testing before saving.
+ * 
+ * If config contains sentinel values (redacted password fields), pass instanceId
+ * to merge with existing DB values before testing.
  */
 router.post('/test', requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-        const { service, config } = req.body;
+        const { service, config, instanceId } = req.body;
 
         if (!service || !config) {
             res.status(400).json({ error: 'Service and config required' });
@@ -41,7 +45,16 @@ router.post('/test', requireAuth, requireAdmin, async (req: Request, res: Respon
             return;
         }
 
-        const result = await plugin.testConnection(config);
+        // Merge sentinel values with existing DB config if instanceId provided
+        let testConfig = config;
+        if (instanceId) {
+            const existing = integrationInstancesDb.getInstanceById(instanceId);
+            if (existing) {
+                testConfig = mergeConfigWithExisting(config, existing.config, service);
+            }
+        }
+
+        const result = await plugin.testConnection(testConfig);
         res.json(result);
     } catch (error) {
         logger.error(`[Integrations] Test failed: error="${(error as Error).message}"`);

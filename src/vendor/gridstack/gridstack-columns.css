@@ -49,7 +49,7 @@
     z-index: 10 !important;
 }
 
-/* Push resize handles slightly outside widget bounds to align with visual indicators */
+/* Push corner handles slightly outside widget bounds */
 .grid-stack-item>.ui-resizable-nw {
     top: -3px !important;
     left: -3px !important;
@@ -70,20 +70,21 @@
     right: -3px !important;
 }
 
+/* Edge handles straddle the visible widget border, biased 1px inward */
 .grid-stack-item>.ui-resizable-n {
-    top: -3px !important;
+    top: 1px !important;
 }
 
 .grid-stack-item>.ui-resizable-s {
-    bottom: -3px !important;
+    bottom: 1px !important;
 }
 
 .grid-stack-item>.ui-resizable-e {
-    right: -3px !important;
+    right: 1px !important;
 }
 
 .grid-stack-item>.ui-resizable-w {
-    left: -3px !important;
+    left: 1px !important;
 }
 
 /* =============================================================================

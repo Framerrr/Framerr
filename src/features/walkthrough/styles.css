@@ -1,0 +1,280 @@
+/**
+ * Walkthrough System CSS
+ * 
+ * Matches the design language of Popover.Content:
+ *   bg-theme-primary, border-theme, rounded-xl, shadow-xl, p-4
+ * 
+ * Uses theme CSS variables throughout — no hardcoded colors.
+ */
+
+/* ============================================
+   SVG Overlay — full-screen with evenodd cutout
+   ============================================ */
+.walkthrough-svg-overlay {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9998;
+    /* pointer-events set inline: none on <svg>, auto on <path>/<rect>
+       so clicks pass through the evenodd cutout hole */
+    /* Visibility controlled by phase classes (walkthrough-phase-active/exiting) */
+}
+
+/* ============================================
+   Centered card container (welcome, end steps)
+   ============================================ */
+.walkthrough-centered-card {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10000;
+    pointer-events: auto;
+    width: max-content;
+}
+
+/* ============================================
+   Floating container (anchored steps)
+   ============================================ */
+.walkthrough-floating-container {
+    z-index: 10000;
+    pointer-events: auto;
+}
+
+/* ============================================
+   Card — matches Popover.Content design
+   ============================================ */
+.walkthrough-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    width: 400px;
+    max-width: calc(100vw - 32px);
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.4),
+        0 0 0 1px var(--border-subtle);
+}
+
+/* Title — clear hierarchy */
+.walkthrough-card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+}
+
+/* Message — readable secondary text */
+.walkthrough-card-message {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0 0 20px 0;
+    line-height: 1.6;
+}
+
+/* Footer: dots on left, buttons on right */
+.walkthrough-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+/* Button group */
+.walkthrough-card-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* ============================================
+   Step indicator dots
+   ============================================ */
+.walkthrough-dots {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.walkthrough-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+    opacity: 0.3;
+    transition: all 0.25s ease;
+}
+
+.walkthrough-dot.active {
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    opacity: 1;
+    box-shadow: 0 0 8px var(--accent-glow, rgba(59, 130, 246, 0.3));
+}
+
+.walkthrough-dot.completed {
+    background: var(--accent);
+    opacity: 0.5;
+}
+
+/* ============================================
+   Target spotlight — visual glow ring only.
+   Click-through handled by SVG evenodd cutout.
+   ============================================ */
+.walkthrough-target-spotlight {
+    opacity: 1 !important;
+    box-shadow:
+        0 0 0 4px var(--accent),
+        0 0 24px 6px var(--accent-glow, rgba(59, 130, 246, 0.25));
+    border-radius: 8px;
+}
+
+/* ============================================
+   Arrow (for anchored steps)
+   ============================================ */
+.walkthrough-arrow {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    transform: rotate(45deg);
+    pointer-events: none;
+}
+
+/* ============================================
+   Hint text for action steps
+   ============================================ */
+.walkthrough-action-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    color: var(--accent);
+    background: var(--accent-subtle, rgba(59, 130, 246, 0.08));
+    border-radius: 4px;
+    opacity: 0.9;
+}
+
+/* ============================================
+   Dev reset indicator (bottom-right corner)
+   ============================================ */
+.walkthrough-dev-reset {
+    position: fixed;
+    bottom: 8px;
+    right: 8px;
+    z-index: 10001;
+    padding: 4px 10px;
+    font-size: 0.6875rem;
+    font-family: monospace;
+    color: var(--text-tertiary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    opacity: 0.5;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+@media (hover: hover) {
+    .walkthrough-dev-reset:hover {
+        opacity: 1;
+    }
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+@keyframes walkthrough-fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes walkthrough-fade-out {
+    from {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes walkthrough-sonar-pulse {
+    0% {
+        box-shadow:
+            0 0 0 4px var(--accent),
+            0 0 24px 6px var(--accent-glow, rgba(59, 130, 246, 0.25));
+    }
+
+    50% {
+        box-shadow:
+            0 0 0 8px var(--accent),
+            0 0 32px 12px var(--accent-glow, rgba(59, 130, 246, 0.35));
+    }
+
+    100% {
+        box-shadow:
+            0 0 0 4px var(--accent),
+            0 0 24px 6px var(--accent-glow, rgba(59, 130, 246, 0.25));
+    }
+}
+
+/* ============================================
+   Step Phase Gating — SVG overlay
+   ============================================ */
+.walkthrough-svg-overlay.walkthrough-phase-entering {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.walkthrough-svg-overlay.walkthrough-phase-active {
+    animation: walkthrough-fade-in 0.3s ease-out forwards;
+}
+
+.walkthrough-svg-overlay.walkthrough-phase-exiting {
+    animation: walkthrough-fade-out 0.25s ease-in forwards;
+}
+
+/* ============================================
+   Target spotlight — with sonar pulse
+   ============================================ */
+.walkthrough-target-spotlight.walkthrough-sonar-active {
+    animation: walkthrough-sonar-pulse 2s ease-in-out infinite;
+}
+
+/* ============================================
+   Responsive — mobile adjustments
+   ============================================ */
+@media (max-width: 480px) {
+    .walkthrough-card {
+        width: calc(100vw - 32px);
+        padding: 20px;
+    }
+
+    .walkthrough-card-title {
+        font-size: 1rem;
+    }
+
+    .walkthrough-card-message {
+        font-size: 0.8125rem;
+    }
+
+    .walkthrough-card-footer {
+        gap: 12px;
+    }
+}

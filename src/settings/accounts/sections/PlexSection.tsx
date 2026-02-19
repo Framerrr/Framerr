@@ -1,6 +1,7 @@
 import React from 'react';
-import { Tv, Loader, CheckCircle2, Unlink, ExternalLink, AlertCircle } from 'lucide-react';
+import { Loader, CheckCircle2, Unlink, ExternalLink, AlertCircle } from 'lucide-react';
 import { Button } from '../../../shared/ui';
+import { getIconComponent } from '../../../utils/iconUtils';
 import type { LinkedAccountData } from '../types';
 
 interface PlexSectionProps {
@@ -27,12 +28,13 @@ export const PlexSection: React.FC<PlexSectionProps> = ({
     onDisconnect
 }) => {
     const linkedVia = plexAccount?.metadata?.linkedVia;
+    const PlexIcon = getIconComponent('system:plex');
 
     return (
         <div className="bg-theme-tertiary rounded-lg p-4 sm:p-6 border border-theme">
             <div className="flex items-start gap-3 sm:gap-4">
                 <div className={`p-2 sm:p-3 rounded-lg flex-shrink-0 ${isPlexLinked ? 'bg-success/20' : 'bg-theme-tertiary'}`}>
-                    <Tv className={isPlexLinked ? 'text-success' : 'text-theme-secondary'} size={20} />
+                    <PlexIcon className={isPlexLinked ? 'text-success' : 'text-theme-secondary'} size={20} />
                 </div>
 
                 <div className="flex-1 min-w-0">

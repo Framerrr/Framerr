@@ -22,7 +22,8 @@ export const configSchema: ConfigSchema = {
         },
         {
             key: 'password',
-            type: 'password',
+            type: 'text',
+            sensitive: true,
             label: 'Password',
             placeholder: 'Glances password (optional)',
             hint: 'Leave empty if Glances has no authentication',

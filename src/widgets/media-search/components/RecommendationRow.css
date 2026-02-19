@@ -1,0 +1,130 @@
+/* ============================================================================
+ * RecommendationRow — poster card strip for search recommendations
+ * ============================================================================ */
+
+.recommendation-row {
+    padding: 0.25rem 0.25rem 0.5rem;
+}
+
+.recommendation-header {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.25rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-tertiary);
+}
+
+/* Container: flex row with precise gap, cards sized by JS */
+.recommendation-cards {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Individual poster card — width set by JS for perfect fit */
+.recommendation-card {
+    flex: 0 0 auto;
+    cursor: pointer;
+    border-radius: 0.375rem;
+    overflow: hidden;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+}
+
+@media (hover: hover) {
+    .recommendation-card:hover {
+        transform: scale(1.05);
+        z-index: 1;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+}
+
+.recommendation-card:active {
+    transform: scale(0.98);
+}
+
+/* Poster image */
+.recommendation-poster {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    display: block;
+    border-radius: 0.375rem;
+    background: var(--bg-tertiary);
+}
+
+/* Placeholder when no poster image */
+.recommendation-poster-placeholder {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border-radius: 0.375rem;
+    color: var(--text-tertiary);
+}
+
+/* ============================================================================
+ * Skeleton loading state
+ * ============================================================================ */
+
+/* Measured skeleton cards — width set by JS */
+.recommendation-skeleton-card {
+    flex: 0 0 auto;
+    aspect-ratio: 2 / 3;
+    border-radius: 0.375rem;
+    background: var(--bg-tertiary);
+    animation: recommendation-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Initial skeleton before ResizeObserver measures (flex-based approximation) */
+.recommendation-skeleton-initial {
+    flex: 0 1 90px;
+    min-width: 60px;
+    width: auto !important;
+    min-width: 60px !important;
+}
+
+.recommendation-skeleton-card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.recommendation-skeleton-card:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.recommendation-skeleton-card:nth-child(4) {
+    animation-delay: 0.3s;
+}
+
+.recommendation-skeleton-card:nth-child(5) {
+    animation-delay: 0.4s;
+}
+
+.recommendation-skeleton-card:nth-child(6) {
+    animation-delay: 0.5s;
+}
+
+.recommendation-skeleton-card:nth-child(7) {
+    animation-delay: 0.6s;
+}
+
+.recommendation-skeleton-card:nth-child(8) {
+    animation-delay: 0.7s;
+}
+
+@keyframes recommendation-shimmer {
+
+    0%,
+    100% {
+        opacity: 0.4;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}

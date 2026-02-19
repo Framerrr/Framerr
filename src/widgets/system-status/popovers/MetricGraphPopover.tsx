@@ -4,12 +4,19 @@
  * Displays a clickable metric bar that opens a popover with historical graph data.
  * Used by SystemStatusWidget to show CPU, Memory, and Temperature metrics.
  * 
+ * Data source: GET /api/metric-history/:integrationId?metric=X&range=Y
+ * Returns { data: [{ t, v?, avg?, min?, max? }], availableRange, resolution }
+ * 
+ * Rendering modes:
+ * - Line mode: Simple avg line (when data has only 'v' — raw 15s points)
+ * - Band mode: Shaded min/max area with avg line overlay (aggregated data)
+ * 
  * PATTERN: usePopoverState (see docs/refactor/PATTERNS.md UI-001)
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { LucideIcon } from 'lucide-react';
-import { Popover } from '@/shared/ui';
+import { Popover } from '../../../shared/ui';
 import {
     AreaChart,
     Area,
@@ -28,53 +35,95 @@ import '../styles.css';
 // Types
 // ============================================================================
 
-export type MetricType = 'cpu' | 'memory' | 'temperature';
-export type TimeRange = '1h' | '6h' | '1d' | '3d';
+/** Time range options for the graph */
+type TimeRange = '1h' | '6h' | '1d' | '3d' | '7d' | '30d';
 
-export interface MetricConfig {
+/** Metric display configuration */
+interface MetricConfig {
     label: string;
     color: string;
     unit: string;
 }
 
-export interface GraphDataPoint {
-    time: string;
-    cpu?: number;
-    memory?: number;
-    temp?: number;
-    [key: string]: unknown;
+/** Data point from the internal history API */
+interface HistoryDataPoint {
+    t: number; // timestamp (epoch ms)
+    v?: number; // single value (raw 15s points)
+    avg?: number; // aggregated average
+    min?: number; // aggregated min
+    max?: number; // aggregated max
 }
 
-export interface RechartsDataPoint {
+/** Transformed data point for Recharts */
+interface ChartDataPoint {
     timestamp: number;
     value: number;
+    min?: number;
+    max?: number;
     formattedTime: string;
 }
 
-export interface SystemStatusIntegration {
-    enabled?: boolean;
-    backend?: 'glances' | 'custom';
-    url?: string;
-    token?: string;
-    glances?: {
-        url?: string;
-        password?: string;
-    };
-    custom?: {
-        url?: string;
-        token?: string;
-    };
+/** API response shape */
+interface HistoryResponse {
+    success: boolean;
+    data: HistoryDataPoint[];
+    availableRange: string;
+    resolution: string;
+    source: string;
 }
 
-export interface MetricGraphPopoverProps {
-    metric: MetricType;
+interface MetricGraphPopoverProps {
+    metric: string;
     value: number;
     icon: LucideIcon;
     integrationId?: string;
-    /** Set to false to disable the graph popover (e.g., for Glances which has no /history endpoint) */
+    /** Set to false to disable the graph popover (e.g., for non-recordable metrics) */
     historyEnabled?: boolean;
     /** CSS class for grid column span (e.g., 'metric-card--span-2') */
     spanClass?: string;
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Default metric display configs — keyed by metric key */
+const METRIC_CONFIGS: Record<string, MetricConfig> = {
+    cpu: { label: 'CPU', color: 'var(--accent)', unit: '%' },
+    memory: { label: 'Memory', color: 'var(--info)', unit: '%' },
+    temperature: { label: 'Temp', color: 'var(--warning)', unit: '°C' },
+};
+
+/** Default config for unknown metrics */
+const DEFAULT_METRIC_CONFIG: MetricConfig = {
+    label: 'Metric',
+    color: 'var(--accent)',
+    unit: '%',
+};
+
+/** All possible time ranges in order */
+const ALL_RANGES: TimeRange[] = ['1h', '6h', '1d', '3d', '7d', '30d'];
+
+/** Duration in ms for each range */
+const RANGE_DURATION: Record<TimeRange, number> = {
+    '1h': 60 * 60 * 1000,
+    '6h': 6 * 60 * 60 * 1000,
+    '1d': 24 * 60 * 60 * 1000,
+    '3d': 3 * 24 * 60 * 60 * 1000,
+    '7d': 7 * 24 * 60 * 60 * 1000,
+    '30d': 30 * 24 * 60 * 60 * 1000,
+};
+
+/** Parse a range string like '3d', '1h' into ms */
+function parseRangeToMs(range: string): number {
+    const match = range.match(/^(\d+)([hdm])$/);
+    if (!match) return RANGE_DURATION['3d']; // fallback
+    const num = parseInt(match[1], 10);
+    const unit = match[2];
+    if (unit === 'h') return num * 60 * 60 * 1000;
+    if (unit === 'd') return num * 24 * 60 * 60 * 1000;
+    if (unit === 'm') return num * 60 * 1000;
+    return RANGE_DURATION['3d'];
 }
 
 // ============================================================================
@@ -84,113 +133,118 @@ export interface MetricGraphPopoverProps {
 const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, icon: Icon, integrationId, historyEnabled = true, spanClass = '' }) => {
     const { isOpen, onOpenChange } = usePopoverState();
     const [currentRange, setCurrentRange] = useState<TimeRange>('1h');
-    const [graphData, setGraphData] = useState<GraphDataPoint[]>([]);
+    const [apiData, setApiData] = useState<HistoryDataPoint[]>([]);
+    const [availableRange, setAvailableRange] = useState<string>('3d');
     const [loading, setLoading] = useState<boolean>(false);
+    const [dataSource, setDataSource] = useState<string>('');
 
-
-    // Metric display configuration - memoized to prevent re-creation on every render
-    const config: MetricConfig = useMemo(() => {
-        const configs: Record<MetricType, MetricConfig> = {
-            cpu: { label: 'CPU', color: 'var(--accent)', unit: '%' },
-            memory: { label: 'Memory', color: 'var(--info)', unit: '%' },
-            temperature: { label: 'Temperature', color: 'var(--warning)', unit: '°C' }
-        };
-        return configs[metric];
-    }, [metric]);
+    // Metric display configuration
+    const config: MetricConfig = useMemo(
+        () => METRIC_CONFIGS[metric] || { ...DEFAULT_METRIC_CONFIG, label: metric },
+        [metric]
+    );
 
     // Get computed color for chart (CSS variables resolved)
     const chartColor = useMemo(() => {
         const style = getComputedStyle(document.body);
-        const colorMap: Record<MetricType, string> = {
-            cpu: style.getPropertyValue('--accent').trim() || '#3b82f6',
-            memory: style.getPropertyValue('--info').trim() || '#0ea5e9',
-            temperature: style.getPropertyValue('--warning').trim() || '#f59e0b'
-        };
-        return colorMap[metric];
+        const varName = METRIC_CONFIGS[metric]?.color;
+        if (varName) {
+            // Extract CSS variable name from var(--name)
+            const match = varName.match(/var\((.+)\)/);
+            if (match) {
+                const resolved = style.getPropertyValue(match[1]).trim();
+                if (resolved) return resolved;
+            }
+        }
+        return style.getPropertyValue('--accent').trim() || '#3b82f6';
     }, [metric, isOpen]); // Re-compute when popover opens (theme may have changed)
 
-    // Fetch graph data when popover opens
-    useEffect(() => {
-        if (!isOpen || !integrationId || !historyEnabled) return;
+    // Compute available time range buttons based on availableRange
+    const availableRanges = useMemo((): TimeRange[] => {
+        const maxMs = parseRangeToMs(availableRange);
+        return ALL_RANGES.filter(r => RANGE_DURATION[r] <= maxMs);
+    }, [availableRange]);
 
-        const fetchGraphData = async (): Promise<void> => {
-            setLoading(true);
-            try {
-                // Use ID-based proxy route
-                const endpoint = `/api/integrations/${integrationId}/proxy/history`;
-
-                const res = await widgetFetch(endpoint, 'system-status-history');
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const data = await res.json();
-
-                setGraphData(Array.isArray(data) ? data : []);
-            } catch (err) {
-                logger.error('Graph data fetch error:', err);
-                setGraphData([]);
-            } finally {
-                setLoading(false);
+    // Fetch data from internal history API when popover opens or range changes
+    const fetchData = useCallback(async () => {
+        if (!integrationId || !historyEnabled) return;
+        setLoading(true);
+        try {
+            const endpoint = `/api/metric-history/${integrationId}?metric=${metric}&range=${currentRange}`;
+            const res = await widgetFetch(endpoint, 'metric-history');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const json: HistoryResponse = await res.json();
+            setApiData(json.data || []);
+            if (json.availableRange) {
+                setAvailableRange(json.availableRange);
             }
-        };
+            if (json.source) {
+                setDataSource(json.source);
+            }
+        } catch (err) {
+            logger.error('Metric history fetch error:', err);
+            setApiData([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [integrationId, metric, currentRange, historyEnabled]);
 
-        fetchGraphData();
-    }, [isOpen, integrationId, metric, historyEnabled]);
+    useEffect(() => {
+        if (!isOpen) return;
+        fetchData();
+    }, [isOpen, fetchData]);
 
-    // Transform data for Recharts
-    const chartData: RechartsDataPoint[] = useMemo(() => {
-        const ranges: Record<TimeRange, number> = {
-            '1h': 60 * 60 * 1000,
-            '6h': 6 * 60 * 60 * 1000,
-            '1d': 24 * 60 * 60 * 1000,
-            '3d': 3 * 24 * 60 * 60 * 1000
-        };
-
+    // Transform API data for Recharts
+    const chartData: ChartDataPoint[] = useMemo(() => {
         const timeFormats: Record<TimeRange, string> = {
             '1h': 'h:mm a',
             '6h': 'h a',
             '1d': 'ha',
-            '3d': 'MMM d'
+            '3d': 'MMM d',
+            '7d': 'MMM d',
+            '30d': 'MMM d',
         };
 
-        const now = Date.now();
-        const cutoff = now - ranges[currentRange];
-        const fieldName = metric === 'temperature' ? 'temp' : metric;
-
-        return graphData
+        return apiData
             .map(d => ({
-                timestamp: new Date(d.time).getTime(),
-                value: Number(d[fieldName]),
-                formattedTime: format(new Date(d.time), timeFormats[currentRange])
+                timestamp: d.t,
+                value: d.avg ?? d.v ?? 0,
+                min: d.min,
+                max: d.max,
+                formattedTime: format(new Date(d.t), timeFormats[currentRange] || 'MMM d'),
             }))
-            .filter(p => p.timestamp >= cutoff && Number.isFinite(p.value))
+            .filter(p => Number.isFinite(p.value))
             .sort((a, b) => a.timestamp - b.timestamp);
-    }, [graphData, currentRange, metric]);
+    }, [apiData, currentRange]);
+
+    // Check if we have band data (min/max from aggregation)
+    const hasBandData = useMemo(
+        () => chartData.some(d => d.min !== undefined && d.max !== undefined),
+        [chartData]
+    );
 
     // Generate nice rounded tick values for X-axis
     const { niceTicks, formatTick } = useMemo(() => {
-        const ranges: Record<TimeRange, number> = {
-            '1h': 60 * 60 * 1000,
-            '6h': 6 * 60 * 60 * 1000,
-            '1d': 24 * 60 * 60 * 1000,
-            '3d': 3 * 24 * 60 * 60 * 1000
-        };
-
-        // Tick intervals: 1h=15min, 6h=1hour, 1d=4hours, 3d=12hours
         const tickIntervals: Record<TimeRange, number> = {
             '1h': 15 * 60 * 1000,         // 15 minutes
             '6h': 60 * 60 * 1000,         // 1 hour
             '1d': 4 * 60 * 60 * 1000,     // 4 hours
-            '3d': 12 * 60 * 60 * 1000     // 12 hours
+            '3d': 12 * 60 * 60 * 1000,    // 12 hours
+            '7d': 24 * 60 * 60 * 1000,    // 1 day
+            '30d': 5 * 24 * 60 * 60 * 1000, // 5 days
         };
 
         const tickFormats: Record<TimeRange, string> = {
             '1h': 'h:mm a',
             '6h': 'h a',
             '1d': 'ha',
-            '3d': 'MMM d ha'
+            '3d': 'MMM d ha',
+            '7d': 'MMM d',
+            '30d': 'MMM d',
         };
 
         const now = Date.now();
-        const cutoff = now - ranges[currentRange];
+        const cutoff = now - RANGE_DURATION[currentRange];
         const interval = tickIntervals[currentRange];
         const tickFormat = tickFormats[currentRange];
 
@@ -214,25 +268,39 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
         return 'var(--error)';
     };
 
+    const fillPct = metric === 'temperature' ? Math.min(value, 100) : value;
+    const fillStyle = {
+        width: `${fillPct}%`,
+        backgroundColor: getColor(value),
+        transition: 'width 0.4s ease, background-color 0.4s ease',
+    };
+
     // Custom tooltip component for Recharts
-    const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ value: number; payload: RechartsDataPoint }> }) => {
+    const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ value: number; payload: ChartDataPoint }> }) => {
         if (active && payload && payload.length) {
             const data = payload[0];
             // Show exact time from timestamp, not the rounded axis format
             const exactTime = format(new Date(data.payload.timestamp), 'MMM d, h:mm:ss a');
+            const point = data.payload;
+
             return (
                 <div className="glass-card border-theme rounded-lg px-3 py-2 shadow-lg">
                     <p className="text-xs text-theme-secondary mb-1">{exactTime}</p>
                     <p className="text-sm font-medium text-theme-primary">
                         {config.label}: <span style={{ color: chartColor }}>{data.value.toFixed(1)}{config.unit}</span>
                     </p>
+                    {point.min !== undefined && point.max !== undefined && (
+                        <p className="text-xs text-theme-tertiary mt-0.5">
+                            Range: {point.min.toFixed(1)} – {point.max.toFixed(1)}{config.unit}
+                        </p>
+                    )}
                 </div>
             );
         }
         return null;
     };
 
-    // Static metric card (no popover) - used when history is disabled (e.g., Glances)
+    // Static metric card (no popover) - used when history is disabled
     const StaticMetricBar = (
         <div className={`metric-card ${spanClass}`}>
             <div className="metric-card__inner">
@@ -248,10 +316,7 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
                 <div className="metric-card__progress">
                     <div
                         className="metric-card__progress-fill"
-                        style={{
-                            width: `${metric === 'temperature' ? Math.min(value, 100) : value}%`,
-                            backgroundColor: getColor(value)
-                        }}
+                        style={fillStyle}
                     />
                 </div>
             </div>
@@ -266,7 +331,10 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
     return (
         <Popover open={isOpen} onOpenChange={onOpenChange}>
             <Popover.Trigger asChild>
-                <div className={`metric-card metric-card--clickable${isOpen ? ' metric-card--active' : ''} ${spanClass}`}>
+                <button
+                    type="button"
+                    className={`metric-card metric-card--clickable${isOpen ? ' metric-card--active' : ''} ${spanClass}`}
+                >
                     <div className="metric-card__inner">
                         <div className="metric-card__header">
                             <span className="metric-card__label">
@@ -280,14 +348,11 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
                         <div className="metric-card__progress">
                             <div
                                 className="metric-card__progress-fill"
-                                style={{
-                                    width: `${metric === 'temperature' ? Math.min(value, 100) : value}%`,
-                                    backgroundColor: getColor(value)
-                                }}
+                                style={fillStyle}
                             />
                         </div>
                     </div>
-                </div>
+                </button>
             </Popover.Trigger>
 
             <Popover.Content
@@ -298,12 +363,19 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
             >
                 {/* Header */}
                 <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-sm font-semibold text-theme-primary">
-                        {config.label} History
-                    </h3>
-                    {/* Range selector */}
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-theme-primary">
+                            {config.label} History
+                        </h3>
+                        {dataSource && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-theme-tertiary text-theme-tertiary">
+                                {dataSource === 'external' ? 'External' : 'Local'}
+                            </span>
+                        )}
+                    </div>
+                    {/* Range selector - dynamic based on available data */}
                     <div className="flex gap-1">
-                        {(['1h', '6h', '1d', '3d'] as TimeRange[]).map((range) => (
+                        {availableRanges.map((range) => (
                             <button
                                 key={range}
                                 onClick={() => setCurrentRange(range)}
@@ -342,6 +414,12 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
                                         <stop offset="5%" stopColor={chartColor} stopOpacity={0.3} />
                                         <stop offset="95%" stopColor={chartColor} stopOpacity={0} />
                                     </linearGradient>
+                                    {hasBandData && (
+                                        <linearGradient id={`band-gradient-${metric}`} x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor={chartColor} stopOpacity={0.12} />
+                                            <stop offset="95%" stopColor={chartColor} stopOpacity={0.03} />
+                                        </linearGradient>
+                                    )}
                                 </defs>
                                 <XAxis
                                     dataKey="timestamp"
@@ -365,6 +443,30 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
                                     content={<CustomTooltip />}
                                     cursor={{ stroke: 'var(--text-tertiary)', strokeWidth: 1 }}
                                 />
+                                {/* Min/Max band when aggregated data is available */}
+                                {hasBandData && (
+                                    <>
+                                        <Area
+                                            type="linear"
+                                            dataKey="max"
+                                            stroke="none"
+                                            fill={`url(#band-gradient-${metric})`}
+                                            dot={false}
+                                            isAnimationActive={false}
+                                            activeDot={false}
+                                        />
+                                        <Area
+                                            type="linear"
+                                            dataKey="min"
+                                            stroke="none"
+                                            fill="var(--bg-primary)"
+                                            dot={false}
+                                            isAnimationActive={false}
+                                            activeDot={false}
+                                        />
+                                    </>
+                                )}
+                                {/* Main value line + gradient fill */}
                                 <Area
                                     type="linear"
                                     dataKey="value"

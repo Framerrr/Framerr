@@ -3,13 +3,15 @@
 
 import { useEffect, useCallback, useRef } from 'react';
 import logger from '../../../utils/logger';
+import { useWalkthrough } from '../../../features/walkthrough';
 import { getWidgetMetadata } from '../../../widgets/registry';
+import { resolveAutoBinding } from '../../../widgets/resolveAutoBinding';
 import { generateAllMobileLayouts } from '../../../utils/layoutUtils';
 import { fromLegacyWidget } from '../../../shared/grid/adapter';
 import { GRID_COLS } from '../../../constants/gridConfig';
 import { triggerHaptic } from '../../../utils/haptics';
 import { widgetsApi } from '../../../api/endpoints/widgets';
-import { integrationsApi } from '../../../api/endpoints/integrations';
+import { useRoleAwareIntegrations } from '../../../api/hooks/useIntegrations';
 import type { FramerrWidget } from '../../../../shared/types/widget';
 import type { LayoutItem } from '../../../hooks/useDashboardLayout/types';
 import type { WidgetApiResponse } from '../types';
@@ -169,6 +171,12 @@ export function useDashboardHandlers({
     const [showRelinkConfirmation, setShowRelinkConfirmation] = React.useState<boolean>(false);
     const [configModalWidgetId, setConfigModalWidgetId] = React.useState<string | null>(null);
 
+    // Integration data for auto-binding (from React Query cache)
+    const { data: allIntegrations = [] } = useRoleAwareIntegrations();
+
+    // Walkthrough engine — used for emit() on widget add
+    const walkthrough = useWalkthrough();
+
     // ========== SAVE/CANCEL HANDLERS ==========
 
     const performSave = useCallback(async (): Promise<void> => {
@@ -283,45 +291,13 @@ export function useDashboardHandlers({
                 return;
             }
 
-            // Start with plugin's defaultConfig, then add title
-            let widgetConfig: Record<string, unknown> = {
-                ...metadata.defaultConfig, // Apply plugin defaults (e.g., showHeader: false)
-                title: metadata.name
+            // Start with plugin's defaultConfig, then add title and auto-binding
+            const autoBinding = resolveAutoBinding(widgetType, allIntegrations);
+            const widgetConfig: Record<string, unknown> = {
+                ...metadata.defaultConfig,
+                title: metadata.name,
+                ...autoBinding,
             };
-
-            const compatibleTypes = metadata.compatibleIntegrations || [];
-            if (compatibleTypes.length > 0) {
-                if (widgetType === 'calendar') {
-                    const [sonarrRes, radarrRes] = await Promise.all([
-                        integrationsApi.getByType('sonarr').catch(() => ({ instances: [] })),
-                        integrationsApi.getByType('radarr').catch(() => ({ instances: [] }))
-                    ]);
-
-                    const sonarrInstances = sonarrRes.instances || [];
-                    const radarrInstances = radarrRes.instances || [];
-
-                    if (sonarrInstances.length > 0) {
-                        widgetConfig.sonarrIntegrationId = sonarrInstances[0].id;
-                    }
-                    if (radarrInstances.length > 0) {
-                        widgetConfig.radarrIntegrationId = radarrInstances[0].id;
-                    }
-                } else {
-                    for (const integrationType of compatibleTypes) {
-                        try {
-                            const instancesRes = await integrationsApi.getByType(integrationType);
-                            const instances = instancesRes.instances || [];
-
-                            if (instances.length > 0) {
-                                widgetConfig.integrationId = instances[0].id;
-                                break;
-                            }
-                        } catch (err) {
-                            logger.warn(`Failed to fetch instances for ${integrationType}:`, err);
-                        }
-                    }
-                }
-            }
 
             // Create FramerrWidget format
             // If layout provided (from external drag), use it; otherwise default to (0,0)
@@ -342,11 +318,14 @@ export function useDashboardHandlers({
 
             addWidget(newWidget);
             setShowAddModal(false);
+
+            // Notify walkthrough engine that a widget was added (for step advancement)
+            walkthrough?.emit('widget-added', { widgetId: newWidget.id, widgetType: widgetType });
         } catch (error) {
             logger.error('Failed to add widget:', { error });
             showError('Add Widget Failed', 'Failed to add widget.');
         }
-    }, [addWidget, showError]);
+    }, [addWidget, showError, allIntegrations]);
 
     // ========== WIDGET ACTION HANDLERS ==========
 
@@ -426,6 +405,57 @@ export function useDashboardHandlers({
     }, [setLoading, setInitialData]);
 
     // ========== EFFECTS ==========
+
+    // Walkthrough: re-open modal on failed drag drop (soft lock protection)
+    useEffect(() => {
+        const handler = () => {
+            logger.info('[Walkthrough] walkthrough-reopen-modal received — calling setShowAddModal(true)');
+            // setTimeout forces this into a separate React render batch from the
+            // modal close (onClose sets false). Without this, React 18 auto-batching
+            // combines both into one render and the modal never actually unmounts.
+            setTimeout(() => setShowAddModal(true), 0);
+        };
+        window.addEventListener('walkthrough-reopen-modal', handler);
+        return () => window.removeEventListener('walkthrough-reopen-modal', handler);
+    }, []);
+
+    // Walkthrough: close modals and save before navigating (e.g., admin → service settings)
+    useEffect(() => {
+        const handler = async () => {
+            logger.info('[Walkthrough] close-modals-and-save event — closing modals and saving dashboard');
+            setConfigModalWidgetId(null);
+            setShowAddModal(false);
+            try {
+                await performSave();
+                logger.info('[Walkthrough] Dashboard saved before navigation');
+            } catch (error) {
+                logger.error('[Walkthrough] Save failed before navigation:', { error });
+                setEditMode(false);
+            }
+        };
+        window.addEventListener('close-modals-and-save', handler);
+        return () => window.removeEventListener('close-modals-and-save', handler);
+    }, [performSave, setEditMode]);
+
+    // Walkthrough: save dashboard and exit edit mode when flow completes
+    useEffect(() => {
+        const handler = async () => {
+            logger.info('[Walkthrough] Flow complete event received — saving dashboard and exiting edit mode');
+            // Close any open config modal first
+            setConfigModalWidgetId(null);
+            try {
+                // Save the dashboard (commits all widget additions/changes)
+                await performSave();
+                logger.info('[Walkthrough] Dashboard saved successfully');
+            } catch (error) {
+                logger.error('[Walkthrough] performSave failed, forcing edit mode exit:', { error });
+                // Even if save fails, exit edit mode so the user isn't stuck
+                setEditMode(false);
+            }
+        };
+        window.addEventListener('walkthrough-flow-complete', handler);
+        return () => window.removeEventListener('walkthrough-flow-complete', handler);
+    }, [performSave, setEditMode]);
 
     // Sync edit state to context for Sidebar navigation blocking
     useEffect(() => {

@@ -82,6 +82,7 @@ const WidgetActionsPopover: React.FC<WidgetActionsPopoverProps> = ({
                     style={{ pointerEvents: 'auto', cursor: 'pointer' }}
                     aria-label="Widget actions"
                     data-widget-id={widgetId}
+                    data-walkthrough="widget-config-button"
                 >
                     <Settings size={14} />
                 </button>
@@ -98,6 +99,8 @@ const WidgetActionsPopover: React.FC<WidgetActionsPopoverProps> = ({
                     onClick={handleEdit}
                     className={menuItemEnabled}
                     disabled={!onEdit}
+                    data-walkthrough="widget-edit-button"
+                    data-widget-id={widgetId}
                 >
                     <Pencil size={16} />
                     <span>Edit</span>

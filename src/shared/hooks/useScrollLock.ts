@@ -8,6 +8,12 @@ import { useEffect, useRef } from 'react';
  * - Uses touchmove preventDefault for iOS (required for Safari)
  * - Preserves scroll position on lock/unlock
  * 
+ * Scroll-in-scroll support:
+ * - Dynamically detects scrollable containers (overflow-y: auto/scroll)
+ * - Allows scrolling within ANY scrollable child (popovers, dropdowns, lists)
+ * - Clamps at scroll boundaries to prevent page overscroll
+ * - No per-element opt-in needed — works globally
+ * 
  * Usage:
  * useScrollLock(isModalOpen);
  */
@@ -44,45 +50,46 @@ export function useScrollLock(isLocked: boolean) {
             document.body.style.paddingRight = `${scrollbarWidth}px`;
         }
 
-        // iOS Safari specific: prevent touchmove on document
-        // This is required because overflow: hidden doesn't work on iOS
+        // Track touch start Y for direction detection
+        let touchStartY = 0;
+
+        const handleTouchStart = (e: TouchEvent) => {
+            touchStartY = e.touches[0].clientY;
+        };
+
+        // iOS Safari: prevent touchmove from scrolling the page
+        // but allow scrolling within any scrollable container
         const handleTouchMove = (e: TouchEvent) => {
-            // Allow scrolling within the modal content
             const target = e.target as HTMLElement;
-            const scrollableParent = target.closest('[data-scroll-lock-allow]');
+            if (!target) return;
 
-            if (scrollableParent) {
-                // Check if element has scrollable content
-                const isAtTop = scrollableParent.scrollTop === 0;
-                const isAtBottom =
-                    scrollableParent.scrollTop + scrollableParent.clientHeight >=
-                    scrollableParent.scrollHeight;
+            // Walk up from touch target to find nearest scrollable element
+            const scrollable = findScrollableAncestor(target);
 
-                // Determine scroll direction
-                const touch = e.touches[0];
-                const startY = (e as any)._startY ?? touch.clientY;
-                const deltaY = touch.clientY - startY;
+            if (scrollable) {
+                // Found a scrollable container — allow scroll but clamp at boundaries
+                const { scrollTop, scrollHeight, clientHeight } = scrollable;
+                const touchY = e.touches[0].clientY;
+                const deltaY = touchStartY - touchY;
+                const isScrollingDown = deltaY > 0;
+                const isScrollingUp = deltaY < 0;
 
-                // Allow scrolling within bounds
-                if ((isAtTop && deltaY > 0) || (isAtBottom && deltaY < 0)) {
-                    // At scroll boundary, prevent default
+                const atTop = scrollTop <= 0 && isScrollingUp;
+                const atBottom = scrollTop + clientHeight >= scrollHeight - 1 && isScrollingDown;
+
+                if (atTop || atBottom) {
                     e.preventDefault();
                 }
-                // Otherwise allow the scroll within the element
-                return;
+                // Otherwise allow natural scroll within the container
+            } else {
+                // No scrollable container found — prevent page scroll
+                e.preventDefault();
             }
-
-            // Prevent all scrolling outside designated areas
-            e.preventDefault();
         };
 
-        // Store touch start position for direction detection
-        const handleTouchStart = (e: TouchEvent) => {
-            (e as any)._startY = e.touches[0].clientY;
-        };
-
-        document.addEventListener('touchmove', handleTouchMove, { passive: false });
+        // Use non-passive listeners so we can preventDefault
         document.addEventListener('touchstart', handleTouchStart, { passive: true });
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
 
         return () => {
             // Restore original styles
@@ -97,10 +104,31 @@ export function useScrollLock(isLocked: boolean) {
             window.scrollTo(0, scrollPositionRef.current);
 
             // Remove iOS handlers
-            document.removeEventListener('touchmove', handleTouchMove);
             document.removeEventListener('touchstart', handleTouchStart);
+            document.removeEventListener('touchmove', handleTouchMove);
         };
     }, [isLocked]);
+}
+
+/**
+ * Walk up from element to find the nearest scrollable ancestor.
+ * Stops at body (never returns body itself — that's what we're locking).
+ * Returns null if no scrollable ancestor found.
+ */
+function findScrollableAncestor(element: HTMLElement): HTMLElement | null {
+    let current: HTMLElement | null = element;
+
+    while (current && current !== document.body) {
+        if (current.scrollHeight > current.clientHeight) {
+            const overflow = getComputedStyle(current).overflowY;
+            if (overflow === 'auto' || overflow === 'scroll') {
+                return current;
+            }
+        }
+        current = current.parentElement;
+    }
+
+    return null;
 }
 
 export default useScrollLock;

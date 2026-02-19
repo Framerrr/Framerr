@@ -129,28 +129,40 @@ body {
 }
 
 /* Hover States - These need to be used with hover: prefix */
-.hover\:bg-theme-hover:hover {
-    background-color: var(--bg-hover) !important;
+@media (hover: hover) {
+    .hover\:bg-theme-hover:hover {
+        background-color: var(--bg-hover) !important;
+    }
 }
 
-.hover\:bg-accent:hover {
-    background-color: var(--accent) !important;
+@media (hover: hover) {
+    .hover\:bg-accent:hover {
+        background-color: var(--accent) !important;
+    }
 }
 
-.hover\:bg-accent-hover:hover {
-    background-color: var(--accent-hover) !important;
+@media (hover: hover) {
+    .hover\:bg-accent-hover:hover {
+        background-color: var(--accent-hover) !important;
+    }
 }
 
-.hover\:text-theme-primary:hover {
-    color: var(--text-primary) !important;
+@media (hover: hover) {
+    .hover\:text-theme-primary:hover {
+        color: var(--text-primary) !important;
+    }
 }
 
-.hover\:text-accent:hover {
-    color: var(--accent) !important;
+@media (hover: hover) {
+    .hover\:text-accent:hover {
+        color: var(--accent) !important;
+    }
 }
 
-.hover\:border-accent:hover {
-    border-color: var(--accent) !important;
+@media (hover: hover) {
+    .hover\:border-accent:hover {
+        border-color: var(--accent) !important;
+    }
 }
 
 /* ============================================
@@ -199,24 +211,34 @@ body {
 }
 
 /* Additional Hover State Utilities */
-.hover\:bg-theme-primary:hover {
-    background-color: var(--bg-primary) !important;
+@media (hover: hover) {
+    .hover\:bg-theme-primary:hover {
+        background-color: var(--bg-primary) !important;
+    }
 }
 
-.hover\:bg-theme-secondary:hover {
-    background-color: var(--bg-secondary) !important;
+@media (hover: hover) {
+    .hover\:bg-theme-secondary:hover {
+        background-color: var(--bg-secondary) !important;
+    }
 }
 
-.hover\:bg-theme-tertiary:hover {
-    background-color: var(--bg-tertiary) !important;
+@media (hover: hover) {
+    .hover\:bg-theme-tertiary:hover {
+        background-color: var(--bg-tertiary) !important;
+    }
 }
 
-.hover\:text-theme-secondary:hover {
-    color: var(--text-secondary) !important;
+@media (hover: hover) {
+    .hover\:text-theme-secondary:hover {
+        color: var(--text-secondary) !important;
+    }
 }
 
-.hover\:border-theme:hover {
-    border-color: var(--border) !important;
+@media (hover: hover) {
+    .hover\:border-theme:hover {
+        border-color: var(--border) !important;
+    }
 }
 
 /* Focus State Utilities */

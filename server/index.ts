@@ -61,6 +61,9 @@ import cacheRoutes from './routes/cache';
 import mediaRoutes from './routes/media';
 import jobsRoutes from './routes/jobs';
 import iconsRoutes from './routes/icons';
+import metricHistoryRoutes from './routes/metricHistory';
+import plexRecommendationsRoutes from './routes/plex-recommendations';
+import walkthroughRoutes from './routes/walkthrough';
 
 
 // Type for package.json version
@@ -99,7 +102,7 @@ app.use(helmet({
     originAgentCluster: false  // Disable to prevent inconsistent header warnings
 }));
 app.use(cors({
-    origin: true,  // Allow all origins (recommended for reverse proxy setups)
+    origin: false,  // Same-origin only — prevents cross-site credentialed API calls
     credentials: true
 }));
 
@@ -243,13 +246,19 @@ app.use('/profile-pictures', cors(), express.static(profilePicsPath));
 
 // Health check endpoint
 app.get('/api/health', (req: Request, res: Response) => {
-    res.json({
+    const healthData: Record<string, string> = {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         version,
-        environment: NODE_ENV,
-        logLevel: process.env.LOG_LEVEL || 'info'  // Expose LOG_LEVEL for frontend logger sync
-    });
+        environment: NODE_ENV
+    };
+
+    // Only expose logLevel to authenticated users
+    if (req.user) {
+        healthData.logLevel = process.env.LOG_LEVEL || 'info';
+    }
+
+    res.json(healthData);
 });
 
 // Routes
@@ -283,6 +292,9 @@ app.use('/api/cache', cacheRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/icons', iconsRoutes);
+app.use('/api/metric-history', metricHistoryRoutes);
+app.use('/api/plex/recommendations', plexRecommendationsRoutes);
+app.use('/api/walkthrough', walkthroughRoutes);
 
 
 // Theme splash color map — server injects these into index.html template
@@ -460,19 +472,13 @@ app.use((err: ServerError, req: Request, res: Response, next: NextFunction) => {
 
         // Initialize database schema if this is a fresh database
         if (!isInitialized()) {
-            logger.info('Fresh database detected - running migrations...');
-
             // Fresh databases start at v0 and run all migrations
-            const status = checkMigrationStatus(getDb()) as MigrationStatus;
-            logger.info(`Running migrations for fresh database: v0 → v${status.expectedVersion}`);
-
             const result = runMigrations(getDb()) as MigrationResult;
             if (!result.success) {
                 logger.error(`[Startup] Migration failed: error="${result.error}"`);
-                logger.error('Please check logs and restore from backup if needed.');
                 process.exit(1);
             }
-            logger.info(`Database migrated successfully: v${result.migratedFrom} → v${result.migratedTo}`);
+            logger.info(`Database ready (v${result.migratedTo}, ${result.migratedTo} migrations applied)`);
         } else {
             // Check if migrations are needed
             const status = checkMigrationStatus(getDb()) as MigrationStatus;
@@ -485,18 +491,17 @@ app.use((err: ServerError, req: Request, res: Response, next: NextFunction) => {
             }
 
             if (status.needsMigration) {
-                logger.info(`Database migration needed: v${status.currentVersion} → v${status.expectedVersion}`);
                 const result = runMigrations(getDb()) as MigrationResult;
 
                 if (!result.success) {
                     logger.error(`[Startup] Migration failed: error="${result.error}"`);
-                    logger.error('Please check logs and restore from backup if needed.');
                     process.exit(1);
                 }
 
-                logger.info(`Database migrated successfully: v${result.migratedFrom} → v${result.migratedTo}`);
+                const count = (result.migratedTo || 0) - (result.migratedFrom || 0);
+                logger.info(`Database migrated (v${result.migratedFrom} → v${result.migratedTo}, ${count} migrations)`);
             } else {
-                logger.debug(`Database at version ${status.currentVersion}, no migration needed`);
+                logger.info(`Database ready (v${status.currentVersion})`);
             }
         }
 
@@ -513,6 +518,10 @@ app.use((err: ServerError, req: Request, res: Response, next: NextFunction) => {
         // Seed default integrations on fresh install (idempotent)
         const { seedDefaultIntegrations } = await import('./services/seedDefaultIntegrations');
         seedDefaultIntegrations();
+
+        // Initialize Metric History Service (after migrations)
+        const { metricHistoryService } = await import('./services/MetricHistoryService');
+        await metricHistoryService.initialize();
         // Now start server with config loaded
         const portNum = typeof PORT === 'string' ? parseInt(PORT, 10) : PORT;
 
@@ -521,6 +530,12 @@ app.use((err: ServerError, req: Request, res: Response, next: NextFunction) => {
 
         // Initialize IntegrationManager (starts services if users exist)
         await initializeIntegrationManager();
+
+        // Auto-match Framerr users to Overseerr accounts by Plex username (fire-and-forget)
+        import('./services/overseerrAutoMatch').then(m => m.tryAutoMatchAllUsers()).catch(() => { });
+
+        // Register Overseerr per-user SSE topic filter (for seeAllRequests toggle)
+        import('./integrations/overseerr/topicFilter').then(m => m.registerOverseerrTopicFilters()).catch(() => { });
 
         httpServer.listen(portNum, () => {
             logger.info(`[Server] Listening on port ${portNum}`);
@@ -533,14 +548,18 @@ app.use((err: ServerError, req: Request, res: Response, next: NextFunction) => {
 })();
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
     logger.info('SIGTERM received, shutting down gracefully');
+    const { metricHistoryService } = await import('./services/MetricHistoryService');
+    await metricHistoryService.shutdown();
     shutdownIntegrationManager();
     process.exit(0);
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
     logger.info('SIGINT received, shutting down gracefully');
+    const { metricHistoryService } = await import('./services/MetricHistoryService');
+    await metricHistoryService.shutdown();
     shutdownIntegrationManager();
     process.exit(0);
 });

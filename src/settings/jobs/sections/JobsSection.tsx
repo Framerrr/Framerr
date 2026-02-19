@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { Clock, Play, Loader2 } from 'lucide-react';
+import { Button } from '../../../shared/ui';
 import { SettingsSection } from '../../../shared/ui/settings';
 import type { JobStatus } from '../types';
 
@@ -16,7 +17,7 @@ interface JobsSectionProps {
     onTriggerJob: (jobId: string) => void;
 }
 
-/** Format a relative time like "in 23 minutes" from an ISO date */
+/** Format a relative time like "23 min" from an ISO date */
 function formatNextRun(nextRun: string | null): string {
     if (!nextRun) return '—';
 
@@ -25,9 +26,9 @@ function formatNextRun(nextRun: string | null): string {
     const diffMs = target - now;
 
     if (diffMs < 0) return 'overdue';
-    if (diffMs < 60000) return `in ${Math.ceil(diffMs / 1000)}s`;
-    if (diffMs < 3600000) return `in ${Math.round(diffMs / 60000)} min`;
-    if (diffMs < 86400000) return `in ${Math.round(diffMs / 3600000)}h`;
+    if (diffMs < 60000) return `${Math.ceil(diffMs / 1000)}s`;
+    if (diffMs < 3600000) return `${Math.round(diffMs / 60000)} min`;
+    if (diffMs < 86400000) return `${Math.round(diffMs / 3600000)}h`;
     return 'tomorrow';
 }
 
@@ -57,10 +58,10 @@ export const JobsSection: React.FC<JobsSectionProps> = ({
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-b border-theme-light">
-                            <th className="text-left py-2 px-3 text-theme-secondary font-medium">Job</th>
-                            <th className="text-left py-2 px-3 text-theme-secondary font-medium">Schedule</th>
-                            <th className="text-left py-2 px-3 text-theme-secondary font-medium">Next Run</th>
-                            <th className="text-right py-2 px-3 text-theme-secondary font-medium">Actions</th>
+                            <th className="text-center py-2 px-3 text-theme-secondary font-medium">Job</th>
+                            <th className="text-center py-2 px-3 text-theme-secondary font-medium hidden md:table-cell">Schedule</th>
+                            <th className="text-center py-2 px-3 text-theme-secondary font-medium">Next Run</th>
+                            <th className="text-center py-2 px-3 text-theme-secondary font-medium">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -74,13 +75,13 @@ export const JobsSection: React.FC<JobsSectionProps> = ({
                                         <div className="font-medium text-theme-primary">{job.name}</div>
                                         <div className="text-xs text-theme-tertiary">{job.description}</div>
                                     </td>
-                                    <td className="py-3 px-3 text-theme-secondary font-mono text-xs">
+                                    <td className="py-3 px-3 text-center text-theme-secondary font-mono text-xs hidden md:table-cell">
                                         {job.cronExpression}
                                     </td>
-                                    <td className="py-3 px-3">
+                                    <td className="py-3 px-3 text-center">
                                         <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${isRunning
-                                                ? 'bg-accent/20 text-accent'
-                                                : 'bg-theme-hover text-theme-secondary'
+                                            ? 'bg-accent/20 text-accent'
+                                            : 'bg-theme-hover text-theme-secondary'
                                             }`}>
                                             {isRunning ? (
                                                 <>
@@ -93,20 +94,17 @@ export const JobsSection: React.FC<JobsSectionProps> = ({
                                         </span>
                                     </td>
                                     <td className="py-3 px-3 text-right">
-                                        <button
-                                            className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg
-                                                       bg-accent/10 text-accent hover:bg-accent/20
-                                                       transition-colors disabled:opacity-50"
-                                            disabled={isTriggering || isRunning}
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            icon={Play}
+                                            loading={isTriggering}
+                                            disabled={isRunning}
                                             onClick={() => onTriggerJob(job.id)}
+                                            className="text-accent bg-accent/10 hover:bg-accent/20"
                                         >
-                                            {isTriggering ? (
-                                                <Loader2 size={12} className="animate-spin" />
-                                            ) : (
-                                                <Play size={12} />
-                                            )}
-                                            Run Now
-                                        </button>
+                                            Run
+                                        </Button>
                                     </td>
                                 </tr>
                             );

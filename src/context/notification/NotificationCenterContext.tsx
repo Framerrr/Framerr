@@ -5,12 +5,14 @@
  * Manages persistent notifications, SSE delivery, and notification center UI.
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from 'react';
 import { useAuth } from '../AuthContext';
 import { useToasts } from './ToastContext';
 import logger from '../../utils/logger';
 import { useRealtimeSSE, type NotificationEvent } from '../../hooks/useRealtimeSSE';
 import { notificationsApi } from '../../api/endpoints/notifications';
+import { unlockAudio, playNotificationSound } from '../../utils/notificationSound';
+import { useNotificationPreferences } from '../../api/hooks/useSettings';
 import type {
     Notification,
     NotificationType,
@@ -94,6 +96,26 @@ export const NotificationCenterProvider = ({ children }: NotificationCenterProvi
 
     // SSE connection from unified hook
     const { isConnected: connected, onNotification } = useRealtimeSSE();
+
+    // Sound preference
+    const { data: notifPrefs } = useNotificationPreferences();
+    const soundEnabledRef = useRef(false);
+    soundEnabledRef.current = notifPrefs?.sound ?? false;
+
+    // Unlock AudioContext on first user interaction (iOS requirement)
+    useEffect(() => {
+        const handler = () => {
+            unlockAudio();
+            document.removeEventListener('click', handler, true);
+            document.removeEventListener('touchstart', handler, true);
+        };
+        document.addEventListener('click', handler, true);
+        document.addEventListener('touchstart', handler, true);
+        return () => {
+            document.removeEventListener('click', handler, true);
+            document.removeEventListener('touchstart', handler, true);
+        };
+    }, []);
 
     // Notification center open state
     const [notificationCenterOpen, setNotificationCenterOpen] = useState<boolean>(false);
@@ -329,6 +351,11 @@ export const NotificationCenterProvider = ({ children }: NotificationCenterProvi
 
             // Add to notification center
             addNotification(data as Notification);
+
+            // Play notification sound if enabled
+            if (soundEnabledRef.current) {
+                playNotificationSound();
+            }
 
             // Show toast
             const toastOptions: ToastOptions = {

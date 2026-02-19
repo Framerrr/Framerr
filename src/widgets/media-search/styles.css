@@ -95,9 +95,11 @@
     justify-content: center;
 }
 
-.media-search-clear:hover {
-    color: var(--text-secondary);
-    background: var(--bg-hover);
+@media (hover: hover) {
+    .media-search-clear:hover {
+        color: var(--text-secondary);
+        background: var(--bg-hover);
+    }
 }
 
 /* Results container */
@@ -153,8 +155,10 @@
     display: none;
 }
 
-.media-search-item:hover {
-    background: var(--bg-hover);
+@media (hover: hover) {
+    .media-search-item:hover {
+        background: var(--bg-hover);
+    }
 }
 
 .media-search-poster {
@@ -227,8 +231,10 @@
     white-space: nowrap;
 }
 
-.media-search-open-btn:hover {
-    opacity: 0.9;
+@media (hover: hover) {
+    .media-search-open-btn:hover {
+        opacity: 0.9;
+    }
 }
 
 /* Empty state */
@@ -308,8 +314,10 @@
     text-align: left;
 }
 
-.media-search-recent-item:hover {
-    background: var(--bg-hover);
+@media (hover: hover) {
+    .media-search-recent-item:hover {
+        background: var(--bg-hover);
+    }
 }
 
 /* Hint & No Results */
@@ -336,12 +344,133 @@
     transition: all 0.15s;
 }
 
-.media-search-load-more:hover:not(:disabled) {
-    background: var(--bg-hover);
-    color: var(--text-secondary);
+@media (hover: hover) {
+    .media-search-load-more:hover:not(:disabled) {
+        background: var(--bg-hover);
+        color: var(--text-secondary);
+    }
 }
 
 .media-search-load-more:disabled {
     opacity: 0.6;
     cursor: default;
+}
+
+/* ============================================================================
+   OVERSEERR - "Not in your library" Section
+   ============================================================================ */
+
+.media-search-overseerr-section {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-light);
+}
+
+/* No separator when overseerr section is the first content (Overseerr-only config) */
+.media-search-overseerr-section:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+/* Section header (reused for both library and overseerr sections) */
+.media-search-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    padding: 0.25rem 0.5rem 0.5rem;
+}
+
+/* Type badge (Movie / TV) */
+.media-search-type-badge {
+    padding: 0.0625rem 0.25rem;
+    border-radius: 0.1875rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    background: var(--bg-tertiary);
+    color: var(--text-tertiary);
+}
+
+/* Star rating */
+.media-search-rating {
+    font-size: 0.6875rem;
+    color: var(--text-tertiary);
+}
+
+/* Request button */
+.media-search-request-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* ============================================================================
+   SKELETON SHIMMER (Overseerr loading state)
+   ============================================================================ */
+
+@keyframes media-search-shimmer {
+    0% {
+        background-position: -200px 0;
+    }
+
+    100% {
+        background-position: 200px 0;
+    }
+}
+
+.media-search-skeleton-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+}
+
+.media-search-skeleton-poster {
+    width: 44px;
+    height: 66px;
+    border-radius: 0.25rem;
+    flex-shrink: 0;
+    background: linear-gradient(90deg,
+            var(--bg-tertiary) 25%,
+            var(--bg-hover) 50%,
+            var(--bg-tertiary) 75%);
+    background-size: 400px 100%;
+    animation: media-search-shimmer 1.5s ease-in-out infinite;
+}
+
+.media-search-skeleton-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.media-search-skeleton-title {
+    width: 60%;
+    height: 0.875rem;
+    border-radius: 0.25rem;
+    background: linear-gradient(90deg,
+            var(--bg-tertiary) 25%,
+            var(--bg-hover) 50%,
+            var(--bg-tertiary) 75%);
+    background-size: 400px 100%;
+    animation: media-search-shimmer 1.5s ease-in-out infinite;
+    animation-delay: 0.1s;
+}
+
+.media-search-skeleton-meta {
+    width: 35%;
+    height: 0.625rem;
+    border-radius: 0.25rem;
+    background: linear-gradient(90deg,
+            var(--bg-tertiary) 25%,
+            var(--bg-hover) 50%,
+            var(--bg-tertiary) 75%);
+    background-size: 400px 100%;
+    animation: media-search-shimmer 1.5s ease-in-out infinite;
+    animation-delay: 0.2s;
 }

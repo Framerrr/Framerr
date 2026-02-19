@@ -1,15 +1,17 @@
 /**
  * Password Operations
  * 
- * Password reset and local password flag management.
+ * Password reset, force-change-on-login, and local password flag management.
  */
 
 import logger from '../../utils/logger';
 import { getDb } from '../../database/db';
 import { getUserById } from './crud';
+import { revokeAllUserSessions } from './sessions';
 
 /**
- * Reset user password to temporary password
+ * Reset user password to temporary password.
+ * Also sets the require_password_reset flag and revokes all sessions.
  */
 export async function resetUserPassword(userId: string): Promise<{ success: boolean; tempPassword: string }> {
     try {
@@ -26,11 +28,14 @@ export async function resetUserPassword(userId: string): Promise<{ success: bool
 
         getDb().prepare(`
             UPDATE users 
-            SET password = ?
+            SET password = ?, require_password_reset = 1
             WHERE id = ?
         `).run(passwordHash, userId);
 
-        logger.info(`[Users] Password reset: username="${user.username}"`);
+        // Revoke all sessions so user must log in with temp password
+        await revokeAllUserSessions(userId);
+
+        logger.info(`[Users] Password reset: username="${user.username}" requirePasswordReset=true sessionsRevoked=true`);
 
         return {
             success: true,
@@ -39,6 +44,41 @@ export async function resetUserPassword(userId: string): Promise<{ success: bool
     } catch (error) {
         logger.error(`[Users] Failed to reset password: id=${userId} error="${(error as Error).message}"`);
         throw error;
+    }
+}
+
+/**
+ * Check if user is required to change password on next login
+ */
+export function getRequirePasswordReset(userId: string): boolean {
+    try {
+        const row = getDb().prepare(`
+            SELECT require_password_reset FROM users WHERE id = ?
+        `).get(userId) as { require_password_reset: number } | undefined;
+
+        return row ? row.require_password_reset === 1 : false;
+    } catch (error) {
+        logger.error(`[Users] Failed to check require_password_reset: id=${userId} error="${(error as Error).message}"`);
+        return false;
+    }
+}
+
+/**
+ * Set or clear the require_password_reset flag
+ */
+export function setRequirePasswordReset(userId: string, required: boolean): boolean {
+    try {
+        const result = getDb().prepare(`
+            UPDATE users SET require_password_reset = ? WHERE id = ?
+        `).run(required ? 1 : 0, userId);
+
+        if (result.changes > 0) {
+            logger.info(`[Users] Updated require_password_reset: user=${userId} required=${required}`);
+        }
+        return result.changes > 0;
+    } catch (error) {
+        logger.error(`[Users] Failed to set require_password_reset: id=${userId} error="${(error as Error).message}"`);
+        return false;
     }
 }
 

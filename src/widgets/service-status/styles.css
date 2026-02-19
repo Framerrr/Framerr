@@ -29,8 +29,10 @@
     transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
-.service-card:hover {
-    background: rgba(255, 255, 255, 0.1);
+@media (hover: hover) {
+    .service-card:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
 }
 
 .service-card:active {

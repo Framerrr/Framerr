@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../api';
 import { extractErrorMessage } from '../../../api';
 import logger from '../../../utils/logger';
-import type { JobStatus, CacheStats, MonitorDefaults } from '../types';
+import type { JobStatus, CacheStats, MonitorDefaults, MetricHistoryDefaults, AllDefaults } from '../types';
 
 interface UseJobsSettingsReturn {
     // Jobs
@@ -27,30 +27,45 @@ interface UseJobsSettingsReturn {
     handleFlushTmdbImages: () => Promise<void>;
     handleClearSearchHistory: () => Promise<void>;
     handleFlushLibrary: (integrationId: string) => Promise<void>;
+    handleFlushAllLibrary: () => Promise<void>;
     handleSyncLibrary: (integrationId: string) => Promise<void>;
+    handleFlushMetricHistory: () => Promise<void>;
+    handleFlushMetricHistoryIntegration: (integrationId: string) => Promise<void>;
     refreshCacheStats: () => Promise<void>;
 
-    // Monitor Defaults
+    // Defaults
     monitorDefaults: MonitorDefaults | null;
+    metricHistoryDefaults: MetricHistoryDefaults | null;
     isLoadingDefaults: boolean;
     isSavingDefaults: boolean;
-    defaultsChanged: boolean;
+    hasMonitorChanges: boolean;
+    hasMetricHistoryChanges: boolean;
+    hasAnyDefaultsChanges: boolean;
+    isMonitorNonFactory: boolean;
+    isMetricHistoryNonFactory: boolean;
     updateMonitorDefault: (field: keyof MonitorDefaults, value: unknown) => void;
+    updateMetricHistoryDefault: (field: keyof MetricHistoryDefaults, value: unknown) => void;
     handleSaveDefaults: () => Promise<void>;
-    handleRevertDefaults: () => void;
+    handleRevertMonitorDefaults: () => void;
+    handleRevertMetricHistoryDefaults: () => void;
 
     // Messages
     error: string;
     success: string;
 }
 
-/** Factory defaults — matches DEFAULT_CONFIG.monitorDefaults in systemConfig.ts */
-const FACTORY_DEFAULTS: MonitorDefaults = {
+/** Factory defaults — matches DEFAULT_CONFIG in systemConfig.ts */
+const MONITOR_FACTORY_DEFAULTS: MonitorDefaults = {
     intervalSeconds: 60,
     timeoutSeconds: 10,
     retriesBeforeDown: 3,
     degradedThresholdMs: 2000,
     expectedStatusCodes: ['200-299'],
+};
+
+const METRIC_HISTORY_FACTORY_DEFAULTS: MetricHistoryDefaults = {
+    mode: 'auto',
+    retentionDays: 3,
 };
 
 export function useJobsSettings(): UseJobsSettingsReturn {
@@ -64,10 +79,11 @@ export function useJobsSettings(): UseJobsSettingsReturn {
     const [syncingIntegration, setSyncingIntegration] = useState<string | null>(null);
 
     const [monitorDefaults, setMonitorDefaults] = useState<MonitorDefaults | null>(null);
-    const [savedDefaults, setSavedDefaults] = useState<MonitorDefaults | null>(null);
+    const [savedMonitorDefaults, setSavedMonitorDefaults] = useState<MonitorDefaults | null>(null);
+    const [metricHistoryDefaults, setMetricHistoryDefaults] = useState<MetricHistoryDefaults | null>(null);
+    const [savedMetricHistoryDefaults, setSavedMetricHistoryDefaults] = useState<MetricHistoryDefaults | null>(null);
     const [isLoadingDefaults, setIsLoadingDefaults] = useState(true);
     const [isSavingDefaults, setIsSavingDefaults] = useState(false);
-    const [defaultsChanged, setDefaultsChanged] = useState(false);
 
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -100,12 +116,13 @@ export function useJobsSettings(): UseJobsSettingsReturn {
 
     const refreshDefaults = useCallback(async () => {
         try {
-            const data = await api.get<MonitorDefaults>('/api/jobs/monitor-defaults');
-            setMonitorDefaults(data);
-            setSavedDefaults(data);
-            setDefaultsChanged(false);
+            const data = await api.get<AllDefaults>('/api/jobs/defaults');
+            setMonitorDefaults(data.monitorDefaults);
+            setSavedMonitorDefaults(data.monitorDefaults);
+            setMetricHistoryDefaults(data.metricHistoryDefaults);
+            setSavedMetricHistoryDefaults(data.metricHistoryDefaults);
         } catch (err) {
-            logger.error('[JobsSettings] Failed to fetch monitor defaults', { error: err });
+            logger.error('[JobsSettings] Failed to fetch defaults', { error: err });
         } finally {
             setIsLoadingDefaults(false);
         }
@@ -208,6 +225,22 @@ export function useJobsSettings(): UseJobsSettingsReturn {
         }
     }, [refreshCacheStats]);
 
+    const handleFlushAllLibrary = useCallback(async () => {
+        setFlushingCache('library-all');
+        setError('');
+        setSuccess('');
+
+        try {
+            const data = await api.post<{ deleted: number }>('/api/jobs/cache/library/flush');
+            setSuccess(`Flushed library cache for ${data.deleted} integrations`);
+            await refreshCacheStats();
+        } catch (err) {
+            setError(extractErrorMessage(err));
+        } finally {
+            setFlushingCache(null);
+        }
+    }, [refreshCacheStats]);
+
     const handleSyncLibrary = useCallback(async (integrationId: string) => {
         setSyncingIntegration(integrationId);
         setError('');
@@ -223,35 +256,97 @@ export function useJobsSettings(): UseJobsSettingsReturn {
         }
     }, []);
 
+    const handleFlushMetricHistory = useCallback(async () => {
+        setFlushingCache('metric-history');
+        setError('');
+        setSuccess('');
+
+        try {
+            const data = await api.post<{ deleted: number }>('/api/jobs/cache/metric-history/flush');
+            setSuccess(`Flushed ${data.deleted} metric history entries`);
+            await refreshCacheStats();
+        } catch (err) {
+            setError(extractErrorMessage(err));
+        } finally {
+            setFlushingCache(null);
+        }
+    }, [refreshCacheStats]);
+
+    const handleFlushMetricHistoryIntegration = useCallback(async (integrationId: string) => {
+        setFlushingCache(`metric-history-${integrationId}`);
+        setError('');
+        setSuccess('');
+
+        try {
+            await api.post(`/api/jobs/cache/metric-history/${integrationId}/flush`);
+            setSuccess('Flushed metric history for integration');
+            await refreshCacheStats();
+        } catch (err) {
+            setError(extractErrorMessage(err));
+        } finally {
+            setFlushingCache(null);
+        }
+    }, [refreshCacheStats]);
+
     // ---- Monitor Default Actions ----
 
     const updateMonitorDefault = useCallback((field: keyof MonitorDefaults, value: unknown) => {
         setMonitorDefaults(prev => prev ? { ...prev, [field]: value } : null);
-        setDefaultsChanged(true);
     }, []);
 
+    const updateMetricHistoryDefault = useCallback((field: keyof MetricHistoryDefaults, value: unknown) => {
+        setMetricHistoryDefaults(prev => prev ? { ...prev, [field]: value } : null);
+    }, []);
+
+    // Compare current values to saved values to detect changes
+    const hasMonitorChanges = monitorDefaults && savedMonitorDefaults
+        ? JSON.stringify(monitorDefaults) !== JSON.stringify(savedMonitorDefaults)
+        : false;
+
+    const hasMetricHistoryChanges = metricHistoryDefaults && savedMetricHistoryDefaults
+        ? JSON.stringify(metricHistoryDefaults) !== JSON.stringify(savedMetricHistoryDefaults)
+        : false;
+
+    const hasAnyDefaultsChanges = hasMonitorChanges || hasMetricHistoryChanges;
+
+    // Check if current values differ from factory defaults (for per-group revert visibility)
+    const isMonitorNonFactory = monitorDefaults
+        ? JSON.stringify(monitorDefaults) !== JSON.stringify(MONITOR_FACTORY_DEFAULTS)
+        : false;
+
+    const isMetricHistoryNonFactory = metricHistoryDefaults
+        ? JSON.stringify(metricHistoryDefaults) !== JSON.stringify(METRIC_HISTORY_FACTORY_DEFAULTS)
+        : false;
+
     const handleSaveDefaults = useCallback(async () => {
-        if (!monitorDefaults) return;
+        if (!monitorDefaults || !metricHistoryDefaults) return;
         setIsSavingDefaults(true);
         setError('');
         setSuccess('');
 
         try {
-            const saved = await api.put<MonitorDefaults>('/api/jobs/monitor-defaults', monitorDefaults);
-            setMonitorDefaults(saved);
-            setSavedDefaults(saved);
-            setDefaultsChanged(false);
-            setSuccess('Monitor defaults saved');
+            const saved = await api.put<AllDefaults>('/api/jobs/defaults', {
+                monitorDefaults,
+                metricHistoryDefaults,
+            });
+            setMonitorDefaults(saved.monitorDefaults);
+            setSavedMonitorDefaults(saved.monitorDefaults);
+            setMetricHistoryDefaults(saved.metricHistoryDefaults);
+            setSavedMetricHistoryDefaults(saved.metricHistoryDefaults);
+            setSuccess('Defaults saved');
         } catch (err) {
             setError(extractErrorMessage(err));
         } finally {
             setIsSavingDefaults(false);
         }
-    }, [monitorDefaults]);
+    }, [monitorDefaults, metricHistoryDefaults]);
 
-    const handleRevertDefaults = useCallback(() => {
-        setMonitorDefaults({ ...FACTORY_DEFAULTS });
-        setDefaultsChanged(true);
+    const handleRevertMonitorDefaults = useCallback(() => {
+        setMonitorDefaults({ ...MONITOR_FACTORY_DEFAULTS });
+    }, []);
+
+    const handleRevertMetricHistoryDefaults = useCallback(() => {
+        setMetricHistoryDefaults({ ...METRIC_HISTORY_FACTORY_DEFAULTS });
     }, []);
 
     return {
@@ -269,16 +364,26 @@ export function useJobsSettings(): UseJobsSettingsReturn {
         handleFlushTmdbImages,
         handleClearSearchHistory,
         handleFlushLibrary,
+        handleFlushAllLibrary,
         handleSyncLibrary,
+        handleFlushMetricHistory,
+        handleFlushMetricHistoryIntegration,
         refreshCacheStats,
 
         monitorDefaults,
+        metricHistoryDefaults,
         isLoadingDefaults,
         isSavingDefaults,
-        defaultsChanged,
+        hasMonitorChanges,
+        hasMetricHistoryChanges,
+        hasAnyDefaultsChanges,
+        isMonitorNonFactory,
+        isMetricHistoryNonFactory,
         updateMonitorDefault,
+        updateMetricHistoryDefault,
         handleSaveDefaults,
-        handleRevertDefaults,
+        handleRevertMonitorDefaults,
+        handleRevertMetricHistoryDefaults,
 
         error,
         success,

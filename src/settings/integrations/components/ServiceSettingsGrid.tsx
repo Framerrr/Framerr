@@ -6,7 +6,7 @@
  * Simple services use StandardIntegrationForm, complex services use render props.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { AlertCircle } from 'lucide-react';
 import ServiceCard from './ServiceCard';
 import IntegrationTypeCard from './IntegrationTypeCard';
@@ -14,6 +14,8 @@ import ServiceConfigModal from './ServiceConfigModal';
 import StandardIntegrationForm from '../../../integrations/_core/StandardIntegrationForm';
 import { hasCustomForm } from '../../../integrations/_core/formRegistry';
 import { getIntegrationIcon } from '../../../integrations/_core/iconMapping';
+import MetricHistorySection from './MetricHistorySection';
+import type { MetricHistorySectionHandle } from './MetricHistorySection';
 import {
     CATEGORY_ORDER,
     IntegrationConfig,
@@ -110,7 +112,7 @@ interface ServiceSettingsGridProps {
     onToggle: (service: string) => void;
     onToggleInstance?: (instanceId: string) => void;  // Toggle specific instance enabled state
     onTest: (service: string) => Promise<void>;
-    onReset: (service: string) => void;
+
     onSave: (instanceId: string) => Promise<void>;
     onCancel: () => void;
     onDeleteInstance: (instanceId: string) => Promise<void>;
@@ -128,8 +130,6 @@ interface ServiceSettingsGridProps {
     renderEmby: (instanceId: string) => React.ReactNode;
     renderMonitor: (instanceId: string) => React.ReactNode;
     renderUptimeKuma: (instanceId: string) => React.ReactNode;
-    // Custom test handlers for complex services
-    onTestPlex?: () => Promise<void>;
     // Custom save/cancel for Monitor and UptimeKuma
     onMonitorSave?: () => Promise<void>;
     onMonitorCancel?: () => void;
@@ -146,7 +146,7 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
     onToggle,
     onToggleInstance,
     onTest,
-    onReset,
+
     onSave,
     onCancel,
     onDeleteInstance,
@@ -161,11 +161,13 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
     renderEmby,
     renderMonitor,
     renderUptimeKuma,
-    onTestPlex,
     onMonitorSave,
     onMonitorCancel,
     onUptimeKumaSave
 }) => {
+
+    // Ref for MetricHistorySection dirty state — committed on modal save
+    const metricHistoryRef = useRef<MetricHistorySectionHandle>(null);
 
     // Derive service definitions from schemas prop (or fallback to empty)
     const serviceDefinitions = useMemo(() => {
@@ -206,7 +208,6 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
         setActiveModal(null);
     };
 
-    // Handle modal save - save and close modal on success
     const handleModalSave = async (instanceId: string) => {
         // Get type from instances for special case handling
         const instance = instances.find(i => i.id === instanceId);
@@ -220,15 +221,13 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
         if (type === 'uptimekuma' && onUptimeKumaSave) {
             await onUptimeKumaSave();
         }
+        // Commit metric history dirty state (no-op if nothing changed)
+        await metricHistoryRef.current?.save();
         await onSave(instanceId);  // Single-instance save
         setActiveModal(null); // Close modal after successful save
     };
 
-    // Handle reset for modal - resets form but does NOT save or close modal
-    const handleModalReset = (instanceId: string) => {
-        onReset(instanceId);
-        // Modal stays open so user can see the reset state
-    };
+
 
     // Check if a service can be saved (required fields are filled)
     // Receives instanceId, extracts type from config._type
@@ -428,10 +427,9 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
                         onDisplayNameChange={(name) => onFieldChange(instance.id, '_displayName', name)}
                         onTest={
                             instance.type === 'monitor' ? undefined :
-                                instance.type === 'plex' ? onTestPlex :
-                                    () => onTest(instance.id)
+                                () => onTest(instance.id)
                         }
-                        onReset={() => handleModalReset(instance.id)}
+
                         onSave={() => handleModalSave(instance.id)}
                         onToggle={onToggleInstance ? () => onToggleInstance(instance.id) : undefined}
                         testState={testStates[instance.id]}
@@ -485,6 +483,10 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
                         ) : null}
                     >
                         {renderFormContent(instance.type, instance.id)}
+                        {/* Metric History controls for system-status integrations */}
+                        {schemaInfo?.metrics && schemaInfo.metrics.length > 0 && (
+                            <MetricHistorySection ref={metricHistoryRef} integrationId={instance.id} />
+                        )}
                     </ServiceConfigModal>
                 );
             })}

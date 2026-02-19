@@ -1,6 +1,7 @@
 import React from 'react';
-import { Star, Loader, CheckCircle2, Unlink, Link2 } from 'lucide-react';
+import { Loader, CheckCircle2, Unlink, Link2 } from 'lucide-react';
 import { Button } from '../../../shared/ui';
+import { getIconComponent } from '../../../utils/iconUtils';
 import type { LinkedAccountData } from '../types';
 
 interface OverseerrSectionProps {
@@ -26,11 +27,13 @@ export const OverseerrSection: React.FC<OverseerrSectionProps> = ({
     onOpenModal,
     onDisconnect
 }) => {
+    const OverseerrIcon = getIconComponent('system:overseerr');
+
     return (
         <div className="bg-theme-tertiary rounded-lg p-4 sm:p-6 border border-theme">
             <div className="flex items-start gap-3 sm:gap-4">
                 <div className={`p-2 sm:p-3 rounded-lg flex-shrink-0 ${isOverseerrLinked ? 'bg-success/20' : 'bg-theme-tertiary'}`}>
-                    <Star className={isOverseerrLinked ? 'text-success' : 'text-theme-secondary'} size={20} />
+                    <OverseerrIcon className={isOverseerrLinked ? 'text-success' : 'text-theme-secondary'} size={20} />
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -65,12 +68,12 @@ export const OverseerrSection: React.FC<OverseerrSectionProps> = ({
                                 )}
                             </div>
                             <Button
-                                variant="ghost"
+                                variant="secondary"
                                 size="sm"
                                 onClick={onDisconnect}
                                 disabled={overseerrUnlinking}
                                 icon={overseerrUnlinking ? Loader : Unlink}
-                                className="text-warning hover:text-warning hover:bg-warning/10"
+                                style={{ backgroundColor: 'rgba(234, 179, 8, 0.15)', color: 'var(--warning)', borderColor: 'rgba(234, 179, 8, 0.3)' }}
                             >
                                 {overseerrUnlinking ? 'Disconnecting...' : 'Disconnect Overseerr'}
                             </Button>
@@ -89,7 +92,7 @@ export const OverseerrSection: React.FC<OverseerrSectionProps> = ({
                                 </>
                             ) : (
                                 <p className="mb-3">
-                                    Link your Overseerr account to receive personalized notifications for your requests.
+                                    Link your Overseerr account to see your requests and receive personalized notifications.
                                 </p>
                             )}
                             <Button

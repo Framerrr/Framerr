@@ -272,6 +272,23 @@ export interface WidgetPlugin {
     compatibleIntegrations?: string[]; // ['plex'], ['sonarr', 'radarr']
     multiIntegration?: boolean; // True = calendar uses multiple
 
+    /**
+     * Custom grouping for multi-integration dropdowns in config modal.
+     * If defined, groups integration types into labeled dropdowns.
+     * If not defined, defaults to one dropdown per integration type.
+     * 
+     * Example: media-search groups plex+jellyfin+emby into "Library Sources"
+     * and overseerr into its own "Overseerr" dropdown.
+     */
+    integrationGroups?: Array<{
+        /** Config key for storing selected IDs (e.g., 'libraryIntegrationIds') */
+        key: string;
+        /** Display label (e.g., 'Library Sources') */
+        label: string;
+        /** Which integration types belong to this group */
+        types: string[];
+    }>;
+
     // === ACCESS MODE (optional) ===
     /**
      * If true, widget is globally available to all users without admin sharing.

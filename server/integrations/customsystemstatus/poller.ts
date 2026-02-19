@@ -13,13 +13,13 @@ import { httpsAgent } from '../../utils/httpsAgent';
 // ============================================================================
 
 /** Polling interval in milliseconds (2 seconds) */
-export const intervalMs = 2000;
+export const intervalMs = 5000;
 
 /** Custom system status data shape for SSE */
 export interface CustomSystemData {
     cpu: number;
     memory: number;
-    temperature: number;
+    temperature: number | null;
     uptime: string;
 }
 
@@ -45,7 +45,8 @@ export async function poll(instance: PluginInstance): Promise<CustomSystemData |
         const data = response.data;
 
         // Normalize the response
-        let cpu = 0, memory = 0, temperature = 0, uptime = '--';
+        let cpu = 0, memory = 0, uptime = '--';
+        let temperature: number | null = null;
 
         if (typeof data.cpu === 'number') {
             cpu = Math.round(data.cpu);

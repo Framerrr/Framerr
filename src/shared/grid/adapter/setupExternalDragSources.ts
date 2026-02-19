@@ -252,6 +252,9 @@ export function setupExternalDragSources(
             // Setup MutationObserver to watch for placeholder
             setupPlaceholderWatcher();
 
+            // Notify auto-scroll hook that an external drag started
+            window.dispatchEvent(new CustomEvent('external-drag-start'));
+
             // Track helper position for FLIP animation on drop
             const trackPosition = () => {
                 if (currentHelper) {
@@ -280,6 +283,8 @@ export function setupExternalDragSources(
                     }
                 }
                 currentHelper = null;
+                // Notify auto-scroll hook that external drag ended
+                window.dispatchEvent(new CustomEvent('external-drag-stop'));
                 document.removeEventListener('mousemove', trackPosition);
                 document.removeEventListener('touchmove', trackPosition);
                 document.removeEventListener('mouseup', cleanupDrag);
@@ -370,6 +375,9 @@ export function setupExternalDragSources(
                 isMorphed = false;
                 setupPlaceholderWatcher();
 
+                // Notify auto-scroll hook that an external drag started
+                window.dispatchEvent(new CustomEvent('external-drag-start'));
+
                 // Track helper position for FLIP animation on drop
                 const trackPosition = () => {
                     if (currentHelper) {
@@ -392,6 +400,8 @@ export function setupExternalDragSources(
                         }
                     }
                     currentHelper = null;
+                    // Notify auto-scroll hook that external drag ended
+                    window.dispatchEvent(new CustomEvent('external-drag-stop'));
                     document.removeEventListener('mousemove', trackPosition);
                     document.removeEventListener('touchmove', trackPosition);
                     document.removeEventListener('mouseup', cleanupDrag);
@@ -469,6 +479,15 @@ export function setupExternalDragSources(
     function morphToPlaceholder(placeholder: HTMLElement) {
         if (!currentHelper) return;
 
+        // Cache dimensions NOW — placeholder may be removed from DOM if user
+        // drags off grid before the 60ms timeout fires.
+        // Use getBoundingClientRect() so dimensions account for CSS transform: scale()
+        // (offsetWidth/offsetHeight return unscaled values, which are too large
+        // when the grid is scaled down in the template builder).
+        const placeholderRect = placeholder.getBoundingClientRect();
+        const targetWidth = placeholderRect.width;
+        const targetHeight = placeholderRect.height;
+
         const cardClone = currentHelper.querySelector('.morph-card-clone') as HTMLElement;
         const portalContent = currentHelper.querySelector('.morph-content') as HTMLElement;
 
@@ -482,12 +501,8 @@ export function setupExternalDragSources(
         setTimeout(() => {
             if (!currentHelper) return;
 
-            // Use OFFSET (unscaled) dimensions
-            const offsetWidth = placeholder.offsetWidth;
-            const offsetHeight = placeholder.offsetHeight;
-
-            currentHelper.style.width = `${offsetWidth}px`;
-            currentHelper.style.height = `${offsetHeight}px`;
+            currentHelper.style.width = `${targetWidth}px`;
+            currentHelper.style.height = `${targetHeight}px`;
         }, 60); // Start size morph while card is still fading
 
         // Step 3: Fade in widget content after card is fully gone + size has started

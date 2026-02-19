@@ -8,12 +8,13 @@
 import { lazy } from 'react';
 import { Activity } from 'lucide-react';
 import type { WidgetPlugin } from '../types';
+import DiskConfigPanel from './components/DiskConfigPanel';
 import MetricLayoutEditor from './components/MetricLayoutEditor';
 
 export const plugin: WidgetPlugin = {
     id: 'system-status',
     name: 'System Status',
-    description: 'CPU, memory, and temperature monitoring',
+    description: 'System metrics monitoring — CPU, memory, temperature, disk, and network',
     category: 'system',
     icon: Activity,
     sizing: {
@@ -22,13 +23,17 @@ export const plugin: WidgetPlugin = {
         max: { w: 24, h: 12 },
     },
     component: lazy(() => import('./SystemStatusWidget')),
-    compatibleIntegrations: ['glances', 'customsystemstatus'],
+    compatibleIntegrations: ['glances', 'customsystemstatus', 'unraid'],
     defaultConfig: {
         layout: 'grid',
         showCpu: true,
         showMemory: true,
         showTemperature: true,
         showUptime: true,
+        showDiskUsage: true,
+        showNetworkUp: true,
+        showNetworkDown: true,
+        diskCollapsed: 'collapsed',
     },
     configConstraints: {
         contentPadding: 'none',  // Widget handles its own padding via the grid
@@ -52,7 +57,17 @@ export const plugin: WidgetPlugin = {
                     { value: 'showMemory', label: 'Memory', defaultValue: true },
                     { value: 'showTemperature', label: 'Temp', defaultValue: true },
                     { value: 'showUptime', label: 'Uptime', defaultValue: true },
+                    { value: 'showDiskUsage', label: 'Disk', defaultValue: true },
+                    { value: 'showNetworkUp', label: 'Net ↑', defaultValue: true },
+                    { value: 'showNetworkDown', label: 'Net ↓', defaultValue: true },
                 ],
+            },
+            {
+                key: 'diskConfig',
+                label: '',
+                type: 'component',
+                component: DiskConfigPanel,
+                visibleWhen: { key: 'showDiskUsage', value: [true, undefined] },
             },
             {
                 key: 'metricLayout',

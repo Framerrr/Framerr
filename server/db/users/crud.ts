@@ -25,7 +25,8 @@ export async function getUser(username: string): Promise<User | null> {
         const user = getDb().prepare(`
             SELECT id, username, password as passwordHash, username as displayName,
                    group_id as "group", is_setup_admin as isSetupAdmin,
-                   created_at as createdAt, last_login as lastLogin
+                   created_at as createdAt, last_login as lastLogin,
+                   walkthrough_flows as walkthroughFlows
             FROM users
             WHERE LOWER(username) = LOWER(?)
         `).get(username) as UserRow | undefined;
@@ -35,7 +36,8 @@ export async function getUser(username: string): Promise<User | null> {
         return {
             ...user,
             isSetupAdmin: Boolean(user.isSetupAdmin),
-            preferences: user.preferences ? JSON.parse(user.preferences) : undefined
+            preferences: user.preferences ? JSON.parse(user.preferences) : undefined,
+            walkthroughFlows: user.walkthroughFlows ? JSON.parse(user.walkthroughFlows) : {}
         };
     } catch (error) {
         logger.error(`[Users] Failed to get by username: username="${username}" error="${(error as Error).message}"`);
@@ -51,7 +53,8 @@ export async function getUserById(userId: string): Promise<User | null> {
         const user = getDb().prepare(`
             SELECT id, username, password as passwordHash, username as displayName,
                    group_id as "group", is_setup_admin as isSetupAdmin,
-                   created_at as createdAt, last_login as lastLogin
+                   created_at as createdAt, last_login as lastLogin,
+                   walkthrough_flows as walkthroughFlows
             FROM users
             WHERE id = ?
         `).get(userId) as UserRow | undefined;
@@ -61,7 +64,8 @@ export async function getUserById(userId: string): Promise<User | null> {
         return {
             ...user,
             isSetupAdmin: Boolean(user.isSetupAdmin),
-            preferences: user.preferences ? JSON.parse(user.preferences) : undefined
+            preferences: user.preferences ? JSON.parse(user.preferences) : undefined,
+            walkthroughFlows: user.walkthroughFlows ? JSON.parse(user.walkthroughFlows) : {}
         };
     } catch (error) {
         logger.error(`[Users] Failed to get by ID: id=${userId} error="${(error as Error).message}"`);
@@ -277,6 +281,7 @@ export async function listUsers(): Promise<(Omit<User, 'passwordHash'> & { profi
             ...user,
             isSetupAdmin: Boolean(user.isSetupAdmin),
             preferences: user.preferences ? JSON.parse(user.preferences) : DEFAULT_PREFS,
+            walkthroughFlows: user.walkthroughFlows ? JSON.parse(user.walkthroughFlows as string) : {},
             profilePictureUrl: user.profilePictureUrl || undefined
         }));
     } catch (error) {
@@ -301,7 +306,8 @@ export async function getAllUsers(): Promise<User[]> {
         return users.map(user => ({
             ...user,
             isSetupAdmin: Boolean(user.isSetupAdmin),
-            preferences: user.preferences ? JSON.parse(user.preferences) : DEFAULT_PREFS
+            preferences: user.preferences ? JSON.parse(user.preferences) : DEFAULT_PREFS,
+            walkthroughFlows: user.walkthroughFlows ? JSON.parse(user.walkthroughFlows as string) : {}
         }));
     } catch (error) {
         logger.error(`[Users] Failed to get all: error="${(error as Error).message}"`);
@@ -320,5 +326,65 @@ export function hasUsers(): boolean {
     } catch (error) {
         logger.error(`[Users] Failed to check count: error="${(error as Error).message}"`);
         return false;
+    }
+}
+
+// ============================================================================
+// Walkthrough Flow Helpers
+// ============================================================================
+
+/**
+ * Get walkthrough flow completion status for a user
+ */
+export function getWalkthroughFlows(userId: string): Record<string, boolean> {
+    try {
+        const row = getDb().prepare(
+            'SELECT walkthrough_flows FROM users WHERE id = ?'
+        ).get(userId) as { walkthrough_flows: string | null } | undefined;
+
+        if (!row?.walkthrough_flows) return {};
+        return JSON.parse(row.walkthrough_flows);
+    } catch (error) {
+        logger.error(`[Users] Failed to get walkthrough flows: id=${userId} error="${(error as Error).message}"`);
+        return {};
+    }
+}
+
+/**
+ * Set a walkthrough flow as completed or reset it
+ */
+export function setWalkthroughFlowCompleted(userId: string, flowId: string, completed: boolean): void {
+    try {
+        const current = getWalkthroughFlows(userId);
+        if (completed) {
+            current[flowId] = true;
+        } else {
+            delete current[flowId];
+        }
+
+        getDb().prepare(
+            'UPDATE users SET walkthrough_flows = ? WHERE id = ?'
+        ).run(JSON.stringify(current), userId);
+
+        logger.info(`[Users] Walkthrough flow ${completed ? 'completed' : 'reset'}: user=${userId} flow=${flowId}`);
+    } catch (error) {
+        logger.error(`[Users] Failed to set walkthrough flow: id=${userId} flow=${flowId} error="${(error as Error).message}"`);
+        throw error;
+    }
+}
+
+/**
+ * Reset all walkthrough flows for a user
+ */
+export function resetAllWalkthroughFlows(userId: string): void {
+    try {
+        getDb().prepare(
+            "UPDATE users SET walkthrough_flows = '{}' WHERE id = ?"
+        ).run(userId);
+
+        logger.info(`[Users] All walkthrough flows reset: user=${userId}`);
+    } catch (error) {
+        logger.error(`[Users] Failed to reset walkthrough flows: id=${userId} error="${(error as Error).message}"`);
+        throw error;
     }
 }

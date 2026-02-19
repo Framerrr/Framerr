@@ -19,6 +19,7 @@ export interface UserRow {
     lastLogin: number | null;
     preferences?: string;
     requirePasswordReset?: number;
+    walkthroughFlows?: string;
 }
 
 export interface SessionRow {
@@ -44,6 +45,7 @@ export interface User {
     createdAt: number;
     lastLogin: number | null;
     preferences?: Record<string, unknown>;
+    walkthroughFlows?: Record<string, boolean>;
 }
 
 export interface Session {

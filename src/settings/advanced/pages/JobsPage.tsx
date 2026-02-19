@@ -27,15 +27,23 @@ export const JobsPage = (): React.JSX.Element => {
         handleFlushTmdbImages,
         handleClearSearchHistory,
         handleFlushLibrary,
+        handleFlushAllLibrary,
         handleSyncLibrary,
+        handleFlushMetricHistory,
+        handleFlushMetricHistoryIntegration,
 
         monitorDefaults,
+        metricHistoryDefaults,
         isLoadingDefaults,
         isSavingDefaults,
-        defaultsChanged,
+        hasAnyDefaultsChanges,
+        isMonitorNonFactory,
+        isMetricHistoryNonFactory,
         updateMonitorDefault,
+        updateMetricHistoryDefault,
         handleSaveDefaults,
-        handleRevertDefaults,
+        handleRevertMonitorDefaults,
+        handleRevertMetricHistoryDefaults,
 
         error,
         success,
@@ -72,18 +80,26 @@ export const JobsPage = (): React.JSX.Element => {
                 onFlushTmdbImages={handleFlushTmdbImages}
                 onClearSearchHistory={handleClearSearchHistory}
                 onFlushLibrary={handleFlushLibrary}
+                onFlushAllLibrary={handleFlushAllLibrary}
                 onSyncLibrary={handleSyncLibrary}
+                onFlushMetricHistory={handleFlushMetricHistory}
+                onFlushMetricHistoryIntegration={handleFlushMetricHistoryIntegration}
             />
 
-            {/* Monitor Defaults */}
+            {/* Defaults (Monitor + Metric History) */}
             <DefaultsSection
-                defaults={monitorDefaults}
+                monitorDefaults={monitorDefaults}
+                metricHistoryDefaults={metricHistoryDefaults}
                 isLoading={isLoadingDefaults}
                 isSaving={isSavingDefaults}
-                hasChanges={defaultsChanged}
-                onUpdate={updateMonitorDefault}
+                hasAnyChanges={hasAnyDefaultsChanges}
+                isMonitorNonFactory={isMonitorNonFactory}
+                isMetricHistoryNonFactory={isMetricHistoryNonFactory}
+                onUpdateMonitor={updateMonitorDefault}
+                onUpdateMetricHistory={updateMetricHistoryDefault}
                 onSave={handleSaveDefaults}
-                onRevert={handleRevertDefaults}
+                onRevertMonitor={handleRevertMonitorDefaults}
+                onRevertMetricHistory={handleRevertMetricHistoryDefaults}
             />
         </SettingsPage>
     );

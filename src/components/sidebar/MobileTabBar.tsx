@@ -1,9 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, LayoutDashboard, ChevronUp, LogOut, UserCircle, Mail, LayoutGrid, Settings as SettingsIcon, Undo2, Redo2, Plus, Save, Link, Unlink } from 'lucide-react';
+import { useDrag } from '@use-gesture/react';
 import { useSharedSidebar } from './SharedSidebarContext';
 import { sidebarSpring } from './types';
-import NotificationCenter from '../notifications/NotificationCenter';
+import MenuContentShell from './MenuContentShell';
+import NotificationCenter, { type NotificationFilterType } from '../notifications/NotificationCenter';
+import NotificationCenterHeader from '../notifications/NotificationCenterHeader';
 import { triggerHaptic } from '../../utils/haptics';
 
 /**
@@ -36,9 +39,10 @@ export function MobileTabBar() {
     // Pull-to-close gesture state
     const [dragOffset, setDragOffset] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
-    const dragStartY = useRef<number | null>(null);
-    const scrollableElementRef = useRef<HTMLElement | null>(null);
     const contentRef = useRef<HTMLDivElement>(null);
+
+    // Lifted notification filter state (shared between header and body slots)
+    const [notificationFilter, setNotificationFilter] = useState<NotificationFilterType>('all');
 
     // Check if currently on Dashboard page (for swipe-to-edit feature)
     const isOnDashboard = !window.location.hash || window.location.hash === '#dashboard';
@@ -165,11 +169,11 @@ export function MobileTabBar() {
     }, [showEditConfirm]);
 
     // ==========================================
-    // Pull-to-close gesture handlers
+    // Pull-to-close gesture (@use-gesture/react)
     // ==========================================
 
     // Find nearest scrollable parent element
-    const findScrollableParent = (el: HTMLElement | null): HTMLElement | null => {
+    const findScrollableParent = useCallback((el: HTMLElement | null): HTMLElement | null => {
         while (el) {
             const style = getComputedStyle(el);
             const isScrollable = style.overflowY === 'auto' || style.overflowY === 'scroll';
@@ -180,87 +184,75 @@ export function MobileTabBar() {
             el = el.parentElement;
         }
         return null;
-    };
+    }, []);
 
-    const handleContentTouchStart = (e: React.TouchEvent) => {
-        if (!isMobileMenuOpen) return;
-
-        dragStartY.current = e.touches[0].clientY;
-        scrollableElementRef.current = findScrollableParent(e.target as HTMLElement);
-        setIsDragging(false);
-    };
-
-    const handleContentTouchEnd = () => {
-        if (!isDragging) {
-            dragStartY.current = null;
-            scrollableElementRef.current = null;
-            return;
-        }
-
-        const threshold = 100; // pixels to trigger close
-
-        if (dragOffset > threshold) {
-            // Close the menu with haptic feedback
-            triggerHaptic();
-            setIsMobileMenuOpen(false);
-        }
-
-        // Reset state
-        setDragOffset(0);
-        setIsDragging(false);
-        dragStartY.current = null;
-        scrollableElementRef.current = null;
-    };
-
-    // Use non-passive touchmove for iOS compatibility (allows preventDefault)
+    // Reset drag state when menu closes
     useEffect(() => {
         if (!isMobileMenuOpen) {
-            // Reset drag state when menu closes
             setDragOffset(0);
             setIsDragging(false);
-            return;
         }
+    }, [isMobileMenuOpen]);
 
-        const contentEl = contentRef.current;
-        if (!contentEl) return;
+    useDrag(
+        ({ down, movement: [, my], velocity: [, vy], direction: [, dy], first, event, cancel }) => {
+            if (!isMobileMenuOpen) return;
 
-        const handleTouchMove = (e: TouchEvent) => {
-            if (dragStartY.current === null) return;
-
-            const currentY = e.touches[0].clientY;
-            const deltaY = currentY - dragStartY.current;
-
-            // Check if touch started on scrollable content
-            const scrollEl = scrollableElementRef.current;
-
-            if (scrollEl) {
-                // Content is scrollable - check scroll position
-                if (scrollEl.scrollTop > 0) {
-                    // Not at top, let native scroll handle it
+            // On first touch, check if we're in scrollable content
+            if (first) {
+                const target = event.target as HTMLElement;
+                const scrollEl = findScrollableParent(target);
+                if (scrollEl && scrollEl.scrollTop > 0) {
+                    // Content is scrolled down — let native scroll handle it
+                    cancel();
                     return;
                 }
-                // At top - if pulling down, intercept for close gesture
-                if (deltaY > 0) {
-                    e.preventDefault();
-                    setIsDragging(true);
-                    // Apply rubber-band resistance (60% of actual drag)
-                    setDragOffset(Math.max(0, deltaY * 0.6));
-                }
-                // Pulling up at top - let scroll handle (will bounce)
-            } else {
-                // No scrollable parent - direct pull to close
-                if (deltaY > 0) {
-                    e.preventDefault();
-                    setIsDragging(true);
-                    setDragOffset(Math.max(0, deltaY * 0.6));
-                }
             }
-        };
 
-        // Must use passive: false to allow preventDefault on iOS
-        contentEl.addEventListener('touchmove', handleTouchMove, { passive: false });
-        return () => contentEl.removeEventListener('touchmove', handleTouchMove);
-    }, [isMobileMenuOpen]);
+            // Prevent native scroll while we're handling the gesture
+            if (event.cancelable) {
+                event.preventDefault();
+            }
+
+            if (down) {
+                if (my > 0) {
+                    // Pulling DOWN — close gesture with logarithmic rubber-band
+                    const rubberBand = Math.log2(1 + my * 0.01) * 100;
+                    setDragOffset(Math.max(0, rubberBand));
+                } else {
+                    // Pulling UP past max height — Apple-style overscroll
+                    // Starts loose, gets progressively tighter, caps at MAX_STRETCH
+                    const MAX_STRETCH = 60; // max px the menu can stretch beyond 75vh
+                    const absMy = Math.abs(my);
+                    const stretch = MAX_STRETCH * (1 - 1 / (1 + absMy / (MAX_STRETCH * 3)));
+                    setDragOffset(-stretch); // negative = grow beyond max
+                }
+                setIsDragging(true);
+            } else {
+                // Released — decide: close or snap back
+                if (dragOffset > 0) {
+                    // Was pulling down — check close threshold
+                    const CLOSE_THRESHOLD = 80;  // px offset
+                    const VELOCITY_THRESHOLD = 0.5; // px/ms
+
+                    if (dragOffset > CLOSE_THRESHOLD || (vy > VELOCITY_THRESHOLD && dy > 0)) {
+                        triggerHaptic();
+                        setIsMobileMenuOpen(false);
+                    }
+                }
+                // Either direction: snap back to rest
+                setDragOffset(0);
+                setIsDragging(false);
+            }
+        },
+        {
+            target: contentRef,
+            eventOptions: { passive: false }, // Required for iOS preventDefault
+            axis: 'y',
+            filterTaps: true,
+            threshold: [0, 10], // 10px dead zone before activating
+        }
+    );
 
     return (
         <>
@@ -319,140 +311,107 @@ export function MobileTabBar() {
                 />
 
                 {/* Expandable content - uses flex-1 to fill space above tab bar */}
-                <motion.div
-                    ref={contentRef}
-                    className="flex flex-col"
-                    initial={false}
-                    animate={{
-                        opacity: isMobileMenuOpen ? 1 : 0,
-                    }}
-                    transition={{
-                        type: 'spring',
-                        stiffness: 350,
-                        damping: 35,
-                        mass: 0.7,
-                    }}
-                    style={{
-                        flex: 1,
-                        minHeight: 0,
-                        pointerEvents: isMobileMenuOpen ? 'auto' : 'none',
-                        overflow: 'hidden',
-                        touchAction: 'pan-y',
-                    }}
-                    onTouchStart={handleContentTouchStart}
-                    onTouchEnd={handleContentTouchEnd}
-                >
-                    {/* Content wrapper - no translateY, just flex container */}
-                    <div className="flex flex-col flex-1" style={{ minHeight: 0 }}>
-                        {/* STAGE - Tabs OR NotificationCenter */}
-                        <AnimatePresence mode="wait">
-                            {showNotificationCenter ? (
-                                <motion.div
-                                    key="notifications"
-                                    initial={{ y: 20, opacity: 0 }}
-                                    animate={{ y: 0, opacity: 1 }}
-                                    exit={{ y: -20, opacity: 0 }}
-                                    transition={{ type: 'spring', stiffness: 220, damping: 30 }}
-                                    className="flex-1 flex flex-col"
-                                    style={{ minHeight: 0 }}
-                                >
-                                    <NotificationCenter
-                                        isMobile={true}
-                                        onClose={() => setShowNotificationCenter(false)}
-                                    />
-                                </motion.div>
-                            ) : (
-                                <motion.div
-                                    key="tabs"
-                                    initial={{ y: 20, opacity: 0 }}
-                                    animate={{ y: 0, opacity: 1 }}
-                                    exit={{ y: -20, opacity: 0 }}
-                                    transition={{ type: 'spring', stiffness: 220, damping: 30 }}
-                                    className="flex flex-col flex-1"
-                                    style={{ minHeight: 0 }}
-                                    onTouchMove={(e) => e.stopPropagation()}
-                                >
-                                    <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-slate-700/50">
-                                        <div className="flex items-center gap-3 text-accent font-bold text-xl">
-                                            {renderIcon(userSettings?.serverIcon, 24)}
-                                            <span className="gradient-text">{userSettings?.serverName || 'Dashboard'}</span>
-                                        </div>
-                                    </div>
+                <MenuContentShell
+                    activeView={showNotificationCenter ? 'notifications' : 'tabs'}
+                    isOpen={isMobileMenuOpen}
+                    contentRef={contentRef}
 
-                                    {/* Scroll container */}
-                                    <div className="flex-1 overflow-hidden">
-                                        <div
-                                            className={`h-full overflow-x-hidden custom-scrollbar px-6 pt-4 pb-4 ${isDragging ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
-                                            style={{
-                                                overscrollBehavior: 'contain',
-                                                WebkitOverflowScrolling: 'touch',
-                                                touchAction: isDragging ? 'none' : 'pan-y'
-                                            }}
-                                        >
-                                            <nav className="space-y-4">
-                                                {tabs && tabs.length > 0 && (
-                                                    <div>
-                                                        <motion.div
-                                                            className="text-xs font-medium text-theme-tertiary uppercase tracking-wider mb-2"
+                    tabsHeader={
+                        <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-theme">
+                            <div className="flex items-center gap-3 text-accent font-bold text-xl">
+                                {renderIcon(userSettings?.serverIcon, 24)}
+                                <span className="gradient-text">{userSettings?.serverName || 'Dashboard'}</span>
+                            </div>
+                        </div>
+                    }
+                    tabsBody={
+                        <div className="h-full overflow-hidden">
+                            <div
+                                className={`h-full overflow-x-hidden custom-scrollbar px-6 pt-4 pb-4 ${isDragging ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
+                                style={{
+                                    overscrollBehavior: 'contain',
+                                    WebkitOverflowScrolling: 'touch',
+                                    touchAction: isDragging ? 'none' : 'pan-y'
+                                }}
+                            >
+                                <nav className="space-y-4">
+                                    {tabs && tabs.length > 0 && (
+                                        <div>
+                                            <motion.div
+                                                className="text-xs font-medium text-theme-tertiary uppercase tracking-wider mb-2"
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: isMobileMenuOpen ? 1 : 0 }}
+                                                transition={{
+                                                    type: 'spring',
+                                                    stiffness: 350,
+                                                    damping: 35,
+                                                }}
+                                            >
+                                                Tabs
+                                            </motion.div>
+                                            <div className="space-y-1">
+                                                {tabs.map((tab, index) => {
+                                                    const isActive = hash === tab.slug;
+                                                    return (
+                                                        <motion.a
+                                                            key={tab.id}
+                                                            href={`/#${tab.slug}`}
+                                                            onClick={(e) => { handleNavigation(e, `#${tab.slug}`); if (!dashboardEdit?.editMode || !dashboardEdit?.hasUnsavedChanges) setIsMobileMenuOpen(false); }}
+                                                            className={`w-full flex items-center gap-3 py-3 px-4 rounded-xl transition-colors relative ${isActive ? 'text-accent' : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-tertiary'}`}
                                                             initial={{ opacity: 0 }}
-                                                            animate={{ opacity: isMobileMenuOpen ? 1 : 0 }}
+                                                            animate={{
+                                                                opacity: isMobileMenuOpen ? 1 : 0,
+                                                            }}
                                                             transition={{
                                                                 type: 'spring',
                                                                 stiffness: 350,
                                                                 damping: 35,
                                                             }}
+                                                            whileTap={{ scale: 0.97 }}
                                                         >
-                                                            Tabs
-                                                        </motion.div>
-                                                        <div className="space-y-1">
-                                                            {tabs.map((tab, index) => {
-                                                                const isActive = hash === tab.slug;
-                                                                return (
-                                                                    <motion.a
-                                                                        key={tab.id}
-                                                                        href={`/#${tab.slug}`}
-                                                                        onClick={(e) => { handleNavigation(e, `#${tab.slug}`); if (!dashboardEdit?.editMode || !dashboardEdit?.hasUnsavedChanges) setIsMobileMenuOpen(false); }}
-                                                                        className={`w-full flex items-center gap-3 py-3 px-4 rounded-xl transition-colors relative ${isActive ? 'text-accent' : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-tertiary'}`}
-                                                                        initial={{ opacity: 0 }}
-                                                                        animate={{
-                                                                            opacity: isMobileMenuOpen ? 1 : 0,
-                                                                        }}
-                                                                        transition={{
-                                                                            type: 'spring',
-                                                                            stiffness: 350,
-                                                                            damping: 35,
-                                                                        }}
-                                                                        whileTap={{ scale: 0.97 }}
-                                                                    >
-                                                                        {/* Active Indicator for Menu List */}
-                                                                        {isActive && (
-                                                                            <motion.div
-                                                                                layoutId="mobileTabIndicator"
-                                                                                className="absolute inset-0 bg-accent/20 rounded-xl shadow-lg"
-                                                                                transition={sidebarSpring}
-                                                                            />
-                                                                        )}
+                                                            {/* Active Indicator for Menu List */}
+                                                            {isActive && (
+                                                                <motion.div
+                                                                    layoutId="mobileTabIndicator"
+                                                                    className="absolute inset-0 bg-accent/20 rounded-xl shadow-lg"
+                                                                    transition={sidebarSpring}
+                                                                />
+                                                            )}
 
-                                                                        {/* Content */}
-                                                                        <div className="relative z-10 flex items-center gap-3">
-                                                                            {renderIcon(tab.icon, 18)}
-                                                                            <span className="font-medium">{tab.name}</span>
-                                                                        </div>
-                                                                    </motion.a>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </nav>
+                                                            {/* Content */}
+                                                            <div className="relative z-10 flex items-center gap-3">
+                                                                {renderIcon(tab.icon, 18)}
+                                                                <span className="font-medium">{tab.name}</span>
+                                                            </div>
+                                                        </motion.a>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        {/* CONTROLS - OUTSIDE AnimatePresence (no animation during view switch) */}
-                        {/* Inside translateY wrapper (slides with content for uniform clipping) */}
+                                    )}
+                                </nav>
+                            </div>
+                        </div>
+                    }
+                    notificationsHeader={
+                        <NotificationCenterHeader
+                            activeFilter={notificationFilter}
+                            onFilterChange={setNotificationFilter}
+                            onClose={() => setShowNotificationCenter(false)}
+                        />
+                    }
+                    notificationsBody={
+                        <div className="h-full flex flex-col" style={{ minHeight: 0 }}>
+                            <NotificationCenter
+                                isMobile={true}
+                                onClose={() => setShowNotificationCenter(false)}
+                                excludeHeader={true}
+                                activeFilter={notificationFilter}
+                                onFilterChange={setNotificationFilter}
+                            />
+                        </div>
+                    }
+                    footer={
                         <div className="px-6 pt-4 pb-4 flex-shrink-0" style={{ borderTop: '1px solid rgba(100, 116, 139, 0.3)' }}>
                             <button
                                 onClick={() => {
@@ -486,8 +445,8 @@ export function MobileTabBar() {
                                 <span className="font-medium">Logout</span>
                             </button>
                         </div>
-                    </div>
-                </motion.div>
+                    }
+                />
 
                 {/* Tab Bar - fixed height at bottom, flex-shrink-0 */}
                 <div
@@ -568,6 +527,7 @@ export function MobileTabBar() {
                                 <button
                                     onClick={() => { triggerHaptic(); dashboardEdit?.handlers?.handleAddWidget(); }}
                                     className="flex flex-col items-center gap-1 text-accent active:text-accent/80 transition-all py-2 px-2 rounded-lg active:bg-accent/20 min-w-[50px]"
+                                    data-walkthrough="add-widget-button"
                                 >
                                     <Plus size={22} />
                                     <span className="text-[10px] font-medium">Add</span>
@@ -662,7 +622,7 @@ export function MobileTabBar() {
                                         if (isAlreadyOnDashboard) {
                                             e.preventDefault();
                                             setIsMobileMenuOpen(false);
-                                            document.getElementById('main-scroll')?.scrollTo({ top: 0, behavior: 'smooth' });
+                                            document.getElementById('dashboard-layer')?.scrollTo({ top: 0, behavior: 'smooth' });
                                             return;
                                         }
                                         handleNavigation(e, '#dashboard');

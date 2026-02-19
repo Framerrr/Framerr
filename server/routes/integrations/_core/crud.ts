@@ -22,6 +22,7 @@ import { invalidateSystemSettings } from '../../../utils/invalidateUserSettings'
 import * as integrationInstancesDb from '../../../db/integrationInstances';
 import logger from '../../../utils/logger';
 import type { AuthenticatedRequest } from './types';
+import { redactConfig, mergeConfigWithExisting } from './redact';
 
 const router = Router();
 
@@ -32,7 +33,12 @@ const router = Router();
 router.get('/', requireAuth, requireAdmin, async (_req: Request, res: Response) => {
     try {
         const instances = integrationInstancesDb.getAllInstances();
-        res.json({ integrations: instances });
+        // Redact password-type fields so secrets never appear in browser network tab
+        const redacted = instances.map(inst => ({
+            ...inst,
+            config: redactConfig(inst.config, inst.type)
+        }));
+        res.json({ integrations: redacted });
     } catch (error) {
         logger.error(`[Integrations] Failed to list: error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Failed to fetch integrations' });
@@ -101,7 +107,6 @@ router.get('/shared', requireAuth, async (req: Request, res: Response) => {
                     type: i.type,
                     displayName: i.displayName,
                     enabled: true,
-                    config: i.config || {},
                     createdAt: i.createdAt,
                     updatedAt: i.updatedAt,
                     // Legacy fields for widget compatibility
@@ -140,7 +145,6 @@ router.get('/shared', requireAuth, async (req: Request, res: Response) => {
                     type: instance.type,
                     displayName: instance.displayName,
                     enabled: true,
-                    config: instance.config || {},
                     createdAt: instance.createdAt,
                     updatedAt: instance.updatedAt,
                     // Legacy fields for widget compatibility
@@ -170,7 +174,7 @@ router.get('/:id', requireAuth, requireAdmin, async (req: Request, res: Response
             return;
         }
 
-        res.json({ integration: instance });
+        res.json({ integration: { ...instance, config: redactConfig(instance.config, instance.type) } });
     } catch (error) {
         logger.error(`[Integrations] Failed to get: id=${req.params.id} error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Failed to fetch integration' });
@@ -230,9 +234,14 @@ router.put('/:id', requireAuth, requireAdmin, async (req: Request, res: Response
         const previousInstance = integrationInstancesDb.getInstanceById(req.params.id);
         const previousConfig = previousInstance?.config;
 
+        // Merge sentinel values with existing DB values for password fields
+        const mergedConfig = config && previousConfig
+            ? mergeConfigWithExisting(config, previousConfig, previousInstance!.type)
+            : config;
+
         const instance = integrationInstancesDb.updateInstance(req.params.id, {
             displayName: finalDisplayName,
-            config,
+            config: mergedConfig,
             enabled
         });
 
@@ -257,7 +266,15 @@ router.put('/:id', requireAuth, requireAdmin, async (req: Request, res: Response
             invalidateSystemSettings('integrations');
         }
 
-        res.json({ integration: instance });
+        // Notify metric history service of integration save (triggers re-probe)
+        try {
+            const { metricHistoryService } = await import('../../../services/MetricHistoryService');
+            await metricHistoryService.onIntegrationSaved(req.params.id);
+        } catch {
+            // Non-critical — metric history may not be enabled
+        }
+
+        res.json({ integration: { ...instance, config: redactConfig(instance.config, instance.type) } });
     } catch (error) {
         logger.error(`[Integrations] Failed to update: id=${req.params.id} error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Failed to update integration' });
@@ -286,6 +303,11 @@ router.delete('/:id', requireAuth, requireAdmin, async (req: Request, res: Respo
         if (instance) {
             const { onIntegrationDeleted } = await import('../../../services/IntegrationManager');
             await onIntegrationDeleted(req.params.id, instance.type);
+
+            // Cleanup: metric history data + source records (always, even if feature disabled)
+            const { metricHistoryService } = await import('../../../services/MetricHistoryService');
+            await metricHistoryService.clearForIntegration(req.params.id);
+            logger.debug(`[Integrations] Cleared metric history for deleted integration: id=${req.params.id}`);
         }
 
         // Notify all widgets to refetch integration data

@@ -22,7 +22,8 @@ export const configSchema: ConfigSchema = {
         },
         {
             key: 'apiKey',
-            type: 'password',
+            type: 'text',
+            sensitive: true,
             label: 'API Key',
             placeholder: 'Your Jellyfin API key',
             hint: 'Generate in Dashboard → API Keys',

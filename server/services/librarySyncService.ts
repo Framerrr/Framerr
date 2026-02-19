@@ -10,7 +10,7 @@
 import { getDb } from '../database/db';
 import logger from '../utils/logger';
 import { cacheLibraryImage, deleteAllLibraryImages } from './libraryImageCache';
-import { getInstanceById, IntegrationInstance } from '../db/integrationInstances';
+import { getInstanceById, getAllInstances, IntegrationInstance } from '../db/integrationInstances';
 import { PlexAdapter } from '../integrations/plex/adapter';
 import { JellyfinAdapter } from '../integrations/jellyfin/adapter';
 import { EmbyAdapter } from '../integrations/emby/adapter';
@@ -341,7 +341,8 @@ async function runPlexSync(
 
             const result = await adapter.execute(toPluginInstance(instance), {
                 method: 'GET',
-                path: `/library/sections/${section.key}/all`
+                path: `/library/sections/${section.key}/all`,
+                query: { includeGuids: '1' }
             });
 
             if (!result.success || !result.data) {
@@ -874,4 +875,180 @@ async function indexJellyfinItem(
         tmdbId,
         imdbId
     );
+}
+
+// ============================================================================
+// SURGICAL CACHE REFRESH (used by Overseerr poller)
+// ============================================================================
+
+/**
+ * Check if a TMDB ID already exists in the media_library cache.
+ * Sub-millisecond indexed query.
+ */
+export function isTmdbIdInLibrary(tmdbId: number): boolean {
+    const db = getDb();
+    const row = db.prepare(
+        `SELECT 1 FROM media_library WHERE tmdb_id = ? LIMIT 1`
+    ).get(tmdbId);
+    return !!row;
+}
+
+/**
+ * Get all media server integrations (plex/jellyfin/emby) that have library sync enabled.
+ */
+export function getMediaServerIntegrationsWithSync(): IntegrationInstance[] {
+    const allInstances = getAllInstances();
+    return allInstances.filter(inst => {
+        if (!['plex', 'jellyfin', 'emby'].includes(inst.type)) return false;
+        if (!inst.enabled) return false;
+        const config = inst.config as { librarySyncEnabled?: boolean | string };
+        return config?.librarySyncEnabled === true || config?.librarySyncEnabled === 'true';
+    });
+}
+
+/**
+ * Search a media server for a specific title and upsert it into the library cache.
+ * Called surgically when the Overseerr poller detects newly available media.
+ * 
+ * @param media - The media to search for (title, tmdbId, mediaType)
+ * @param mediaServers - Media server instances with library sync enabled
+ * @returns true if the item was found and indexed in at least one server
+ */
+export async function searchAndIndexItem(
+    media: { title: string; tmdbId: number; mediaType: 'movie' | 'tv' },
+    mediaServers: IntegrationInstance[]
+): Promise<boolean> {
+    let indexed = false;
+
+    for (const server of mediaServers) {
+        try {
+            const pluginInstance = toPluginInstance(server);
+
+            if (server.type === 'plex') {
+                indexed = await searchAndIndexPlex(server, pluginInstance, media);
+            } else if (server.type === 'jellyfin') {
+                indexed = await searchAndIndexJellyfin(server, pluginInstance, media, 'jellyfin');
+            } else if (server.type === 'emby') {
+                indexed = await searchAndIndexJellyfin(server, pluginInstance, media, 'emby');
+            }
+
+            if (indexed) {
+                logger.info(`[LibrarySync] Surgical index: title="${media.title}", tmdbId=${media.tmdbId}, server=${server.type}:${server.id}`);
+                break; // Found in one server, no need to check others
+            }
+        } catch (error) {
+            logger.debug(`[LibrarySync] Surgical search failed: server=${server.type}:${server.id}, error="${(error as Error).message}"`);
+        }
+    }
+
+    return indexed;
+}
+
+/**
+ * Search Plex for a specific title and index if found.
+ * Uses per-library-section search (universally supported across Plex versions).
+ */
+async function searchAndIndexPlex(
+    instance: IntegrationInstance,
+    pluginInstance: PluginInstance,
+    media: { title: string; tmdbId: number; mediaType: 'movie' | 'tv' }
+): Promise<boolean> {
+    const adapter = new PlexAdapter();
+
+    // First get library sections (same pattern as full sync)
+    const sectionsResult = await adapter.execute(pluginInstance, {
+        method: 'GET',
+        path: '/library/sections'
+    });
+
+    if (!sectionsResult.success || !sectionsResult.data) return false;
+
+    const mediaContainer = (sectionsResult.data as { MediaContainer?: { Directory?: PlexLibrarySection[] } }).MediaContainer;
+    const sections = mediaContainer?.Directory || [];
+
+    // Filter to relevant section type (movies → movie, tv → show)
+    const targetType = media.mediaType === 'tv' ? 'show' : 'movie';
+    const mediaSections = sections.filter(s => s.type === targetType);
+
+    for (const section of mediaSections) {
+        // Search within this section using title filter
+        // type=1 for movies, type=2 for shows
+        const plexType = targetType === 'movie' ? '1' : '2';
+        const result = await adapter.execute(pluginInstance, {
+            method: 'GET',
+            path: `/library/sections/${section.key}/all`,
+            query: { type: plexType, title: media.title, includeGuids: '1', 'X-Plex-Container-Size': '10' }
+        });
+
+        if (!result.success || !result.data) continue;
+
+        const container = (result.data as { MediaContainer?: { Metadata?: PlexMediaItem[] } }).MediaContainer;
+        const items = container?.Metadata || [];
+
+        for (const item of items) {
+            // Match by TMDB ID (most reliable)
+            const itemTmdbId = item.Guid?.find(g => g.id.startsWith('tmdb://'))?.id.replace('tmdb://', '');
+            if (itemTmdbId && parseInt(itemTmdbId, 10) === media.tmdbId) {
+                // Found it — index into cache
+                await indexPlexItem(
+                    instance.id, instance, section.key,
+                    targetType,
+                    item
+                );
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+
+/**
+ * Search Jellyfin/Emby for a specific title and index if found.
+ */
+async function searchAndIndexJellyfin(
+    instance: IntegrationInstance,
+    pluginInstance: PluginInstance,
+    media: { title: string; tmdbId: number; mediaType: 'movie' | 'tv' },
+    serverType: 'jellyfin' | 'emby'
+): Promise<boolean> {
+    const adapter = serverType === 'jellyfin' ? new JellyfinAdapter() : new EmbyAdapter();
+    const userId = instance.config.userId as string;
+
+    if (!userId) return false;
+
+    // Search via Items endpoint with searchTerm
+    const includeTypes = media.mediaType === 'tv' ? 'Series' : 'Movie';
+    const result = await adapter.execute(pluginInstance, {
+        method: 'GET',
+        path: `/Users/${userId}/Items`,
+        query: {
+            searchTerm: media.title,
+            limit: '10',
+            includeItemTypes: includeTypes,
+            recursive: 'true',
+            fields: 'Overview,Genres,Studios,People,ProviderIds'
+        }
+    });
+
+    if (!result.success || !result.data) return false;
+
+    const items = (result.data as { Items?: JellyfinMediaItem[] }).Items || [];
+
+    for (const item of items) {
+        // Match by TMDB ID
+        const itemTmdbId = item.ProviderIds?.Tmdb ? parseInt(item.ProviderIds.Tmdb, 10) : null;
+        if (itemTmdbId === media.tmdbId) {
+            // Found it — index into cache
+            await indexJellyfinItem(
+                instance.id, instance,
+                'search',
+                item, serverType
+            );
+            return true;
+        }
+    }
+
+    return false;
 }

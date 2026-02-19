@@ -1,0 +1,59 @@
+.external-media-links {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.external-media-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-decoration: none;
+    transition: opacity 0.15s ease, background-color 0.15s ease;
+    line-height: 1;
+}
+
+@media (hover: hover) {
+    .external-media-link:hover {
+        opacity: 0.85;
+    }
+}
+
+.external-media-link--tmdb {
+    background-color: rgba(1, 180, 228, 0.15);
+    color: #01b4e4;
+}
+
+@media (hover: hover) {
+    .external-media-link--tmdb:hover {
+        background-color: rgba(1, 180, 228, 0.25);
+    }
+}
+
+.external-media-link--imdb {
+    background-color: rgba(245, 197, 24, 0.15);
+    color: #f5c518;
+}
+
+@media (hover: hover) {
+    .external-media-link--imdb:hover {
+        background-color: rgba(245, 197, 24, 0.25);
+    }
+}
+
+.external-media-link--tvdb {
+    background-color: rgba(61, 184, 74, 0.15);
+    color: #3DB84A;
+}
+
+@media (hover: hover) {
+    .external-media-link--tvdb:hover {
+        background-color: rgba(61, 184, 74, 0.25);
+    }
+}

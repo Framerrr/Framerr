@@ -8,6 +8,7 @@
 import React from 'react';
 import { Star, Calendar, Users, ExternalLink } from 'lucide-react';
 import { Modal, Button } from '../../../shared/ui';
+import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
 import type { MediaItem } from '../types';
 
 // ============================================================================
@@ -93,7 +94,7 @@ const MediaSearchInfoModal: React.FC<MediaSearchInfoModalProps> = ({
                                 boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
                             }}>
                                 <img
-                                    src={`${posterUrl}?size=lg`}
+                                    src={posterUrl.includes('size=') ? posterUrl : `${posterUrl}${posterUrl.includes('?') ? '&' : '?'}size=lg`}
                                     alt={title || 'Media poster'}
                                     style={{
                                         width: '100%',
@@ -163,6 +164,13 @@ const MediaSearchInfoModal: React.FC<MediaSearchInfoModalProps> = ({
                             >
                                 Open in {appName}
                             </Button>
+
+                            <ExternalMediaLinks
+                                tmdbId={item.tmdbId}
+                                imdbId={item.imdbId}
+                                mediaType={item.mediaType === 'show' ? 'tv' : 'movie'}
+                                className="mt-2"
+                            />
                         </div>
                     </div>
 

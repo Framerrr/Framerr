@@ -14,7 +14,7 @@ import { Plus, ChevronDown, Server } from 'lucide-react';
 import ServiceSettingsGrid from './components/ServiceSettingsGrid';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { SettingsPage, SettingsSection } from '../../shared/ui/settings';
-import { Button } from '../../shared/ui';
+import { Button, DropdownMenu } from '../../shared/ui';
 import PlexForm from '../../integrations/plex/PlexForm';
 import JellyfinForm from '../../integrations/jellyfin/JellyfinForm';
 import EmbyForm from '../../integrations/emby/EmbyForm';
@@ -26,6 +26,7 @@ import { useIntegrationSchemas } from '../../api/hooks';
 import { useAdminNotificationConfig } from '../../api/hooks/useSettings';
 import { useRealtimeSSE, type LibrarySyncProgressEvent } from '../../hooks/useRealtimeSSE';
 import { widgetFetch } from '../../utils/widgetFetch';
+import logger from '../../utils/logger';
 import type { PlexConfig } from './types';
 
 /** Media integration types that support library sync */
@@ -56,9 +57,6 @@ const IntegrationSettings: React.FC = () => {
         activeModal,
         setActiveModal,
         newInstanceId,
-        addDropdownOpen,
-        setAddDropdownOpen,
-        addDropdownRef,
 
         // Form refs
         monitorFormRef,
@@ -84,7 +82,6 @@ const IntegrationSettings: React.FC = () => {
         // Plex handlers
         handlePlexLogin,
         handlePlexServerChange,
-        handlePlexTest,
         fetchPlexServers,
 
         // Monitor handlers
@@ -129,7 +126,7 @@ const IntegrationSettings: React.FC = () => {
             }
         } catch (error) {
             // Silently fail - status will just not be shown
-            console.debug('[IntegrationSettings] Failed to fetch sync status:', error);
+            logger.debug('[IntegrationSettings] Failed to fetch sync status:', error);
         }
         return null;
     }, []);
@@ -186,7 +183,7 @@ const IntegrationSettings: React.FC = () => {
             await widgetFetch(`/api/media/sync/start/${instanceId}`, 'media-library-sync', { method: 'POST' });
             // SSE will automatically receive progress updates
         } catch (error) {
-            console.error('[IntegrationSettings] Failed to start sync:', error);
+            logger.error('[IntegrationSettings] Failed to start sync:', error);
             // Revert optimistic update on error
             setMediaSyncStatus(prev => ({
                 ...prev,
@@ -302,36 +299,34 @@ const IntegrationSettings: React.FC = () => {
             title="Service Settings"
             description="Configure connections to your homelab services"
             headerAction={
-                <div className="relative" ref={addDropdownRef}>
-                    <Button
-                        onClick={() => setAddDropdownOpen(!addDropdownOpen)}
-                        variant="primary"
-                        size="md"
-                        textSize="sm"
-                    >
-                        <Plus size={16} />
-                        Add Integration
-                        <ChevronDown size={14} className={`transition-transform ${addDropdownOpen ? 'rotate-180' : ''}`} />
-                    </Button>
-
-                    {addDropdownOpen && (
-                        <div className="absolute right-0 mt-2 w-56 py-1 rounded-lg border border-theme bg-theme-secondary shadow-deep z-50 animate-in fade-in zoom-in-95 duration-100">
-                            {serviceList.map(service => {
-                                const Icon = service.icon;
-                                return (
-                                    <button
-                                        key={service.id}
-                                        onClick={() => handleAddIntegration(service.id, service.name)}
-                                        className="w-full px-4 py-2.5 text-left text-sm text-theme-primary hover:bg-theme-hover flex items-center gap-3"
-                                    >
-                                        <Icon size={16} className="text-theme-secondary" />
-                                        {service.name}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
+                <DropdownMenu>
+                    <DropdownMenu.Trigger asChild>
+                        <Button
+                            variant="primary"
+                            size="md"
+                            textSize="sm"
+                            data-walkthrough="add-integration-button"
+                        >
+                            <Plus size={16} />
+                            Add Integration
+                            <ChevronDown size={14} />
+                        </Button>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="end" sideOffset={8} className="w-56 max-h-[400px]">
+                        {serviceList.map(service => {
+                            const Icon = service.icon;
+                            return (
+                                <DropdownMenu.Item
+                                    key={service.id}
+                                    onSelect={() => handleAddIntegration(service.id, service.name)}
+                                >
+                                    <Icon size={16} className="text-theme-secondary" />
+                                    {service.name}
+                                </DropdownMenu.Item>
+                            );
+                        })}
+                    </DropdownMenu.Content>
+                </DropdownMenu>
             }
         >
             <SettingsSection title="Configured Services" icon={Server}>
@@ -359,7 +354,6 @@ const IntegrationSettings: React.FC = () => {
                     renderEmby={renderEmbyForm}
                     renderMonitor={renderMonitorForm}
                     renderUptimeKuma={renderUptimeKumaForm}
-                    onTestPlex={handlePlexTest}
                     onMonitorSave={handleMonitorSave}
                     onMonitorCancel={handleMonitorCancel}
                     onUptimeKumaSave={handleUptimeKumaSave}

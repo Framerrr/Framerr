@@ -294,19 +294,11 @@ export function useWidgetActions(deps: WidgetActionDeps): WidgetActionReturn {
     }, [widgets, setWidgets, setMobileWidgets, setMobileLayoutMode, setPendingUnlink, setLayouts, setHasUnsavedChanges]);
 
     const setViewBreakpoint = useCallback((bp: Breakpoint): void => {
-        console.log('[setViewBreakpoint] Called:', {
-            bp,
-            mobileLayoutMode,
-            mobileWidgetsCount: mobileWidgets.length,
-            widgetsCount: widgets.length,
-            widgetPositions: widgets.map(w => ({ id: w.id, x: w.layout.x, y: w.layout.y })),
-        });
         setCurrentBreakpoint(bp);
         // Restore layouts for the new breakpoint from widget data
         // This ensures positions are fresh from source of truth, not stale GridStack state
         if (bp === 'sm' && mobileLayoutMode === 'independent' && mobileWidgets.length > 0) {
             // Switching to mobile: restore mobile layouts
-            console.log('[setViewBreakpoint] Restoring mobile layouts');
             setLayouts(prev => ({
                 ...prev,
                 sm: mobileWidgets.map(w => createSmLayoutItem(w))
@@ -314,7 +306,6 @@ export function useWidgetActions(deps: WidgetActionDeps): WidgetActionReturn {
         } else if (bp === 'lg') {
             // Switching to desktop: restore desktop layouts
             // This ensures we pick up any changes made while on mobile view
-            console.log('[setViewBreakpoint] Restoring desktop layouts:', widgets.map(w => ({ id: w.id, y: w.layout.y })));
             setLayouts(prev => ({
                 ...prev,
                 lg: widgets.map(w => createLgLayoutItem(w))

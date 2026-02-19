@@ -60,6 +60,8 @@ export interface LoginResult {
     needsAccountSetup?: boolean;  // New Plex user needs to create/link account
     setupToken?: string;          // Token for /plex-setup page
     needsPasswordSetup?: boolean; // Migrating user needs to set local password
+    // Admin password reset flow
+    requirePasswordChange?: boolean; // User must change password before accessing app
 }
 
 /**

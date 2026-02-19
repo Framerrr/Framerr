@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
 import AuthImage from '../../shared/ui/AuthImage';
 import { WidgetStateMessage, useWidgetIntegration, useIntegrationSSE } from '../../shared/widgets';
@@ -112,18 +112,26 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
     const configuredIntegrationId = config?.integrationId;
     const configViewMode = config?.viewMode ?? 'auto';
 
-    // Wrapper ref for auto view mode dimension measurement
-    const wrapperRef = useRef<HTMLDivElement>(null);
+    // Callback ref for auto view mode dimension measurement.
+    // Using a callback ref instead of useRef+useEffect because the widget has
+    // early returns (loading, no access, etc.) that prevent the wrapper div from
+    // mounting on the first render. A callback ref fires when the element actually
+    // mounts, regardless of when that happens in the component lifecycle.
     const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
-
-    useEffect(() => {
-        if (configViewMode !== 'auto' || !wrapperRef.current) return;
+    const roRef = useRef<ResizeObserver | null>(null);
+    const wrapperRef = useCallback((node: HTMLDivElement | null) => {
+        // Disconnect previous observer
+        if (roRef.current) {
+            roRef.current.disconnect();
+            roRef.current = null;
+        }
+        if (configViewMode !== 'auto' || !node) return;
         const ro = new ResizeObserver(([entry]) => {
             const { width, height } = entry.contentRect;
             setContainerSize({ w: width, h: height });
         });
-        ro.observe(wrapperRef.current);
-        return () => ro.disconnect();
+        ro.observe(node);
+        roRef.current = ro;
     }, [configViewMode]);
 
     // Resolve 'auto' based on container aspect ratio
@@ -388,15 +396,14 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
     if (meta?.perUserFiltering && meta?.userMatched === false) {
         return (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
-                <Star size={48} className="text-warning opacity-50" />
                 <div>
                     <div className="text-theme-primary font-medium mb-1">Link Your Account</div>
                     <div className="text-theme-secondary text-sm">
-                        Link your Overseerr account to see your personalized requests.
+                        Link your Overseerr account to see your requests.
                     </div>
                 </div>
                 <a
-                    href="/settings/linked-accounts"
+                    href="/#settings/integrations/linked"
                     className="text-sm text-accent hover:underline flex items-center gap-1"
                 >
                     Go to Linked Accounts →
@@ -763,9 +770,14 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                             <div
                                 className="absolute inset-x-0 bottom-0 pt-12 pb-3 px-3 flex flex-col justify-end bg-gradient-to-t from-black/95 via-black/70 to-transparent"
                                 onClick={(e) => {
-                                    if (isTouchDevice && !isExpanded && downloadInfo?.isDownloading) {
-                                        // Mobile, not expanded, shadow tap: expand bars only
-                                        setExpandedCardId(req.id);
+                                    if (isTouchDevice && !isExpanded) {
+                                        if (downloadInfo?.isDownloading) {
+                                            // Mobile, not expanded, has download bars: expand them
+                                            setExpandedCardId(req.id);
+                                        } else {
+                                            // Mobile, not expanded, no download bars: open modal
+                                            setSelectedRequest({ request: req, downloadInfo });
+                                        }
                                         e.stopPropagation();
                                     }
                                 }}

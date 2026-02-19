@@ -254,13 +254,13 @@ export function useGridCallbacks(deps: GridCallbackDeps): GridCallbackReturn {
                     const preEditMobileSnapshot = createMobileSnapshot(widgets);
                     pushToStack('mobile', preEditMobileSnapshot);
 
-                    // Now apply the edited state
+                    // ONLY update mobileWidgets - don't touch desktop widgets!
                     setMobileWidgets(updatedWidgets);
                     setPendingUnlink(true);
+                } else {
+                    // No unlink triggered - update widgets for linked mode
+                    setWidgets(updatedWidgets);
                 }
-
-                // Also update widgets array for linked mode
-                setWidgets(updatedWidgets);
             }
 
             setIsUserDragging(false);

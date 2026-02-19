@@ -14,8 +14,10 @@ import { getCacheStats as getImageCacheStats, deleteAllCachedImages } from '../s
 import { clearAllSearchHistory, getSearchHistoryCount } from '../db/mediaSearchHistory';
 import { getLibraryCacheStats, getPerIntegrationLibraryStats, deleteAllLibraryImages } from '../services/libraryImageCache';
 import { deleteLibrarySyncData, startFullSync, getSyncStatus } from '../services/librarySyncService';
-import { getMonitorDefaults, updateSystemConfig } from '../db/systemConfig';
+import { getMonitorDefaults, getMetricHistoryDefaults, updateSystemConfig } from '../db/systemConfig';
 import { getInstanceById } from '../db/integrationInstances';
+import * as metricHistoryDb from '../db/metricHistory';
+import { metricHistoryService } from '../services/MetricHistoryService';
 import logger from '../utils/logger';
 
 const router = Router();
@@ -80,11 +82,31 @@ router.get('/cache/stats', requireAuth, requireAdmin, (_req: Request, res: Respo
         // Enrich with display names from integration instances
         const libraryPerIntegration = rawStats.map(stat => {
             const instance = getInstanceById(stat.integrationId);
+            const fallbackName = instance?.type
+                ? instance.type.charAt(0).toUpperCase() + instance.type.slice(1)
+                : stat.integrationId;
             return {
                 ...stat,
-                displayName: instance?.displayName || stat.integrationId,
+                displayName: instance?.displayName || fallbackName,
             };
         });
+
+        // Metric history stats (with display names)
+        const mhStats = metricHistoryDb.getStorageStats();
+        const metricHistory = {
+            totalDataPoints: mhStats.totalRows,
+            integrations: mhStats.integrations.map(i => {
+                const instance = getInstanceById(i.integrationId);
+                const fallbackName = instance?.type
+                    ? instance.type.charAt(0).toUpperCase() + instance.type.slice(1)
+                    : i.integrationId;
+                return {
+                    integrationId: i.integrationId,
+                    displayName: instance?.displayName || fallbackName,
+                    dataPoints: i.rowCount,
+                };
+            }),
+        };
 
         res.json({
             tmdbMetadata,
@@ -92,6 +114,7 @@ router.get('/cache/stats', requireAuth, requireAdmin, (_req: Request, res: Respo
             searchHistory,
             library,
             libraryPerIntegration,
+            metricHistory,
         });
     } catch (error) {
         logger.error(`[JobsAPI] Failed to get cache stats: error="${(error as Error).message}"`);
@@ -144,6 +167,27 @@ router.post('/cache/search-history/clear', requireAuth, requireAdmin, (_req: Req
     } catch (error) {
         logger.error(`[JobsAPI] Failed to clear search history: error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Failed to clear search history' });
+    }
+});
+
+/**
+ * POST /api/jobs/cache/library/flush
+ *
+ * Flush all library cache data across all integrations.
+ */
+router.post('/cache/library/flush', requireAuth, requireAdmin, (_req: Request, res: Response): void => {
+    try {
+        const stats = getPerIntegrationLibraryStats();
+        let totalDeleted = 0;
+        for (const stat of stats) {
+            deleteLibrarySyncData(stat.integrationId);
+            totalDeleted++;
+        }
+        logger.info(`[JobsAPI] Flushed all library cache: ${totalDeleted} integrations`);
+        res.json({ success: true, deleted: totalDeleted });
+    } catch (error) {
+        logger.error(`[JobsAPI] Failed to flush all library cache: error="${(error as Error).message}"`);
+        res.status(500).json({ error: 'Failed to flush all library cache' });
     }
 });
 
@@ -203,13 +247,108 @@ router.get('/cache/library/:integrationId/status', requireAuth, requireAdmin, (r
 });
 
 // ============================================================================
-// Monitor Defaults Endpoints
+// Metric History Flush Endpoints
 // ============================================================================
 
 /**
- * GET /api/jobs/monitor-defaults
- * 
- * Get global monitor defaults.
+ * POST /api/jobs/cache/metric-history/flush
+ *
+ * Flush all metric history data.
+ */
+router.post('/cache/metric-history/flush', requireAuth, requireAdmin, (_req: Request, res: Response): void => {
+    try {
+        const deleted = metricHistoryDb.deleteAll();
+        logger.info(`[JobsAPI] Flushed all metric history: deleted=${deleted}`);
+        res.json({ success: true, deleted });
+    } catch (error) {
+        logger.error(`[JobsAPI] Failed to flush metric history: error="${(error as Error).message}"`);
+        res.status(500).json({ error: 'Failed to flush metric history' });
+    }
+});
+
+/**
+ * POST /api/jobs/cache/metric-history/:integrationId/flush
+ *
+ * Flush metric history for a specific integration.
+ */
+router.post('/cache/metric-history/:integrationId/flush', requireAuth, requireAdmin, (req: Request, res: Response): void => {
+    try {
+        const { integrationId } = req.params;
+        const deleted = metricHistoryDb.deleteForIntegration(integrationId);
+        logger.info(`[JobsAPI] Flushed metric history for integration: integrationId=${integrationId} deleted=${deleted}`);
+        res.json({ success: true, deleted });
+    } catch (error) {
+        logger.error(`[JobsAPI] Failed to flush metric history: integrationId=${req.params.integrationId} error="${(error as Error).message}"`);
+        res.status(500).json({ error: 'Failed to flush metric history for integration' });
+    }
+});
+
+// ============================================================================
+// Defaults Endpoints (Monitor + Metric History)
+// ============================================================================
+
+/**
+ * GET /api/jobs/defaults
+ *
+ * Get all global defaults (monitor + metric history).
+ */
+router.get('/defaults', requireAuth, requireAdmin, async (_req: Request, res: Response): Promise<void> => {
+    try {
+        const monitorDefaults = await getMonitorDefaults();
+        const metricHistoryDefaults = await getMetricHistoryDefaults();
+        res.json({ monitorDefaults, metricHistoryDefaults });
+    } catch (error) {
+        logger.error(`[JobsAPI] Failed to get defaults: error="${(error as Error).message}"`);
+        res.status(500).json({ error: 'Failed to get defaults' });
+    }
+});
+
+/**
+ * PUT /api/jobs/defaults
+ *
+ * Update global defaults (monitor + metric history).
+ * Accepts { monitorDefaults?: {...}, metricHistoryDefaults?: {...} }
+ */
+router.put('/defaults', requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { monitorDefaults, metricHistoryDefaults } = req.body;
+        const updates: Record<string, unknown> = {};
+
+        if (monitorDefaults) {
+            const md: Record<string, unknown> = {};
+            if (monitorDefaults.intervalSeconds !== undefined) md.intervalSeconds = Number(monitorDefaults.intervalSeconds);
+            if (monitorDefaults.timeoutSeconds !== undefined) md.timeoutSeconds = Number(monitorDefaults.timeoutSeconds);
+            if (monitorDefaults.retriesBeforeDown !== undefined) md.retriesBeforeDown = Number(monitorDefaults.retriesBeforeDown);
+            if (monitorDefaults.degradedThresholdMs !== undefined) md.degradedThresholdMs = Number(monitorDefaults.degradedThresholdMs);
+            if (monitorDefaults.expectedStatusCodes !== undefined) md.expectedStatusCodes = monitorDefaults.expectedStatusCodes;
+            updates.monitorDefaults = md;
+        }
+
+        if (metricHistoryDefaults) {
+            const mhd: Record<string, unknown> = {};
+            if (metricHistoryDefaults.mode !== undefined) mhd.mode = metricHistoryDefaults.mode;
+            if (metricHistoryDefaults.retentionDays !== undefined) mhd.retentionDays = Number(metricHistoryDefaults.retentionDays);
+            updates.metricHistoryDefaults = mhd;
+        }
+
+        await updateSystemConfig(updates as any);
+
+        const newMonitorDefaults = await getMonitorDefaults();
+        const newMetricHistoryDefaults = await getMetricHistoryDefaults();
+
+        // Refresh the cached global defaults in MetricHistoryService
+        await metricHistoryService.refreshGlobalDefaults();
+
+        logger.info('[JobsAPI] Updated defaults');
+        res.json({ monitorDefaults: newMonitorDefaults, metricHistoryDefaults: newMetricHistoryDefaults });
+    } catch (error) {
+        logger.error(`[JobsAPI] Failed to update defaults: error="${(error as Error).message}"`);
+        res.status(500).json({ error: 'Failed to update defaults' });
+    }
+});
+
+/**
+ * GET /api/jobs/monitor-defaults (backward compat)
  */
 router.get('/monitor-defaults', requireAuth, requireAdmin, async (_req: Request, res: Response): Promise<void> => {
     try {
@@ -221,33 +360,4 @@ router.get('/monitor-defaults', requireAuth, requireAdmin, async (_req: Request,
     }
 });
 
-/**
- * PUT /api/jobs/monitor-defaults
- * 
- * Update global monitor defaults.
- */
-router.put('/monitor-defaults', requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { intervalSeconds, timeoutSeconds, retriesBeforeDown, degradedThresholdMs, expectedStatusCodes } = req.body;
-
-        // Build partial update — only include provided fields
-        const updates: Record<string, unknown> = {};
-        if (intervalSeconds !== undefined) updates.intervalSeconds = Number(intervalSeconds);
-        if (timeoutSeconds !== undefined) updates.timeoutSeconds = Number(timeoutSeconds);
-        if (retriesBeforeDown !== undefined) updates.retriesBeforeDown = Number(retriesBeforeDown);
-        if (degradedThresholdMs !== undefined) updates.degradedThresholdMs = Number(degradedThresholdMs);
-        if (expectedStatusCodes !== undefined) updates.expectedStatusCodes = expectedStatusCodes;
-
-        await updateSystemConfig({ monitorDefaults: updates as any });
-        const newDefaults = await getMonitorDefaults();
-
-        logger.info('[JobsAPI] Updated monitor defaults');
-        res.json(newDefaults);
-    } catch (error) {
-        logger.error(`[JobsAPI] Failed to update monitor defaults: error="${(error as Error).message}"`);
-        res.status(500).json({ error: 'Failed to update monitor defaults' });
-    }
-});
-
 export default router;
-

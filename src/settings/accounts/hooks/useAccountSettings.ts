@@ -9,7 +9,6 @@ import type {
     PlexSSOStatusResponse,
     PlexPinResponse,
     PlexTokenResponse,
-    OverseerrConfigResponse,
     UseAccountSettingsReturn
 } from '../types';
 
@@ -33,7 +32,7 @@ export function useAccountSettings(): UseAccountSettingsReturn {
 
     // Integration availability
     const [plexSSOEnabled, setPlexSSOEnabled] = useState<boolean>(false);
-    const [overseerrEnabled, setOverseerrEnabled] = useState<boolean>(false);
+
 
     // Plex linking state
     const [plexLinking, setPlexLinking] = useState<boolean>(false);
@@ -57,14 +56,7 @@ export function useAccountSettings(): UseAccountSettingsReturn {
         }
     };
 
-    const checkOverseerrStatus = async (): Promise<void> => {
-        try {
-            const response = await linkedAccountsApi.getOverseerrStatus();
-            setOverseerrEnabled(response.enabled);
-        } catch {
-            setOverseerrEnabled(false);
-        }
-    };
+
 
     const fetchAllLinkedAccounts = async (): Promise<void> => {
         try {
@@ -81,7 +73,6 @@ export function useAccountSettings(): UseAccountSettingsReturn {
     useEffect(() => {
         fetchAllLinkedAccounts();
         checkPlexSSOStatus();
-        checkOverseerrStatus();
 
         const handleLinkedAccountsUpdated = (): void => {
             fetchAllLinkedAccounts();
@@ -204,7 +195,7 @@ export function useAccountSettings(): UseAccountSettingsReturn {
         loading,
         dbLinkedAccounts,
         plexSSOEnabled,
-        overseerrEnabled,
+
         hasOverseerrAccess,
         isAdmin,
 

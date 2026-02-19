@@ -9,11 +9,10 @@
  */
 
 import { useState, useCallback, useMemo } from 'react';
-import { systemApi, type IntegrationHealth, type SseStatus, type DbStatus, type ApiHealth } from '@/api';
+import { systemApi, type SseStatus, type DbStatus, type ApiHealth } from '@/api';
 import {
     useSystemInfo,
     useSystemResources,
-    useIntegrationHealth,
     useSseStatus,
     useApiHealth,
 } from '../../../api/hooks/useDashboard';
@@ -35,7 +34,6 @@ interface UseSystemSettingsReturn {
     formatUptime: (seconds: number) => string;
 
     // Health Status
-    integrationHealth: IntegrationHealth | null;
     sseStatus: SseStatus | null;
     healthLoading: boolean;
     fetchHealthStatus: () => Promise<void>;
@@ -81,12 +79,6 @@ export function useSystemSettings(): UseSystemSettingsReturn {
     } = useSystemResources();
 
     const {
-        data: integrationHealthResponse,
-        isLoading: intHealthLoading,
-        refetch: refetchIntegrationHealth,
-    } = useIntegrationHealth();
-
-    const {
         data: sseStatusResponse,
         isLoading: sseLoading,
         refetch: refetchSseStatus,
@@ -113,12 +105,6 @@ export function useSystemSettings(): UseSystemSettingsReturn {
         return null;
     }, [resourcesResponse]);
 
-    const integrationHealth = useMemo<IntegrationHealth | null>(() => {
-        if (integrationHealthResponse?.success) {
-            return integrationHealthResponse;
-        }
-        return null;
-    }, [integrationHealthResponse]);
 
     const sseStatus = useMemo<SseStatus | null>(() => {
         if (sseStatusResponse?.success) {
@@ -134,7 +120,7 @@ export function useSystemSettings(): UseSystemSettingsReturn {
     // Derived loading states
     const loading = systemInfoLoading || resourcesLoading;
     const refreshing = systemInfoRefetching || resourcesRefetching;
-    const healthLoading = intHealthLoading || sseLoading;
+    const healthLoading = sseLoading;
     const apiLoading = apiHealthLoading;
 
     // ========================================================================
@@ -164,11 +150,8 @@ export function useSystemSettings(): UseSystemSettingsReturn {
     }, [refetchSystemInfo, refetchResources]);
 
     const fetchHealthStatus = useCallback(async (): Promise<void> => {
-        await Promise.all([
-            refetchIntegrationHealth(),
-            refetchSseStatus()
-        ]);
-    }, [refetchIntegrationHealth, refetchSseStatus]);
+        await refetchSseStatus();
+    }, [refetchSseStatus]);
 
     const testApiHealthHandler = useCallback(async (): Promise<void> => {
         await refetchApiHealth();
@@ -296,7 +279,6 @@ export function useSystemSettings(): UseSystemSettingsReturn {
         formatUptime,
 
         // Health Status
-        integrationHealth,
         sseStatus,
         healthLoading,
         fetchHealthStatus,

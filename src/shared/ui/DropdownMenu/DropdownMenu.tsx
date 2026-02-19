@@ -27,7 +27,7 @@
  * </DropdownMenu>
  */
 
-import React, { forwardRef, useState, useCallback, useEffect } from 'react';
+import React, { forwardRef, useState, useCallback, useEffect, useRef } from 'react';
 import * as RadixDropdownMenu from '@radix-ui/react-dropdown-menu';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
@@ -67,11 +67,24 @@ export function DropdownMenu({
     // Internal state management for close-on-scroll
     const [internalOpen, setInternalOpen] = useState(false);
 
+    // Guard against trigger-click reopening immediately after close.
+    // On desktop, clicking the trigger while open fires: close (pointer-down-outside) → reopen (trigger click).
+    const closingRef = useRef(false);
+
     // Use controlled or internal state
     const isControlled = controlledOpen !== undefined;
     const isOpen = isControlled ? controlledOpen : internalOpen;
 
     const handleOpenChange = useCallback((open: boolean) => {
+        // Block reopen if we just closed in this same event cycle
+        if (open && closingRef.current) return;
+
+        // Track close with a synchronous flag, clear on next frame
+        if (!open) {
+            closingRef.current = true;
+            requestAnimationFrame(() => { closingRef.current = false; });
+        }
+
         if (!isControlled) {
             setInternalOpen(open);
         }
@@ -166,9 +179,9 @@ const DropdownMenuContent = forwardRef<HTMLDivElement, DropdownMenuContentProps>
                         className={`
               z-[150]
               min-w-[10rem] max-h-[300px] overflow-y-auto
-              bg-theme-secondary border border-theme rounded-lg
+              bg-theme-primary border border-theme rounded-xl
               shadow-xl
-              py-1
+              p-4
               ${className}
             `}
                         style={{ overscrollBehavior: 'contain' }}
@@ -203,8 +216,8 @@ const DropdownMenuItem = forwardRef<HTMLDivElement, DropdownMenuItemProps>(
                 disabled={disabled}
                 onSelect={onSelect}
                 className={`
-          relative flex items-center gap-2
-          px-3 py-2
+          relative flex items-center gap-3
+          px-3 py-2 rounded-md
           text-sm cursor-pointer
           focus:outline-none
           data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed
@@ -245,8 +258,8 @@ const DropdownMenuCheckboxItem = forwardRef<HTMLDivElement, DropdownMenuCheckbox
                 onCheckedChange={onCheckedChange}
                 disabled={disabled}
                 className={`
-          relative flex items-center gap-2
-          pl-8 pr-3 py-2
+          relative flex items-center gap-3
+          pl-8 pr-3 py-2 rounded-md
           text-sm text-theme-primary cursor-pointer
           hover:bg-theme-hover focus:bg-theme-hover focus:outline-none
           data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed

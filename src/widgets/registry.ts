@@ -56,6 +56,7 @@ export interface WidgetMetadata {
     maxSize?: { w?: number; h?: number };
     compatibleIntegrations?: string[];
     multiIntegration?: boolean;
+    integrationGroups?: Array<{ key: string; label: string; types: string[] }>;
     defaultConfig?: Record<string, unknown>;
     isGlobal?: boolean;
     configConstraints?: ConfigConstraints;
@@ -85,6 +86,7 @@ function pluginToMetadata(plugin: WidgetPlugin): WidgetMetadata {
         maxSize: plugin.sizing.max,
         compatibleIntegrations: plugin.compatibleIntegrations,
         multiIntegration: plugin.multiIntegration,
+        integrationGroups: plugin.integrationGroups,
         defaultConfig: plugin.defaultConfig,
         isGlobal: plugin.isGlobal,
         configConstraints: plugin.configConstraints,

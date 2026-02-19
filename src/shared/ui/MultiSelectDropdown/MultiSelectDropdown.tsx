@@ -42,6 +42,8 @@ export interface MultiSelectDropdownProps {
     onChange: (ids: string[]) => void;
     /** Disable the dropdown */
     disabled?: boolean;
+    /** Option IDs that appear checked & greyed out (non-interactive) */
+    disabledIds?: string[];
     /** Size variant - sm for compact cards, md for modals */
     size?: 'sm' | 'md';
     /** Popover alignment relative to trigger */
@@ -56,10 +58,14 @@ export interface MultiSelectDropdownProps {
     emptyText?: string;
     /** Maximum number of selections allowed (optional) */
     maxSelections?: number;
+    /** Minimum number of selections required (optional, prevents deselecting below this) */
+    minSelections?: number;
     /** Whether trigger should fill full width of container */
     fullWidth?: boolean;
     /** Close dropdown when main scroll container is scrolled */
     closeOnScroll?: boolean;
+    /** z-index for the popover content (default: 150) */
+    zIndex?: number;
 }
 
 // ============================================================================
@@ -90,6 +96,7 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
     selectedIds,
     onChange,
     disabled = false,
+    disabledIds = [],
     size = 'md',
     align = 'start',
     placeholder = 'Select...',
@@ -97,8 +104,10 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
     allSelectedText = 'All selected',
     emptyText = 'No options',
     maxSelections,
+    minSelections,
     fullWidth = false,
     closeOnScroll = false,
+    zIndex = 150,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -125,8 +134,12 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
     const isAtLimit = maxSelections !== undefined && validSelectedIds.length >= maxSelections;
 
     const handleToggle = (optionId: string) => {
+        // Disabled options are non-interactive
+        if (disabledIds.includes(optionId)) return;
+
         if (selectedIds.includes(optionId)) {
-            // Always allow deselection
+            // Prevent deselection if it would go below minSelections
+            if (minSelections !== undefined && validSelectedIds.length <= minSelections) return;
             onChange(selectedIds.filter(id => id !== optionId));
         } else if (!isAtLimit) {
             // Only allow selection if not at limit
@@ -135,12 +148,13 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
     };
 
     const handleSelectAll = () => {
-        // Respect maxSelections limit
-        const allIds = options.map(o => o.id);
+        // Exclude disabled options from bulk select
+        const selectableIds = options.filter(o => !disabledIds.includes(o.id)).map(o => o.id);
+        const alreadyDisabledSelected = options.filter(o => disabledIds.includes(o.id)).map(o => o.id);
         if (maxSelections !== undefined) {
-            onChange(allIds.slice(0, maxSelections));
+            onChange([...alreadyDisabledSelected, ...selectableIds.slice(0, maxSelections)]);
         } else {
-            onChange(allIds);
+            onChange([...alreadyDisabledSelected, ...selectableIds]);
         }
     };
 
@@ -197,7 +211,7 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                     />
                 </button>
             </Popover.Trigger>
-            <Popover.Content align={align} sideOffset={4} className={`p-1 ${config.content}`}>
+            <Popover.Content align={align} sideOffset={4} className={`p-1 ${config.content}`} zIndex={zIndex}>
                 {/* Bulk Actions */}
                 {showBulkActions && options.length > 1 && (
                     <>
@@ -209,13 +223,15 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                                 <CheckSquare size={12} />
                                 All
                             </button>
-                            <button
-                                onClick={handleSelectNone}
-                                className="flex items-center gap-1.5 px-2 py-1 text-xs text-theme-secondary hover:text-theme-primary hover:bg-theme-hover rounded transition-colors"
-                            >
-                                <XSquare size={12} />
-                                None
-                            </button>
+                            {(!minSelections || minSelections <= 0) && (
+                                <button
+                                    onClick={handleSelectNone}
+                                    className="flex items-center gap-1.5 px-2 py-1 text-xs text-theme-secondary hover:text-theme-primary hover:bg-theme-hover rounded transition-colors"
+                                >
+                                    <XSquare size={12} />
+                                    None
+                                </button>
+                            )}
                         </div>
                         <div className="h-px bg-theme-hover mx-1 mb-1" />
                     </>
@@ -223,18 +239,22 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
 
                 {/* Scrollable Options List */}
                 <div
-                    className="max-h-[200px] overflow-y-scroll overscroll-contain"
+                    data-scroll-lock-allow
+                    className="max-h-[200px] overflow-y-auto overscroll-contain"
                 >
                     {options.map(option => {
-                        const isSelected = selectedIds.includes(option.id);
+                        const isLocked = disabledIds.includes(option.id);
+                        const isSelected = isLocked || selectedIds.includes(option.id);
                         const isDisabledByLimit = !isSelected && isAtLimit;
+                        const isDisabledByMin = isSelected && !isLocked && minSelections !== undefined && validSelectedIds.length <= minSelections;
+                        const isNonInteractive = isLocked || isDisabledByLimit || isDisabledByMin;
 
                         return (
                             <label
                                 key={option.id}
                                 className={`
                                     flex items-center gap-3 px-3 py-2 rounded-md transition-colors
-                                    ${isDisabledByLimit
+                                    ${isNonInteractive
                                         ? 'opacity-50 cursor-not-allowed'
                                         : 'hover:bg-theme-hover cursor-pointer'}
                                 `}
@@ -243,7 +263,7 @@ export const MultiSelectDropdown: React.FC<MultiSelectDropdownProps> = ({
                                     checked={isSelected}
                                     onCheckedChange={() => handleToggle(option.id)}
                                     size="sm"
-                                    disabled={isDisabledByLimit}
+                                    disabled={isNonInteractive}
                                 />
                                 <span className={`${config.itemText} text-theme-primary`}>
                                     {option.label}

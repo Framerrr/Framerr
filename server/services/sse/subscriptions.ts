@@ -138,6 +138,13 @@ let startRealtimeCallback: ((topic: string) => void) | null = null;
 let stopRealtimeCallback: ((topic: string) => void) | null = null;
 
 /**
+ * Callback for filtering cached data per-subscriber.
+ * Used by the subscribe function to apply per-user filtering when returning cached data.
+ * Returns filtered data for the given userId and topic.
+ */
+let topicFilterCallback: ((userId: string, data: unknown, topic: string) => unknown) | null = null;
+
+/**
  * Check if a topic should use realtime (WebSocket) instead of polling.
  * Media integrations (Plex, Jellyfin, Emby) use realtime with automatic
  * fallback to polling if WebSocket connection fails.
@@ -170,6 +177,16 @@ export function setRealtimeCallbacks(
 ): void {
     startRealtimeCallback = onStart;
     stopRealtimeCallback = onStop;
+}
+
+/**
+ * Register callback for topic-level data filtering.
+ * Used to apply per-user filtering when sending cached data on subscribe.
+ */
+export function setTopicFilterCallback(
+    filterFn: (userId: string, data: unknown, topic: string) => unknown
+): void {
+    topicFilterCallback = filterFn;
 }
 
 /**
@@ -229,14 +246,20 @@ export function subscribe(connectionId: string, topic: string): { cached: boolea
 
     // Return cached data if available
     if (sub.cachedData !== null) {
+        // Apply per-user topic filter if registered (e.g., Overseerr per-user filtering)
+        let dataToSend: unknown = sub.cachedData;
+        if (topicFilterCallback) {
+            dataToSend = topicFilterCallback(connection.userId, sub.cachedData, topic);
+        }
+
         // Wrap in standard payload format so frontend can parse correctly
         const payload: SSEEventPayload = {
             type: 'full',
-            data: sub.cachedData,
+            data: dataToSend,
             timestamp: sub.lastUpdated
         };
         sendToConnection(connectionId, topic, payload);
-        return { cached: true, data: sub.cachedData };
+        return { cached: true, data: dataToSend };
     }
 
     return { cached: false };

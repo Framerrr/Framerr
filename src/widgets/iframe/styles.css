@@ -1,0 +1,32 @@
+/* Iframe Widget Styles */
+
+.iframe-container {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: inherit;
+}
+
+.iframe-no-interact {
+    overflow: hidden;
+}
+
+.iframe-no-interact .iframe-embed {
+    pointer-events: none;
+}
+
+.iframe-embed {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+
+.iframe-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 100%;
+    text-align: center;
+}

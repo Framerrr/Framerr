@@ -33,5 +33,7 @@ export {
 export {
     resetUserPassword,
     hasLocalPassword,
-    setHasLocalPassword
+    setHasLocalPassword,
+    getRequirePasswordReset,
+    setRequirePasswordReset
 } from './passwords';

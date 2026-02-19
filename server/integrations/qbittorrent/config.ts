@@ -31,7 +31,8 @@ export const configSchema: ConfigSchema = {
         },
         {
             key: 'password',
-            type: 'password',
+            type: 'text',
+            sensitive: true,
             label: 'Password',
             placeholder: 'Password',
             hint: 'Leave empty if authentication is disabled',

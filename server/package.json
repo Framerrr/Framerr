@@ -1,8 +1,11 @@
 {
     "name": "framerr-server",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "description": "Backend API server for Framerr",
     "main": "dist/index.js",
+    "bin": {
+        "framerr": "./dist/server/cli.js"
+    },
     "scripts": {
         "start": "node dist/index.js",
         "build": "tsc",
@@ -54,6 +57,7 @@
         "@types/node": "^22.19.3",
         "@types/node-cron": "^3.0.11",
         "@types/sharp": "^0.31.1",
+        "@types/supertest": "^6.0.3",
         "@types/unzipper": "^0.10.11",
         "@types/uuid": "^10.0.0",
         "@types/web-push": "^3.6.4",
@@ -61,7 +65,7 @@
         "@types/xml2js": "^0.4.14",
         "nodemon": "^3.0.2",
         "rimraf": "^6.0.1",
-        "supertest": "^7.1.4",
+        "supertest": "^7.2.2",
         "ts-node": "^10.9.2",
         "typescript": "^5.9.3",
         "vitest": "^4.0.16"

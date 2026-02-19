@@ -7,7 +7,8 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { widgetFetch } from '../../utils/widgetFetch';
-import type { MediaItem, SearchResults } from './types';
+import logger from '../../utils/logger';
+import type { MediaItem, SearchResults, OverseerrMediaResult, OverseerrSearchResults } from './types';
 
 
 // ============================================================================
@@ -76,6 +77,8 @@ interface UseMediaSearchOptions {
     widgetId: string;
     integrationIds: string[];
     integrationNames: Record<string, string>;
+    overseerrIntegrationIds?: string[];
+    hideOverseerrAvailable?: boolean;
     onItemClick?: (item: MediaItem) => void;
 }
 
@@ -101,12 +104,18 @@ interface UseMediaSearchReturn {
     // Pagination
     loadMore: (integrationId: string) => void;
     isLoadingMore: boolean;
+    // Overseerr search
+    overseerrResults: OverseerrSearchResults | null;
+    isOverseerrSearching: boolean;
+    hasOverseerr: boolean;
 }
 
 export function useMediaSearch({
     widgetId,
     integrationIds,
-    integrationNames
+    integrationNames,
+    overseerrIntegrationIds = [],
+    hideOverseerrAvailable = true,
 }: UseMediaSearchOptions): UseMediaSearchReturn {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResults | null>(null);
@@ -118,6 +127,15 @@ export function useMediaSearch({
     const [serverUrls, setServerUrls] = useState<Record<string, string>>({});
     // Track offsets for pagination
     const [offsets, setOffsets] = useState<Record<string, number>>({});
+
+    // Overseerr search state
+    const [overseerrResults, setOverseerrResults] = useState<OverseerrSearchResults | null>(null);
+    const [isOverseerrSearching, setIsOverseerrSearching] = useState(false);
+    const overseerrAbortRef = useRef<AbortController | null>(null);
+    const hasOverseerr = overseerrIntegrationIds.length > 0;
+
+    // Pending search counter — isSearching stays true until ALL active searches complete
+    const pendingSearchCountRef = useRef(0);
 
     const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -295,15 +313,17 @@ export function useMediaSearch({
         setSyncStatuses(statuses);
     }, [integrationIds]);
 
-    // Perform search
+    // Perform library search
     const performSearch = useCallback(async (searchQuery: string) => {
-        if (!searchQuery || searchQuery.length < 2 || integrationIds.length === 0) {
+        if (!searchQuery || searchQuery.length < 1 || integrationIds.length === 0) {
             setResults(null);
-            setIsSearching(false);
+            // Decrement pending count instead of directly clearing
+            pendingSearchCountRef.current = Math.max(0, pendingSearchCountRef.current - 1);
+            if (pendingSearchCountRef.current === 0) {
+                setIsSearching(false);
+            }
             return;
         }
-
-        setIsSearching(true);
 
         try {
             // Reset offsets for new search
@@ -361,7 +381,9 @@ export function useMediaSearch({
                             actors: apiItem.actors ?? undefined,
                             integrationId,
                             integrationName: displayName,
-                            integrationType
+                            integrationType,
+                            tmdbId: apiItem.tmdbId ?? undefined,
+                            imdbId: apiItem.imdbId ?? undefined,
                         })),
                         totalMatches: result.totalMatches,
                         hasMore: result.hasMore
@@ -371,12 +393,115 @@ export function useMediaSearch({
 
             setResults(Object.keys(formattedResults).length > 0 ? formattedResults : null);
         } catch (error) {
-            console.error('[useMediaSearch] Search failed:', error);
+            logger.error('[useMediaSearch] Search failed:', error);
             setResults(null);
         } finally {
-            setIsSearching(false);
+            // Decrement pending count; only clear isSearching when all searches done
+            pendingSearchCountRef.current = Math.max(0, pendingSearchCountRef.current - 1);
+            if (pendingSearchCountRef.current === 0) {
+                setIsSearching(false);
+            }
         }
     }, [integrationIds, integrationNames]);
+
+    // Perform Overseerr search (parallel with library search)
+    const performOverseerrSearch = useCallback(async (searchQuery: string) => {
+        if (!searchQuery || searchQuery.length < 2 || overseerrIntegrationIds.length === 0) {
+            setOverseerrResults(null);
+            setIsOverseerrSearching(false);
+            // Decrement pending count instead of directly clearing
+            pendingSearchCountRef.current = Math.max(0, pendingSearchCountRef.current - 1);
+            if (pendingSearchCountRef.current === 0) {
+                setIsSearching(false);
+            }
+            return;
+        }
+
+        // Abort any in-flight Overseerr request
+        if (overseerrAbortRef.current) {
+            overseerrAbortRef.current.abort();
+        }
+        const abortController = new AbortController();
+        overseerrAbortRef.current = abortController;
+
+        setIsOverseerrSearching(true);
+
+        try {
+            const allResults: OverseerrSearchResults = {};
+
+            // Search all Overseerr instances in parallel
+            await Promise.all(overseerrIntegrationIds.map(async (instanceId) => {
+                try {
+                    const params = new URLSearchParams({
+                        query: searchQuery,
+                        page: '1',
+                    });
+
+                    const response = await widgetFetch(
+                        `/api/integrations/${instanceId}/proxy/search?${params}`,
+                        'media-search',
+                        { signal: abortController.signal }
+                    );
+
+                    if (!response.ok) throw new Error(`Overseerr search failed for ${instanceId}`);
+
+                    const data = await response.json() as {
+                        results: OverseerrMediaResult[];
+                        pageInfo?: { pages: number; page: number; results: number };
+                    };
+
+                    // Filter results based on hideOverseerrAvailable setting
+                    let filteredItems = data.results || [];
+                    if (hideOverseerrAvailable) {
+                        // Hide fully available titles (status 5)
+                        filteredItems = filteredItems.filter(
+                            item => !item.mediaInfo || item.mediaInfo.status !== 5
+                        );
+                    }
+
+                    // Only add group if there are results after filtering
+                    if (filteredItems.length > 0) {
+                        allResults[instanceId] = {
+                            integrationId: instanceId,
+                            integrationName: instanceId, // Will be resolved by widget
+                            items: filteredItems,
+                            loading: false,
+                        };
+                    }
+                } catch (err) {
+                    if ((err as Error).name === 'AbortError') return; // Expected on new search
+                    allResults[instanceId] = {
+                        integrationId: instanceId,
+                        integrationName: instanceId,
+                        items: [],
+                        loading: false,
+                        error: 'Overseerr search failed',
+                    };
+                }
+            }));
+
+            // Only update if not aborted
+            if (!abortController.signal.aborted) {
+                setOverseerrResults(
+                    Object.keys(allResults).length > 0 ? allResults : null
+                );
+            }
+        } catch (error) {
+            if ((error as Error).name !== 'AbortError') {
+                logger.error('[useMediaSearch] Overseerr search failed:', error);
+                setOverseerrResults(null);
+            }
+        } finally {
+            if (!abortController.signal.aborted) {
+                setIsOverseerrSearching(false);
+                // Decrement pending count; only clear isSearching when all searches done
+                pendingSearchCountRef.current = Math.max(0, pendingSearchCountRef.current - 1);
+                if (pendingSearchCountRef.current === 0) {
+                    setIsSearching(false);
+                }
+            }
+        }
+    }, [overseerrIntegrationIds, hideOverseerrAvailable]);
 
     // Debounced search trigger
     const search = useCallback((newQuery: string) => {
@@ -387,26 +512,68 @@ export function useMediaSearch({
             clearTimeout(debounceRef.current);
         }
 
-        // If query is empty, clear results immediately
+        // If query is empty, clear ALL results immediately
         if (!newQuery.trim()) {
             setIsSearching(false);
             setResults(null);
+            setOverseerrResults(null);
+            setIsOverseerrSearching(false);
+            pendingSearchCountRef.current = 0;
+            // Abort any in-flight Overseerr request
+            if (overseerrAbortRef.current) {
+                overseerrAbortRef.current.abort();
+                overseerrAbortRef.current = null;
+            }
             return;
         }
 
-        // Set searching immediately to prevent "No results" flash
+        // Determine which searches will fire for this query length
+        const willSearchLibrary = integrationIds.length > 0 && newQuery.length >= 1;
+        const willSearchOverseerr = hasOverseerr && newQuery.length >= 2;
+
+        if (!willSearchLibrary && !willSearchOverseerr) {
+            // No search will fire — don't show searching state
+            return;
+        }
+
+        // Clear overseerr results if overseerr won't search this time
+        // (e.g. user backspaced from 2 chars to 1 char)
+        if (!willSearchOverseerr) {
+            setOverseerrResults(null);
+            setIsOverseerrSearching(false);
+        }
+
+        // Count pending searches and set universal searching flag
+        let count = 0;
+        if (willSearchLibrary) count++;
+        if (willSearchOverseerr) count++;
+        pendingSearchCountRef.current = count;
         setIsSearching(true);
 
         debounceRef.current = setTimeout(() => {
-            performSearch(newQuery);
+            if (willSearchLibrary) {
+                performSearch(newQuery);
+            }
+            if (willSearchOverseerr) {
+                performOverseerrSearch(newQuery);
+            }
         }, 300);
-    }, [performSearch]);
+    }, [performSearch, performOverseerrSearch, hasOverseerr, integrationIds]);
 
     // Clear results
     const clearResults = useCallback(() => {
         setQuery('');
         setResults(null);
+        setOverseerrResults(null);
+        setIsSearching(false);
+        setIsOverseerrSearching(false);
         setOffsets({});
+        pendingSearchCountRef.current = 0;
+        // Abort any in-flight Overseerr request
+        if (overseerrAbortRef.current) {
+            overseerrAbortRef.current.abort();
+            overseerrAbortRef.current = null;
+        }
     }, []);
 
     // Load more results for a specific integration
@@ -452,7 +619,9 @@ export function useMediaSearch({
                     actors: apiItem.actors ?? undefined,
                     integrationId,
                     integrationName: displayName,
-                    integrationType
+                    integrationType,
+                    tmdbId: apiItem.tmdbId ?? undefined,
+                    imdbId: apiItem.imdbId ?? undefined,
                 }));
 
                 // Merge new items with existing
@@ -469,7 +638,7 @@ export function useMediaSearch({
                 setOffsets(newOffsets);
             }
         } catch (error) {
-            console.error('[useMediaSearch] Load more failed:', error);
+            logger.error('[useMediaSearch] Load more failed:', error);
         } finally {
             setIsLoadingMore(false);
         }
@@ -505,6 +674,10 @@ export function useMediaSearch({
         serverUrls,
         // Pagination
         loadMore,
-        isLoadingMore
+        isLoadingMore,
+        // Overseerr search
+        overseerrResults,
+        isOverseerrSearching,
+        hasOverseerr,
     };
 }

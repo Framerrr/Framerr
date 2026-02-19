@@ -12,6 +12,8 @@ import {
 } from '../db/linkedAccounts';
 import { setHasLocalPassword } from '../db/users';
 import { hashPassword } from '../auth/password';
+import { getSystemConfig } from '../db/systemConfig';
+import { checkPlexLibraryAccess } from '../utils/plexLibraryAccess';
 import logger from '../utils/logger';
 import axios from 'axios';
 
@@ -120,6 +122,33 @@ router.post('/plex', requireAuth, async (req: Request, res: Response) => {
             return;
         }
 
+        // Verify library access on admin's Plex server (security fix - matches SSO flow)
+        const systemConfig = await getSystemConfig();
+        const ssoConfig = systemConfig.plexSSO;
+        if (ssoConfig?.machineId && ssoConfig?.adminToken) {
+            try {
+                const { hasAccess } = await checkPlexLibraryAccess(
+                    plexUser.id.toString(),
+                    {
+                        adminToken: ssoConfig.adminToken as string,
+                        machineId: ssoConfig.machineId as string,
+                        clientIdentifier: (ssoConfig.clientIdentifier as string) || 'framerr-dashboard',
+                        adminPlexId: ssoConfig.adminPlexId as string,
+                    }
+                );
+                if (!hasAccess) {
+                    res.status(403).json({
+                        error: 'This Plex account does not have access to the server library. Only users with library access can link their account.'
+                    });
+                    return;
+                }
+            } catch (accessError) {
+                logger.error(`[LinkedAccounts] Failed to verify library access: error="${(accessError as Error).message}"`);
+                res.status(500).json({ error: 'Failed to verify library access' });
+                return;
+            }
+        }
+
         // Check if this Plex account is already linked to another user
         const existingLink = findUserByExternalId('plex', plexUser.id.toString());
         if (existingLink && existingLink !== userId) {
@@ -139,6 +168,9 @@ router.post('/plex', requireAuth, async (req: Request, res: Response) => {
         });
 
         logger.info(`[LinkedAccounts] Plex linked: user=${userId} plexUser="${plexUser.username}"`);
+
+        // Fire-and-forget: try to auto-match/refresh Overseerr account
+        import('../services/overseerrAutoMatch').then(m => m.tryAutoMatchSingleUser(userId)).catch(() => { });
 
         res.json({
             success: true,

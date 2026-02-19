@@ -17,6 +17,10 @@ import {
 } from './connections';
 import { subscriptions } from './subscriptions';
 
+// Per-topic JSON string cache for cheap equality pre-check
+// Avoids expensive compare() call when polled data hasn't changed
+const topicJsonCache = new Map<string, string>();
+
 // ============================================================================
 // LEGACY CACHED STATE (for backwards compatibility)
 // ============================================================================
@@ -79,6 +83,19 @@ export function broadcastToTopic(
                 timestamp
             };
         } else {
+            // Cheap equality pre-check: serialize and compare with cached JSON string
+            // This avoids the expensive compare() call when data hasn't changed
+            const newJson = JSON.stringify(data);
+            const cachedJson = topicJsonCache.get(topic);
+
+            if (cachedJson && newJson === cachedJson) {
+                // Data identical — skip broadcast entirely
+                return;
+            }
+
+            // Data changed — store new JSON and generate patches
+            topicJsonCache.set(topic, newJson);
+
             // Generate patches
             const patches = compare(
                 previousData as object,
@@ -86,7 +103,7 @@ export function broadcastToTopic(
             );
 
             if (patches.length === 0) {
-                // No changes - skip broadcast
+                // No changes detected by compare (shouldn't happen after JSON check, but safety)
                 return;
             }
 
@@ -134,6 +151,77 @@ export function broadcastToTopic(
     }
 
     logger.debug(`[SSE] Broadcast: topic=${topic} type=${payload.type} subscribers=${sent}/${sub.subscribers.size}`);
+}
+
+/**
+ * Per-subscriber filter function type.
+ * Receives the userId, full data, and topic name. Returns filtered data for that user.
+ */
+export type SubscriberFilterFn = (userId: string, data: unknown, topic: string) => unknown;
+
+/**
+ * Broadcast event to all subscribers of a topic with per-user filtering.
+ * 
+ * Unlike broadcastToTopic(), this calls filterFn(userId, data) per unique user
+ * and serializes separately for each. Always sends full payloads (no delta)
+ * since each user may see different data.
+ * 
+ * @param topic - The topic name
+ * @param data - The full unfiltered data
+ * @param filterFn - Per-subscriber filter function
+ */
+export function broadcastToTopicFiltered(
+    topic: string,
+    data: unknown,
+    filterFn: SubscriberFilterFn
+): void {
+    const sub = subscriptions.get(topic);
+    if (!sub) return;
+
+    const timestamp = Date.now();
+
+    // Update cache with full unfiltered data (for admin view coherence)
+    sub.cachedData = data;
+    sub.lastUpdated = timestamp;
+
+    // Group subscribers by userId to serialize once per user
+    const userConnections = new Map<string, string[]>(); // userId -> connectionIds[]
+    for (const connectionId of sub.subscribers) {
+        const connection = clientConnections.get(connectionId);
+        if (connection) {
+            const ids = userConnections.get(connection.userId) || [];
+            ids.push(connectionId);
+            userConnections.set(connection.userId, ids);
+        }
+    }
+
+    let sent = 0;
+    for (const [userId, connectionIds] of userConnections) {
+        // Apply filter for this user
+        const filteredData = filterFn(userId, data, topic);
+
+        const payload: SSEEventPayload = {
+            type: 'full',
+            data: filteredData,
+            timestamp
+        };
+
+        const eventStr = `event: ${topic}\ndata: ${JSON.stringify(payload)}\n\n`;
+
+        for (const connectionId of connectionIds) {
+            const connection = clientConnections.get(connectionId);
+            if (connection) {
+                try {
+                    connection.res.write(eventStr);
+                    sent++;
+                } catch (error) {
+                    removeClientConnection(connection.res);
+                }
+            }
+        }
+    }
+
+    logger.debug(`[SSE] FilteredBroadcast: topic=${topic} users=${userConnections.size} subscribers=${sent}/${sub.subscribers.size}`);
 }
 
 /**

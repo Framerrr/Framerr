@@ -24,30 +24,14 @@ export function translateHostUrl(url: string): string {
         const parsedUrl = new URL(url);
         const hostname = parsedUrl.hostname;
 
-        // Check if hostname is a local/private network IP
-        const isLocalIP =
-            hostname.startsWith('192.168.') ||
-            hostname.startsWith('10.') ||
-            hostname.startsWith('172.16.') ||
-            hostname.startsWith('172.17.') ||
-            hostname.startsWith('172.18.') ||
-            hostname.startsWith('172.19.') ||
-            hostname.startsWith('172.20.') ||
-            hostname.startsWith('172.21.') ||
-            hostname.startsWith('172.22.') ||
-            hostname.startsWith('172.23.') ||
-            hostname.startsWith('172.24.') ||
-            hostname.startsWith('172.25.') ||
-            hostname.startsWith('172.26.') ||
-            hostname.startsWith('172.27.') ||
-            hostname.startsWith('172.28.') ||
-            hostname.startsWith('172.29.') ||
-            hostname.startsWith('172.30.') ||
-            hostname.startsWith('172.31.') ||
+        // Only translate loopback addresses — these genuinely can't reach the host from bridge mode.
+        // Private LAN IPs (192.168.x.x, 10.x.x.x, 172.16-31.x.x) are reachable from bridge,
+        // so we leave them as-is.
+        const isLoopback =
             hostname === 'localhost' ||
             hostname === '127.0.0.1';
 
-        if (isLocalIP) {
+        if (isLoopback) {
             parsedUrl.hostname = 'host.local';
             // Remove trailing slash if present (URL.toString() can add it)
             return parsedUrl.toString().replace(/\/$/, '');

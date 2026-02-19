@@ -10,7 +10,7 @@ export interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, requiredPermission = null }: ProtectedRouteProps): React.JSX.Element => {
-    const { user, loading: authLoading, isAuthenticated } = useAuth();
+    const { user, loading: authLoading, isAuthenticated, requirePasswordChange } = useAuth();
     const { systemConfig, loading: configLoading } = useSystemConfig();
     const location = useLocation();
 
@@ -21,6 +21,11 @@ const ProtectedRoute = ({ children, requiredPermission = null }: ProtectedRouteP
 
     if (!isAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    // Force password change takes priority over everything
+    if (requirePasswordChange) {
+        return <Navigate to="/change-password" replace />;
     }
 
     // Check specific permission if required

@@ -23,7 +23,27 @@ export const plugin: WidgetPlugin = {
     component: lazy(() => import('./CalendarWidget')),
     compatibleIntegrations: ['sonarr', 'radarr'],
     multiIntegration: true,
+    integrationGroups: [
+        { key: 'sonarrIntegrationIds', label: 'Sonarr', types: ['sonarr'] },
+        { key: 'radarrIntegrationIds', label: 'Radarr', types: ['radarr'] },
+    ],
+    defaultConfig: {
+        viewMode: 'month',
+    },
     configConstraints: {
-        contentPadding: 'lg',  // Relaxed padding for calendar grid
+        contentPadding: 'none',
+        options: [
+            {
+                key: 'viewMode',
+                label: 'View Mode',
+                type: 'buttons',
+                defaultValue: 'month',
+                choices: [
+                    { value: 'month', label: 'Month' },
+                    { value: 'agenda', label: 'Agenda' },
+                    { value: 'both', label: 'Both' },
+                ],
+            },
+        ],
     },
 };

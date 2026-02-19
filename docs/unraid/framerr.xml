@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Framerr</Name>
+  <Repository>pickels23/framerr:latest</Repository>
+  <Registry>https://hub.docker.com/r/pickels23/framerr</Registry>
+  <Branch>
+    <Tag>latest</Tag>
+    <TagDescription>Stable release</TagDescription>
+  </Branch>
+  <Branch>
+    <Tag>develop</Tag>
+    <TagDescription>Development build (may be unstable)</TagDescription>
+  </Branch>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/Framerrr/Framerr/issues</Support>
+  <Project>https://github.com/Framerrr/Framerr</Project>
+  <Overview>Self-hosted homelab dashboard with real-time widgets, iframe tabs, and Plex SSO. Deep integration with Plex, Sonarr, Radarr, Overseerr, Tautulli, qBittorrent, SABnzbd, Glances, Unraid, and Uptime Kuma. Multi-user with per-user access control, notifications with Web Push, and encrypted secrets.</Overview>
+  <Category>Tools: Productivity:</Category>
+  <WebUI>http://[IP]:[PORT:3001]</WebUI>
+  <Icon>https://raw.githubusercontent.com/Framerrr/Framerr/main/docs/branding/framerr-logo.png</Icon>
+  <ExtraSearchTerms>dashboard homelab organizr homepage media plex sonarr radarr overseerr</ExtraSearchTerms>
+  <Requires/>
+  <DonateText/>
+  <DonateLink/>
+  <DonateImg/>
+  <Config Name="Web UI Port" Target="3001" Default="3001" Mode="tcp" Description="Port for the Framerr web interface." Type="Port" Display="always" Required="true">3001</Config>
+  <Config Name="Config Path" Target="/config" Default="/mnt/user/appdata/framerr" Mode="rw" Description="Persistent storage for database, uploads, and backups." Type="Path" Display="always" Required="true">/mnt/user/appdata/framerr</Config>
+  <Config Name="SECRET_ENCRYPTION_KEY" Target="SECRET_ENCRYPTION_KEY" Default="" Description="Required. Encryption key for integration secrets. Generate with: openssl rand -hex 32" Type="Variable" Display="always" Required="true"/>
+  <Config Name="PUID" Target="PUID" Default="99" Description="User ID for file permissions." Type="Variable" Display="advanced" Required="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Description="Group ID for file permissions." Type="Variable" Display="advanced" Required="false">100</Config>
+  <Config Name="TZ" Target="TZ" Default="America/New_York" Description="Timezone (e.g., America/New_York, Europe/London)." Type="Variable" Display="always" Required="false">America/New_York</Config>
+</Container>

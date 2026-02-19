@@ -48,9 +48,6 @@ export interface UseIntegrationSettingsReturn {
     activeModal: string | null;
     setActiveModal: (id: string | null) => void;
     newInstanceId: string | null;
-    addDropdownOpen: boolean;
-    setAddDropdownOpen: (open: boolean) => void;
-    addDropdownRef: React.RefObject<HTMLDivElement | null>;
 
     // Form refs
     monitorFormRef: React.RefObject<MonitorFormRef | null>;
@@ -76,7 +73,6 @@ export interface UseIntegrationSettingsReturn {
     // Plex handlers
     handlePlexLogin: () => Promise<void>;
     handlePlexServerChange: (machineId: string) => void;
-    handlePlexTest: () => Promise<void>;
     fetchPlexServers: (token: string) => Promise<void>;
 
     // Monitor handlers
@@ -137,9 +133,7 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
     const [, setMonitorFormReady] = useState(0);
     const [, setUptimeKumaFormReady] = useState(0);
 
-    // State for add integration dropdown
-    const [addDropdownOpen, setAddDropdownOpen] = useState(false);
-    const addDropdownRef = useRef<HTMLDivElement>(null);
+
 
     // Track newly created instance that hasn't been saved yet (for cancel-to-delete)
     const [newInstanceId, setNewInstanceId] = useState<string | null>(null);
@@ -197,16 +191,7 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
         setInitialized(true);
     }, [fetchedInstances, initialized]);
 
-    // Close dropdown when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent): void => {
-            if (addDropdownRef.current && !addDropdownRef.current.contains(event.target as Node)) {
-                setAddDropdownOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+
 
     // ========================================================================
     // Basic Handlers
@@ -340,7 +325,7 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
         try {
             const { _instanceId, _displayName, _type, enabled, ...configWithoutMeta } = config as IntegrationConfig & { _instanceId?: string; _displayName?: string; _type?: string };
 
-            const result = await integrationsApi.testByConfig(type, configWithoutMeta);
+            const result = await integrationsApi.testByConfig(type, configWithoutMeta, instanceId.startsWith('new-') ? undefined : instanceId);
 
             setTestStates(prev => ({
                 ...prev,
@@ -405,7 +390,6 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
     // ========================================================================
 
     const handleAddIntegration = useCallback((type: string, name?: string): void => {
-        setAddDropdownOpen(false);
 
         const displayName = name || type.charAt(0).toUpperCase() + type.slice(1);
 
@@ -539,39 +523,6 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
         }));
     }, [activeModal, integrations]);
 
-    const handlePlexTest = useCallback(async (): Promise<void> => {
-        if (!activeModal) return;
-
-        const config = integrations[activeModal] as PlexConfig || {};
-        setTestStates(prev => ({ ...prev, [activeModal]: { loading: true } }));
-        try {
-            const result = await plexApi.testConnection(config.url || '', config.token || '');
-
-            if (result.success) {
-                setTestStates(prev => ({
-                    ...prev,
-                    [activeModal]: { loading: false, success: true, message: `Connected to ${result.serverName}` }
-                }));
-            } else {
-                setTestStates(prev => ({
-                    ...prev,
-                    [activeModal]: { loading: false, success: false, message: result.error || 'Connection failed' }
-                }));
-            }
-        } catch (error) {
-            const apiError = error as ApiError;
-            setTestStates(prev => ({
-                ...prev,
-                [activeModal]: {
-                    loading: false,
-                    success: false,
-                    message: apiError.message || 'Connection failed'
-                }
-            }));
-        }
-        setTimeout(() => setTestStates(prev => ({ ...prev, [activeModal]: null })), 5000);
-    }, [activeModal, integrations]);
-
     // ========================================================================
     // Form Ready Callbacks
     // ========================================================================
@@ -622,9 +573,6 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
         activeModal,
         setActiveModal,
         newInstanceId,
-        addDropdownOpen,
-        setAddDropdownOpen,
-        addDropdownRef,
 
         // Form refs
         monitorFormRef,
@@ -650,7 +598,6 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
         // Plex handlers
         handlePlexLogin,
         handlePlexServerChange,
-        handlePlexTest,
         fetchPlexServers,
 
         // Monitor handlers

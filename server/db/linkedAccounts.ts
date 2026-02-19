@@ -211,3 +211,55 @@ export function getUsersLinkedToService(service: string): UserServiceLink[] {
         return [];
     }
 }
+
+/**
+ * Get all Plex-linked users with their Plex usernames.
+ * Used by bulk auto-match at startup.
+ */
+export function getPlexLinkedUsers(): { userId: string; plexUsername: string }[] {
+    try {
+        const rows = getDb().prepare(`
+            SELECT user_id, external_username FROM linked_accounts 
+            WHERE service = 'plex' AND external_username IS NOT NULL AND external_username != ''
+        `).all() as { user_id: string; external_username: string }[];
+
+        return rows.map(row => ({
+            userId: row.user_id,
+            plexUsername: row.external_username
+        }));
+    } catch (error) {
+        logger.error(`[LinkedAccounts] Failed to get Plex users: error="${(error as Error).message}"`);
+        return [];
+    }
+}
+
+/**
+ * Update metadata for an existing linked account (e.g., refresh permissions)
+ */
+export function updateLinkedAccountMetadata(userId: string, service: string, metadata: Record<string, unknown>): boolean {
+    try {
+        const result = getDb().prepare(`
+            UPDATE linked_accounts SET metadata = ? WHERE user_id = ? AND service = ?
+        `).run(JSON.stringify(metadata), userId, service);
+
+        if (result.changes > 0) {
+            logger.debug(`[LinkedAccounts] Updated metadata: user=${userId} service=${service}`);
+            return true;
+        }
+        return false;
+    } catch (error) {
+        logger.error(`[LinkedAccounts] Failed to update metadata: error="${(error as Error).message}"`);
+        return false;
+    }
+}
+
+/**
+ * Get the stored Plex auth token for a user (if any).
+ * Used by the recommendations endpoint to make personalized Plex API calls.
+ */
+export function getPlexTokenForUser(userId: string): string | null {
+    const account = getLinkedAccount(userId, 'plex');
+    if (!account?.metadata) return null;
+    const token = account.metadata.plexToken;
+    return typeof token === 'string' ? token : null;
+}

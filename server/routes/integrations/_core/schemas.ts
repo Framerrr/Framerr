@@ -23,6 +23,7 @@ router.get('/schemas', (_req, res) => {
         configSchema: unknown;
         hasCustomForm: boolean;
         hasConnectionTest: boolean;
+        metrics?: Array<{ key: string; recordable: boolean }>;
     }> = {};
 
     for (const plugin of plugins) {
@@ -34,6 +35,7 @@ router.get('/schemas', (_req, res) => {
             configSchema: plugin.configSchema,
             hasCustomForm: plugin.hasCustomForm ?? false,
             hasConnectionTest: !!plugin.testConnection,
+            metrics: plugin.metrics?.map(m => ({ key: m.key, recordable: m.recordable })),
         };
     }
 

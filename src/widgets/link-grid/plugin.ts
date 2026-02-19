@@ -8,6 +8,7 @@
 import { lazy } from 'react';
 import { Link, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import type { WidgetPlugin } from '../types';
+import LinkOrderEditor from './components/LinkOrderEditor';
 
 export const plugin: WidgetPlugin = {
     id: 'link-grid',
@@ -39,7 +40,14 @@ export const plugin: WidgetPlugin = {
                     { value: 'center', label: 'Center', icon: AlignCenter },
                     { value: 'right', label: 'Right', icon: AlignRight }
                 ]
+            },
+            {
+                key: 'linkOrder',
+                label: 'Link Order',
+                type: 'component',
+                component: LinkOrderEditor
             }
         ]
     }
 };
+

@@ -53,10 +53,12 @@
     opacity: 0.8;
 }
 
-.search-takeover-close:hover {
-    opacity: 1;
-    color: var(--text-primary);
-    background: var(--bg-hover);
+@media (hover: hover) {
+    .search-takeover-close:hover {
+        opacity: 1;
+        color: var(--text-primary);
+        background: var(--bg-hover);
+    }
 }
 
 /* Search bar */
@@ -115,9 +117,11 @@
     justify-content: center;
 }
 
-.search-takeover-clear:hover {
-    color: var(--text-secondary);
-    background: var(--bg-hover);
+@media (hover: hover) {
+    .search-takeover-clear:hover {
+        color: var(--text-secondary);
+        background: var(--bg-hover);
+    }
 }
 
 /* Dropdown area */

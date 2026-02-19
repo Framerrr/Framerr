@@ -30,9 +30,15 @@ export interface AuthContextValue {
     needsSetup: boolean;
 
     /**
-     * Login with username and password
+     * True if user must change password before accessing app (admin reset)
      */
-    login: (username: string, password: string, rememberMe: boolean) => Promise<LoginResult>;
+    requirePasswordChange: boolean;
+
+    /**
+     * Login with username and password.
+     * Pass silent=true to skip the login splash (e.g., during setup wizard).
+     */
+    login: (username: string, password: string, rememberMe: boolean, silent?: boolean) => Promise<LoginResult>;
 
     /**
      * Login with Plex token
@@ -53,6 +59,11 @@ export interface AuthContextValue {
      * Check if initial setup is needed
      */
     checkSetupStatus: () => Promise<boolean>;
+
+    /**
+     * Clear the require password change flag (after successful change)
+     */
+    setRequirePasswordChange: (value: boolean) => void;
 
     /**
      * Convenience getter for authentication state

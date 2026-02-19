@@ -123,6 +123,10 @@ export type { IntegrationDropdownProps, Integration } from './IntegrationDropdow
 export { ViewModeToggle } from './ViewModeToggle';
 export type { ViewMode } from './ViewModeToggle';
 
+// SegmentedControl - Compact inline tab switcher with sliding pill indicator
+export { SegmentedControl } from './SegmentedControl';
+export type { SegmentedControlProps, SegmentOption, SegmentedControlSize } from './SegmentedControl';
+
 // IntegrationNotificationsTab - Notification configuration for integration instances
 export { IntegrationNotificationsTab } from './notifications';
 export type { NotificationMode, NotificationEvent, NotificationConfigData } from './notifications';

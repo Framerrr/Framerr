@@ -138,13 +138,14 @@ export interface SelectTriggerProps {
 }
 
 const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
-    ({ children, className = '', size = 'sm', ...props }, ref) => {
+    ({ children, className = '', size = 'md', ...props }, ref) => {
         const sizeStyles = formSizeClasses[size];
         return (
             <RadixSelect.Trigger
                 ref={ref}
                 className={`
           inline-flex items-center justify-between gap-2
+          ${sizeStyles.height}
           ${sizeStyles.padding}
           bg-theme-tertiary border border-theme rounded-lg
           ${sizeStyles.text} text-theme-primary
@@ -237,9 +238,9 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
                         className={`
               z-[150]
               min-w-[8rem]
-              bg-theme-secondary border border-theme rounded-lg
+              bg-theme-primary border border-theme rounded-xl
               shadow-xl
-              py-1
+              p-4
               ${className}
             `}
                     >
@@ -277,8 +278,8 @@ const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
                 value={value}
                 disabled={disabled}
                 className={`
-          relative flex items-center gap-2
-          px-3 py-2 pr-8
+          relative flex items-center gap-3
+          px-3 py-2 pr-8 rounded-md
           text-sm text-theme-primary
           cursor-pointer
           hover:bg-theme-hover

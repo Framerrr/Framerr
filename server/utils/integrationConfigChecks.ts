@@ -21,6 +21,7 @@
 
 import { isConfigured as serviceMonitoringIsConfigured } from '../routes/serviceMonitors';
 import { isConfigured as plexIsConfigured } from '../routes/plex';
+import logger from './logger';
 
 /**
  * Integration config interface
@@ -134,6 +135,6 @@ export function computeIsConfigured(integrationId: string, config: Record<string
 
     // Unknown integration - log warning and use safe default
     // This prevents breaking if a new integration is added but not registered
-    console.warn(`[integrationConfigChecks] Unknown integration: ${integrationId} - using default check`);
+    logger.warn(`[integrationConfigChecks] Unknown integration: ${integrationId} - using default check`);
     return defaultIsConfigured(typedConfig);
 }

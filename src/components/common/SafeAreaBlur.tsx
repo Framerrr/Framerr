@@ -5,7 +5,7 @@ import { useLayout } from '../../context/LayoutContext';
  * SafeAreaBlur - Overlay for the top safe area (notch/camera region)
  * 
  * Shows a glassmorphism blur effect only when content scrolls behind it.
- * Tracks both main-scroll (dashboard/tabs) and settings-scroll containers.
+ * Tracks dashboard-layer, settings-layer, and tab-layer scroll containers.
  */
 const SafeAreaBlur: React.FC = () => {
     const { isMobile } = useLayout();
@@ -20,16 +20,20 @@ const SafeAreaBlur: React.FC = () => {
             setIsScrolled(scrolled);
         };
 
-        // Handle scroll containers (main-scroll and settings-scroll)
+        // Handle scroll containers (dashboard-layer, settings-layer, tab-layer-*)
         const handleContainerScroll = (e: Event) => {
             const target = e.target as HTMLElement;
+            if (!target?.id) return;
 
-            // Track both main-scroll and settings-scroll containers
-            if (target && (target.id === 'main-scroll' || target.id === 'settings-scroll')) {
+            // Only track page-level scroll containers
+            const isPageContainer = target.id === 'dashboard-layer'
+                || target.id === 'settings-layer'
+                || target.id.startsWith('tab-layer-');
+
+            if (isPageContainer) {
                 const scrolled = target.scrollTop > 10;
                 setIsScrolled(scrolled);
             }
-            // Ignore all other scroll events (widgets, lists, etc.)
         };
 
         // Listen to window scroll
@@ -51,18 +55,23 @@ const SafeAreaBlur: React.FC = () => {
 
     // Scroll to top when safe area is tapped - scroll the visible container
     const handleTap = () => {
-        // Try main-scroll first (dashboard/tabs)
-        const mainScroll = document.getElementById('main-scroll');
-        if (mainScroll && mainScroll.style.display !== 'none') {
-            mainScroll.scrollTo({ top: 0, behavior: 'smooth' });
-            return;
+        // Find the currently visible page layer and scroll it to top
+        const layers = ['dashboard-layer', 'settings-layer'];
+        for (const id of layers) {
+            const el = document.getElementById(id);
+            if (el && el.style.visibility !== 'hidden') {
+                el.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
         }
 
-        // Try settings-scroll
-        const settingsScroll = document.getElementById('settings-scroll');
-        if (settingsScroll && settingsScroll.style.display !== 'none') {
-            settingsScroll.scrollTo({ top: 0, behavior: 'smooth' });
-            return;
+        // Check tab layers
+        const tabLayers = document.querySelectorAll<HTMLElement>('[id^="tab-layer-"]');
+        for (const el of tabLayers) {
+            if (el.style.visibility !== 'hidden') {
+                el.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
         }
 
         // Fallback to window scroll

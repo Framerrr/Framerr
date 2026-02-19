@@ -17,7 +17,7 @@ export const plugin: WidgetPlugin = {
     icon: Code,
     sizing: {
         default: { w: 6, h: 6 },
-        min: { w: 4, h: 2 },
+        min: { w: 2, h: 2 },
         max: { w: 24, h: 18 },
     },
     component: lazy(() => import('./CustomHTMLWidget')),

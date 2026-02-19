@@ -11,7 +11,8 @@ import { LAYOUT } from '../../constants/layout';
 import { WidgetRenderer, WidgetStateMessage } from '../../shared/widgets';
 import WidgetErrorBoundary from '../../components/widgets/WidgetErrorBoundary';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { getWidgetComponent, getWidgetIcon, getWidgetMetadata, getWidgetConfigConstraints } from '../../widgets/registry';
+import { getWidgetComponent, getWidgetIcon, getWidgetMetadata, getWidgetIconName, getWidgetConfigConstraints } from '../../widgets/registry';
+import { useIntegrationSchemas } from '../../api/hooks';
 import AddWidgetModal from './components/AddWidgetModal';
 import WidgetConfigModal from './components/WidgetConfigModal';
 import WidgetResizeModal from './components/WidgetResizeModal';
@@ -21,6 +22,7 @@ import RelinkConfirmationModal from './components/RelinkConfirmationModal';
 import UnsavedChangesModal from './components/UnsavedChangesModal';
 import DashboardEditBar from './components/DashboardEditBar';
 import { useDashboardEdit } from '../../context/DashboardEditContext';
+import { useWalkthrough } from '../../features/walkthrough';
 import DevDebugOverlay from '../../components/dev/DevDebugOverlay';
 import { useDragAutoScroll } from '../../hooks/useDragAutoScroll';
 import { configApi } from '../../api/endpoints';
@@ -29,6 +31,7 @@ import { FramerrDashboardGrid } from '../../shared/grid';
 import '../../styles/GridLayout.css';
 import logger from '../../utils/logger';
 import { useNotifications } from '../../context/NotificationContext';
+import PullToRefresh from '../../shared/ui/PullToRefresh';
 import type { FramerrWidget } from '../../../shared/types/widget';
 
 // Shared layout hook
@@ -53,6 +56,10 @@ const Dashboard = (): React.JSX.Element => {
     const { isMobile } = useLayout();
     const { error: showError } = useNotifications();
     const dashboardEditContext = useDashboardEdit();
+    const walkthrough = useWalkthrough();
+
+    // Integration schemas for icon resolution (customIcon → integration icon → widget default)
+    const { data: schemas } = useIntegrationSchemas();
 
     // ========== SHARED LAYOUT HOOK ==========
     const layoutHook = useDashboardLayout({
@@ -198,6 +205,13 @@ const Dashboard = (): React.JSX.Element => {
         handleSaveWidgetConfig,
         handleResetMobileLayout,
     } = handlersHook;
+
+    // Auto-suspend walkthrough while mobile edit disclaimer is showing
+    React.useEffect(() => {
+        if (showMobileDisclaimer && walkthrough?.state.isActive && !walkthrough.state.suspended) {
+            walkthrough.suspend();
+        }
+    }, [showMobileDisclaimer, walkthrough]);
 
     // ========== RESIZE MODAL STATE ==========
     const [resizeModalWidgetId, setResizeModalWidgetId] = React.useState<string | null>(null);
@@ -363,25 +377,51 @@ const Dashboard = (): React.JSX.Element => {
             );
         }
 
+        // Only resolve integration icon/name for single-type widgets (e.g., overseerr, plex, sonarr).
+        // Multi-type widgets (media-search, calendar, system-status) keep their own identity.
+        const compatibleTypes = metadata?.compatibleIntegrations || [];
+        const isSingleTypeWidget = compatibleTypes.length === 1;
+        const integrationId = widget.config?.integrationId as string | undefined;
+
         let Icon: LucideIcon | React.FC;
         if (widget.config?.customIcon) {
+            // User explicitly picked an icon
             const customIconValue = widget.config.customIcon as string;
             Icon = getIconComponent(customIconValue);
+        } else if (isSingleTypeWidget && integrationId && schemas) {
+            // Single-type widget with bound integration → use integration icon
+            const intType = integrationId.split('-')[0];
+            const schemaIcon = schemas[intType]?.icon;
+            Icon = schemaIcon ? getIconComponent(schemaIcon) : defaultIcon;
         } else {
             Icon = defaultIcon;
+        }
+
+        // Title resolution chain: config.title (if customized) → integration name → widget default
+        const storedTitle = widget.config?.title as string;
+        const defaultName = metadata?.name || 'Widget';
+        const isDefaultTitle = !storedTitle || storedTitle === defaultName;
+        let resolvedTitle: string;
+
+        if (!isDefaultTitle) {
+            // User set a custom title — use it
+            resolvedTitle = storedTitle;
+        } else if (isSingleTypeWidget && integrationId && schemas) {
+            // Single-type widget → use integration schema name
+            const intType = integrationId.split('-')[0];
+            resolvedTitle = schemas[intType]?.name || defaultName;
+        } else {
+            resolvedTitle = defaultName;
         }
 
         const smLayout = layouts.sm.find(l => l.id === widget.id);
         const yPos = smLayout?.y ?? '?';
 
-        // Note: paddingSize is now controlled by plugin configConstraints.contentPadding
-        // WidgetRenderer reads this directly from the registry
-
         return (
             <WidgetRenderer
                 widget={widget}
                 mode="live"
-                title={widget.config?.title as string || getWidgetMetadata(widget.type)?.name || 'Widget'}
+                title={resolvedTitle}
                 icon={Icon as LucideIcon}
                 editMode={editMode}
                 isMobile={isMobile}
@@ -477,15 +517,28 @@ const Dashboard = (): React.JSX.Element => {
         return <div className="h-full w-full" />;
     }
 
-    const isEmpty = widgets.length === 0;
+    const isEmpty = displayWidgets.length === 0;
 
 
 
     return (
-        <div className={`w-full min-h-screen max-w-[2000px] mx-auto fade-in p-2 md:p-4 ${editMode ? 'dashboard-edit-mode' : ''}`}>
+        <div
+            className={`w-full min-h-full max-w-[2000px] mx-auto fade-in p-2 md:p-4 ${editMode ? 'dashboard-edit-mode' : ''}`}
+            style={{ alignSelf: 'flex-start' }}
+        >
+            {/* Mobile pull-to-refresh — disabled during edit mode */}
+            {!editMode && <PullToRefresh />}
+
             {/* Edit Button - standalone when header is hidden */}
-            {!headerVisible && !editMode && !(isMobile && hideMobileEditButton) && (
-                <div className="flex justify-end">
+            {!headerVisible && !(isMobile && hideMobileEditButton) && (
+                <div
+                    className="flex justify-end transition-opacity duration-150"
+                    style={{
+                        opacity: editMode ? 0 : 1,
+                        visibility: editMode ? 'hidden' : 'visible',
+                        pointerEvents: editMode ? 'none' : 'auto',
+                    }}
+                >
                     <button
                         onPointerUp={(e) => {
                             const isTouch = e.pointerType === 'touch';
@@ -499,9 +552,9 @@ const Dashboard = (): React.JSX.Element => {
                 </div>
             )}
 
-            {/* Header - conditionally visible */}
+            {/* Header - conditionally visible, always static (no layout-shifting animations) */}
             {headerVisible && (
-                <header className={`transition-[margin] duration-300 ${(taglineEnabled || editMode) ? 'mb-8' : 'mb-4'}`}>
+                <header className={`${taglineEnabled ? 'mb-8' : 'mb-4'}`}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             {GreetingIcon && autoGreeting?.iconColor && (
@@ -515,72 +568,44 @@ const Dashboard = (): React.JSX.Element => {
                         </div>
                         {!editMode && !(isMobile && hideMobileEditButton) && (
                             <button
-                                onPointerUp={(e) => {
-                                    const isTouch = e.pointerType === 'touch';
-                                    handleToggleEdit(isTouch);
-                                }}
-                                className="p-2 rounded-lg text-theme-tertiary opacity-40 hover:opacity-90 hover:bg-theme-hover transition-all duration-300 flex-shrink-0"
+                                onClick={() => handleToggleEdit(isMobile)}
+                                className="p-2 rounded-lg text-theme-tertiary opacity-40 hover:opacity-90 hover:bg-theme-hover transition-all duration-300 flex-shrink-0 cursor-pointer"
                                 title="Edit dashboard"
+                                data-walkthrough="edit-button"
                             >
                                 <Edit size={16} />
                             </button>
                         )}
                     </div>
+                    {/* Subtitle area — tagline crossfades to edit text in place (no height change) */}
                     <AnimatePresence mode="wait">
-                        {editMode ? (
-                            <motion.div
-                                key="edit-info"
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                exit={{ opacity: 0, height: 0 }}
-                                transition={{
-                                    duration: 0.35,
-                                    ease: [0.4, 0, 0.2, 1],
-                                    opacity: { duration: 0.2 }
-                                }}
-                                style={{ overflow: 'hidden' }}
-                            >
-                                <div>
-                                    <p className="text-lg text-theme-secondary mt-2">
-                                        {isMobile
-                                            ? 'Hold to drag and rearrange widgets'
-                                            : 'Editing mode - Drag to rearrange widgets'}
-                                    </p>
-                                    {isMobile && (
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <span
-                                                className={`text-xs px-2 py-1 rounded-lg flex items-center gap-1 font-medium ${(mobileLayoutMode === 'independent' || pendingUnlink)
-                                                    ? 'bg-warning/20 text-warning'
-                                                    : 'bg-success/20 text-success'
-                                                    }`}
-                                            >
-                                                {(mobileLayoutMode === 'independent' || pendingUnlink) ? (
-                                                    <>
-                                                        <Unlink size={12} />
-                                                        Independent
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Link size={12} />
-                                                        Linked
-                                                    </>
-                                                )}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            </motion.div>
-                        ) : taglineEnabled ? (
-                            <motion.p
-                                key="tagline"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="text-lg text-theme-secondary mt-2"
-                            >
-                                {taglineText}
-                            </motion.p>
-                        ) : null}
+                        {taglineEnabled && (
+                            editMode ? (
+                                <motion.p
+                                    key="edit-subtitle"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="text-lg text-theme-secondary mt-2"
+                                >
+                                    {isMobile
+                                        ? 'Hold to drag and rearrange widgets'
+                                        : 'Editing mode — Drag to rearrange widgets'}
+                                </motion.p>
+                            ) : (
+                                <motion.p
+                                    key="tagline"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="text-lg text-theme-secondary mt-2"
+                                >
+                                    {taglineText}
+                                </motion.p>
+                            )
+                        )}
                     </AnimatePresence>
                     {debugOverlayEnabled && (
                         <div className="flex items-center gap-2 mt-2">
@@ -603,45 +628,113 @@ const Dashboard = (): React.JSX.Element => {
                 </header>
             )}
 
-
-
-            {/* Hidden header + edit mode: show compact edit text */}
-            {!headerVisible && editMode && (
-                <div className="mb-4">
-                    <p className="text-lg text-theme-secondary">
-                        {isMobile
-                            ? 'Hold to drag and rearrange widgets'
-                            : 'Editing mode - Drag to rearrange widgets'}
-                    </p>
-                </div>
-            )}
-
-            {/* Desktop Edit Bar */}
+            {/* ==================== EDIT MODE SECTION ====================
+             * Single animated wrapper for all edit-mode content (subtitle + action bar).
+             * 
+             * State 1 (header+tagline): Only the action bar — clips out from under header
+             * State 2 (header, no tagline): Subtitle + action bar — clip out together
+             * State 3 (no header): Subtitle + action bar — slide down from above viewport
+             */}
             <AnimatePresence>
                 {editMode && !isMobile && (
-                    <DashboardEditBar
-                        canUndo={canUndo}
-                        canRedo={canRedo}
-                        onUndo={undo}
-                        onRedo={redo}
-                        mobileLayoutMode={mobileLayoutMode}
-                        pendingUnlink={pendingUnlink}
-                        isMobile={isMobile}
-                        hasUnsavedChanges={hasUnsavedChanges}
-                        saving={saving}
-                        onAddWidget={handleAddWidget}
-                        onRelink={() => setShowRelinkConfirmation(true)}
-                        onSave={handleSave}
-                        onCancel={handleCancel}
-                    />
+                    <motion.div
+                        key="edit-section"
+                        initial={{ height: 0, marginBottom: 0 }}
+                        animate={{ height: 'auto', marginBottom: 12 }}
+                        exit={{ height: 0, marginBottom: 0 }}
+                        transition={{
+                            type: 'spring',
+                            damping: 32,
+                            stiffness: 300,
+                            mass: 0.8,
+                            restDelta: 2,
+                        }}
+                        style={{ overflow: 'hidden' }}
+                        className="z-30"
+                    >
+                        {/* Edit subtitle — only shown when tagline is OFF or header is OFF */}
+                        {(!taglineEnabled || !headerVisible) && (
+                            <p className="text-lg text-theme-secondary mb-3 text-center">
+                                {isMobile
+                                    ? 'Hold to drag and rearrange widgets'
+                                    : 'Editing mode — Drag to rearrange widgets'}
+                            </p>
+                        )}
+
+                        {/* Mobile link status badge (shown in edit section when no tagline) */}
+                        {isMobile && (!taglineEnabled || !headerVisible) && (
+                            <div className="flex items-center justify-center gap-2 mb-3">
+                                <span
+                                    className={`text-xs px-2 py-1 rounded-lg flex items-center gap-1 font-medium ${(mobileLayoutMode === 'independent' || pendingUnlink)
+                                        ? 'bg-warning/20 text-warning'
+                                        : 'bg-success/20 text-success'
+                                        }`}
+                                >
+                                    {(mobileLayoutMode === 'independent' || pendingUnlink) ? (
+                                        <>
+                                            <Unlink size={12} />
+                                            Independent
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Link size={12} />
+                                            Linked
+                                        </>
+                                    )}
+                                </span>
+                            </div>
+                        )}
+
+                        <DashboardEditBar
+                            canUndo={canUndo}
+                            canRedo={canRedo}
+                            onUndo={undo}
+                            onRedo={redo}
+                            mobileLayoutMode={mobileLayoutMode}
+                            pendingUnlink={pendingUnlink}
+                            isMobile={isMobile}
+                            hasUnsavedChanges={hasUnsavedChanges}
+                            saving={saving}
+                            onAddWidget={() => {
+                                handleAddWidget();
+                            }}
+                            onRelink={() => setShowRelinkConfirmation(true)}
+                            onSave={handleSave}
+                            onCancel={handleCancel}
+                        />
+                    </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Mobile edit mode subtitle — shown in header when tagline is on */}
+            {editMode && isMobile && headerVisible && taglineEnabled && (
+                <div className="flex items-center gap-2 mb-3 -mt-6">
+                    <span
+                        className={`text-xs px-2 py-1 rounded-lg flex items-center gap-1 font-medium ${(mobileLayoutMode === 'independent' || pendingUnlink)
+                            ? 'bg-warning/20 text-warning'
+                            : 'bg-success/20 text-success'
+                            }`}
+                    >
+                        {(mobileLayoutMode === 'independent' || pendingUnlink) ? (
+                            <>
+                                <Unlink size={12} />
+                                Independent
+                            </>
+                        ) : (
+                            <>
+                                <Link size={12} />
+                                Linked
+                            </>
+                        )}
+                    </span>
+                </div>
+            )}
 
             {/* Grid Layout or Empty State */}
             <div
                 className="dashboard-grid-area relative"
+                data-walkthrough="dashboard-grid"
                 style={{
-                    transition: 'margin-top 300ms ease-out',
                     // When empty, fill remaining viewport height (accounting for header/edit bar ~200px)
                     minHeight: isEmpty ? 'calc(100dvh - 200px)' : '400px',
                 }}
@@ -764,6 +857,7 @@ const Dashboard = (): React.JSX.Element => {
                 isOpen={showAddModal}
                 onClose={() => setShowAddModal(false)}
                 onAddWidget={handleAddWidgetFromModal}
+                preventClose={walkthrough?.isModalProtected}
             />
 
             {/* Mobile Edit Disclaimer Modal */}
@@ -772,8 +866,18 @@ const Dashboard = (): React.JSX.Element => {
                 onContinue={() => {
                     setShowMobileDisclaimer(false);
                     setEditMode(true);
+                    // Resume walkthrough — overlay reappears, continues at add-widget-button
+                    if (walkthrough?.state.suspended) {
+                        walkthrough.resume();
+                    }
                 }}
-                onCancel={() => setShowMobileDisclaimer(false)}
+                onCancel={() => {
+                    setShowMobileDisclaimer(false);
+                    // End the walkthrough entirely — user chose not to continue
+                    if (walkthrough?.state.isActive) {
+                        walkthrough.skip();
+                    }
+                }}
                 onDismissForever={async () => {
                     setMobileDisclaimerDismissed(true);
                     try {
@@ -835,7 +939,11 @@ const Dashboard = (): React.JSX.Element => {
                 return (
                     <WidgetConfigModal
                         isOpen={true}
-                        onClose={() => setConfigModalWidgetId(null)}
+                        onClose={() => {
+                            // Don't let Radix outside-click close the modal during walkthrough
+                            if (walkthrough?.isModalProtected) return;
+                            setConfigModalWidgetId(null);
+                        }}
                         widgetId={widget.id}
                         widgetType={widget.type}
                         widgetHeight={widgetHeight}

@@ -12,7 +12,7 @@
 import { EventEmitter } from 'events';
 import webpush from 'web-push';
 import logger from '../utils/logger';
-import { hasUserConnection, broadcastToUser } from './sseStreamService';
+import { hasUserConnection, broadcastToUser, getActiveEndpointsForUser } from './sseStreamService';
 
 // Lazy-load imports to avoid circular dependencies
 type PushSubscriptionsDb = typeof import('../db/pushSubscriptions');
@@ -154,9 +154,10 @@ class NotificationEmitter extends EventEmitter {
     }
 
     /**
-     * Send Web Push notification to a user's subscribed devices
+     * Send Web Push notification to a user's subscribed devices.
+     * Skips devices with active SSE connections unless forceWebPush is set.
      */
-    async sendWebPush(userId: string, notification: Notification): Promise<void> {
+    async sendWebPush(userId: string, notification: Notification, options: SendOptions = {}): Promise<void> {
         // Check if Web Push is globally enabled
         try {
             const { getSystemConfig } = getSystemConfigDb();
@@ -192,12 +193,28 @@ class NotificationEmitter extends EventEmitter {
                 body: notification.message,
                 type: notification.type,
                 id: notification.id,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                force: options.forceWebPush || false
             });
 
             logger.debug(`[WebPush] Payload: ${payload}`);
 
+            // Get push endpoints with active SSE connections (app is open on those devices)
+            const activeEndpoints = options.forceWebPush
+                ? new Set<string>()  // Don't filter when forcing
+                : getActiveEndpointsForUser(userId);
+
+            if (activeEndpoints.size > 0) {
+                logger.debug(`[WebPush] Active SSE endpoints to skip: count=${activeEndpoints.size}`);
+            }
+
             const pushPromises = subscriptions.map(async (sub) => {
+                // Skip devices with active SSE connections (app is open there)
+                if (activeEndpoints.has(sub.endpoint)) {
+                    logger.debug(`[WebPush] Skipping (SSE active): endpoint=${sub.endpoint.slice(-30)}`);
+                    return;
+                }
+
                 const pushSubscription = {
                     endpoint: sub.endpoint,
                     keys: {
@@ -247,17 +264,17 @@ class NotificationEmitter extends EventEmitter {
 
         // If forcing Web Push (for testing), send push regardless of SSE
         if (forceWebPush) {
-            await this.sendWebPush(userId, notification);
+            await this.sendWebPush(userId, notification, options);
             return;
         }
 
         // Send to ALL channels for real notifications:
         // - SSE to any open browser tabs
-        // - Web Push to all subscribed devices (phone, other browsers)
+        // - Web Push to subscribed devices (filtered by active SSE connections)
         if (this.hasConnection(userId)) {
             this.sendSSE(userId, notification);
         }
-        await this.sendWebPush(userId, notification);
+        await this.sendWebPush(userId, notification, options);
     }
 }
 

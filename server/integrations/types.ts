@@ -21,7 +21,10 @@ export interface ConfigField {
     placeholder?: string;
     hint?: string;
     required?: boolean;
+    /** If true, this field's value is redacted in API responses (replaced with sentinel) */
+    sensitive?: boolean;
     options?: Array<{ value: string; label: string }>; // For 'select' type
+    default?: string; // Default value (e.g., 'true' for checkboxes)
 }
 
 export interface ConfigSchema {
@@ -180,6 +183,28 @@ export interface WebhookConfig {
 }
 
 // ============================================================================
+// METRIC DEFINITIONS (for metric history recording)
+// ============================================================================
+
+/**
+ * Declares a metric that a system-status integration produces.
+ * Used by MetricHistoryService for recording and probe decisions.
+ */
+export interface MetricDefinition {
+    /** Metric key matching the poller output field (e.g., 'cpu', 'memory', 'temperature') */
+    key: string;
+    /** Whether this metric is eligible for history recording */
+    recordable: boolean;
+    /** How to probe for external history availability (per-metric) */
+    historyProbe?: {
+        /** Path to probe on the integration's base URL (e.g., '/history') */
+        path: string;
+        /** Query params to send with the probe request */
+        params: Record<string, string>;
+    };
+}
+
+// ============================================================================
 // INTEGRATION PLUGIN (the main interface)
 // ============================================================================
 
@@ -218,6 +243,14 @@ export interface IntegrationPlugin {
      * Example: ['url', 'token', 'machineId'] for Plex
      */
     connectionFields?: string[];
+
+    // === METRICS (optional — system-status integrations) ===
+    /**
+     * Metrics this integration produces. Used by MetricHistoryService
+     * for recording decisions and external history probing.
+     * Only relevant for system-status category integrations.
+     */
+    metrics?: MetricDefinition[];
 
     // === FLAGS ===
     hasCustomForm?: boolean; // True = skip form auto-generation

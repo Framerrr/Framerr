@@ -63,6 +63,7 @@ const SearchTakeover: React.FC<SearchTakeoverProps> = ({
         if (isActive && inputRef.current) {
             requestAnimationFrame(() => {
                 inputRef.current?.focus();
+                inputRef.current?.select();
             });
         }
     }, [isActive, inputRef]);

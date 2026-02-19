@@ -15,7 +15,7 @@
 
 import React, { useMemo, useEffect, useRef, type ReactNode, type ReactElement } from 'react';
 
-import { GridStackAdapterV2, setupExternalDragSources, DragPreviewPortal } from '../adapter';
+import { GridStackAdapterV2, setupExternalDragSources, DragPreviewPortal, DropTransitionOverlay } from '../adapter';
 import type { FramerrWidget, GridPolicy, LayoutEvent, LayoutItem, GridEventHandlers, ExternalDropEventData } from '../core/types';
 import { GRID_COLS, GRID_BREAKPOINTS, ROW_HEIGHT, GRID_MARGIN, COMPACT_TYPE } from '../../../constants/gridConfig';
 
@@ -140,7 +140,7 @@ export function FramerrDashboardGrid({
             selectionMode: 'none',
             touchActivation: 'long-press',
             autoScroll: true,
-            autoScrollContainerId: 'main-scroll',
+            autoScrollContainerId: 'dashboard-layer',
         },
         view: {
             breakpoint: currentBreakpoint,
@@ -307,6 +307,8 @@ export function FramerrDashboardGrid({
             />
             {/* Drag preview portal renders React widgets into GridStack drag helpers */}
             <DragPreviewPortal previewMode={false} renderWidget={renderWidget} />
+            {/* Drop transition overlay - seamless FLIP animation from drag to grid */}
+            <DropTransitionOverlay renderWidget={renderWidget} />
             {/* Empty overlay renders INSIDE grid container for proper z-index stacking */}
             {emptyOverlay}
         </div>

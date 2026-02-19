@@ -24,4 +24,10 @@ export const plugin: IntegrationPlugin = {
         intervalMs: poller.intervalMs,
         poll: poller.poll,
     },
+    metrics: [
+        { key: 'cpu', recordable: true, historyProbe: { path: '/history', params: { metric: 'cpu', range: '1h' } } },
+        { key: 'memory', recordable: true, historyProbe: { path: '/history', params: { metric: 'memory', range: '1h' } } },
+        { key: 'temperature', recordable: true, historyProbe: { path: '/history', params: { metric: 'temperature', range: '1h' } } },
+        { key: 'uptime', recordable: false },
+    ],
 };

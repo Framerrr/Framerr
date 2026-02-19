@@ -13,8 +13,7 @@
 </p>
 
 > [!WARNING]
-> Framerr is in early development (`0.x.x`). Expect breaking changes between releases. Not recommended for critical production use yet.
-
+> Framerr is in early development (`0.x.x`). Potentially breaking changes between releases.
 ---
 
 <p align="center">
@@ -29,18 +28,24 @@
 <h3 align="center">📱 Responsive Mobile Design</h3>
 <p align="center">Dedicated mobile layout with independent widget arrangement and touch-friendly controls. Your dashboard, anywhere.</p>
 
+<h3 align="center">Your homelab. One dashboard. Every user.</h3>
+<p align="center">Deep integration and full admin control where it counts. A clean, intuitive experience for the friends and family who share your server. Framerr delivers what you need and what your users want.</p>
+
 ## Features
 
-- **Iframe tabs** — embed any web app or service as a tab in the sidebar, organized into groups
-- **Real-time widgets** — media streams (Plex, Jellyfin, Emby), Sonarr/Radarr calendars, Overseerr requests, qBittorrent downloads, system stats via Glances, service health via Uptime Kuma, weather, clock, and more (more coming soon!)
+- **Iframe tabs** — embed any web app or service as a tab in the sidebar
+- **Real-time widgets** — media streams (Plex, Jellyfin, Emby), Sonarr/Radarr calendars, Overseerr requests, qBittorrent downloads, system stats monitoring, service health monitoring, weather, clock, and more!
 - **Plex SSO** — quickly sign into Framerr with your Plex account
 - **Auth proxy** — works behind Authelia, Authentik, Nginx Proxy Manager with trusted IP whitelist
-- **Customizable** — many built-in themes to choose from, plus a full custom color picker
-- **Dashboard templates** — build, save, share, and import/export layouts
+- **Customizable** — many built-in themes to choose from, plus a full custom color picker. Make Framerr your own and customize your way!
+- **Dashboard templates** — build, save, share, and import/export layouts between users and other Framerr instances. 
 - **Drag and drop** — easily rearrange widgets with intuitive mobile and touch support
 - **Multi-user** — securely share access to widgets and integrations with friends and family
+- **Notifications** — real-time alerts from your integrations, with an in-app notification center and Web Push support
+- **Mobile responsive** — dedicated mobile layout with smooth gestures and easy controls
 - **Encrypted secrets** — integration API keys and tokens are encrypted at rest with AES-256-GCM
-- **Mobile responsive** — dedicated mobile layout with bottom navigation
+
+
 
 ## Quick Start
 
@@ -67,6 +72,11 @@ Generate your encryption key by running `openssl rand -hex 32` in a terminal and
 
 Then open `http://localhost:3001` and follow the setup wizard.
 
+### Unraid
+
+An Unraid template is available at [`docs/unraid/framerr.xml`](docs/unraid/framerr.xml). Copy it to `/boot/config/plugins/dockerMan/templates-user/` on your Unraid server, then add the container from the Docker tab.
+
+
 ## Configuration
 
 | Variable | Default | Description |
@@ -85,10 +95,14 @@ All persistent data (database, uploads, backups) is stored in `/config`.
 | Integration | Widget |
 |------------|--------|
 | Plex / Jellyfin / Emby | Live media streams with progress |
-| Sonarr / Radarr | Calendar and upcoming releases |
-| Overseerr | Recent requests with status |
-| qBittorrent | Downloads and transfer speeds |
-| Glances | CPU, memory, temperature, uptime |
+| Sonarr | Upcoming episodes, missing list, episode details with search and grab |
+| Radarr | Upcoming movies, missing list, movie details with search and grab |
+| Overseerr | Media requesting, request tracking, per-user filtering |
+| Tautulli | Server stats and top items |
+| qBittorrent | Downloads with torrent controls and transfer stats |
+| SABnzbd | Downloads with job management |
+| Glances | CPU, memory, disk, network, temperature |
+| Unraid | System stats from your Unraid server |
 | Uptime Kuma | Service health monitoring |
 
 ## Tech Stack

@@ -1,0 +1,820 @@
+/* ============================================================================
+ * QBITTORRENT WIDGET STYLES
+ * 
+ * Uses theme variables exclusively — no hardcoded colors.
+ * Supports both glass and flatten modes via theme utility classes.
+ * ============================================================================ */
+
+/* ---- Widget Container ---- */
+
+.qbt-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    height: 100%;
+    overflow: hidden;
+    container-type: inline-size;
+    padding: clamp(6px, 2cqi, 14px);
+}
+
+/* ---- Stats Bar ---- */
+
+.qbt-stats-wrapper {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.qbt-stats-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 0;
+    padding: 0.65rem 1.25rem;
+    border-radius: 0.5rem;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    width: fit-content;
+    max-width: calc(100% - 40px);
+    margin: 0 auto;
+}
+
+.qbt-stats-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.qbt-stats-item::before {
+    content: '·';
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    opacity: 0.35;
+    margin-left: 0.45rem;
+    margin-right: 0.2rem;
+    /* gap (0.25rem) adds to right side, so reduce to center */
+}
+
+.qbt-stats-item:first-child::before,
+.qbt-stats-item.wrap-start::before {
+    display: none;
+}
+
+/* Clickable stats (Popover triggers) — button reset */
+button.qbt-stats-clickable {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    outline: none;
+}
+
+.qbt-stats-item svg {
+    color: var(--accent);
+    opacity: 0.8;
+    flex-shrink: 0;
+}
+
+.qbt-stats-value {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.qbt-stats-label {
+    font-size: 0.82rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+/* ---- Global Play/Pause Button ---- */
+
+/* ---- Divider ---- */
+
+.qbt-divider {
+    height: 1px;
+    background: var(--border-subtle, rgba(255, 255, 255, 0.06));
+    margin: 0.1rem 0;
+}
+
+.qbt-global-control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-primary);
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.06));
+    margin-left: 0.35rem;
+    flex-shrink: 0;
+    position: absolute;
+    right: 0;
+}
+
+@media (hover: hover) {
+    .qbt-global-control:hover {
+        background: var(--accent);
+        color: #fff;
+        transform: scale(1.1);
+    }
+}
+
+.qbt-global-control:active {
+    transform: scale(0.95);
+}
+
+.qbt-global-control.is-loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* ---- Torrent List ---- */
+
+.qbt-torrent-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* ---- Torrent Card ---- */
+
+.qbt-torrent-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.65rem 0.55rem;
+    border-radius: 0.375rem;
+    transition: background 0.15s ease;
+    cursor: pointer;
+    min-width: 0;
+}
+
+@media (hover: hover) {
+    .qbt-torrent-card:hover {
+        background: var(--widget-card-bg-hover, rgba(255, 255, 255, 0.04));
+    }
+}
+
+/* Separator between cards */
+.qbt-torrent-card+.qbt-torrent-card {
+    position: relative;
+}
+
+.qbt-torrent-card+.qbt-torrent-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: var(--border-subtle, rgba(255, 255, 255, 0.04));
+}
+
+/* Top row: status + name + speed */
+.qbt-torrent-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.qbt-torrent-name {
+    flex: 1;
+    font-size: 0.78rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+    line-height: 1.3;
+    min-width: 0;
+}
+
+.qbt-torrent-speed {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    font-size: 0.65rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.qbt-speed-down {
+    color: #3b82f6;
+}
+
+.qbt-speed-up {
+    color: #67b8f0;
+}
+
+/* Bottom row: progress bar + metadata */
+.qbt-torrent-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.qbt-torrent-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+    font-size: 0.62rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ---- Status Badge ---- */
+
+.qbt-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    flex-shrink: 0;
+}
+
+.qbt-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ---- Status Dots ---- */
+/* Fixed semantic colors that work on both light and dark backgrounds */
+
+.qbt-status-dot.downloading {
+    background: #3b82f6;
+    box-shadow: 0 0 4px #3b82f6;
+    animation: qbt-pulse 2s ease-in-out infinite;
+}
+
+.qbt-status-dot.seeding {
+    background: #67b8f0;
+    box-shadow: 0 0 4px #67b8f0;
+}
+
+.qbt-status-dot.completed {
+    background: #22c55e;
+}
+
+.qbt-status-dot.paused {
+    background: var(--warning);
+}
+
+.qbt-status-dot.stalled {
+    background: #f59e0b;
+}
+
+.qbt-status-dot.error {
+    background: var(--error);
+    box-shadow: 0 0 4px var(--error);
+}
+
+.qbt-status-dot.queued {
+    background: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.qbt-status-dot.checking {
+    background: #22c55e;
+    animation: qbt-pulse 1.5s ease-in-out infinite;
+}
+
+.qbt-status-dot.moving {
+    background: var(--text-secondary);
+    opacity: 0.6;
+}
+
+/* SABnzbd: post-processing (Extracting, Verifying, Repairing, etc.) */
+.qbt-status-dot.processing {
+    background: var(--accent);
+    box-shadow: 0 0 4px var(--accent);
+    animation: qbt-pulse 1.5s ease-in-out infinite;
+}
+
+/* ---- Section Headers (SABnzbd Queue/History) ---- */
+
+.qbt-section-header {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.5rem 0.55rem 0.15rem;
+}
+
+@keyframes qbt-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+}
+
+/* Spin animation for recheck icon */
+.qbt-spin {
+    animation: qbt-spin 1s linear infinite;
+}
+
+/* Spin icon inside a Button component */
+.qbt-spin-icon svg:first-child {
+    animation: qbt-spin 1s linear infinite;
+}
+
+@keyframes qbt-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ---- Progress Bar ---- */
+
+.qbt-progress-bar {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-subtle, rgba(255, 255, 255, 0.08));
+    overflow: hidden;
+    min-width: 0;
+}
+
+.qbt-progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    background: var(--accent);
+}
+
+.qbt-progress-fill.downloading {
+    background: #3b82f6;
+}
+
+.qbt-progress-fill.seeding {
+    background: #67b8f0;
+}
+
+.qbt-progress-fill.completed {
+    background: #22c55e;
+}
+
+.qbt-progress-fill.paused {
+    background: var(--warning);
+    opacity: 0.7;
+}
+
+.qbt-progress-fill.stalled {
+    background: #f59e0b;
+}
+
+.qbt-progress-fill.error {
+    background: var(--error);
+}
+
+.qbt-progress-fill.processing {
+    background: var(--accent);
+}
+
+.qbt-progress-fill.moving {
+    background: var(--text-secondary);
+}
+
+/* ---- Category/Tag Pills ---- */
+
+.qbt-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem;
+}
+
+.qbt-pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.55rem;
+    font-weight: 600;
+    padding: 0.1rem 0.35rem;
+    border-radius: 0.2rem;
+    background: var(--accent-alpha-10, rgba(var(--accent-rgb, 139, 92, 246), 0.1));
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    line-height: 1.4;
+}
+
+/* ---- Empty / Status States ---- */
+
+.qbt-empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    opacity: 0.5;
+    padding: 2rem 1rem;
+    text-align: center;
+}
+
+.qbt-empty-state svg {
+    color: var(--text-tertiary);
+}
+
+.qbt-empty-state span {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+/* ---- Scrollbar ---- */
+
+.qbt-torrent-list::-webkit-scrollbar {
+    width: 3px;
+}
+
+.qbt-torrent-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.qbt-torrent-list::-webkit-scrollbar-thumb {
+    background: var(--border-light, rgba(255, 255, 255, 0.1));
+    border-radius: 2px;
+}
+
+@media (hover: hover) {
+    .qbt-torrent-list::-webkit-scrollbar-thumb:hover {
+        background: var(--border, rgba(255, 255, 255, 0.15));
+    }
+}
+
+/* ---- Modal Styles ---- */
+
+.qbt-modal-hero {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+.qbt-modal-hero-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.qbt-modal-hero-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-word;
+    line-height: 1.4;
+    flex: 1;
+}
+
+.qbt-modal-hero-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    flex-shrink: 0;
+}
+
+.qbt-modal-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.qbt-modal-progress .qbt-progress-bar {
+    height: 6px;
+    border-radius: 3px;
+}
+
+.qbt-modal-progress .qbt-progress-fill {
+    border-radius: 3px;
+}
+
+.qbt-modal-progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.qbt-modal-speeds {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---- Modal Tabs ---- */
+
+.qbt-modal-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    margin: 0.5rem 0;
+}
+
+.qbt-modal-tab {
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border: none;
+    background: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+@media (hover: hover) {
+    .qbt-modal-tab:hover {
+        color: var(--text-primary);
+    }
+}
+
+.qbt-modal-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.qbt-modal-tab-content {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+/* ---- Detail Grid (Overview Tab) ---- */
+
+.qbt-detail-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.3rem 0.75rem;
+    font-size: 0.72rem;
+    align-items: baseline;
+}
+
+.qbt-detail-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.qbt-detail-value {
+    color: var(--text-primary);
+    word-break: break-all;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---- File List (Files Tab) ---- */
+
+.qbt-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.qbt-file-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 0.375rem;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.03));
+}
+
+.qbt-file-header {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.qbt-file-name {
+    flex: 1;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.qbt-file-size {
+    font-size: 0.62rem;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.qbt-file-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.qbt-file-footer .qbt-progress-bar {
+    height: 3px;
+}
+
+.qbt-file-progress-pct {
+    font-size: 0.6rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+    min-width: 2.5rem;
+    text-align: right;
+}
+
+.qbt-file-priority-trigger {
+    font-size: 0.6rem !important;
+    padding: 0.1rem 0.4rem !important;
+    min-height: unset !important;
+    height: auto !important;
+    flex-shrink: 0;
+}
+
+/* ---- Tracker List (Trackers Tab) ---- */
+
+.qbt-tracker-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.qbt-tracker-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 0.375rem;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.03));
+}
+
+.qbt-tracker-header {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.qbt-tracker-url {
+    font-size: 0.7rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}
+
+.qbt-tracker-stats {
+    display: flex;
+    gap: 0.6rem;
+    font-size: 0.6rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.qbt-tracker-msg {
+    font-size: 0.6rem;
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+/* ---- Actions Bar ---- */
+
+.qbt-actions-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.5rem 0;
+    min-height: 3.75rem;
+    border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+}
+
+.qbt-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.65rem;
+    border-radius: 0.375rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.qbt-action-btn.danger {
+    color: var(--error);
+    border-color: color-mix(in srgb, var(--error) 30%, transparent);
+}
+
+@media (hover: hover) {
+    .qbt-action-btn:hover {
+        background: var(--widget-card-bg-hover, rgba(255, 255, 255, 0.08));
+        border-color: var(--border-light, rgba(255, 255, 255, 0.12));
+    }
+
+    .qbt-action-btn.danger:hover {
+        background: color-mix(in srgb, var(--error) 10%, transparent);
+        border-color: color-mix(in srgb, var(--error) 40%, transparent);
+    }
+}
+
+.qbt-action-btn:disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* ---- Delete Confirmation ---- */
+
+.qbt-confirm-delete {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--error) 5%, var(--bg-secondary));
+    border: 1px solid color-mix(in srgb, var(--error) 20%, transparent);
+    flex-wrap: wrap;
+}
+
+.qbt-confirm-delete p {
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.qbt-confirm-delete-actions {
+    display: flex;
+    gap: 0.35rem;
+    flex-shrink: 0;
+}
+
+/* ============================================================================
+ * CONTAINER QUERIES — Stats Bar Responsiveness
+ * ============================================================================ */
+
+/* Small: <400px — full-width bar, wrap items, hide label text */
+@container (max-width: 399px) {
+    .qbt-stats-wrapper {
+        background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+        border-radius: 0.5rem;
+        padding: 0.4rem 0.5rem;
+        align-items: center;
+    }
+
+    .qbt-stats-bar {
+        flex-wrap: wrap;
+        gap: 0.15rem 0;
+        padding: 0;
+        background: none;
+        margin: 0;
+        width: auto;
+    }
+
+    .qbt-stats-label {
+        display: none;
+    }
+
+    .qbt-global-control {
+        position: static;
+        margin-left: auto;
+    }
+}

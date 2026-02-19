@@ -46,6 +46,8 @@ export {
     sendToConnection,
     hasUserConnection,
     getClientCount,
+    setPushEndpoint,
+    getActiveEndpointsForUser,
     registerSubscriptionHandlers,
 } from './connections';
 
@@ -67,6 +69,7 @@ export {
 
     // Poller callback registration
     setStartPollerCallback,
+    setTopicFilterCallback,
 } from './subscriptions';
 
 // Transport layer (broadcasting) from dedicated module
@@ -74,6 +77,7 @@ export {
     // Broadcasting
     broadcast,
     broadcastToTopic,
+    broadcastToTopicFiltered,
     broadcastToUser,
     broadcastToAllUsers,
 
@@ -82,6 +86,8 @@ export {
     getCachedSonarrQueue,
     getCachedRadarrQueue,
 } from './transport';
+
+export type { SubscriberFilterFn } from './transport';
 
 // Polling from PollerOrchestrator (Phase 4 corrected)
 export {
@@ -120,7 +126,7 @@ export type { RealtimeHealth } from './RealtimeOrchestrator';
 // ============================================================================
 
 import { registerSubscriptionHandlers as registerHandlers } from './connections';
-import { handleGracePeriodExpiry as gracePeriodHandler, restoreSubscriptions as restoreHandler, setPollerCallbacks, setRealtimeCallbacks } from './subscriptions';
+import { handleGracePeriodExpiry as gracePeriodHandler, restoreSubscriptions as restoreHandler, setPollerCallbacks, setRealtimeCallbacks, setTopicFilterCallback } from './subscriptions';
 import { pollerOrchestrator, parseTopic } from './PollerOrchestrator';
 import { realtimeOrchestrator } from './RealtimeOrchestrator';
 import { getPlugin } from '../../integrations/registry';
@@ -155,6 +161,16 @@ export function initializeSSEModule(): void {
         },
         (topic: string) => realtimeOrchestrator.stop(topic)
     );
+
+    // Wire subscriptions -> PollerOrchestrator for topic-level data filtering
+    // When subscribe() returns cached data, apply per-user filters if registered
+    setTopicFilterCallback((userId: string, data: unknown, topic: string) => {
+        const filterFn = pollerOrchestrator.getTopicFilter(topic);
+        if (filterFn) {
+            return filterFn(userId, data, topic);
+        }
+        return data;
+    });
 }
 
 // Auto-initialize on module load

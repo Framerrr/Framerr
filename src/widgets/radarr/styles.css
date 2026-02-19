@@ -1,0 +1,762 @@
+/* ============================================================================
+ * RADARR WIDGET STYLES
+ * 
+ * Uses theme variables exclusively — no hardcoded colors.
+ * Supports both glass and flatten modes via theme utility classes.
+ * Prefix: rdr- (consistent with snr-/qbt- pattern)
+ * ============================================================================ */
+
+/* ---- Widget Container ---- */
+
+.rdr-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    height: 100%;
+    overflow: hidden;
+    container-type: inline-size;
+    padding: clamp(6px, 2cqi, 14px);
+}
+
+/* ---- Stats Bar ---- */
+
+.rdr-stats-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 0;
+    padding: 0.65rem 1.25rem;
+    border-radius: 0.5rem;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
+    flex-shrink: 0;
+}
+
+.rdr-stats-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.rdr-stats-item::before {
+    content: '·';
+    margin: 0 0.35rem;
+    color: var(--text-tertiary);
+}
+
+.rdr-stats-item:first-child::before {
+    display: none;
+}
+
+.rdr-stats-value {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.rdr-stats-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* ---- Divider (below stats bar) ---- */
+
+.rdr-divider {
+    height: 1px;
+    background: var(--border-subtle, rgba(255, 255, 255, 0.06));
+    margin: 0.1rem 0;
+    flex-shrink: 0;
+}
+
+/* ---- Body Layout ---- */
+
+.rdr-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    gap: 0.5rem;
+}
+
+/* Wide mode: side-by-side columns */
+.rdr-body--wide {
+    flex-direction: row;
+    overflow: hidden;
+    gap: 0;
+}
+
+/* Column base — upcoming column stays at natural height */
+.rdr-body-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex-shrink: 0;
+}
+
+/* Last column (missing) fills remaining space in vertical mode */
+.rdr-body-col:last-child {
+    flex: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+
+/* Wide mode: upcoming column ~35% */
+.rdr-body-col--upcoming {
+    width: 35%;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-right: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    padding-right: 0.5rem;
+}
+
+/* Wide mode: missing column ~60% */
+.rdr-body-col--missing {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-left: 0.5rem;
+    min-width: 0;
+}
+
+/* Section headers — consistent positioning in both columns */
+.rdr-section-header {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    padding: 0 0.15rem;
+    flex-shrink: 0;
+}
+
+/* ---- Upcoming Carousel ---- */
+
+.rdr-carousel {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.rdr-carousel-track {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-behavior: smooth;
+    padding: 2px;
+}
+
+.rdr-carousel-track::-webkit-scrollbar {
+    display: none;
+}
+
+.rdr-carousel-card {
+    flex-shrink: 0;
+    width: 110px;
+    scroll-snap-align: start;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.2s ease;
+}
+
+@media (hover: hover) {
+    .rdr-carousel-card:hover {
+        transform: scale(1.03);
+    }
+}
+
+.rdr-carousel-poster {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    display: block;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+}
+
+.rdr-carousel-poster-placeholder {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+}
+
+.rdr-carousel-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem 0.4rem 0.35rem;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+}
+
+.rdr-carousel-title {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.rdr-carousel-subtitle {
+    font-size: 0.55rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 2px;
+}
+
+.rdr-carousel-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: var(--widget-card-bg, rgba(0, 0, 0, 0.5));
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    backdrop-filter: blur(4px);
+}
+
+@media (hover: hover) {
+    .rdr-carousel:hover .rdr-carousel-btn {
+        opacity: 1;
+    }
+}
+
+.rdr-carousel-btn--left {
+    left: 4px;
+}
+
+.rdr-carousel-btn--right {
+    right: 4px;
+}
+
+/* ---- Stacked Cards (vertical mode, landscape style) ---- */
+
+.rdr-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.rdr-stack-card {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 7;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.rdr-stack-poster {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.rdr-stack-poster-placeholder {
+    width: 100%;
+    height: 100%;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+}
+
+.rdr-stack-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0.5rem 0.6rem;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%);
+}
+
+.rdr-stack-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rdr-stack-subtitle {
+    font-size: 0.62rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 0.1rem;
+}
+
+/* ---- Missing List ---- */
+
+.rdr-missing-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.rdr-missing-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.35rem;
+    border-radius: 0.35rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+@media (hover: hover) {
+    .rdr-missing-item:hover {
+        background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    }
+}
+
+.rdr-missing-poster {
+    width: 36px;
+    height: 54px;
+    border-radius: 0.25rem;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+}
+
+.rdr-missing-poster-placeholder {
+    width: 36px;
+    height: 54px;
+    border-radius: 0.25rem;
+    flex-shrink: 0;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    font-size: 0.65rem;
+}
+
+/* Column mode: larger, adaptive poster thumbnails */
+.rdr-body-col--missing .rdr-missing-poster,
+.rdr-body-col--missing .rdr-missing-poster-placeholder {
+    width: clamp(40px, 8cqi, 70px);
+    height: clamp(60px, 12cqi, 105px);
+}
+
+.rdr-missing-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.rdr-missing-series {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rdr-missing-episode {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rdr-missing-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.6rem;
+    color: var(--text-tertiary);
+}
+
+/* ---- Status Badges ---- */
+
+.rdr-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.55rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+.rdr-badge--missing {
+    background: rgba(var(--error-rgb, 239, 68, 68), 0.15);
+    color: var(--error);
+}
+
+.rdr-badge--cutoff {
+    background: rgba(var(--warning-rgb, 234, 179, 8), 0.15);
+    color: var(--warning);
+}
+
+.rdr-badge--downloading {
+    background: rgba(var(--info-rgb, 59, 130, 246), 0.15);
+    color: var(--info);
+}
+
+.rdr-badge--importing {
+    background: rgba(var(--accent-rgb, 59, 130, 246), 0.15);
+    color: var(--accent);
+}
+
+.rdr-badge--warning {
+    background: rgba(var(--warning-rgb, 234, 179, 8), 0.15);
+    color: var(--warning);
+}
+
+.rdr-badge--error {
+    background: rgba(var(--error-rgb, 239, 68, 68), 0.15);
+    color: var(--error);
+}
+
+.rdr-badge--queued {
+    background: rgba(var(--text-tertiary-rgb, 150, 150, 150), 0.15);
+    color: var(--text-secondary);
+}
+
+.rdr-badge--available {
+    background: rgba(var(--success-rgb, 34, 197, 94), 0.15);
+    color: var(--success);
+}
+
+/* ---- Load More Button ---- */
+
+.rdr-load-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    font-size: 0.7rem;
+    color: var(--accent);
+    cursor: pointer;
+    border: none;
+    background: none;
+    border-radius: 0.35rem;
+    transition: background 0.15s ease;
+    width: 100%;
+    flex-shrink: 0;
+}
+
+@media (hover: hover) {
+    .rdr-load-more:hover {
+        background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    }
+}
+
+.rdr-load-more:disabled {
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+}
+
+/* ---- User View Grid ---- */
+
+.rdr-poster-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 0.5rem;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 2px;
+}
+
+.rdr-poster-card {
+    border-radius: 0.5rem;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+@media (hover: hover) {
+    .rdr-poster-card:hover {
+        transform: scale(1.03);
+    }
+}
+
+/* ---- Container Query Responsiveness ---- */
+
+@container (max-width: 250px) {
+    .rdr-carousel-card {
+        width: 85px;
+    }
+
+    .rdr-stats-bar {
+        padding: 0.4rem 0.6rem;
+    }
+
+    .rdr-stats-item {
+        font-size: 0.65rem;
+    }
+}
+
+@container (min-width: 400px) {
+    .rdr-carousel-card {
+        width: 120px;
+    }
+}
+
+@container (min-width: 600px) {
+    .rdr-carousel-card {
+        width: 140px;
+    }
+
+    .rdr-poster-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    }
+}
+
+/* ---- Modal Footer Actions ---- */
+
+.rdr-modal-footer-actions {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%;
+    justify-content: flex-end;
+}
+
+/* Auto-search spin animation */
+.rdr-spin-icon svg:first-child {
+    animation: rdr-spin 0.8s linear infinite;
+}
+
+@keyframes rdr-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Action button state colors */
+.rdr-success-btn {
+    color: var(--success) !important;
+    border-color: var(--success) !important;
+}
+
+.rdr-error-btn {
+    color: var(--error) !important;
+    border-color: var(--error) !important;
+}
+
+/* ---- Modal Searching View ---- */
+
+.rdr-modal-searching {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    flex: 1;
+    height: 100%;
+}
+
+.rdr-modal-searching-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* ---- Modal Results View ---- */
+
+.rdr-modal-results {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+    height: 100%;
+}
+
+.rdr-modal-results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 1.5rem;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    flex-shrink: 0;
+}
+
+.rdr-modal-results-count {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+}
+
+.rdr-modal-results-error {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    color: var(--error);
+    font-size: 0.8rem;
+}
+
+.rdr-modal-results-empty {
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+}
+
+/* ---- Release List ---- */
+
+.rdr-release-list {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    padding: 0 1.5rem;
+}
+
+.rdr-release-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+}
+
+.rdr-release-item:last-child {
+    border-bottom: none;
+}
+
+.rdr-release-actions {
+    display: flex;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.rdr-release-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.rdr-release-title {
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.rdr-release-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+    flex-wrap: wrap;
+}
+
+.rdr-release-quality {
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--accent-bg, rgba(var(--accent-rgb, 59, 130, 246), 0.15));
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+}
+
+.rdr-release-seeders {
+    color: var(--success);
+}
+
+.rdr-release-no-seeders {
+    color: var(--error);
+}
+
+.rdr-release-indexer {
+    color: var(--text-secondary);
+}
+
+.rdr-release-rejections {
+    font-size: 0.6rem;
+    color: var(--error);
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---- Grab Button ---- */
+
+.rdr-grab-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 0.35rem;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+}
+
+@media (hover: hover) {
+    .rdr-grab-btn:hover:not(:disabled) {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+    }
+}
+
+.rdr-grab-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.rdr-grab-btn--success {
+    color: var(--success) !important;
+    border-color: var(--success) !important;
+    opacity: 1 !important;
+}
+
+.rdr-grab-btn--override {
+    border-style: dashed;
+}

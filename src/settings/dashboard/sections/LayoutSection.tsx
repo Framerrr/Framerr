@@ -19,6 +19,7 @@ import { useLayout } from '../../../context/LayoutContext';
 import logger from '../../../utils/logger';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
 import { useSidebarUI } from '../../../components/sidebar/context/SidebarUIContext';
+import { useWalkthrough } from '../../../features/walkthrough';
 
 type MobileLayoutMode = 'linked' | 'independent';
 
@@ -106,6 +107,8 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
     const [showReconnectModal, setShowReconnectModal] = useState(false);
     const [showResetModal, setShowResetModal] = useState(false);
     const [hideMobileEditButton, setHideMobileEditButton] = useState(false);
+    const [tourReset, setTourReset] = useState(false);
+    const walkthrough = useWalkthrough();
 
     // Load current state
     const loadDashboardState = async (): Promise<void> => {
@@ -232,6 +235,27 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
                         disabled={actionLoading || widgetCount === 0}
                     >
                         Reset All Widgets
+                    </Button>
+                </SettingsItem>
+
+                {/* Reset Welcome Tour */}
+                <SettingsItem
+                    label="Reset Welcome Tour"
+                    description="Replay the walkthrough that introduces you to Framerr. The tour will start next time you visit the dashboard."
+                    icon={RefreshCw}
+                    iconColor="text-accent"
+                >
+                    <Button
+                        variant="secondary"
+                        size="md"
+                        textSize="sm"
+                        onClick={() => {
+                            walkthrough?.resetAndStartFlow('onboarding');
+                            setTourReset(true);
+                        }}
+                        disabled={tourReset}
+                    >
+                        {tourReset ? 'Tour Reset!' : 'Reset Tour'}
                     </Button>
                 </SettingsItem>
             </SettingsSection>

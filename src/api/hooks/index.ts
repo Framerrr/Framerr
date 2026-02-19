@@ -44,7 +44,6 @@ export {
     // System diagnostics
     useSystemInfo,
     useSystemResources,
-    useIntegrationHealth,
     useSseStatus,
     useApiHealth,
 } from './useDashboard';

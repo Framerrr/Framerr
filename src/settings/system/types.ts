@@ -78,22 +78,6 @@ export interface ApiHealth {
     error?: string;
 }
 
-export interface IntegrationStatus {
-    name: string;
-    enabled?: boolean;
-    connected?: boolean;
-    status?: 'healthy' | 'error' | 'warning';
-    responseTime?: number;
-    message?: string;
-    error?: string;
-}
-
-export interface IntegrationHealth {
-    success: boolean;
-    summary?: string;
-    integrations: IntegrationStatus[];
-}
-
 export interface SseStatus {
     success: boolean;
     status?: 'active' | 'idle' | 'error';

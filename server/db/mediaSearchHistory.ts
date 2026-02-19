@@ -111,3 +111,17 @@ export function getSearchHistoryCount(): number {
     const row = db.prepare('SELECT COUNT(*) as count FROM media_search_history').get() as { count: number };
     return row.count;
 }
+
+/**
+ * Remove search history entries for specific widget IDs.
+ * Called when widgets are removed from a dashboard.
+ */
+export function clearSearchHistoryForWidgets(widgetIds: string[]): number {
+    if (widgetIds.length === 0) return 0;
+    const db = getDb();
+    const placeholders = widgetIds.map(() => '?').join(',');
+    const result = db.prepare(
+        `DELETE FROM media_search_history WHERE widgetId IN (${placeholders})`
+    ).run(...widgetIds);
+    return result.changes;
+}

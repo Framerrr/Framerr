@@ -13,6 +13,7 @@ export const intervalMs = 5000;
 export interface SonarrQueueItem {
     id: number;
     seriesId?: number;
+    episodeId?: number;
     series?: {
         title?: string;
         tvdbId?: number;
@@ -28,6 +29,8 @@ export interface SonarrQueueItem {
     progress: number;
     timeleft?: string;
     status: string;
+    trackedDownloadStatus?: string;  // 'ok' | 'warning' | 'error'
+    trackedDownloadState?: string;   // 'downloading' | 'importPending' | 'importing' | 'failedPending'
 }
 
 /**
@@ -52,6 +55,7 @@ export async function poll(instance: PluginInstance): Promise<SonarrQueueItem[]>
     return (response.data.records || []).map((item: Record<string, unknown>) => ({
         id: item.id,
         seriesId: item.seriesId,
+        episodeId: item.episodeId,
         series: (item.series as Record<string, unknown>)
             ? {
                 title: (item.series as Record<string, unknown>).title,
@@ -74,6 +78,8 @@ export async function poll(instance: PluginInstance): Promise<SonarrQueueItem[]>
                 : 0,
         timeleft: item.timeleft as string | undefined,
         status: item.status as string,
+        trackedDownloadStatus: item.trackedDownloadStatus as string | undefined,
+        trackedDownloadState: item.trackedDownloadState as string | undefined,
     }));
 }
 
@@ -92,6 +98,14 @@ export interface CalendarEpisode {
     series?: {
         title?: string;
         overview?: string;
+        year?: number;
+        status?: string;
+        network?: string;
+        genres?: string[];
+        ratings?: { votes: number; value: number };
+        tvdbId?: number;
+        imdbId?: string;
+        images?: { coverType: string; url?: string; remoteUrl?: string }[];
     };
     title?: string;
     seasonNumber?: number;
@@ -99,6 +113,7 @@ export interface CalendarEpisode {
     airDate?: string;
     airDateUtc?: string;
     overview?: string;
+    hasFile?: boolean;
 }
 
 /**
@@ -125,21 +140,77 @@ export async function pollCalendar(instance: PluginInstance): Promise<CalendarEp
         timeout: 10000,
     });
 
-    return (Array.isArray(response.data) ? response.data : []).map((item: Record<string, unknown>) => ({
-        id: item.id as number,
-        seriesId: item.seriesId as number,
-        seriesTitle: (item.series as Record<string, unknown>)?.title as string,
-        series: item.series ? {
-            title: (item.series as Record<string, unknown>).title as string,
-            overview: (item.series as Record<string, unknown>).overview as string,
-        } : undefined,
-        title: item.title as string,
-        seasonNumber: item.seasonNumber as number,
-        episodeNumber: item.episodeNumber as number,
-        airDate: item.airDate as string,
-        airDateUtc: item.airDateUtc as string,
-        overview: item.overview as string,
-    }));
+    return (Array.isArray(response.data) ? response.data : []).map((item: Record<string, unknown>) => {
+        const series = item.series as Record<string, unknown> | undefined;
+        return {
+            id: item.id as number,
+            seriesId: item.seriesId as number,
+            seriesTitle: series?.title as string,
+            series: series ? {
+                title: series.title as string,
+                overview: series.overview as string,
+                year: series.year as number | undefined,
+                status: series.status as string | undefined,
+                network: series.network as string | undefined,
+                genres: series.genres as string[] | undefined,
+                ratings: series.ratings as { votes: number; value: number } | undefined,
+                tvdbId: series.tvdbId as number | undefined,
+                imdbId: series.imdbId as string | undefined,
+                images: series.images as { coverType: string; url?: string; remoteUrl?: string }[],
+            } : undefined,
+            title: item.title as string,
+            seasonNumber: item.seasonNumber as number,
+            episodeNumber: item.episodeNumber as number,
+            airDate: item.airDate as string,
+            airDateUtc: item.airDateUtc as string,
+            overview: item.overview as string,
+            hasFile: item.hasFile as boolean | undefined,
+        };
+    });
+}
+
+// ============================================================================
+// MISSING SUBTYPE (aggregated counts for stats bar)
+// ============================================================================
+
+/** Missing counts polling interval */
+export const missingIntervalMs = 60000; // 1 minute
+
+/** Missing counts shape */
+export interface MissingCounts {
+    missingCount: number;
+    cutoffUnmetCount: number;
+}
+
+/**
+ * Poll Sonarr for aggregated missing + cutoff-unmet counts.
+ * Uses pageSize=1 since we only need the totalRecords count from the response.
+ */
+export async function pollMissing(instance: PluginInstance): Promise<MissingCounts> {
+    if (!instance.config.url || !instance.config.apiKey) {
+        return { missingCount: 0, cutoffUnmetCount: 0 };
+    }
+
+    const url = (instance.config.url as string).replace(/\/$/, '');
+    const apiKey = instance.config.apiKey as string;
+    const headers = { 'X-Api-Key': apiKey };
+
+    // Fetch both counts in parallel — pageSize=1 to minimize data transfer
+    const [missingRes, cutoffRes] = await Promise.all([
+        axios.get(`${url}/api/v3/wanted/missing`, {
+            params: { pageSize: 1, sortKey: 'airDateUtc', sortDirection: 'descending' },
+            headers, httpsAgent, timeout: 10000,
+        }),
+        axios.get(`${url}/api/v3/wanted/cutoff`, {
+            params: { pageSize: 1, sortKey: 'airDateUtc', sortDirection: 'descending' },
+            headers, httpsAgent, timeout: 10000,
+        }),
+    ]);
+
+    return {
+        missingCount: missingRes.data?.totalRecords ?? 0,
+        cutoffUnmetCount: cutoffRes.data?.totalRecords ?? 0,
+    };
 }
 
 /**
@@ -150,5 +221,9 @@ export const subtypes = {
     calendar: {
         intervalMs: calendarIntervalMs,
         poll: pollCalendar,
+    },
+    missing: {
+        intervalMs: missingIntervalMs,
+        poll: pollMissing,
     },
 };

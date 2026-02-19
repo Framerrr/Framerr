@@ -22,7 +22,33 @@ export const plugin: WidgetPlugin = {
     },
     component: lazy(() => import('./RadarrWidget')),
     compatibleIntegrations: ['radarr'],
+    defaultConfig: {
+        viewMode: 'auto',
+    },
     configConstraints: {
-        contentPadding: 'lg',  // Relaxed padding for card layout
+        contentPadding: 'none',  // Widget handles its own padding internally
+        options: [
+            {
+                key: 'viewMode',
+                label: 'View Mode',
+                type: 'buttons',
+                defaultValue: 'auto',
+                choices: [
+                    { value: 'auto', label: 'Auto' },
+                    { value: 'stacked', label: 'Stacked' },
+                    { value: 'column', label: 'Column' },
+                ]
+            },
+            {
+                key: 'showStatsBar',
+                label: 'Stats Bar',
+                type: 'buttons',
+                defaultValue: 'true',
+                choices: [
+                    { value: 'true', label: 'Show' },
+                    { value: 'false', label: 'Hide' },
+                ],
+            },
+        ]
     },
 };

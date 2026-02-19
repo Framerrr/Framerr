@@ -20,7 +20,7 @@ export const plugin: WidgetPlugin = {
     icon: Tv,
     sizing: {
         default: { w: 12, h: 6 },
-        min: { w: 6, h: 4 },
+        min: { w: 4, h: 4 },
         max: { w: 24, h: 10 },
     },
     component: lazy(() => import('./MediaStreamWidget')),

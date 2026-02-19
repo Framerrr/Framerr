@@ -80,7 +80,6 @@ const UserRow: React.FC<UserRowProps> = ({
                 <Checkbox
                     checked={shareState.checked}
                     onCheckedChange={(checked) => onChange({ ...shareState, checked: checked === true })}
-                    size="sm"
                 />
                 <UserAvatar
                     name={user.displayName || user.username}
@@ -96,7 +95,7 @@ const UserRow: React.FC<UserRowProps> = ({
                 selectedIds={shareState.integrations}
                 onChange={(ids) => onChange({ ...shareState, integrations: ids })}
                 disabled={!shareState.checked}
-                size="sm"
+                size="md"
                 align="end"
             />
         </div>
@@ -149,7 +148,6 @@ const GroupRow: React.FC<GroupRowProps> = ({
                     <Checkbox
                         checked={groupChecked}
                         onCheckedChange={(checked) => onGroupToggle(checked === true)}
-                        size="sm"
                     />
                     <div className="w-7 h-7 rounded-full bg-theme-tertiary flex items-center justify-center flex-shrink-0">
                         <Users size={16} className="text-theme-primary" />

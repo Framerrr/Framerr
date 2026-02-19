@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Star, Calendar, Clock, User, Check, XCircle, Film, Tv } from 'lucide-react';
 import { Modal } from '../../../shared/ui';
+import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
 import AuthImage from '../../../shared/ui/AuthImage';
 import { useAuth } from '../../../context/AuthContext';
 import { useNotifications } from '../../../context/NotificationContext';
@@ -83,11 +84,17 @@ interface RequestDetails {
         status?: string;
         tagline?: string;
         numberOfSeasons?: number;
+        imdbId?: string | null;
         directors?: string[];
         cast?: Array<{ name: string; character?: string; profilePath?: string }>;
         productionCompanies?: string[];
         networks?: string[];
     } | null;
+    // All seasons merged across ALL requests for this media (from backend enrichment)
+    allSeasons?: Array<{
+        seasonNumber: number;
+        status: number;
+    }>;
 }
 
 const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
@@ -266,7 +273,7 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
     const hasPoster = !!(localCacheSrc || cdnFallbackSrc);
 
     return (
-        <Modal open={true} onOpenChange={(open) => !open && onClose()} size="lg">
+        <Modal open={true} onOpenChange={(open) => !open && onClose()} size="lg" fixedHeight>
             <Modal.Header title="Request Info" />
             <Modal.Body>
                 {/* Loading indicator */}
@@ -391,6 +398,12 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                                     {statusInfo.label}
                                 </div>
 
+                                <ExternalMediaLinks
+                                    tmdbId={request.media?.tmdbId}
+                                    imdbId={details?.tmdb?.imdbId}
+                                    mediaType={request.type}
+                                    className="mt-2"
+                                />
                                 {/* Season Availability Visualization (for TV shows) */}
                                 {request.type === 'tv' && details?.tmdb?.numberOfSeasons && details.tmdb.numberOfSeasons > 0 && (
                                     <div style={{ marginTop: '0.75rem' }}>
@@ -408,8 +421,9 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                                             flexWrap: 'wrap'
                                         }}>
                                             {Array.from({ length: details.tmdb.numberOfSeasons }, (_, i) => i + 1).map((seasonNum) => {
-                                                // Find if this season is in the request
-                                                const requestedSeason = details?.request?.seasons?.find(
+                                                // Prefer allSeasons (merged from ALL requests) over single request's seasons
+                                                const seasonsSource = details?.allSeasons || details?.request?.seasons;
+                                                const requestedSeason = seasonsSource?.find(
                                                     s => s.seasonNumber === seasonNum
                                                 );
 

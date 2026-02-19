@@ -1,65 +1,73 @@
-/**
- * CalendarWidget - Fluid Container Query-based Responsive Styles
+/* ============================================================================
+ * CALENDAR WIDGET STYLES
  * 
- * Uses CSS Container Queries with clamp() and container query units (cqi/cqb)
- * for fluid, dynamic sizing that scales with container size.
- * 
- * Container Query Units:
- * - cqi = 1% of container inline size (width)
- * - cqb = 1% of container block size (height)
- * - cqmin = smaller of cqi/cqb
- * 
- * NO PADDING - WidgetWrapper handles padding consistently (uses 'relaxed').
- */
+ * Modernized design with theme variables — no hardcoded colors.
+ * Prefix: cal- (consistent with other widget prefixes)
+ * Uses container queries for responsive sizing.
+ * ============================================================================ */
 
-/* Container setup - enables @container queries with size tracking */
-.calendar-widget {
-    container-type: size;
-    container-name: calendar;
-    width: 100%;
-    height: 100%;
+/* ---- Widget Container ---- */
+
+.cal-widget {
     display: flex;
     flex-direction: column;
-    box-sizing: border-box;
+    gap: 0.5rem;
+    height: 100%;
     overflow: hidden;
-    gap: clamp(4px, 1.5cqi, 12px);
+    container-type: size;
+    container-name: calendar;
+    padding: clamp(6px, 2cqi, 14px);
 }
 
-/* ===== HEADER: Month navigation ===== */
-.calendar-widget__header {
+/* ---- Month Grid Container ---- */
+
+.cal-month {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    gap: clamp(4px, 1cqi, 8px);
+}
+
+/* ---- Month Header ---- */
+
+.cal-month-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: clamp(4px, 2cqi, 12px);
+    gap: 0.25rem;
     flex-shrink: 0;
     position: relative;
 }
 
-.calendar-widget__nav-btn {
-    padding: clamp(2px, 1cqi, 6px);
-    border-radius: clamp(4px, 1cqi, 8px);
+.cal-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(2px, 0.8cqi, 6px);
+    border-radius: 0.375rem;
     background: transparent;
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
     transition: background 0.2s, color 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
-.calendar-widget__nav-btn:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
+@media (hover: hover) {
+    .cal-nav-btn:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
 }
 
-.calendar-widget__nav-btn svg {
+.cal-nav-btn svg {
     width: clamp(12px, 3cqi, 18px);
     height: clamp(12px, 3cqi, 18px);
 }
 
-.calendar-widget__title {
-    font-size: clamp(0.7rem, 3cqi, 1rem);
+.cal-month-title {
+    font-size: clamp(0.72rem, 2.5cqi, 0.95rem);
     font-weight: 600;
     color: var(--text-primary);
     text-align: center;
@@ -67,124 +75,155 @@
     white-space: nowrap;
 }
 
-.calendar-widget__today-btn {
-    font-size: clamp(0.55rem, 2cqi, 0.75rem);
-    padding: clamp(2px, 0.8cqi, 6px) clamp(4px, 1.5cqi, 12px);
-    border-radius: clamp(3px, 1cqi, 6px);
-    background: var(--bg-tertiary);
-    border: none;
-    color: var(--text-primary);
+.cal-today-btn {
+    font-size: clamp(0.55rem, 1.8cqi, 0.7rem);
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    color: var(--text-secondary);
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.2s;
     white-space: nowrap;
-    /* Pull out of flow so title centers evenly between arrows */
     position: absolute;
-    right: clamp(20px, 8cqi, 36px);
+    right: clamp(22px, 7cqi, 36px);
     top: 50%;
     transform: translateY(-50%);
 }
 
-.calendar-widget__today-btn:hover {
-    background: var(--bg-hover);
+@media (hover: hover) {
+    .cal-today-btn:hover {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+    }
 }
 
-/* ===== FILTER BUTTONS ===== */
-.calendar-widget__filters {
+/* ---- Filter Row ---- */
+
+.cal-filter-row {
     display: flex;
-    gap: clamp(2px, 0.8cqi, 6px);
+    gap: 0.25rem;
     justify-content: center;
-    align-items: center;
     flex-shrink: 0;
 }
 
-.calendar-widget__filter-icon {
-    width: clamp(10px, 2.5cqi, 16px);
-    height: clamp(10px, 2.5cqi, 16px);
-    color: var(--text-secondary);
-    opacity: 0.6;
-}
-
-.calendar-widget__filter-btn {
-    font-size: clamp(0.5rem, 2cqi, 0.65rem);
-    padding: clamp(1px, 0.5cqi, 3px) clamp(4px, 1.2cqi, 10px);
-    border-radius: clamp(2px, 0.6cqi, 4px);
+.cal-filter-btn {
+    font-size: clamp(0.5rem, 1.6cqi, 0.62rem);
+    font-weight: 500;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
     border: none;
     cursor: pointer;
     transition: background 0.2s, color 0.2s;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    color: var(--text-secondary);
 }
 
-/* ===== CALENDAR GRID ===== */
-.calendar-widget__grid {
+@media (hover: hover) {
+    .cal-filter-btn:hover {
+        color: var(--text-primary);
+    }
+
+    .cal-filter-btn--tv:hover {
+        color: var(--info);
+    }
+
+    .cal-filter-btn--movie:hover {
+        color: var(--success);
+    }
+}
+
+.cal-filter-btn--active {
+    background: var(--accent);
+    color: #fff;
+}
+
+.cal-filter-btn--active-tv {
+    background: var(--info);
+    color: #fff;
+}
+
+.cal-filter-btn--active-movie {
+    background: var(--success);
+    color: #fff;
+}
+
+/* ---- Calendar Grid ---- */
+
+.cal-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    /* Day-header row is auto-sized, day-content rows fill remaining space equally */
     grid-template-rows: auto;
     grid-auto-rows: 1fr;
     gap: clamp(1px, 0.3cqi, 3px);
     flex: 1;
     min-height: 0;
-    /* Allow flex item to shrink */
     overflow: hidden;
 }
 
-/* Day headers (S, M, T, W, T, F, S) */
-.calendar-widget__day-header {
+/* Day headers */
+.cal-grid-day-header {
     text-align: center;
-    font-size: clamp(0.5rem, 2cqi, 0.65rem);
-    color: var(--text-secondary);
+    font-size: clamp(0.5rem, 1.6cqi, 0.62rem);
+    color: var(--text-tertiary);
     font-weight: 600;
-    padding: clamp(2px, 0.5cqi, 6px) 0;
+    text-transform: uppercase;
+    padding: clamp(2px, 0.4cqi, 4px) 0;
 }
 
-/* Empty cells before month starts */
-.calendar-widget__empty-cell {
-    background: var(--bg-tertiary);
-    opacity: 0.2;
+/* Empty cells */
+.cal-grid-empty {
     border-radius: clamp(2px, 0.4cqi, 4px);
 }
 
-/* Individual day cells */
-.calendar-widget__day-cell {
+/* Day cells */
+.cal-grid-cell {
     padding: clamp(1px, 0.3cqi, 3px);
-    border-radius: clamp(3px, 0.6cqi, 8px);
+    border-radius: clamp(3px, 0.5cqi, 6px);
     overflow: hidden;
     display: flex;
     flex-direction: column;
     border: 1px solid transparent;
-    background: var(--bg-tertiary);
-    opacity: 0.85;
-    transition: border-color 0.2s;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.03));
+    transition: border-color 0.2s, background 0.2s;
     min-height: 0;
-    /* Allow shrinking within 1fr rows */
 }
 
-.calendar-widget__day-cell:hover {
-    border-color: var(--border-color-light);
+.cal-grid-cell--today {
+    background: rgba(var(--accent-rgb), 0.08);
+    border-color: rgba(var(--accent-rgb), 0.3);
 }
 
-.calendar-widget__day-cell--today {
-    background: rgba(var(--accent-rgb), 0.1);
-    border-color: var(--accent);
-    opacity: 1;
+@media (hover: hover) {
+    .cal-grid-cell:hover {
+        border-color: var(--border-subtle, rgba(255, 255, 255, 0.08));
+    }
+
+    .cal-grid-cell--today:hover {
+        border-color: var(--accent);
+    }
 }
 
 /* Day number */
-.calendar-widget__day-number {
-    font-size: clamp(0.5rem, 1.8cqi, 0.65rem);
+.cal-grid-day-num {
+    font-size: clamp(0.48rem, 1.5cqi, 0.6rem);
     text-align: right;
+    padding-right: 2px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+    line-height: 1;
     margin-bottom: 1px;
-    color: var(--text-secondary);
-    opacity: 0.6;
+    font-variant-numeric: tabular-nums;
 }
 
-.calendar-widget__day-cell--today .calendar-widget__day-number {
+.cal-grid-cell--today .cal-grid-day-num {
     font-weight: 700;
     color: var(--accent);
-    opacity: 1;
 }
 
-/* Events container within each day */
-.calendar-widget__events {
+/* Events in day cell */
+.cal-grid-events {
     display: flex;
     flex-direction: column;
     gap: 1px;
@@ -192,142 +231,413 @@
     overflow: hidden;
 }
 
-/* Individual event pill */
-.calendar-widget__event {
-    font-size: clamp(0.4rem, 1.5cqi, 0.55rem);
-    padding: clamp(0px, 0.2cqi, 2px) clamp(2px, 0.5cqi, 4px);
+/* ---- Event Pills (inside grid cells) ---- */
+
+.cal-event-pill {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-size: clamp(0.38rem, 1.2cqi, 0.5rem);
+    padding: clamp(0px, 0.15cqi, 1px) clamp(2px, 0.4cqi, 4px);
     border-radius: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-weight: 500;
-    color: white;
+    font-weight: 600;
     cursor: pointer;
-    transition: opacity 0.2s;
+    transition: opacity 0.15s, background 0.15s;
+    border: none;
+    line-height: 1.4;
 }
 
-.calendar-widget__event:hover {
-    opacity: 0.8;
+@media (hover: hover) {
+    .cal-event-pill:hover {
+        opacity: 0.75;
+    }
 }
 
-.calendar-widget__event--tv {
-    background: var(--info);
+.cal-event-pill--tv {
+    background: rgba(var(--info-rgb, 59, 130, 246), 0.15);
+    color: var(--info);
 }
 
-.calendar-widget__event--movie {
-    background: var(--success);
+.cal-event-pill--movie {
+    background: rgba(var(--success-rgb, 34, 197, 94), 0.15);
+    color: var(--success);
 }
 
-/* ===== LOADING STATE ===== */
-.calendar-widget__loading {
+/* ---- Popover Styles ---- */
+
+.cal-popover {
+    min-width: 200px;
+    max-width: 260px;
+}
+
+.cal-popover-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.cal-popover-header {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+}
+
+.cal-popover-poster {
+    width: 40px;
+    height: 58px;
+    border-radius: 0.25rem;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.05));
+}
+
+.cal-popover-poster-placeholder {
+    width: 40px;
+    height: 58px;
+    border-radius: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.05));
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+}
+
+.cal-popover-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.cal-popover-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+
+.cal-popover-episode {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--info);
+}
+
+.cal-popover-date {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+}
+
+.cal-popover-instance {
+    font-size: 0.58rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 0.2rem;
+    background: var(--accent-alpha-10, rgba(var(--accent-rgb), 0.1));
+    color: var(--accent);
+    font-weight: 600;
+    width: fit-content;
+}
+
+.cal-popover-overview {
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+/* ============================================================================
+ * AGENDA VIEW
+ * ============================================================================ */
+
+.cal-agenda {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    gap: clamp(4px, 1cqi, 8px);
+}
+
+.cal-agenda-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Date group */
+.cal-agenda-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.cal-agenda-group+.cal-agenda-group {
+    margin-top: 0.15rem;
+}
+
+/* Date header — transparent, no background */
+.cal-agenda-date {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.25rem;
+}
+
+.cal-agenda-date-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+}
+
+.cal-agenda-date--today .cal-agenda-date-label {
+    color: var(--accent);
+}
+
+.cal-agenda-date-rel {
+    font-size: 0.58rem;
+    color: var(--text-tertiary);
+    font-weight: 400;
+}
+
+/* Event card — visible card background */
+.cal-agenda-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem;
+    border-radius: 0.5rem;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    width: 100%;
+    text-align: left;
+}
+
+@media (hover: hover) {
+    .cal-agenda-card:hover {
+        background: var(--widget-card-bg-hover, rgba(255, 255, 255, 0.07));
+        border-color: var(--border-subtle, rgba(255, 255, 255, 0.1));
+    }
+}
+
+.cal-agenda-poster {
+    flex-shrink: 0;
+    width: 56px;
+    height: 82px;
+    border-radius: 0.3rem;
+    overflow: hidden;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.05));
+}
+
+.cal-agenda-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cal-agenda-poster-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-tertiary);
+}
+
+/* Card info */
+.cal-agenda-card-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+}
+
+.cal-agenda-card-title {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.cal-agenda-card-meta {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+/* Type badge (top-right corner) */
+.cal-agenda-type-badge {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.4rem;
+    font-size: 0.5rem;
+    font-weight: 600;
+    padding: 0.12rem 0.3rem;
+    border-radius: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.cal-agenda-type-badge--tv {
+    background: rgba(var(--info-rgb, 59, 130, 246), 0.15);
+    color: var(--info);
+}
+
+.cal-agenda-type-badge--movie {
+    background: rgba(var(--success-rgb, 34, 197, 94), 0.15);
+    color: var(--success);
+}
+
+/* Compact mode (inside "both" split) */
+.cal-agenda--compact .cal-filter-row {
+    display: none;
+}
+
+.cal-agenda--compact .cal-agenda-card {
+    padding: 0.4rem;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.cal-agenda--compact .cal-agenda-poster {
+    width: 36px;
+    height: 52px;
+}
+
+.cal-agenda--compact .cal-agenda-card-title {
+    font-size: 0.75rem;
+}
+
+.cal-agenda--compact .cal-agenda-card-meta {
+    font-size: 0.6rem;
+}
+
+/* ============================================================================
+ * BOTH MODE — 70/30 SPLIT (calendar : agenda)
+ * ============================================================================ */
+
+.cal-split {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    gap: 0;
+}
+
+.cal-split-calendar {
+    flex: 7;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding-right: 0.5rem;
+}
+
+.cal-split-agenda {
+    flex: 3;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    padding-left: 0.5rem;
+}
+
+/* ---- Empty State Overlay ---- */
+
+.cal-empty-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+/* ---- Loading State ---- */
+
+.cal-loading {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-secondary);
-    font-size: clamp(0.6rem, 2.5cqi, 0.85rem);
+    font-size: 0.78rem;
     opacity: 0.6;
 }
 
-/* ===== ERROR STATE ===== */
-.calendar-widget__error {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: clamp(8px, 3cqi, 20px);
-    font-size: clamp(0.55rem, 2cqi, 0.75rem);
-    color: var(--error);
-    background: rgba(var(--error-rgb), 0.1);
-    border-radius: clamp(4px, 1cqi, 8px);
-}
+/* ============================================================================
+ * CONTAINER QUERIES — Responsive Behavior
+ * ============================================================================ */
 
-/* ===== EMPTY STATE ===== */
-.calendar-widget__empty {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    opacity: 0.5;
-}
-
-.calendar-widget__empty-icon {
-    width: clamp(20px, 8cqi, 36px);
-    height: clamp(20px, 8cqi, 36px);
-    margin: 0 auto clamp(4px, 1cqi, 10px);
-    color: var(--text-tertiary);
-}
-
-.calendar-widget__empty-text {
-    font-size: clamp(0.55rem, 2cqi, 0.75rem);
-    color: var(--text-secondary);
-}
-
-.calendar-widget__empty-subtext {
-    font-size: clamp(0.45rem, 1.5cqi, 0.6rem);
-    color: var(--text-tertiary);
-    margin-top: clamp(2px, 0.5cqi, 6px);
-}
-
-/* ===== COMPACT MODE: Narrow width - hide filters, compact day headers ===== */
+/* Compact: hide filter + today button */
 @container calendar (max-width: 280px) {
-    .calendar-widget__filters {
+    .cal-filter-row {
         display: none;
     }
 
-    .calendar-widget__today-btn {
+    .cal-today-btn {
         display: none;
     }
 }
 
-/* ===== ULTRA COMPACT: Very small width - abbreviate everything ===== */
+/* Ultra compact */
 @container calendar (max-width: 180px) {
-    .calendar-widget__title {
-        font-size: clamp(0.55rem, 4cqi, 0.75rem);
+    .cal-month-title {
+        font-size: clamp(0.55rem, 3.5cqi, 0.72rem);
     }
 
-    .calendar-widget__day-header {
-        font-size: clamp(0.4rem, 2.5cqi, 0.55rem);
-    }
-
-    .calendar-widget__day-number {
+    .cal-grid-day-header {
         font-size: clamp(0.4rem, 2cqi, 0.5rem);
     }
-
-    .calendar-widget__event {
-        font-size: clamp(0.35rem, 1.5cqi, 0.45rem);
-        padding: 0 clamp(1px, 0.3cqi, 2px);
-    }
 }
 
-/* ===== SHORT HEIGHT: Hide filters when vertically constrained ===== */
+/* Short height: hide filter */
 @container calendar (max-height: 200px) {
-    .calendar-widget__filters {
+    .cal-filter-row {
         display: none;
     }
 }
 
-/* ===== TALL MODE: More spacious layout when plenty of vertical space ===== */
+/* Tall: more spacious */
 @container calendar (min-height: 350px) {
-    .calendar-widget {
-        gap: clamp(8px, 2cqi, 16px);
+    .cal-month {
+        gap: clamp(6px, 1.5cqi, 12px);
     }
 
-    .calendar-widget__event {
-        font-size: clamp(0.5rem, 1.8cqi, 0.65rem);
-        padding: clamp(1px, 0.3cqi, 3px) clamp(3px, 0.7cqi, 6px);
+    .cal-event-pill {
+        font-size: clamp(0.45rem, 1.5cqi, 0.58rem);
+        padding: clamp(1px, 0.2cqi, 2px) clamp(3px, 0.6cqi, 5px);
     }
 }
 
-/* ===== WIDE MODE: Horizontal layout benefits ===== */
+/* Wide: more grid gap */
 @container calendar (min-width: 450px) {
-    .calendar-widget__grid {
-        gap: clamp(2px, 0.5cqi, 4px);
+    .cal-grid {
+        gap: clamp(2px, 0.4cqi, 4px);
     }
 
-    .calendar-widget__day-cell {
-        border-radius: clamp(4px, 0.8cqi, 10px);
+    .cal-grid-cell {
+        border-radius: clamp(4px, 0.7cqi, 8px);
     }
 }

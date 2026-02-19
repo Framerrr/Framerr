@@ -8,6 +8,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import logger from '../utils/logger';
 
 // Determine database location
 // FRAMERR_DB_PATH: Direct path to database file (for local dev outside repo)
@@ -41,11 +42,11 @@ try {
     // Enable foreign key constraints
     _db.pragma('foreign_keys = ON');
 
-    console.log(`[DB] Connected to SQLite database: ${DB_PATH}`);
-    console.log(`[DB] WAL mode enabled, foreign keys enforced`);
+    logger.debug(`[DB] Connected: ${DB_PATH}`);
+    logger.debug('[DB] WAL mode enabled, foreign keys enforced');
 
 } catch (error) {
-    console.error('[DB] Failed to initialize database:', (error as Error).message);
+    logger.error(`[DB] Failed to initialize database: ${(error as Error).message}`);
     throw error;
 }
 
@@ -65,9 +66,9 @@ function initializeSchema(): void {
     try {
         // Execute schema in a transaction for atomicity
         _db.exec(schema);
-        console.log('[DB] Schema initialized successfully');
+        logger.debug('[DB] Schema initialized successfully');
     } catch (error) {
-        console.error('[DB] Failed to initialize schema:', (error as Error).message);
+        logger.error(`[DB] Failed to initialize schema: ${(error as Error).message}`);
         throw error;
     }
 }
@@ -95,7 +96,7 @@ function isInitialized(): boolean {
  */
 function getDb(): DatabaseInstance {
     if (!_db) {
-        console.error('[DB] CRITICAL: getDb() called but _db is undefined!');
+        logger.error('[DB] CRITICAL: getDb() called but _db is undefined!');
         throw new Error('Database not initialized');
     }
     return _db;
@@ -106,14 +107,14 @@ function getDb(): DatabaseInstance {
  * Used after restore to pick up the new database file
  */
 function reinitializeDatabase(): void {
-    console.log('[DB] Reinitializing database connection...');
+    logger.debug('[DB] Reinitializing database connection...');
 
     // Close existing connection
     if (_db) {
         try {
             _db.close();
         } catch (error) {
-            console.warn('[DB] Error closing old connection:', (error as Error).message);
+            logger.warn(`[DB] Error closing old connection: ${(error as Error).message}`);
         }
     }
 
@@ -131,10 +132,10 @@ function reinitializeDatabase(): void {
         const { invalidateConfigCache } = require('../db/systemConfig');
         invalidateConfigCache();
     } catch (error) {
-        console.warn('[DB] Could not invalidate config cache:', (error as Error).message);
+        logger.warn(`[DB] Could not invalidate config cache: ${(error as Error).message}`);
     }
 
-    console.log('[DB] Database connection reinitialized');
+    logger.debug('[DB] Database connection reinitialized');
 }
 
 /**
@@ -144,7 +145,7 @@ function reinitializeDatabase(): void {
 function closeDatabase(): void {
     if (_db) {
         _db.close();
-        console.log('[DB] Database connection closed');
+        logger.debug('[DB] Database connection closed');
     }
 }
 

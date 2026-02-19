@@ -2,6 +2,38 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.1.4] - 2026-02-18
+
+### Added
+- Tautulli integration — connect Tautulli instances with a new widget showing server stats and top items
+- Overseerr media requesting — bind Overseerr to the Media Search widget to search and request media
+- Overseerr widget — per-user request filtering based on Overseerr permissions
+- Iframe widget — embed any web page on your dashboard
+- Search bar recommendations from Plex library
+- Walkthrough — guided onboarding for new users
+- Pull-to-refresh on mobile dashboard
+- Password reset CLI tool (`framerr reset-password`) with force-change-on-login
+- System Status widget — configurable history logging for system status integrations
+
+### Changed
+- Sonarr widget redesigned — upcoming carousel, missing episodes with pagination, episode detail modal with search and grab
+- Radarr widget redesigned — upcoming movies carousel, missing list, movie detail modal with search and grab
+- Calendar widget redesigned — month grid, agenda list, and split view modes
+- qBittorrent widget redesigned — torrent detail modal, pause/resume/delete actions, global playback control
+- Hover effects disabled on touch devices to prevent phantom highlights on iOS
+- Widget resize handles repositioned for easier interaction on mobile
+- Link Grid reordering moved to config modal to prevent conflicts with dashboard widget drag
+
+### Fixed
+- Widget content flashing on drop when dragging from Add Widget catalog
+- Edit bar detaching from top of page on scroll
+- Template builder drag and drop overlays mispositioned and incorrectly scaled
+- First edit on mobile would sometimes propagate to desktop
+- Mobile empty state not showing when mobile layout has no widgets
+- Reduced memory usage for long-running tabs
+
+---
+
 ## [0.1.3] - 2026-02-11
 
 ### Fixed

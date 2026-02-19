@@ -124,12 +124,14 @@
     transition: all 0.3s ease;
 }
 
-.card-glow:hover {
-    box-shadow:
-        0 8px 16px rgba(0, 0, 0, 0.4),
-        0 0 0 1px var(--accent-glow),
-        0 0 24px var(--accent-glow-soft);
-    transition: all 0.3s ease;
+@media (hover: hover) {
+    .card-glow:hover {
+        box-shadow:
+            0 8px 16px rgba(0, 0, 0, 0.4),
+            0 0 0 1px var(--accent-glow),
+            0 0 24px var(--accent-glow-soft);
+        transition: all 0.3s ease;
+    }
 }
 
 /* Button Elevation */
@@ -139,11 +141,13 @@
     overflow: hidden;
 }
 
-.button-elevated:hover {
-    transform: translateY(-2px) scale(1.02);
-    box-shadow:
-        0 12px 24px var(--accent-glow),
-        0 6px 12px rgba(0, 0, 0, 0.6);
+@media (hover: hover) {
+    .button-elevated:hover {
+        transform: translateY(-2px) scale(1.02);
+        box-shadow:
+            0 12px 24px var(--accent-glow),
+            0 6px 12px rgba(0, 0, 0, 0.6);
+    }
 }
 
 .button-elevated:active {
@@ -220,6 +224,8 @@
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    /* Prevent descender clipping on letters like g, y, p, q, j */
+    padding-bottom: 0.1em;
 }
 
 /* ========================================

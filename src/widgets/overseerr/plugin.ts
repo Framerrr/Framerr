@@ -6,7 +6,7 @@
  */
 
 import { lazy } from 'react';
-import { Star } from 'lucide-react';
+import { Popcorn } from 'lucide-react';
 import type { WidgetPlugin } from '../types';
 
 export const plugin: WidgetPlugin = {
@@ -14,10 +14,10 @@ export const plugin: WidgetPlugin = {
     name: 'Overseerr',
     description: 'Media requests and discovery',
     category: 'media',
-    icon: Star,
+    icon: Popcorn,
     sizing: {
         default: { w: 12, h: 6 },
-        min: { w: 6, h: 4 },
+        min: { w: 4, h: 4 },
         max: { w: 24, h: 12 },
     },
     component: lazy(() => import('./OverseerrWidget')),

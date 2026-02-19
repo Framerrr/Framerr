@@ -51,6 +51,18 @@ function useModalContext() {
 }
 
 // ===========================
+// Context for Portal-aware children (e.g. Popover)
+// When inside a Modal, Popovers should NOT portal to body
+// so they stay within react-remove-scroll's scope.
+// ===========================
+
+const InsideModalContext = createContext(false);
+
+export function useInsideModal() {
+    return useContext(InsideModalContext);
+}
+
+// ===========================
 // Size Variants
 // ===========================
 
@@ -76,6 +88,12 @@ export interface ModalProps {
     className?: string;
     /** z-index for the overlay and content wrapper (default: 100) */
     zIndex?: number;
+    /** When true, the modal uses a fixed height (65vh) instead of adapting to content.
+     *  Use for multi-view modals (tabs, drill-downs) to prevent layout shifts. */
+    fixedHeight?: boolean;
+    /** When true, skip the exit animation so the portal unmounts instantly.
+     *  Use when the modal is already visually hidden (e.g., during drag-and-drop). */
+    skipExitAnimation?: boolean;
 }
 
 export function Modal({
@@ -85,58 +103,89 @@ export function Modal({
     children,
     className = '',
     zIndex = 100,
+    fixedHeight = false,
+    skipExitAnimation = false,
 }: ModalProps) {
     // Use our iOS-compatible scroll lock
     useScrollLock(open);
 
     return (
         <ModalContext.Provider value={{ open, onOpenChange }}>
-            <Dialog.Root open={open} onOpenChange={onOpenChange}>
-                <AnimatePresence>
-                    {open && (
-                        <Dialog.Portal forceMount>
-                            {/* Backdrop */}
-                            <Dialog.Overlay asChild>
-                                <motion.div
-                                    variants={backdrop}
-                                    initial="hidden"
-                                    animate="visible"
-                                    exit="exit"
-                                    className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-                                    style={{ zIndex }}
-                                />
-                            </Dialog.Overlay>
-
-                            {/* Content wrapper - centers the modal */}
-                            <div className="fixed inset-0 flex items-center justify-center p-2 sm:p-4" style={{ zIndex }}>
-                                <Dialog.Content asChild>
-                                    <motion.div
-                                        variants={scaleIn}
-                                        initial="hidden"
-                                        animate="visible"
-                                        exit="exit"
-                                        layout
-                                        transition={{
-                                            layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] }
-                                        }}
+            <InsideModalContext.Provider value={true}>
+                <Dialog.Root open={open} onOpenChange={onOpenChange}>
+                    {skipExitAnimation ? (
+                        /* Instant mount/unmount — no exit animation.
+                           Used when portal is already hidden (e.g., drag-and-drop). */
+                        open && (
+                            <Dialog.Portal forceMount>
+                                <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm" style={{ zIndex }} />
+                                <div className="fixed inset-0 flex items-center justify-center p-2 sm:p-4" style={{ zIndex }}>
+                                    <Dialog.Content
                                         className={`
-                      w-full ${sizeClasses[size]}
-                      bg-theme-secondary border border-theme rounded-2xl
-                      shadow-2xl
-                      flex flex-col
-                      max-h-[var(--modal-max-height)]
-                      outline-none
-                      ${className}
-                    `}
+                          w-full ${sizeClasses[size]}
+                          relative
+                          bg-theme-secondary border border-theme rounded-2xl
+                          shadow-2xl
+                          flex flex-col
+                          ${fixedHeight ? 'h-[65vh]' : 'max-h-[var(--modal-max-height)]'}
+                          outline-none
+                          ${className}
+                        `}
                                     >
                                         {children}
-                                    </motion.div>
-                                </Dialog.Content>
-                            </div>
-                        </Dialog.Portal>
+                                    </Dialog.Content>
+                                </div>
+                            </Dialog.Portal>
+                        )
+                    ) : (
+                        <AnimatePresence>
+                            {open && (
+                                <Dialog.Portal forceMount>
+                                    {/* Backdrop */}
+                                    <Dialog.Overlay asChild>
+                                        <motion.div
+                                            variants={backdrop}
+                                            initial="hidden"
+                                            animate="visible"
+                                            exit="exit"
+                                            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+                                            style={{ zIndex }}
+                                        />
+                                    </Dialog.Overlay>
+
+                                    {/* Content wrapper - centers the modal */}
+                                    <div className="fixed inset-0 flex items-center justify-center p-2 sm:p-4" style={{ zIndex }}>
+                                        <Dialog.Content asChild>
+                                            <motion.div
+                                                variants={scaleIn}
+                                                initial="hidden"
+                                                animate="visible"
+                                                exit="exit"
+                                                layout
+                                                transition={{
+                                                    layout: { duration: 0.35, ease: [0.4, 0, 0.2, 1] }
+                                                }}
+                                                className={`
+                          w-full ${sizeClasses[size]}
+                          relative
+                          bg-theme-secondary border border-theme rounded-2xl
+                          shadow-2xl
+                          flex flex-col
+                          ${fixedHeight ? 'h-[65vh]' : 'max-h-[var(--modal-max-height)]'}
+                          outline-none
+                          ${className}
+                        `}
+                                            >
+                                                {children}
+                                            </motion.div>
+                                        </Dialog.Content>
+                                    </div>
+                                </Dialog.Portal>
+                            )}
+                        </AnimatePresence>
                     )}
-                </AnimatePresence>
-            </Dialog.Root>
+                </Dialog.Root>
+            </InsideModalContext.Provider>
         </ModalContext.Provider>
     );
 }
@@ -151,12 +200,50 @@ export interface ModalHeaderProps {
     icon?: React.ReactNode;
     actions?: React.ReactNode;
     showClose?: boolean;
+    /** Compact mode: just the close button, no border, reduced height. 
+     *  Use for content-first modals that don't need a visible title bar. */
+    closeOnly?: boolean;
     className?: string;
+    /** Additional props to spread on the close button (e.g., data-walkthrough) */
+    closeButtonProps?: React.HTMLAttributes<HTMLButtonElement>;
 }
 
 const ModalHeader = forwardRef<HTMLDivElement, ModalHeaderProps>(
-    ({ title, subtitle, icon, actions, showClose = true, className = '' }, ref) => {
+    ({ title, subtitle, icon, actions, showClose = true, closeOnly = false, className = '', closeButtonProps }, ref) => {
         const { onOpenChange } = useModalContext();
+
+        // Close-only mode: compact borderless row with just the X button
+        if (closeOnly) {
+            return (
+                <div
+                    ref={ref}
+                    className={`
+                      flex items-center justify-end pt-3 px-3 pb-0 sm:pt-4 sm:px-4
+                      flex-shrink-0
+                      ${className}
+                    `}
+                >
+                    {/* Hidden a11y elements */}
+                    <Dialog.Title className="sr-only">Dialog</Dialog.Title>
+                    <Dialog.Description className="sr-only">Modal dialog content</Dialog.Description>
+                    {showClose && (
+                        <Dialog.Close asChild>
+                            <button
+                                className="
+                                    p-2 rounded-lg
+                                    text-theme-secondary hover:text-theme-primary
+                                    hover:bg-theme-hover transition-colors
+                                "
+                                aria-label="Close"
+                                {...closeButtonProps}
+                            >
+                                <X size={20} />
+                            </button>
+                        </Dialog.Close>
+                    )}
+                </div>
+            );
+        }
 
         return (
             <div
@@ -207,6 +294,7 @@ const ModalHeader = forwardRef<HTMLDivElement, ModalHeaderProps>(
                   hover:bg-theme-hover transition-colors
                 "
                                 aria-label="Close"
+                                {...closeButtonProps}
                             >
                                 <X size={20} />
                             </button>
@@ -229,10 +317,12 @@ export interface ModalBodyProps {
     className?: string;
     /** Whether to add padding (default: true) */
     padded?: boolean;
+    /** Optional inline styles */
+    style?: React.CSSProperties;
 }
 
 const ModalBody = forwardRef<HTMLDivElement, ModalBodyProps>(
-    ({ children, className = '', padded = true }, ref) => {
+    ({ children, className = '', padded = true, style }, ref) => {
         return (
             <div
                 ref={ref}
@@ -242,6 +332,7 @@ const ModalBody = forwardRef<HTMLDivElement, ModalBodyProps>(
           ${padded ? 'p-4 sm:p-6' : ''}
           ${className}
         `}
+                style={style}
             >
                 {children}
             </div>

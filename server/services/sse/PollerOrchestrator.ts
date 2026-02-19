@@ -8,9 +8,11 @@
  */
 
 import { subscriptions } from './subscriptions';
-import { broadcastToTopic } from './transport';
+import { broadcastToTopic, broadcastToTopicFiltered } from './transport';
+import type { SubscriberFilterFn } from './transport';
 import { getPlugin } from '../../integrations/registry';
 import * as integrationInstancesDb from '../../db/integrationInstances';
+import { metricHistoryService } from '../MetricHistoryService';
 import logger from '../../utils/logger';
 
 // ============================================================================
@@ -30,6 +32,7 @@ const POLLING_INTERVALS: Record<string, number> = {
     'sonarr:queue': 3000,       // 3 seconds (queue data - near real-time)
     'radarr:queue': 3000,       // 3 seconds
     'sonarr:calendar': 300000,  // 5 minutes (calendar changes rarely)
+    'sonarr:missing': 60000,    // 1 minute (missing counts for stats bar)
     'radarr:calendar': 300000,  // 5 minutes
     'overseerr': 60000,         // 60 seconds (requests)
     'overseerr:requests': 60000,
@@ -125,18 +128,25 @@ export function parseTopic(topic: string): { type: string; instanceId: string | 
 export function getPollingInterval(topic: string): number {
     const { type, subtype } = parseTopic(topic);
 
-    // First, check plugin registry for interval
-    const plugin = getPlugin(type);
-    if (plugin?.poller?.intervalMs) {
-        return plugin.poller.intervalMs;
-    }
-
-    // Fallback: Check for subtype-specific interval (e.g., "sonarr:queue")
+    // Check for subtype-specific interval first (e.g., "sonarr:calendar", "sonarr:missing")
+    // These override the main plugin interval since subtypes often poll at different rates
     if (subtype) {
         const subtypeKey = `${type}:${subtype}`;
         if (POLLING_INTERVALS[subtypeKey]) {
             return POLLING_INTERVALS[subtypeKey];
         }
+
+        // Also check plugin's subtype interval
+        const plugin = getPlugin(type);
+        if (plugin?.poller?.subtypes?.[subtype]?.intervalMs) {
+            return plugin.poller.subtypes[subtype].intervalMs;
+        }
+    }
+
+    // Check plugin registry for main interval
+    const plugin = getPlugin(type);
+    if (plugin?.poller?.intervalMs) {
+        return plugin.poller.intervalMs;
     }
 
     return POLLING_INTERVALS[type] ?? POLLING_INTERVALS.default;
@@ -158,6 +168,7 @@ export function getPollingInterval(topic: string): number {
  */
 export class PollerOrchestrator {
     private activePollers: Map<string, PollerState> = new Map();
+    private topicFilters: Map<string, SubscriberFilterFn> = new Map();
 
     // Startup tracking - collect topics during initial startup phase
     private startupTopics: string[] = [];
@@ -209,6 +220,12 @@ export class PollerOrchestrator {
         // Poll immediately
         pollFn();
 
+        // Notify metric history service of SSE subscriber for system-status topics
+        const topicPlugin = getPlugin(topicInfo.type);
+        if (topicInfo.instanceId && topicPlugin?.metrics?.length) {
+            metricHistoryService.onSSEActive(topicInfo.instanceId);
+        }
+
         logger.debug(`[PollerOrchestrator] Started: topic=${topic} interval=${baseIntervalMs}ms`);
     }
 
@@ -222,6 +239,12 @@ export class PollerOrchestrator {
 
         clearInterval(state.interval);
         this.activePollers.delete(topic);
+
+        // Notify metric history service when SSE stops for system-status topics
+        const stoppedPlugin = getPlugin(state.topicInfo.type);
+        if (state.topicInfo.instanceId && stoppedPlugin?.metrics?.length) {
+            metricHistoryService.onSSEIdle(state.topicInfo.instanceId);
+        }
 
         logger.debug(`[PollerOrchestrator] Stopped: topic=${topic}`);
     }
@@ -254,7 +277,7 @@ export class PollerOrchestrator {
         }
 
         // Special case: calendar subtypes
-        if ((type === 'sonarr' || type === 'radarr') && subtype === 'calendar') {
+        if ((type === 'sonarr' || type === 'radarr') && (subtype === 'calendar' || subtype === 'missing')) {
             return true;
         }
 
@@ -283,6 +306,31 @@ export class PollerOrchestrator {
      */
     isPolling(topic: string): boolean {
         return this.activePollers.has(topic);
+    }
+
+    /**
+     * Register a per-subscriber filter for topics matching a prefix.
+     * When data is broadcast for a matching topic, filterFn runs per-user
+     * to produce filtered payloads.
+     * 
+     * @param topicPrefix - Prefix to match (e.g., 'overseerr:' matches 'overseerr:abc123')
+     * @param filterFn - Function(userId, data) => filtered data for that user
+     */
+    registerTopicFilter(topicPrefix: string, filterFn: SubscriberFilterFn): void {
+        this.topicFilters.set(topicPrefix, filterFn);
+        logger.debug(`[PollerOrchestrator] Registered topic filter: prefix=${topicPrefix}`);
+    }
+
+    /**
+     * Get filter for a topic, if any registered prefix matches.
+     */
+    getTopicFilter(topic: string): SubscriberFilterFn | null {
+        for (const [prefix, filterFn] of this.topicFilters) {
+            if (topic.startsWith(prefix)) {
+                return filterFn;
+            }
+        }
+        return null;
     }
 
     /**
@@ -505,7 +553,21 @@ export class PollerOrchestrator {
             payload = data;
         }
 
-        broadcastToTopic(topic, payload);
+        // Use filtered broadcast if a topic filter is registered
+        const topicFilter = this.getTopicFilter(topic);
+        if (topicFilter) {
+            broadcastToTopicFiltered(topic, payload, topicFilter);
+        } else {
+            broadcastToTopic(topic, payload);
+        }
+
+        // Feed metric history recording if enabled
+        if (metricHistoryService.isEnabled()) {
+            const { type, instanceId } = state.topicInfo;
+            if (instanceId && typeof data === 'object' && data !== null) {
+                metricHistoryService.onSSEData(instanceId, type, data as Record<string, unknown>);
+            }
+        }
     }
 
     /**

@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getUserById, updateUser } from '../db/users';
+import { getUserById, updateUser, revokeAllUserSessions, createSession } from '../db/users';
 import { getUserConfig, updateUserConfig } from '../db/userConfig';
 import { hashPassword, verifyPassword } from '../auth/password';
 import profileUpload from '../middleware/profileUpload';
@@ -180,7 +180,25 @@ router.put('/password', requireAuth, async (req: Request, res: Response) => {
             passwordHash: newPasswordHash
         } as Parameters<typeof updateUser>[1]);
 
-        logger.info(`[Profile] Password changed: user=${authReq.user!.id} username="${user.username}"`);
+        // Invalidate all other sessions (security: revoke any compromised sessions)
+        const currentSessionId = req.cookies?.sessionId;
+        await revokeAllUserSessions(authReq.user!.id);
+
+        // Re-create the current session so this user stays logged in
+        if (currentSessionId) {
+            const newSession = await createSession(authReq.user!.id, {
+                ipAddress: req.ip || undefined,
+                userAgent: req.headers['user-agent'] || undefined
+            });
+            res.cookie('sessionId', newSession.id, {
+                httpOnly: true,
+                secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+                sameSite: 'lax',
+                maxAge: 86400000 // 24 hours
+            });
+        }
+
+        logger.info(`[Profile] Password changed and sessions invalidated: user=${authReq.user!.id} username="${user.username}"`);
 
         res.json({ success: true, message: 'Password changed successfully' });
     } catch (error) {

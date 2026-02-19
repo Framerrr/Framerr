@@ -1,0 +1,44 @@
+/**
+ * SegmentedControl - CSS Styles
+ *
+ * Apple-style pill segmented control.
+ * Uses theme variables exclusively.
+ *
+ * Container-specific responsive behavior should be handled by the
+ * consuming widget's CSS, not here — each widget may want different breakpoints.
+ */
+
+/* ---- Track (container) ---- */
+
+.segmented-control {
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    width: fit-content;
+    flex-shrink: 0;
+}
+
+/* ---- Button (each option) ---- */
+
+.segmented-control-button {
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    line-height: 1.2;
+}
+
+.segmented-control-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    border-radius: 9999px;
+}
+
+/* ---- Pill (sliding indicator) ---- */
+
+.segmented-control-pill {
+    background: var(--accent);
+    box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}

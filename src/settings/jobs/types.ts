@@ -48,6 +48,19 @@ export interface LibraryCacheStats {
     sizeBytes: number;
 }
 
+/** Metric history per-integration stats */
+export interface MetricHistoryIntegrationStats {
+    integrationId: string;
+    displayName: string;
+    dataPoints: number;
+}
+
+/** Metric history cache stats */
+export interface MetricHistoryCacheStats {
+    totalDataPoints: number;
+    integrations: MetricHistoryIntegrationStats[];
+}
+
 /** Combined cache stats from the API */
 export interface CacheStats {
     tmdbMetadata: TmdbMetadataStats;
@@ -55,6 +68,7 @@ export interface CacheStats {
     searchHistory: SearchHistoryStats;
     library: LibraryCacheStats;
     libraryPerIntegration: LibraryIntegrationStats[];
+    metricHistory: MetricHistoryCacheStats;
 }
 
 /** Global monitor defaults (used when creating new monitors) */
@@ -64,4 +78,16 @@ export interface MonitorDefaults {
     retriesBeforeDown: number;
     degradedThresholdMs: number;
     expectedStatusCodes: string[];
+}
+
+/** Global metric history defaults (used when enabling metric history for new integrations) */
+export interface MetricHistoryDefaults {
+    mode: 'auto' | 'internal' | 'external';
+    retentionDays: number;
+}
+
+/** Combined defaults response from GET /api/jobs/defaults */
+export interface AllDefaults {
+    monitorDefaults: MonitorDefaults;
+    metricHistoryDefaults: MetricHistoryDefaults;
 }

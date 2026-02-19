@@ -424,7 +424,7 @@ export function DesktopSidebar() {
                                         const isAlreadyOnDashboard = !window.location.hash || window.location.hash === '#dashboard';
                                         if (isAlreadyOnDashboard) {
                                             e.preventDefault();
-                                            document.getElementById('main-scroll')?.scrollTo({ top: 0, behavior: 'smooth' });
+                                            document.getElementById('dashboard-layer')?.scrollTo({ top: 0, behavior: 'smooth' });
                                             return;
                                         }
                                         handleNavigation(e, '#dashboard');

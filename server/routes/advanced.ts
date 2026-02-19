@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import os from 'os';
 import { requireAdmin } from '../middleware/auth';
 import logBuffer from '../utils/logBuffer';
 import logger from '../utils/logger';
@@ -137,12 +138,14 @@ router.get('/system/info', async (req: Request, res: Response) => {
 // Get resource usage
 router.get('/system/resources', async (req: Request, res: Response) => {
     try {
-        const memoryUsage = process.memoryUsage();
+        const totalMem = os.totalmem();
+        const freeMem = os.freemem();
+        const usedMem = totalMem - freeMem;
         const resources = {
             memory: {
-                heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024),
-                heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024),
-                rss: Math.round(memoryUsage.rss / 1024 / 1024),
+                used: Math.round(usedMem / 1024 / 1024),
+                total: Math.round(totalMem / 1024 / 1024),
+                percentage: Math.round((usedMem / totalMem) * 1000) / 10,
             },
             cpu: process.cpuUsage()
         };

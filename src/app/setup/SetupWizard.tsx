@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { authApi, systemApi, themeApi, plexApi } from '../../api/endpoints';
+import { showLoginSplash } from '../../utils/splash';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -155,7 +156,7 @@ const SetupWizard: React.FC = () => {
             });
 
             // Auto-login (but don't check setup status - that would trigger redirect)
-            const loginResult = await login(data.username, data.password, true);
+            const loginResult = await login(data.username, data.password, true, true);
 
             if (!loginResult.success) {
                 setError(loginResult.error || 'Login failed after account creation');
@@ -244,6 +245,8 @@ const SetupWizard: React.FC = () => {
         // Update setup status in AuthContext so it knows setup is complete
         // This prevents the redirect back to /setup when we navigate to /
         await checkSetupStatus();
+        // Show splash NOW — covers the dashboard loading with fun messages
+        showLoginSplash();
         navigate('/', { replace: true });
     }, [navigate, checkSetupStatus]);
 

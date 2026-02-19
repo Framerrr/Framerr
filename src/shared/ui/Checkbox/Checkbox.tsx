@@ -85,7 +85,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
                     ? 'opacity-50 cursor-not-allowed border-theme bg-theme-tertiary'
                     : isChecked || isIndeterminate
                         ? 'border-accent bg-accent'
-                        : 'border-theme-light bg-theme-tertiary hover:border-accent/50'
+                        : 'border-transparent bg-theme-hover hover:border-accent/50'
                 }
                 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30 focus-visible:ring-offset-1 focus-visible:ring-offset-transparent
                 ${className}

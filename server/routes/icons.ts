@@ -14,11 +14,10 @@ import { listSystemIcons, getSystemIconPath } from '../services/systemIcons';
 
 const router = Router();
 
-// Load CDN catalog once at startup
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
+// Load CDN catalog once at startup (bundled with the app, not in user data)
 let cdnCatalog: string[] = [];
 try {
-    const catalogPath = path.join(DATA_DIR, 'icon-catalog.json');
+    const catalogPath = path.join(__dirname, '../assets/icon-catalog.json');
     if (fs.existsSync(catalogPath)) {
         cdnCatalog = JSON.parse(fs.readFileSync(catalogPath, 'utf-8'));
         logger.info(`[Icons] Loaded CDN catalog: ${cdnCatalog.length} icons`);

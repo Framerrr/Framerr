@@ -22,17 +22,19 @@ export const configSchema: ConfigSchema = {
         },
         {
             key: 'apiKey',
-            type: 'password',
+            type: 'text',
+            sensitive: true,
             label: 'API Key',
             placeholder: 'Your Overseerr API key',
             required: true,
         },
         {
-            key: 'enableAutoApprove',
+            key: 'seeAllRequests',
             type: 'checkbox',
-            label: 'Enable Auto-Approve',
-            hint: 'Automatically approve requests from trusted users',
+            label: 'See All Requests',
+            hint: 'Bypass user permissions and show all requests. When off, requests are filtered by the linked user\'s Overseerr permissions.',
             required: false,
+            default: 'true',
         },
     ],
 };

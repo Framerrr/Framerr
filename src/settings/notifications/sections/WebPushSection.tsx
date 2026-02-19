@@ -183,8 +183,8 @@ export function WebPushSection({
                     {/* Test Push - Only show when enabled */}
                     {pushEnabled && typedSubscriptions.length > 0 && (
                         <SettingsItem
-                            label="Test Push Notification"
-                            description="Send a test push notification to all your subscribed devices"
+                            label="Test Push on This Device"
+                            description="Force a push notification to verify this device receives them"
                             icon={Send}
                             iconColor="text-accent"
                         >
@@ -192,15 +192,15 @@ export function WebPushSection({
                                 onClick={async () => {
                                     try {
                                         await testPushNotification();
-                                        showSuccess('Test Sent', 'Check your device for the push notification');
+                                        // No success toast — the push arriving IS the confirmation
                                     } catch (err) {
-                                        showError('Error', (err as Error).message || 'Failed to send test push');
+                                        showError('Push Failed', (err as Error).message || 'Failed to send test push');
                                     }
                                 }}
                                 variant="secondary"
                                 size="sm"
                             >
-                                Send Test
+                                Test Push
                             </Button>
                         </SettingsItem>
                     )}

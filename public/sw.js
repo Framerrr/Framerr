@@ -83,29 +83,42 @@ self.addEventListener('fetch', (event) => {
     );
 });
 
-// Push event - matches Overseerr's working pattern
+// Push event - with cross-device suppression safety net
 self.addEventListener('push', (event) => {
     console.log('[SW v' + SW_VERSION + '] Push received');
 
     const payload = event.data ? event.data.json() : {};
 
-    const options = {
-        body: payload.body || payload.message || 'New notification',
-        icon: '/favicon/web-app-manifest-192x192.png',
-        vibrate: [100, 50, 100],
-        data: {
-            dateOfArrival: Date.now(),
-            url: '/',
-            notificationId: payload.id,
-            type: payload.type
+    // Safety net: suppress notification if app is visible in this browser
+    // (server already filters, this catches race conditions)
+    // force: true bypasses this for test push notifications
+    const handlePush = async () => {
+        if (!payload.force) {
+            const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+            const hasVisible = windowClients.some(c => c.visibilityState === 'visible');
+            if (hasVisible) {
+                console.log('[SW] App is visible, suppressing push (SSE handles it)');
+                return;
+            }
         }
+
+        const options = {
+            body: payload.body || payload.message || 'New notification',
+            icon: '/favicon/web-app-manifest-192x192.png',
+            vibrate: [100, 50, 100],
+            data: {
+                dateOfArrival: Date.now(),
+                url: '/',
+                notificationId: payload.id,
+                type: payload.type
+            }
+        };
+
+        console.log('[SW] Showing notification:', payload.title, options.body);
+        await self.registration.showNotification(payload.title || 'Framerr', options);
     };
 
-    console.log('[SW] Showing notification:', payload.title, options.body);
-
-    event.waitUntil(
-        self.registration.showNotification(payload.title || 'Framerr', options)
-    );
+    event.waitUntil(handlePush());
 });
 
 // Notification click event - navigate to app and trigger toast

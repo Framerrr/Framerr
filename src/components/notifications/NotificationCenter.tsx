@@ -38,6 +38,12 @@ interface SourceGroupedNotifications {
 export interface NotificationCenterProps {
     isMobile?: boolean;
     onClose?: () => void;
+    /** When true, the header (title, filters, actions) is not rendered — use NotificationCenterHeader separately */
+    excludeHeader?: boolean;
+    /** Controlled filter state — when provided, overrides internal state */
+    activeFilter?: FilterType;
+    /** Callback when filter changes — required when activeFilter is provided */
+    onFilterChange?: (filter: FilterType) => void;
 }
 
 /**
@@ -97,7 +103,7 @@ const getNotificationSource = (notification: Notification): NotificationSource =
  * 
  * iOS-style notification center with source-based grouping
  */
-const NotificationCenter = ({ isMobile = false, onClose }: NotificationCenterProps): React.JSX.Element => {
+const NotificationCenter = ({ isMobile = false, onClose, excludeHeader = false, activeFilter: controlledFilter, onFilterChange }: NotificationCenterProps): React.JSX.Element => {
     const {
         notifications,
         unreadCount,
@@ -109,7 +115,10 @@ const NotificationCenter = ({ isMobile = false, onClose }: NotificationCenterPro
         handleRequestAction
     } = useNotifications();
 
-    const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+    // Support both controlled and uncontrolled filter state
+    const [internalFilter, setInternalFilter] = useState<FilterType>('all');
+    const activeFilter = controlledFilter ?? internalFilter;
+    const setActiveFilter = onFilterChange ?? setInternalFilter;
 
     // NOTE: Scroll lock is now managed by SharedSidebarContext based on isMobileMenuOpen state
 
@@ -452,75 +461,77 @@ const NotificationCenter = ({ isMobile = false, onClose }: NotificationCenterPro
                 e.stopPropagation();
             }}
         >
-            {/* Header */}
-            <div className={`border-b border-theme flex-shrink-0 ${isMobile ? 'p-4' : 'p-6'}`}>
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-baseline gap-3">
-                        <h2 className={`font-semibold text-theme-primary ${isMobile ? 'text-lg' : 'text-xl'}`}>
-                            Notifications
-                        </h2>
-                        <span className="text-sm text-theme-secondary">
-                            {unreadCount} unread
-                        </span>
+            {/* Header — omitted when excludeHeader is true (mobile uses separate header slot) */}
+            {!excludeHeader && (
+                <div className={`border-b border-theme flex-shrink-0 ${isMobile ? 'p-4' : 'p-6'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-baseline gap-3">
+                            <h2 className={`font-semibold text-theme-primary ${isMobile ? 'text-lg' : 'text-xl'}`}>
+                                Notifications
+                            </h2>
+                            <span className="text-sm text-theme-secondary">
+                                {unreadCount} unread
+                            </span>
+                        </div>
+                        {onClose && (
+                            <button
+                                onClick={onClose}
+                                className="text-theme-tertiary hover:text-theme-primary 
+                                    transition-colors p-1"
+                                aria-label="Close notifications"
+                            >
+                                <X size={20} />
+                            </button>
+                        )}
                     </div>
-                    {onClose && (
-                        <button
-                            onClick={onClose}
-                            className="text-theme-tertiary hover:text-theme-primary 
-                                transition-colors p-1"
-                            aria-label="Close notifications"
-                        >
-                            <X size={20} />
-                        </button>
+
+                    {/* Filter Tabs */}
+                    <div className="flex gap-1 mb-3 bg-theme-tertiary/30 p-1 rounded-lg">
+                        {filterTabs.map(filter => (
+                            <button
+                                key={filter.id}
+                                onClick={() => setActiveFilter(filter.id)}
+                                className="relative px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex-1"
+                            >
+                                {activeFilter === filter.id && (
+                                    <motion.div
+                                        layoutId="notificationFilterIndicator"
+                                        className="absolute inset-0 bg-accent rounded-md"
+                                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                                    />
+                                )}
+                                <span className={`relative z-10 ${activeFilter === filter.id ? 'text-white' : 'text-theme-secondary'}`}>
+                                    {filter.label} ({filter.count})
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Action Buttons */}
+                    {notifications.length > 0 && (
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleMarkAllRead}
+                                disabled={unreadCount === 0}
+                                className="px-3 py-1.5 text-xs font-medium rounded-lg
+                                    bg-accent text-white hover:bg-accent-hover
+                                    disabled:opacity-50 disabled:cursor-not-allowed
+                                    transition-colors"
+                            >
+                                Mark all read
+                            </button>
+
+                            <ConfirmButton
+                                onConfirm={handleClearAll}
+                                label="Clear All"
+                                confirmMode="icon"
+                                size="sm"
+                                showTriggerIcon={false}
+                            />
+                        </div>
                     )}
                 </div>
-
-                {/* Filter Tabs */}
-                <div className="flex gap-1 mb-3 bg-theme-tertiary/30 p-1 rounded-lg">
-                    {filterTabs.map(filter => (
-                        <button
-                            key={filter.id}
-                            onClick={() => setActiveFilter(filter.id)}
-                            className="relative px-3 py-1.5 rounded-md text-xs font-medium transition-colors flex-1"
-                        >
-                            {activeFilter === filter.id && (
-                                <motion.div
-                                    layoutId="notificationFilterIndicator"
-                                    className="absolute inset-0 bg-accent rounded-md"
-                                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                                />
-                            )}
-                            <span className={`relative z-10 ${activeFilter === filter.id ? 'text-white' : 'text-theme-secondary'}`}>
-                                {filter.label} ({filter.count})
-                            </span>
-                        </button>
-                    ))}
-                </div>
-
-                {/* Action Buttons */}
-                {notifications.length > 0 && (
-                    <div className="flex gap-2">
-                        <button
-                            onClick={handleMarkAllRead}
-                            disabled={unreadCount === 0}
-                            className="px-3 py-1.5 text-xs font-medium rounded-lg
-                                bg-accent text-white hover:bg-accent-hover
-                                disabled:opacity-50 disabled:cursor-not-allowed
-                                transition-colors"
-                        >
-                            Mark all read
-                        </button>
-
-                        <ConfirmButton
-                            onConfirm={handleClearAll}
-                            label="Clear All"
-                            confirmMode="icon"
-                            size="sm"
-                            showTriggerIcon={false}
-                        />
-                    </div>
-                )}
-            </div>
+            )}
 
             {/* Notification List - Grouped by Source */}
             <div className="flex-1 overflow-hidden">
@@ -574,3 +585,4 @@ const NotificationCenter = ({ isMobile = false, onClose }: NotificationCenterPro
 };
 
 export default NotificationCenter;
+export type { FilterType as NotificationFilterType };

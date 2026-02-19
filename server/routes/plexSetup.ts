@@ -127,6 +127,9 @@ router.post('/link-existing', async (req: Request, res: Response): Promise<void>
             }
         });
 
+        // Fire-and-forget: try to auto-match Overseerr account now that Plex is linked
+        import('../services/overseerrAutoMatch').then(m => m.tryAutoMatchSingleUser(user.id)).catch(() => { });
+
         // Mark token as used
         markTokenUsed(setupToken);
 
@@ -228,6 +231,9 @@ router.post('/create-account', async (req: Request, res: Response): Promise<void
                 linkedVia: 'sso-create-account'
             }
         });
+
+        // Fire-and-forget: try to auto-match Overseerr account now that Plex is linked
+        import('../services/overseerrAutoMatch').then(m => m.tryAutoMatchSingleUser(user.id)).catch(() => { });
 
         // Mark token as used
         markTokenUsed(setupToken);

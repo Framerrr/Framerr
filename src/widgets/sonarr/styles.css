@@ -1,0 +1,863 @@
+/* ============================================================================
+ * SONARR WIDGET STYLES
+ * 
+ * Uses theme variables exclusively — no hardcoded colors.
+ * Supports both glass and flatten modes via theme utility classes.
+ * Prefix: snr- (consistent with qbt- pattern)
+ * ============================================================================ */
+
+/* ---- Widget Container ---- */
+
+.snr-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    height: 100%;
+    overflow: hidden;
+    container-type: inline-size;
+    padding: clamp(6px, 2cqi, 14px);
+}
+
+/* ---- Stats Bar ---- */
+
+.snr-stats-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 0;
+    padding: 0.65rem 1.25rem;
+    border-radius: 0.5rem;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
+    flex-shrink: 0;
+}
+
+.snr-stats-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.snr-stats-item::before {
+    content: '·';
+    margin: 0 0.35rem;
+    color: var(--text-tertiary);
+}
+
+.snr-stats-item:first-child::before {
+    display: none;
+}
+
+.snr-stats-value {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.snr-stats-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
+/* ---- Divider (below stats bar) ---- */
+
+.snr-divider {
+    height: 1px;
+    background: var(--border-subtle, rgba(255, 255, 255, 0.06));
+    margin: 0.1rem 0;
+    flex-shrink: 0;
+}
+
+/* ---- Body Layout ---- */
+
+.snr-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    gap: 0.5rem;
+}
+
+/* Wide mode: side-by-side columns */
+.snr-body--wide {
+    flex-direction: row;
+    overflow: hidden;
+    gap: 0;
+}
+
+/* Column base — upcoming column stays at natural height */
+.snr-body-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex-shrink: 0;
+}
+
+/* Last column (missing) fills remaining space in vertical mode */
+.snr-body-col:last-child {
+    flex: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+
+/* Wide mode: upcoming column ~35% */
+.snr-body-col--upcoming {
+    width: 35%;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-right: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    padding-right: 0.5rem;
+}
+
+/* Wide mode: missing column ~60% */
+.snr-body-col--missing {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-left: 0.5rem;
+    min-width: 0;
+}
+
+/* Section headers — consistent positioning in both columns */
+.snr-section-header {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    padding: 0.35rem 0.5rem;
+    flex-shrink: 0;
+}
+
+/* ---- Upcoming Carousel ---- */
+
+.snr-carousel {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.snr-carousel-track {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-behavior: smooth;
+    padding: 2px;
+    /* prevent card shadows from clipping */
+}
+
+.snr-carousel-track::-webkit-scrollbar {
+    display: none;
+}
+
+.snr-carousel-card {
+    flex-shrink: 0;
+    width: 110px;
+    scroll-snap-align: start;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.2s ease;
+}
+
+@media (hover: hover) {
+    .snr-carousel-card:hover {
+        transform: scale(1.03);
+    }
+}
+
+.snr-carousel-poster {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    display: block;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+}
+
+.snr-carousel-poster-placeholder {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+}
+
+.snr-carousel-info {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.5rem 0.4rem 0.35rem;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+}
+
+.snr-carousel-title {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.snr-carousel-subtitle {
+    font-size: 0.55rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 2px;
+}
+
+.snr-carousel-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: var(--widget-card-bg, rgba(0, 0, 0, 0.5));
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    backdrop-filter: blur(4px);
+}
+
+@media (hover: hover) {
+    .snr-carousel:hover .snr-carousel-btn {
+        opacity: 1;
+    }
+}
+
+.snr-carousel-btn--left {
+    left: 4px;
+}
+
+.snr-carousel-btn--right {
+    right: 4px;
+}
+
+/* ---- Stacked Cards (vertical mode, Overseerr-style) ---- */
+
+.snr-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.snr-stack-card {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 7;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.snr-stack-poster {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.snr-stack-poster-placeholder {
+    width: 100%;
+    height: 100%;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+}
+
+.snr-stack-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0.5rem 0.6rem;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.4) 50%, transparent 100%);
+}
+
+.snr-stack-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fff;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.snr-stack-subtitle {
+    font-size: 0.62rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 0.1rem;
+}
+
+/* ---- Section Headers ---- */
+
+.snr-section-header {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    padding: 0 0.15rem;
+    flex-shrink: 0;
+}
+
+/* ---- Missing List ---- */
+
+.snr-missing-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.snr-missing-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.35rem;
+    border-radius: 0.35rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+@media (hover: hover) {
+    .snr-missing-item:hover {
+        background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    }
+}
+
+.snr-missing-poster {
+    width: 36px;
+    height: 54px;
+    border-radius: 0.25rem;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+}
+
+.snr-missing-poster-placeholder {
+    width: 36px;
+    height: 54px;
+    border-radius: 0.25rem;
+    flex-shrink: 0;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    font-size: 0.65rem;
+}
+
+/* Column mode: larger, adaptive poster thumbnails */
+.snr-body-col--missing .snr-missing-poster,
+.snr-body-col--missing .snr-missing-poster-placeholder {
+    width: clamp(40px, 8cqi, 70px);
+    height: clamp(60px, 12cqi, 105px);
+}
+
+.snr-missing-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.snr-missing-series {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.snr-missing-episode {
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.snr-missing-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.6rem;
+    color: var(--text-tertiary);
+}
+
+/* ---- Status Badges ---- */
+
+.snr-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.55rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+}
+
+.snr-badge--missing {
+    background: rgba(var(--error-rgb, 239, 68, 68), 0.15);
+    color: var(--error);
+}
+
+.snr-badge--cutoff {
+    background: rgba(var(--warning-rgb, 234, 179, 8), 0.15);
+    color: var(--warning);
+}
+
+.snr-badge--downloading {
+    background: rgba(var(--info-rgb, 59, 130, 246), 0.15);
+    color: var(--info);
+}
+
+.snr-badge--importing {
+    background: rgba(var(--accent-rgb, 59, 130, 246), 0.15);
+    color: var(--accent);
+}
+
+.snr-badge--warning {
+    background: rgba(var(--warning-rgb, 234, 179, 8), 0.15);
+    color: var(--warning);
+}
+
+.snr-badge--error {
+    background: rgba(var(--error-rgb, 239, 68, 68), 0.15);
+    color: var(--error);
+}
+
+.snr-badge--queued {
+    background: rgba(var(--text-tertiary-rgb, 150, 150, 150), 0.15);
+    color: var(--text-secondary);
+}
+
+.snr-badge--available {
+    background: rgba(var(--success-rgb, 34, 197, 94), 0.15);
+    color: var(--success);
+}
+
+/* ---- Load More Button ---- */
+
+.snr-load-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    font-size: 0.7rem;
+    color: var(--accent);
+    cursor: pointer;
+    border: none;
+    background: none;
+    border-radius: 0.35rem;
+    transition: background 0.15s ease;
+    width: 100%;
+    flex-shrink: 0;
+}
+
+@media (hover: hover) {
+    .snr-load-more:hover {
+        background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    }
+}
+
+.snr-load-more:disabled {
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+}
+
+/* ---- User View Grid ---- */
+
+.snr-poster-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 0.5rem;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 2px;
+}
+
+.snr-poster-card {
+    border-radius: 0.5rem;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+@media (hover: hover) {
+    .snr-poster-card:hover {
+        transform: scale(1.03);
+    }
+}
+
+/* ---- Separator ---- */
+
+.snr-separator {
+    height: 1px;
+    background: var(--border-color, rgba(255, 255, 255, 0.08));
+    margin: 0 0.35rem;
+    flex-shrink: 0;
+}
+
+/* ---- Container Query Responsiveness ---- */
+
+@container (max-width: 250px) {
+    .snr-carousel-card {
+        width: 85px;
+    }
+
+    .snr-stats-bar {
+        padding: 0.4rem 0.6rem;
+    }
+
+    .snr-stats-item {
+        font-size: 0.65rem;
+    }
+}
+
+@container (min-width: 400px) {
+    .snr-carousel-card {
+        width: 120px;
+    }
+}
+
+@container (min-width: 600px) {
+    .snr-carousel-card {
+        width: 140px;
+    }
+
+    .snr-poster-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    }
+}
+
+
+/* No hero CSS — hero uses inline styles matching RequestInfoModal */
+/* Close button comes from Modal.Header (no border variant) */
+
+
+
+/* ---- Also Upcoming Section ---- */
+
+.snr-modal-also-upcoming {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.snr-modal-section-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+}
+
+.snr-modal-upcoming-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.snr-modal-upcoming-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    font-size: 0.75rem;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.05));
+}
+
+.snr-modal-upcoming-item:last-child {
+    border-bottom: none;
+}
+
+.snr-modal-upcoming-code {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.snr-modal-upcoming-title {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.snr-modal-upcoming-date {
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+}
+
+/* ---- Footer Actions ---- */
+
+.snr-modal-footer-actions {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%;
+    justify-content: flex-end;
+}
+
+/* Auto-search spin animation */
+.snr-spin-icon svg:first-child {
+    animation: snr-spin 0.8s linear infinite;
+}
+
+@keyframes snr-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Action button state colors */
+.snr-success-btn {
+    color: var(--success) !important;
+    border-color: var(--success) !important;
+}
+
+.snr-error-btn {
+    color: var(--error) !important;
+    border-color: var(--error) !important;
+}
+
+/* ---- Modal Searching View ---- */
+
+.snr-modal-searching {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    flex: 1;
+    height: 100%;
+}
+
+.snr-modal-searching-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* ---- Modal Results View ---- */
+
+.snr-modal-results {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+    height: 100%;
+}
+
+.snr-modal-results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 1.5rem;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    flex-shrink: 0;
+}
+
+.snr-modal-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: none;
+    border: none;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.25rem 0;
+    transition: opacity 0.15s;
+}
+
+@media (hover: hover) {
+    .snr-modal-back-btn:hover {
+        opacity: 0.8;
+    }
+}
+
+.snr-modal-results-count {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+}
+
+.snr-modal-results-error {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    color: var(--error);
+    font-size: 0.8rem;
+}
+
+.snr-modal-results-empty {
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+}
+
+/* ---- Release List ---- */
+
+.snr-release-list {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    padding: 0 1.5rem;
+}
+
+.snr-release-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+}
+
+.snr-release-item:last-child {
+    border-bottom: none;
+}
+
+.snr-release-actions {
+    display: flex;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.snr-release-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.snr-release-title {
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.snr-release-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+    flex-wrap: wrap;
+}
+
+.snr-release-quality {
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--accent-bg, rgba(var(--accent-rgb, 59, 130, 246), 0.15));
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+}
+
+.snr-release-seeders {
+    color: var(--success);
+}
+
+.snr-release-no-seeders {
+    color: var(--error);
+}
+
+.snr-release-indexer {
+    color: var(--text-secondary);
+}
+
+.snr-release-rejections {
+    font-size: 0.6rem;
+    color: var(--error);
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---- Grab Button ---- */
+
+.snr-grab-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 0.35rem;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+}
+
+@media (hover: hover) {
+    .snr-grab-btn:hover:not(:disabled) {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+    }
+}
+
+.snr-grab-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.snr-grab-btn--success {
+    color: var(--success) !important;
+    border-color: var(--success) !important;
+    opacity: 1 !important;
+}

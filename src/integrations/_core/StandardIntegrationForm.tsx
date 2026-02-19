@@ -47,7 +47,7 @@ const StandardIntegrationForm: React.FC<StandardIntegrationFormProps> = ({
 
     // Render a single field based on type
     const renderField = (field: ConfigField) => {
-        const value = config[field.key];
+        const value = config[field.key] ?? field.default;
 
         switch (field.type) {
             case 'checkbox':
@@ -109,13 +109,13 @@ const StandardIntegrationForm: React.FC<StandardIntegrationFormProps> = ({
 
             case 'url':
             case 'text':
-            case 'password':
             default:
                 return (
                     <Input
                         key={field.key}
                         label={field.label}
                         type={field.type === 'url' ? 'text' : field.type}
+                        redacted={field.sensitive}
                         value={(value as string) || ''}
                         onChange={(e: ChangeEvent<HTMLInputElement>) =>
                             onFieldChange(field.key, e.target.value)

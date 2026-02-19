@@ -9,6 +9,18 @@
 @import './styles/design-system.css';
 @import './styles/animations.css';
 
+/* ===== Touch Device Globals ===== */
+/* Kill iOS tap highlight (gray rectangle on every tap) */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Kill focus outlines on tap — keep for keyboard navigation (:focus-visible) */
+:focus:not(:focus-visible) {
+    outline: none;
+    box-shadow: none;
+}
+
 /* Modal max-height - Desktop defaults */
 :root {
     --modal-max-height: 85vh;
@@ -67,11 +79,24 @@ body {
 }
 
 /* Universal scrollbar hiding - Clean premium UI */
+/* Focus outline: hidden for mouse/touch, visible for keyboard (accessibility) */
+/* Mobile tap highlight: removed for clean feel */
 * {
     -ms-overflow-style: none;
     /* IE and Edge */
     scrollbar-width: none;
     /* Firefox */
+    -webkit-tap-highlight-color: transparent;
+}
+
+*:focus:not(:focus-visible) {
+    outline: none;
+    box-shadow: none;
+}
+
+*:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
 *::-webkit-scrollbar {
@@ -105,4 +130,10 @@ body[data-scroll-locked] [data-radix-popper-content-wrapper] {
 
 [data-radix-popper-content-wrapper]>* {
     overflow-y: auto !important;
+}
+
+/* Override framer-motion's touch-action: none on swipeable notification cards.
+   Allows vertical scrolling through notification list while enabling horizontal swipe. */
+[data-draggable="true"] {
+    touch-action: pan-y !important;
 }

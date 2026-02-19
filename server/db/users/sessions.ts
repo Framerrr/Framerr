@@ -60,9 +60,26 @@ export async function getSession(sessionId: string): Promise<Session | null> {
 
         if (!session) return null;
 
-        if (session.expiresAt < Math.floor(Date.now() / 1000)) {
+        const now = Math.floor(Date.now() / 1000);
+
+        if (session.expiresAt < now) {
             await revokeSession(sessionId);
             return null;
+        }
+
+        // Sliding expiration: extend session when past the halfway point
+        // This keeps active users logged in without writing to DB on every request
+        const duration = session.expiresAt - session.createdAt;
+        const halfwayPoint = session.createdAt + Math.floor(duration / 2);
+
+        if (now > halfwayPoint) {
+            const newExpiresAt = now + duration;
+            // Update both createdAt and expiresAt so the sliding window stays constant
+            getDb().prepare('UPDATE sessions SET created_at = ?, expires_at = ? WHERE token = ?')
+                .run(now, newExpiresAt, sessionId);
+            session.createdAt = now;
+            session.expiresAt = newExpiresAt;
+            logger.debug(`[Sessions] Sliding expiration extended: id=${sessionId.slice(0, 8)}... newExpiry=${new Date(newExpiresAt * 1000).toISOString()}`);
         }
 
         return session;

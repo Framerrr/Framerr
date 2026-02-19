@@ -19,15 +19,23 @@ export function useCloseOnScroll(isOpen: boolean, onClose: () => void) {
     useEffect(() => {
         if (!isOpen) return;
 
-        const mainScroll = document.getElementById('main-scroll');
-        const settingsScroll = document.getElementById('settings-scroll');
+        // Collect all scroll containers: dashboard, settings, and tab layers
+        const containers: HTMLElement[] = [];
 
-        mainScroll?.addEventListener('scroll', handleScroll, { passive: true });
-        settingsScroll?.addEventListener('scroll', handleScroll, { passive: true });
+        const dashboard = document.getElementById('dashboard-layer');
+        const settings = document.getElementById('settings-layer');
+        if (dashboard) containers.push(dashboard);
+        if (settings) containers.push(settings);
+
+        // Tab layers use id="tab-layer-{slug}"
+        document.querySelectorAll<HTMLElement>('[id^="tab-layer-"]').forEach(el => {
+            containers.push(el);
+        });
+
+        containers.forEach(el => el.addEventListener('scroll', handleScroll, { passive: true }));
 
         return () => {
-            mainScroll?.removeEventListener('scroll', handleScroll);
-            settingsScroll?.removeEventListener('scroll', handleScroll);
+            containers.forEach(el => el.removeEventListener('scroll', handleScroll));
         };
     }, [isOpen, handleScroll]);
 }

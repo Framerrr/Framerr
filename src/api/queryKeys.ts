@@ -120,6 +120,15 @@ export const queryKeys = {
     },
 
     // ============================================
+    // METRIC HISTORY
+    // ============================================
+    metricHistory: {
+        all: ['metricHistory'] as const,
+        status: () => [...queryKeys.metricHistory.all, 'status'] as const,
+        integration: (id: string) => [...queryKeys.metricHistory.all, 'integration', id] as const,
+    },
+
+    // ============================================
     // SYSTEM / CONFIG
     // ============================================
     system: {
@@ -132,7 +141,6 @@ export const queryKeys = {
         logs: () => [...queryKeys.system.all, 'logs'] as const,
         info: () => [...queryKeys.system.all, 'info'] as const,
         resources: () => [...queryKeys.system.all, 'resources'] as const,
-        integrationHealth: () => [...queryKeys.system.all, 'integrationHealth'] as const,
         sseStatus: () => [...queryKeys.system.all, 'sseStatus'] as const,
         apiHealth: () => [...queryKeys.system.all, 'apiHealth'] as const,
     },

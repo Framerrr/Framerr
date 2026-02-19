@@ -56,7 +56,7 @@ RUN cd server && npm run build
 # Copy non-TypeScript files that aren't included in compilation
 # - migrations folder for database migrations (0001 creates base schema)
 # - public folder for default favicon files
-# - assets folder for bundled system icons
+# - assets folder for bundled system icons + icon catalog
 RUN cp -r server/database/migrations server/dist/server/database/ && \
     cp -r server/public server/dist/server/ && \
     cp -r server/assets server/dist/server/
@@ -66,6 +66,9 @@ RUN cp server/package.json server/dist/server/
 
 # Remove devDependencies after build to reduce image size
 RUN cd server && npm prune --omit=dev
+
+# Register CLI command (framerr reset-password -u <username>)
+RUN cd server && npm link
 
 # Copy built frontend from stage 1
 COPY --from=frontend-builder /app/dist ./dist

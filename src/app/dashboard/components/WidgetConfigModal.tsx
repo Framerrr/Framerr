@@ -14,9 +14,11 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Modal, Select, Switch, IntegrationDropdown, CodeEditor } from '../../../shared/ui';
-import { getWidgetMetadata, getWidgetIcon, getWidgetConfigConstraints } from '../../../widgets/registry';
+import { getWidgetMetadata, getWidgetIcon, getWidgetIconName, getWidgetConfigConstraints } from '../../../widgets/registry';
 import { useWidgetConfigUI } from '../../../shared/widgets';
-import { useRoleAwareIntegrations } from '../../../api/hooks';
+import { useRoleAwareIntegrations, useIntegrationSchemas } from '../../../api/hooks';
+import IconPicker from '../../../components/IconPicker';
+import { Input } from '../../../components/common/Input';
 import {
     Settings,
     Link2,
@@ -26,6 +28,7 @@ import {
     MapPin
 } from 'lucide-react';
 import type { WidgetConfigOption, SearchResult } from '../../../widgets/types';
+import { getMetricsForIntegration, METRIC_REGISTRY } from '../../../widgets/system-status/hooks/useMetricConfig';
 
 // ============================================================================
 // Types
@@ -83,6 +86,7 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
     // Use cached React Query hooks - data is already loaded when dashboard mounts
     // useRoleAwareIntegrations already returns only accessible integrations for non-admins
     const { data: allIntegrations = [], isLoading: integrationsLoading } = useRoleAwareIntegrations();
+    const { data: schemas } = useIntegrationSchemas();
 
     // Filter integrations by compatible types (client-side filtering of cached data)
     const availableIntegrations = useMemo((): IntegrationInstance[] => {
@@ -107,7 +111,23 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
     // Initialize config from current widget config
     useEffect(() => {
         if (isOpen) {
-            setConfig({ ...currentConfig });
+            const newConfig = { ...currentConfig };
+
+            // Auto-fill title/icon from bound integration if not overridden
+            const integrationId = newConfig.integrationId as string | undefined;
+            if (integrationId) {
+                const boundIntegration = allIntegrations.find(i => i.id === integrationId);
+
+                // Auto-fill title from bound integration if not overridden
+                if (!newConfig.titleOverridden && boundIntegration) {
+                    const defaultTitle = metadata?.name || '';
+                    if (!newConfig.title || newConfig.title === defaultTitle) {
+                        newConfig.title = boundIntegration.displayName || boundIntegration.name || boundIntegration.type;
+                    }
+                }
+            }
+
+            setConfig(newConfig);
             // Pre-populate search queries from stored config for search-type options
             const initialQueries: Record<string, string> = {};
             for (const option of configUI.options) {
@@ -277,11 +297,28 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
 
             case 'toggle-buttons': {
                 // Independent toggles rendered as buttons (each choice is a separate config key)
+                // Filter choices by integration type for system-status metrics
+                let filteredChoices = option.choices || [];
+                if (widgetType === 'system-status' && option.key === 'visibleMetrics') {
+                    const selectedIntId = config.integrationId as string | undefined;
+                    if (selectedIntId) {
+                        const intType = selectedIntId.split('-')[0];
+                        const schemaMetricKeys = schemas?.[intType]?.metrics?.map(m => m.key);
+                        const availableMetricKeys = getMetricsForIntegration(intType, schemaMetricKeys);
+                        // Map configKey → metric key for filtering
+                        const availableConfigKeys = new Set(
+                            METRIC_REGISTRY
+                                .filter(m => availableMetricKeys.includes(m.key))
+                                .map(m => m.configKey)
+                        );
+                        filteredChoices = filteredChoices.filter(c => availableConfigKeys.has(c.value));
+                    }
+                }
                 return (
                     <div key={option.key} className="space-y-2">
                         <span className="text-sm text-theme-secondary">{option.label}</span>
-                        <div className="flex gap-3">
-                            {option.choices?.map((choice) => {
+                        <div className="flex flex-wrap gap-2">
+                            {filteredChoices.map((choice) => {
                                 const Icon = choice.icon;
                                 // Each choice.value is a config key, value is boolean
                                 const isActive = config[choice.value] === true ||
@@ -290,7 +327,7 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
                                     <button
                                         key={choice.value}
                                         onClick={() => updateConfig(choice.value, !isActive)}
-                                        className={`flex-1 p-3 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-all ${isActive
+                                        className={`px-3 py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-all ${isActive
                                             ? 'bg-accent text-white'
                                             : 'bg-theme-tertiary text-theme-secondary hover:bg-theme-hover'
                                             }`}
@@ -467,7 +504,7 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
                 if (!CustomComponent) return null;
                 return (
                     <div key={option.key} className="space-y-2">
-                        <span className="text-sm text-theme-secondary">{option.label}</span>
+                        {option.label && <span className="text-sm text-theme-secondary">{option.label}</span>}
                         <CustomComponent
                             config={config}
                             updateConfig={updateConfig}
@@ -516,6 +553,7 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
     // Dynamic multi-integration selector (for Calendar and future multi-source widgets)
     // Uses multi-select dropdowns with max 5 selections per type
     // Matches single-selector styling pattern
+    // Supports optional integrationGroups for custom grouping (e.g., media-search)
     const renderMultiIntegrationSelector = () => {
         if (!configUI.isMultiIntegration || configUI.compatibleIntegrationTypes.length === 0) {
             return null;
@@ -524,17 +562,29 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
         // Capitalize integration type name for display
         const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-        // Check which types have available instances (case-insensitive comparison)
-        const availableByType = configUI.compatibleIntegrationTypes.map(type => ({
-            type,
-            instances: availableIntegrations.filter(i => i.type.toLowerCase() === type.toLowerCase())
-        }));
-        const typesWithInstances = availableByType.filter(t => t.instances.length > 0);
+        // Determine grouping: use plugin-defined groups or default to per-type
+        const groups = metadata?.integrationGroups
+            ? metadata.integrationGroups.map(group => ({
+                key: group.key,
+                label: group.label,
+                instances: availableIntegrations.filter(i =>
+                    group.types.some(t => t.toLowerCase() === i.type.toLowerCase())
+                )
+            }))
+            : configUI.compatibleIntegrationTypes.map(type => ({
+                key: `${type}IntegrationIds`,
+                label: capitalize(type),
+                instances: availableIntegrations.filter(i =>
+                    i.type.toLowerCase() === type.toLowerCase()
+                )
+            }));
+
+        const groupsWithInstances = groups.filter(g => g.instances.length > 0);
 
         // If NO integration types have instances, show empty state (same as single-integration)
-        if (typesWithInstances.length === 0) {
+        if (groupsWithInstances.length === 0) {
             return (
-                <div className="flex flex-col items-center pb-4 border-b border-theme mb-2">
+                <div className="flex flex-col items-center pb-4 border-b border-theme mb-2" data-walkthrough="widget-integration-section">
                     <div className="flex items-center gap-2 mb-3">
                         <Link2 size={16} className="text-theme-secondary" />
                         <span className="text-sm font-medium text-theme-secondary">Integration(s)</span>
@@ -546,20 +596,18 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
             );
         }
 
-        // Otherwise render multi-select dropdowns for types that have instances
+        // Otherwise render multi-select dropdowns for groups that have instances
         return (
-            <div className="flex flex-col items-center pb-4 border-b border-theme mb-2">
+            <div className="flex flex-col items-center pb-4 border-b border-theme mb-2" data-walkthrough="widget-integration-section">
                 <div className="flex items-center gap-2 mb-3">
                     <Link2 size={16} className="text-theme-secondary" />
                     <span className="text-sm font-medium text-theme-secondary">Integration(s)</span>
                 </div>
 
                 <div className="w-full space-y-3">
-                    {typesWithInstances.map(({ type: integrationType, instances }) => {
-                        // Use plural config key for multi-select
-                        const configKey = `${integrationType}IntegrationIds`;
+                    {groupsWithInstances.map(({ key: configKey, label, instances }) => {
                         // Support legacy singular key for backward compatibility
-                        const legacyKey = `${integrationType}IntegrationId`;
+                        const legacyKey = configKey.replace('Ids', 'Id');
 
                         // Read current value - support both array and legacy single value
                         const rawValue = config[configKey] ?? config[legacyKey];
@@ -575,9 +623,9 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
                         }));
 
                         return (
-                            <div key={integrationType} className="w-full">
+                            <div key={configKey} className="w-full">
                                 <label className="block text-xs font-medium text-theme-tertiary mb-1.5">
-                                    {capitalize(integrationType)}
+                                    {label}
                                 </label>
                                 <IntegrationDropdown
                                     integrations={dropdownIntegrations}
@@ -591,7 +639,7 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
                                         }
                                     }}
                                     size="md"
-                                    placeholder={`Select ${capitalize(integrationType).toLowerCase()} instance(s)...`}
+                                    placeholder={`Select ${label.toLowerCase()}...`}
                                     maxSelections={5}
                                     showBulkActions={instances.length > 3}
                                     fullWidth
@@ -617,8 +665,35 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
         const isValidId = storedId && integrationOptions.some(opt => opt.value === storedId);
         const selectValue = isValidId ? storedId : '';
 
+        /**
+         * Handle integration selection — auto-fill title and icon if not overridden.
+         */
+        const handleIntegrationChange = (newId: string | undefined) => {
+            updateConfig('integrationId', newId || undefined);
+
+            if (!newId) return;
+
+            // Find the selected integration's display name
+            const selectedIntegration = availableIntegrations.find(i => i.id === newId);
+            if (!selectedIntegration) return;
+
+            // Auto-fill title if not manually overridden
+            if (!config.titleOverridden) {
+                updateConfig('title', selectedIntegration.displayName);
+            }
+
+            // Auto-fill icon if not manually overridden
+            if (!config.iconOverridden) {
+                const intType = newId.split('-')[0];
+                const schemaIcon = schemas?.[intType]?.icon;
+                if (schemaIcon) {
+                    updateConfig('customIcon', schemaIcon);
+                }
+            }
+        };
+
         return (
-            <div className="flex flex-col items-center pb-4 border-b border-theme mb-2">
+            <div className="flex flex-col items-center pb-4 border-b border-theme mb-2" data-walkthrough="widget-integration-section">
                 <div className="flex items-center gap-2 mb-3">
                     <Link2 size={16} className="text-theme-secondary" />
                     <span className="text-sm font-medium text-theme-secondary">Integration</span>
@@ -632,7 +707,7 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
                     </div>
                 ) : (
                     <div className="w-full">
-                        <Select value={selectValue} onValueChange={(value) => updateConfig('integrationId', value || undefined)}>
+                        <Select value={selectValue} onValueChange={handleIntegrationChange}>
                             <Select.Trigger className="w-full">
                                 <Select.Value placeholder="Select an integration..." />
                             </Select.Trigger>
@@ -672,18 +747,39 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
                             Display Settings
                         </h4>
 
-                        {/* Title */}
-                        <div>
-                            <label className="block text-sm font-medium text-theme-secondary mb-2">
-                                Widget Title
-                            </label>
-                            <input
-                                type="text"
-                                value={(config.title as string) || metadata?.name || ''}
-                                onChange={(e) => updateConfig('title', e.target.value)}
-                                placeholder={metadata?.name || 'Widget'}
-                                className="w-full p-3 rounded-lg bg-theme-tertiary border border-theme text-theme-primary placeholder:text-theme-tertiary"
-                            />
+                        {/* Icon + Title Row */}
+                        <div className="flex gap-2 items-end">
+                            <div className="flex-shrink-0 self-end">
+                                <IconPicker
+                                    value={(config.customIcon as string) || (() => {
+                                        // Resolution chain: customIcon → integration icon → widget default
+                                        const integrationId = config.integrationId as string | undefined;
+                                        if (integrationId) {
+                                            const intType = integrationId.split('-')[0];
+                                            const schemaIcon = schemas?.[intType]?.icon;
+                                            if (schemaIcon) return schemaIcon;
+                                        }
+                                        return getWidgetIconName(widgetType);
+                                    })()}
+                                    onChange={(iconName) => {
+                                        updateConfig('customIcon', iconName);
+                                        updateConfig('iconOverridden', true);
+                                    }}
+                                    compact
+                                />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <Input
+                                    label="Widget Title"
+                                    value={(config.title as string) || metadata?.name || ''}
+                                    onChange={(e) => {
+                                        updateConfig('title', e.target.value);
+                                        updateConfig('titleOverridden', true);
+                                    }}
+                                    placeholder={metadata?.name || 'Widget'}
+                                    className="!mb-0"
+                                />
+                            </div>
                         </div>
 
                         {/* Flatten Toggle - only show if widget supports it */}

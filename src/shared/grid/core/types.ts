@@ -137,7 +137,7 @@ export interface GridPolicy {
         touchActivation: 'long-press' | 'none';
         /** Enable auto-scroll during drag */
         autoScroll: boolean;
-        /** Container ID for auto-scroll (default: 'main-scroll') */
+        /** Container ID for auto-scroll (default: 'dashboard-layer') */
         autoScrollContainerId?: string;
         /** Edge threshold in pixels for auto-scroll (default: 200) */
         autoScrollEdgeThreshold?: number;

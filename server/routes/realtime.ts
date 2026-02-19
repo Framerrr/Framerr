@@ -173,6 +173,33 @@ router.post('/unsubscribe', requireAuth, (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/realtime/push-endpoint
+ * Link a push subscription endpoint to an SSE connection.
+ * This allows the server to skip sending push notifications
+ * to devices that have the app open (active SSE connection).
+ *
+ * Body: { connectionId: string, pushEndpoint: string }
+ */
+router.post('/push-endpoint', requireAuth, (req: Request, res: Response) => {
+    const { connectionId, pushEndpoint } = req.body;
+
+    if (!connectionId || !pushEndpoint) {
+        return res.status(400).json({
+            error: 'Missing required fields: connectionId, pushEndpoint'
+        });
+    }
+
+    const { setPushEndpoint } = require('../services/sse/connections');
+    const linked = setPushEndpoint(connectionId, pushEndpoint);
+
+    if (!linked) {
+        return res.status(404).json({ error: 'Connection not found' });
+    }
+
+    return res.json({ success: true });
+});
+
+/**
  * GET /api/realtime/status
  * Get current subscription status (admin/debug endpoint).
  */

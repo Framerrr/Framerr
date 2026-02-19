@@ -42,9 +42,7 @@ export interface PlexTokenResponse {
     };
 }
 
-export interface OverseerrConfigResponse {
-    enabled: boolean;
-}
+
 
 // Hook return type
 export interface UseAccountSettingsReturn {
@@ -52,7 +50,7 @@ export interface UseAccountSettingsReturn {
     loading: boolean;
     dbLinkedAccounts: DbLinkedAccounts;
     plexSSOEnabled: boolean;
-    overseerrEnabled: boolean;
+
     hasOverseerrAccess: boolean;
     isAdmin: boolean;
 

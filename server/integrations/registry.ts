@@ -19,6 +19,9 @@ import { plugin as glances } from './glances';
 import { plugin as customsystemstatus } from './customsystemstatus';
 import { plugin as monitor } from './monitor';
 import { plugin as uptimekuma } from './uptimekuma';
+import { plugin as unraid } from './unraid';
+import { plugin as tautulli } from './tautulli';
+import { plugin as sabnzbd } from './sabnzbd';
 
 // All registered plugins
 export const plugins: IntegrationPlugin[] = [
@@ -33,6 +36,9 @@ export const plugins: IntegrationPlugin[] = [
     customsystemstatus,
     monitor,
     uptimekuma,
+    unraid,
+    tautulli,
+    sabnzbd,
 ];
 
 // Map for O(1) lookup by ID
