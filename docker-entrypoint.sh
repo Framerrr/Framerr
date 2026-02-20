@@ -19,32 +19,36 @@ echo ""
 if [ "$PUID" != "10000" ] || [ "$PGID" != "10000" ]; then
     echo "Updating user permissions to PUID=$PUID, PGID=$PGID..."
     
-    # Delete existing user/group
+    # Delete existing framerr user/group
     deluser framerr 2>/dev/null || true
     delgroup framerr 2>/dev/null || true
     
-    # Create new group with specified GID, or use existing group if GID exists
+    # --- Handle GID ---
     if ! getent group "$PGID" > /dev/null 2>&1; then
         addgroup -g "$PGID" framerr
+        TARGET_GROUP="framerr"
     else
-        # GID already exists, get the group name
-        EXISTING_GROUP=$(getent group "$PGID" | cut -d: -f1)
-        echo "GID $PGID already in use by group '$EXISTING_GROUP', using existing group"
-        # Create framerr group with a different GID if needed
-        addgroup framerr
-        # We'll add user to the existing group
-        PGID_GROUP="$EXISTING_GROUP"
+        # GID already exists — reuse existing group
+        TARGET_GROUP=$(getent group "$PGID" | cut -d: -f1)
+        echo "GID $PGID already in use by group '$TARGET_GROUP', using existing group"
     fi
     
-    # Create user with specified UID
-    if [ -z "$PGID_GROUP" ]; then
-        adduser -D -u "$PUID" -G framerr framerr
+    # --- Handle UID ---
+    if ! getent passwd "$PUID" > /dev/null 2>&1; then
+        # UID available — create framerr user with it
+        adduser -D -u "$PUID" -G "$TARGET_GROUP" framerr
     else
-        adduser -D -u "$PUID" -G "$PGID_GROUP" framerr
-        # Also add to framerr group if it was created
-        if getent group framerr > /dev/null 2>&1; then
-            addgroup framerr "$PGID_GROUP" 2>/dev/null || true
-        fi
+        # UID already exists — reuse existing user
+        EXISTING_USER=$(getent passwd "$PUID" | cut -d: -f1)
+        echo "UID $PUID already in use by user '$EXISTING_USER', reusing as framerr"
+        
+        # Create a symlink-like alias: make 'framerr' point to the existing user
+        # by just using the existing user for ownership instead
+        # We still need a 'framerr' user for su-exec, so create with a different UID
+        adduser -D -G "$TARGET_GROUP" framerr 2>/dev/null || true
+        
+        # Update framerr's UID to match the requested PUID
+        sed -i "s/^framerr:x:[0-9]*:/framerr:x:${PUID}:/" /etc/passwd
     fi
 fi
 
@@ -55,7 +59,7 @@ if [ ! -d "/config" ]; then
 fi
 
 echo "Setting ownership on /config..."
-chown -R framerr:framerr /config
+chown -R $PUID:$PGID /config
 
 # Create upload directories if they don't exist
 echo "Creating upload directories..."
@@ -71,7 +75,7 @@ if [ -d "/config/custom-icons" ] && [ "$(ls -A /config/custom-icons 2>/dev/null)
 fi
 
 # Also ensure app directory ownership
-chown -R framerr:framerr /app
+chown -R $PUID:$PGID /app
 
 # Ensure /config directory and all contents have correct ownership
 echo "Ensuring /config has correct permissions..."
