@@ -27,8 +27,8 @@
   <DonateImg/>
   <Config Name="Web UI Port" Target="3001" Default="3001" Mode="tcp" Description="Port for the Framerr web interface." Type="Port" Display="always" Required="true">3001</Config>
   <Config Name="Config Path" Target="/config" Default="/mnt/user/appdata/framerr" Mode="rw" Description="Persistent storage for database, uploads, and backups." Type="Path" Display="always" Required="true">/mnt/user/appdata/framerr</Config>
-  <Config Name="SECRET_ENCRYPTION_KEY" Target="SECRET_ENCRYPTION_KEY" Default="" Description="Required. Encryption key for integration secrets. Generate with: openssl rand -hex 32" Type="Variable" Display="always" Required="true"/>
-  <Config Name="PUID" Target="PUID" Default="99" Description="User ID for file permissions." Type="Variable" Display="advanced" Required="false">99</Config>
-  <Config Name="PGID" Target="PGID" Default="100" Description="Group ID for file permissions." Type="Variable" Display="advanced" Required="false">100</Config>
-  <Config Name="TZ" Target="TZ" Default="America/New_York" Description="Timezone (e.g., America/New_York, Europe/London)." Type="Variable" Display="always" Required="false">America/New_York</Config>
+  <Config Name="SECRET_ENCRYPTION_KEY" Target="SECRET_ENCRYPTION_KEY" Default="" Mode="" Description="Required. Encryption key for integration secrets. Generate with: openssl rand -hex 32" Type="Variable" Display="always" Required="true" Mask="false"></Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID for file permissions." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID for file permissions." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+  <Config Name="TZ" Target="TZ" Default="America/New_York" Mode="" Description="Timezone (e.g., America/New_York, Europe/London)." Type="Variable" Display="always" Required="false" Mask="false">America/New_York</Config>
 </Container>
