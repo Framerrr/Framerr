@@ -30,13 +30,18 @@ echo ""
 # of this since Docker already set the user.
 if [ "$IS_ROOT" -eq 1 ]; then
 
+    # Clean up Dockerfile's default framerr user/group (UID/GID 10000)
+    # so we can recreate with the requested PUID/PGID
+    deluser framerr 2>/dev/null || true
+    delgroup framerr 2>/dev/null || true
+
     # --- Handle GID ---
     if getent group "$PGID" >/dev/null 2>&1; then
-        EXISTING_GROUP=$(getent group "$PGID" | cut -d: -f1)
-        echo "GID $PGID already in use by group '$EXISTING_GROUP', will run with numeric IDs"
+        TARGET_GROUP=$(getent group "$PGID" | cut -d: -f1)
+        echo "GID $PGID already in use by group '$TARGET_GROUP', will run with numeric IDs"
     else
-        delgroup framerr 2>/dev/null || true
         addgroup -g "$PGID" framerr
+        TARGET_GROUP="framerr"
     fi
 
     # --- Handle UID ---
@@ -44,12 +49,6 @@ if [ "$IS_ROOT" -eq 1 ]; then
         EXISTING_USER=$(getent passwd "$PUID" | cut -d: -f1)
         echo "UID $PUID already in use by user '$EXISTING_USER', will run with numeric IDs"
     else
-        if getent group framerr >/dev/null 2>&1; then
-            TARGET_GROUP="framerr"
-        else
-            TARGET_GROUP=$(getent group "$PGID" | cut -d: -f1)
-        fi
-        deluser framerr 2>/dev/null || true
         adduser -D -u "$PUID" -G "$TARGET_GROUP" framerr
     fi
 
