@@ -164,7 +164,7 @@ export function CustomColorsEditor({
             <div className="mb-8">
                 <button
                     onClick={() => setStatusColorsExpanded(!statusColorsExpanded)}
-                    className="w-full flex items-center justify-between p-4 bg-theme-secondary hover:bg-theme-hover rounded-lg border border-theme transition-all mb-4"
+                    className="w-full flex items-center justify-between p-4 bg-theme-tertiary hover:bg-theme-hover rounded-xl border border-theme transition-all mb-4"
                 >
                     <div className="flex items-center gap-3">
                         <h4 className="text-sm font-bold text-theme-secondary uppercase tracking-wider">
@@ -215,7 +215,7 @@ export function CustomColorsEditor({
             <div className="mb-8">
                 <button
                     onClick={() => setAdvancedExpanded(!advancedExpanded)}
-                    className="w-full flex items-center justify-between p-4 bg-theme-secondary hover:bg-theme-hover rounded-lg border border-theme transition-all mb-4"
+                    className="w-full flex items-center justify-between p-4 bg-theme-tertiary hover:bg-theme-hover rounded-xl border border-theme transition-all mb-4"
                 >
                     <div className="flex items-center gap-3">
                         <h4 className="text-sm font-bold text-theme-secondary uppercase tracking-wider">

@@ -7,8 +7,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../api';
 import { extractErrorMessage } from '../../../api';
+import { useToasts } from '../../../context/notification';
 import logger from '../../../utils/logger';
 import type { JobStatus, CacheStats, MonitorDefaults, MetricHistoryDefaults, AllDefaults } from '../types';
+
+/** Minimum spinner duration (ms) so users perceive the action happening */
+const MIN_ACTION_DELAY = 2000;
+
+/** Run an async action with a minimum display time for the loading spinner */
+function withMinDelay<T>(action: Promise<T>): Promise<T> {
+    return Promise.all([action, new Promise(r => setTimeout(r, MIN_ACTION_DELAY))]).then(([result]) => result);
+}
 
 interface UseJobsSettingsReturn {
     // Jobs
@@ -49,9 +58,6 @@ interface UseJobsSettingsReturn {
     handleRevertMonitorDefaults: () => void;
     handleRevertMetricHistoryDefaults: () => void;
 
-    // Messages
-    error: string;
-    success: string;
 }
 
 /** Factory defaults — matches DEFAULT_CONFIG in systemConfig.ts */
@@ -85,8 +91,7 @@ export function useJobsSettings(): UseJobsSettingsReturn {
     const [isLoadingDefaults, setIsLoadingDefaults] = useState(true);
     const [isSavingDefaults, setIsSavingDefaults] = useState(false);
 
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const toast = useToasts();
 
     // ---- Fetching ----
 
@@ -96,7 +101,6 @@ export function useJobsSettings(): UseJobsSettingsReturn {
             setJobs(data.jobs);
         } catch (err) {
             logger.error('[JobsSettings] Failed to fetch jobs', { error: err });
-            setError(extractErrorMessage(err));
         } finally {
             setIsLoadingJobs(false);
         }
@@ -108,7 +112,6 @@ export function useJobsSettings(): UseJobsSettingsReturn {
             setCacheStats(data);
         } catch (err) {
             logger.error('[JobsSettings] Failed to fetch cache stats', { error: err });
-            setError(extractErrorMessage(err));
         } finally {
             setIsLoadingCache(false);
         }
@@ -145,148 +148,130 @@ export function useJobsSettings(): UseJobsSettingsReturn {
 
     const handleTriggerJob = useCallback(async (jobId: string) => {
         setTriggeringJobId(jobId);
-        setError('');
-        setSuccess('');
 
         try {
-            await api.post(`/api/jobs/${jobId}/run`);
-            setSuccess(`Job triggered successfully`);
+            await withMinDelay(api.post(`/api/jobs/${jobId}/run`));
+            toast.success('Job Triggered', 'Job completed successfully');
             await refreshJobs();
         } catch (err) {
-            setError(extractErrorMessage(err));
+            toast.error('Job Failed', extractErrorMessage(err));
         } finally {
             setTriggeringJobId(null);
         }
-    }, [refreshJobs]);
+    }, [refreshJobs, toast]);
 
     // ---- Cache Actions ----
 
     const handleFlushTmdbMetadata = useCallback(async () => {
         setFlushingCache('tmdb-metadata');
-        setError('');
-        setSuccess('');
 
         try {
-            const data = await api.post<{ deleted: number }>('/api/jobs/cache/tmdb-metadata/flush');
-            setSuccess(`Flushed ${data.deleted} TMDB metadata entries`);
+            const data = await withMinDelay(api.post<{ deleted: number }>('/api/jobs/cache/tmdb-metadata/flush'));
+            toast.success('Cache Flushed', `Flushed ${data.deleted} TMDB metadata entries`);
             await refreshCacheStats();
         } catch (err) {
-            setError(extractErrorMessage(err));
+            toast.error('Flush Failed', extractErrorMessage(err));
         } finally {
             setFlushingCache(null);
         }
-    }, [refreshCacheStats]);
+    }, [refreshCacheStats, toast]);
 
     const handleFlushTmdbImages = useCallback(async () => {
         setFlushingCache('tmdb-images');
-        setError('');
-        setSuccess('');
 
         try {
-            const data = await api.post<{ deleted: number; freed: number }>('/api/jobs/cache/tmdb-images/flush');
-            setSuccess(`Flushed ${data.deleted} TMDB images`);
+            const data = await withMinDelay(api.post<{ deleted: number; freed: number }>('/api/jobs/cache/tmdb-images/flush'));
+            toast.success('Cache Flushed', `Flushed ${data.deleted} TMDB images`);
             await refreshCacheStats();
         } catch (err) {
-            setError(extractErrorMessage(err));
+            toast.error('Flush Failed', extractErrorMessage(err));
         } finally {
             setFlushingCache(null);
         }
-    }, [refreshCacheStats]);
+    }, [refreshCacheStats, toast]);
 
     const handleClearSearchHistory = useCallback(async () => {
         setFlushingCache('search-history');
-        setError('');
-        setSuccess('');
 
         try {
-            const data = await api.post<{ deleted: number }>('/api/jobs/cache/search-history/clear');
-            setSuccess(`Cleared ${data.deleted} search history entries`);
+            const data = await withMinDelay(api.post<{ deleted: number }>('/api/jobs/cache/search-history/clear'));
+            toast.success('History Cleared', `Cleared ${data.deleted} search history entries`);
             await refreshCacheStats();
         } catch (err) {
-            setError(extractErrorMessage(err));
+            toast.error('Clear Failed', extractErrorMessage(err));
         } finally {
             setFlushingCache(null);
         }
-    }, [refreshCacheStats]);
+    }, [refreshCacheStats, toast]);
 
     const handleFlushLibrary = useCallback(async (integrationId: string) => {
         setFlushingCache(`library-${integrationId}`);
-        setError('');
-        setSuccess('');
 
         try {
-            await api.post(`/api/jobs/cache/library/${integrationId}/flush`);
-            setSuccess('Library cache flushed successfully');
+            await withMinDelay(api.post(`/api/jobs/cache/library/${integrationId}/flush`));
+            toast.success('Cache Flushed', 'Library cache flushed successfully');
             await refreshCacheStats();
         } catch (err) {
-            setError(extractErrorMessage(err));
+            toast.error('Flush Failed', extractErrorMessage(err));
         } finally {
             setFlushingCache(null);
         }
-    }, [refreshCacheStats]);
+    }, [refreshCacheStats, toast]);
 
     const handleFlushAllLibrary = useCallback(async () => {
         setFlushingCache('library-all');
-        setError('');
-        setSuccess('');
 
         try {
-            const data = await api.post<{ deleted: number }>('/api/jobs/cache/library/flush');
-            setSuccess(`Flushed library cache for ${data.deleted} integrations`);
+            const data = await withMinDelay(api.post<{ deleted: number }>('/api/jobs/cache/library/flush'));
+            toast.success('Cache Flushed', `Flushed library cache for ${data.deleted} integrations`);
             await refreshCacheStats();
         } catch (err) {
-            setError(extractErrorMessage(err));
+            toast.error('Flush Failed', extractErrorMessage(err));
         } finally {
             setFlushingCache(null);
         }
-    }, [refreshCacheStats]);
+    }, [refreshCacheStats, toast]);
 
     const handleSyncLibrary = useCallback(async (integrationId: string) => {
         setSyncingIntegration(integrationId);
-        setError('');
-        setSuccess('');
 
         try {
-            await api.post(`/api/jobs/cache/library/${integrationId}/sync`);
-            setSuccess('Library sync started');
+            await withMinDelay(api.post(`/api/jobs/cache/library/${integrationId}/sync`));
+            toast.success('Sync Started', 'Library sync started');
         } catch (err) {
-            setError(extractErrorMessage(err));
+            toast.error('Sync Failed', extractErrorMessage(err));
         } finally {
             setSyncingIntegration(null);
         }
-    }, []);
+    }, [toast]);
 
     const handleFlushMetricHistory = useCallback(async () => {
         setFlushingCache('metric-history');
-        setError('');
-        setSuccess('');
 
         try {
-            const data = await api.post<{ deleted: number }>('/api/jobs/cache/metric-history/flush');
-            setSuccess(`Flushed ${data.deleted} metric history entries`);
+            const data = await withMinDelay(api.post<{ deleted: number }>('/api/jobs/cache/metric-history/flush'));
+            toast.success('Cache Flushed', `Flushed ${data.deleted} metric history entries`);
             await refreshCacheStats();
         } catch (err) {
-            setError(extractErrorMessage(err));
+            toast.error('Flush Failed', extractErrorMessage(err));
         } finally {
             setFlushingCache(null);
         }
-    }, [refreshCacheStats]);
+    }, [refreshCacheStats, toast]);
 
     const handleFlushMetricHistoryIntegration = useCallback(async (integrationId: string) => {
         setFlushingCache(`metric-history-${integrationId}`);
-        setError('');
-        setSuccess('');
 
         try {
-            await api.post(`/api/jobs/cache/metric-history/${integrationId}/flush`);
-            setSuccess('Flushed metric history for integration');
+            await withMinDelay(api.post(`/api/jobs/cache/metric-history/${integrationId}/flush`));
+            toast.success('Cache Flushed', 'Flushed metric history for integration');
             await refreshCacheStats();
         } catch (err) {
-            setError(extractErrorMessage(err));
+            toast.error('Flush Failed', extractErrorMessage(err));
         } finally {
             setFlushingCache(null);
         }
-    }, [refreshCacheStats]);
+    }, [refreshCacheStats, toast]);
 
     // ---- Monitor Default Actions ----
 
@@ -321,25 +306,23 @@ export function useJobsSettings(): UseJobsSettingsReturn {
     const handleSaveDefaults = useCallback(async () => {
         if (!monitorDefaults || !metricHistoryDefaults) return;
         setIsSavingDefaults(true);
-        setError('');
-        setSuccess('');
 
         try {
-            const saved = await api.put<AllDefaults>('/api/jobs/defaults', {
+            const saved = await withMinDelay(api.put<AllDefaults>('/api/jobs/defaults', {
                 monitorDefaults,
                 metricHistoryDefaults,
-            });
+            }));
             setMonitorDefaults(saved.monitorDefaults);
             setSavedMonitorDefaults(saved.monitorDefaults);
             setMetricHistoryDefaults(saved.metricHistoryDefaults);
             setSavedMetricHistoryDefaults(saved.metricHistoryDefaults);
-            setSuccess('Defaults saved');
+            toast.success('Defaults Saved', 'Monitor and metric history defaults updated');
         } catch (err) {
-            setError(extractErrorMessage(err));
+            toast.error('Save Failed', extractErrorMessage(err));
         } finally {
             setIsSavingDefaults(false);
         }
-    }, [monitorDefaults, metricHistoryDefaults]);
+    }, [monitorDefaults, metricHistoryDefaults, toast]);
 
     const handleRevertMonitorDefaults = useCallback(() => {
         setMonitorDefaults({ ...MONITOR_FACTORY_DEFAULTS });
@@ -384,8 +367,5 @@ export function useJobsSettings(): UseJobsSettingsReturn {
         handleSaveDefaults,
         handleRevertMonitorDefaults,
         handleRevertMetricHistoryDefaults,
-
-        error,
-        success,
     };
 }

@@ -236,8 +236,8 @@ const NotificationCenter = ({ isMobile = false, onClose, excludeHeader = false, 
         return (
             <div
                 className={`
-                    px-4 pt-4 pb-6 rounded-xl border border-theme
-                    ${!notification.read ? 'bg-accent/5 glass-card' : 'bg-theme-secondary/40 opacity-70'}
+                    px-4 pt-4 pb-6 rounded-xl border border-theme shadow-lg
+                    ${!notification.read ? 'notification-card bg-theme-primary glass-card bg-accent/5' : 'notification-card bg-theme-primary opacity-70'}
                 `}
             >
                 <div className="flex items-start gap-3">
@@ -255,11 +255,12 @@ const NotificationCenter = ({ isMobile = false, onClose, excludeHeader = false, 
                             style={{ border: `2px solid var(--${notification.type})` }}
                         >
                             <img
-                                src={getIconUrl(notification.iconId) || `/api/custom-icons/${notification.iconId}/file`}
+                                src={getIconUrl(notification.iconId) || `/ api / custom - icons / ${notification.iconId}/file`
+                                }
                                 alt=""
                                 className="w-7 h-7 object-contain"
                             />
-                        </div>
+                        </div >
                     ) : (notification.metadata?.lucideIcon as string | undefined) ? (
                         (() => {
                             const LucideIconComponent = getIconComponent(notification.metadata?.lucideIcon as string);
@@ -308,43 +309,47 @@ const NotificationCenter = ({ isMobile = false, onClose, excludeHeader = false, 
                     </div>
 
                     {/* Unread indicator */}
-                    {!notification.read && (
-                        <div className="w-2 h-2 rounded-full bg-accent flex-shrink-0 mt-2" />
-                    )}
-                </div>
+                    {
+                        !notification.read && (
+                            <div className="w-2 h-2 rounded-full bg-accent flex-shrink-0 mt-2" />
+                        )
+                    }
+                </div >
 
                 {/* Actionable notification buttons - outside flex row for true centering */}
-                {notification.metadata?.actionable && notification.metadata?.requestId && (
-                    <div className="flex gap-2 mt-3 justify-center">
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleRequestAction(notification.id, 'approve');
-                            }}
-                            className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium
+                {
+                    notification.metadata?.actionable && notification.metadata?.requestId && (
+                        <div className="flex gap-2 mt-3 justify-center">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRequestAction(notification.id, 'approve');
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium
                                 bg-success/20 text-success hover:bg-success/30 
                                 border border-success/20 hover:border-success/40
                                 transition-all duration-200 hover:scale-105"
-                        >
-                            <Check size={14} />
-                            Approve
-                        </button>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleRequestAction(notification.id, 'decline');
-                            }}
-                            className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium
+                            >
+                                <Check size={14} />
+                                Approve
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRequestAction(notification.id, 'decline');
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium
                                 bg-error/20 text-error hover:bg-error/30 
                                 border border-error/20 hover:border-error/40
                                 transition-all duration-200 hover:scale-105"
-                        >
-                            <XCircle size={14} />
-                            Decline
-                        </button>
-                    </div>
-                )}
-            </div>
+                            >
+                                <XCircle size={14} />
+                                Decline
+                            </button>
+                        </div>
+                    )
+                }
+            </div >
         );
     }, [handleRequestAction]);
 
@@ -356,8 +361,8 @@ const NotificationCenter = ({ isMobile = false, onClose, excludeHeader = false, 
             <div className="mx-4 mb-3">
                 <div
                     className={`
-                        rounded-xl border border-theme
-                        ${!notification.read ? 'bg-accent/5 glass-card' : 'bg-theme-secondary/40 opacity-70'}
+                        rounded-xl border border-theme shadow-lg
+                        ${!notification.read ? 'notification-card bg-theme-primary glass-card bg-accent/5' : 'notification-card bg-theme-primary opacity-70'}
                     `}
                 >
                     {/* Main notification content */}

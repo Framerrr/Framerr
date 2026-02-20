@@ -62,7 +62,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
 
     return (
         <Container
-            className={`glass-subtle rounded-xl shadow-sm p-6 border border-theme-light ${className}`}
+            className={`glass-subtle rounded-xl p-6 border border-theme-light ${className}`}
             {...containerProps}
         >
             {/* Header */}

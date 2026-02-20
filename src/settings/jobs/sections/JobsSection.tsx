@@ -54,14 +54,14 @@ export const JobsSection: React.FC<JobsSectionProps> = ({
             icon={Clock}
             description="Scheduled tasks that run automatically in the background"
         >
-            <div className="overflow-x-auto">
+            <div className="rounded-xl overflow-hidden border border-theme bg-theme-tertiary">
                 <table className="w-full text-sm">
-                    <thead>
-                        <tr className="border-b border-theme-light">
-                            <th className="text-center py-2 px-3 text-theme-secondary font-medium">Job</th>
-                            <th className="text-center py-2 px-3 text-theme-secondary font-medium hidden md:table-cell">Schedule</th>
-                            <th className="text-center py-2 px-3 text-theme-secondary font-medium">Next Run</th>
-                            <th className="text-center py-2 px-3 text-theme-secondary font-medium">Actions</th>
+                    <thead className="bg-theme-tertiary/50">
+                        <tr>
+                            <th className="text-left py-3 px-4 text-sm font-semibold text-theme-secondary">Job</th>
+                            <th className="text-left py-3 px-4 text-sm font-semibold text-theme-secondary hidden md:table-cell">Schedule</th>
+                            <th className="text-center py-3 px-4 text-sm font-semibold text-theme-secondary">Next Run</th>
+                            <th className="text-right py-3 px-4 text-sm font-semibold text-theme-secondary">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -70,15 +70,15 @@ export const JobsSection: React.FC<JobsSectionProps> = ({
                             const isRunning = job.status === 'running';
 
                             return (
-                                <tr key={job.id} className="border-b border-theme-light last:border-b-0">
-                                    <td className="py-3 px-3">
+                                <tr key={job.id} className="border-t border-theme hover:bg-theme-tertiary/20 transition-colors">
+                                    <td className="py-3 px-4">
                                         <div className="font-medium text-theme-primary">{job.name}</div>
                                         <div className="text-xs text-theme-tertiary">{job.description}</div>
                                     </td>
-                                    <td className="py-3 px-3 text-center text-theme-secondary font-mono text-xs hidden md:table-cell">
+                                    <td className="py-3 px-4 text-left text-theme-secondary font-mono text-xs hidden md:table-cell">
                                         {job.cronExpression}
                                     </td>
-                                    <td className="py-3 px-3 text-center">
+                                    <td className="py-3 px-4 text-center">
                                         <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${isRunning
                                             ? 'bg-accent/20 text-accent'
                                             : 'bg-theme-hover text-theme-secondary'
@@ -93,7 +93,7 @@ export const JobsSection: React.FC<JobsSectionProps> = ({
                                             )}
                                         </span>
                                     </td>
-                                    <td className="py-3 px-3 text-right">
+                                    <td className="py-3 px-4 text-right">
                                         <Button
                                             variant="ghost"
                                             size="sm"

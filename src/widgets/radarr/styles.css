@@ -28,7 +28,7 @@
     gap: 0.35rem 0;
     padding: 0.65rem 1.25rem;
     border-radius: 0.5rem;
-    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    background: var(--bg-hover);
     width: fit-content;
     max-width: 100%;
     margin: 0 auto;
@@ -69,7 +69,7 @@
 
 .rdr-divider {
     height: 1px;
-    background: var(--border-subtle, rgba(255, 255, 255, 0.06));
+    background: var(--border-light);
     margin: 0.1rem 0;
     flex-shrink: 0;
 }
@@ -112,7 +112,7 @@
     width: 35%;
     flex-shrink: 0;
     overflow: hidden;
-    border-right: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    border-right: 1px solid var(--border-light);
     padding-right: 0.5rem;
 }
 
@@ -345,6 +345,20 @@
     .rdr-missing-item:hover {
         background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
     }
+}
+
+.rdr-missing-item+.rdr-missing-item {
+    position: relative;
+}
+
+.rdr-missing-item+.rdr-missing-item::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: var(--border-light);
 }
 
 .rdr-missing-poster {

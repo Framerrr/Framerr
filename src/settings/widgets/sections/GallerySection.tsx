@@ -89,7 +89,7 @@ const GallerySection: React.FC = () => {
                 </div>
 
                 {/* Widgets Section */}
-                <div className="glass-subtle rounded-xl shadow-medium p-6 border border-theme">
+                <div className="glass-subtle rounded-xl p-6 border border-theme">
                     {/* Filters */}
                     <div className="mb-6 flex flex-col sm:flex-row gap-4">
                         {/* Search */}

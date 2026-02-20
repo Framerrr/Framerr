@@ -33,6 +33,7 @@ export const TemplateSettings: React.FC<TemplateSettingsProps> = ({ className = 
 
         // Backup state
         hasBackup,
+        backupInfo,
         reverting,
         showRevertConfirm,
 
@@ -76,6 +77,7 @@ export const TemplateSettings: React.FC<TemplateSettingsProps> = ({ className = 
             <ActionsSection
                 isMobile={isMobile}
                 hasBackup={hasBackup}
+                backupInfo={backupInfo}
                 reverting={reverting}
                 fileInputRef={fileInputRef}
                 onCreateNew={handleCreateNew}
@@ -131,9 +133,10 @@ export const TemplateSettings: React.FC<TemplateSettingsProps> = ({ className = 
                 onOpenChange={(open) => !open && setShowRevertConfirm(false)}
                 onConfirm={executeRevert}
                 title="Revert Dashboard"
-                message={`Revert to your previous dashboard?
-
-This will restore the dashboard you had before applying a template.`}
+                message={backupInfo
+                    ? `Revert to your previous dashboard from ${new Date(backupInfo.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} with ${backupInfo.widgetCount} widget${backupInfo.widgetCount !== 1 ? 's' : ''}?\n\nYour current dashboard will be replaced.`
+                    : `Revert to your previous dashboard?\n\nYour current dashboard will be replaced.`
+                }
                 confirmLabel="Revert"
                 variant="danger"
                 loading={reverting}

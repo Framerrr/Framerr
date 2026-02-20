@@ -100,6 +100,24 @@ export function DropTransitionOverlay({ renderWidget, transformScale = 1 }: Drop
         };
     }, [cleanupAll]);
 
+    // Safety net: if the user starts dragging any widget while the overlay
+    // is still visible, dismiss it immediately to prevent a visual clone.
+    useEffect(() => {
+        if (!overlay) return;
+
+        const mainGrid = document.querySelector('.grid-stack-main');
+        if (!mainGrid) return;
+
+        const onDragStart = () => {
+            cleanupAll();
+            setOverlay(null);
+        };
+
+        // GridStack fires 'dragstart' on the grid element
+        mainGrid.addEventListener('dragstart', onDragStart);
+        return () => mainGrid.removeEventListener('dragstart', onDragStart);
+    }, [overlay, cleanupAll]);
+
     // Handle animation phases
     useEffect(() => {
         if (!overlay || overlay.phase === 'done') return undefined;
@@ -170,17 +188,16 @@ export function DropTransitionOverlay({ renderWidget, transformScale = 1 }: Drop
                     observerRef.current.observe(portalTarget, { childList: true });
                 }
 
-                // Fallback: if nothing renders within 800ms, crossfade anyway
-                // Also retry portal registration for resilience
+                // Fallback: The sync effect removes the original drop element and re-adds
+                // a new one, so event.contentEl is now detached and the observer above
+                // will never fire. However, the NEW element is already visible behind the
+                // overlay. We just need a very short delay for React to paint the portal
+                // content, then crossfade (fade out the overlay).
                 const fallbackTimer = window.setTimeout(() => {
                     observerRef.current?.disconnect();
                     observerRef.current = null;
-
-                    // Retry portal update in case registration was missed
-                    event.retryPortalUpdate?.();
-
                     executeCrossfade();
-                }, 800);
+                }, 25);
                 cleanupTimersRef.current.push(fallbackTimer);
             }
         }

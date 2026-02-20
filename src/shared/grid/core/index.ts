@@ -49,7 +49,6 @@ export {
     // Widget CRUD
     addWidget,
     deleteWidget,
-    duplicateWidget,
     // Widget modification
     updateWidgetConfig,
     resizeWidget,

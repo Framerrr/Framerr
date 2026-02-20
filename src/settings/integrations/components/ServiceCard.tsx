@@ -25,11 +25,11 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         <button
             onClick={onClick}
             className="
-                w-full glass-subtle rounded-xl p-4 border border-theme
+                w-full bg-theme-tertiary rounded-xl p-4 border border-theme
                 hover:bg-theme-hover/50 hover:border-accent/50
                 transition-all duration-200
                 flex items-center gap-4
-                cursor-pointer group card-glow
+                cursor-pointer group
             "
         >
             {/* Icon in accent box */}

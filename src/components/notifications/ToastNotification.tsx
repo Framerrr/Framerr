@@ -187,7 +187,7 @@ const ToastNotification = ({
             dragSnapToOrigin={false}
             onDragStart={() => setIsDragging(true)}
             onDragEnd={handleDragEnd}
-            className={`glass-subtle border border-theme rounded-xl shadow-lg 
+            className={`notification-card glass-card bg-theme-primary border border-theme rounded-xl shadow-lg
         max-w-sm w-full overflow-hidden ${onBodyClick ? 'cursor-pointer' : ''}`}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}

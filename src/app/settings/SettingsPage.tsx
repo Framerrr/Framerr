@@ -19,7 +19,7 @@ import { SettingsNavProvider, useSettingsNav } from '../../context/SettingsNavCo
 import { SettingsAnimationProvider } from '../../context/SettingsAnimationContext';
 import { LAYOUT } from '../../constants/layout';
 import { isAdmin } from '../../utils/permissions';
-import { Card } from '../../components/common/Card';
+
 // Mobile-only: SettingsSidebar for full-screen navigation stack
 import { SettingsSidebar, SettingsMenuItem, SettingsMenuGroup } from '../../components/settings/SettingsSidebar';
 import '../../components/settings/SettingsLayout.css';
@@ -458,21 +458,18 @@ const SettingsContent: React.FC = () => {
                 )}
             </div>
 
-            {/* Settings Content */}
-            <Card padding="none">
-                <AnimatePresence mode="wait" initial={false}>
-                    <motion.div
-                        key={currentCategory}
-                        initial={shouldAnimate ? { opacity: 0, x: getInitialX() } : false}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={shouldAnimate ? { opacity: 0, x: getExitX() } : undefined}
-                        transition={contentSpring}
-                        className="p-6"
-                    >
-                        {renderContent()}
-                    </motion.div>
-                </AnimatePresence>
-            </Card>
+            {/* Settings Content — no outer Card, sections provide their own containers */}
+            <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                    key={currentCategory}
+                    initial={shouldAnimate ? { opacity: 0, x: getInitialX() } : false}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={shouldAnimate ? { opacity: 0, x: getExitX() } : undefined}
+                    transition={contentSpring}
+                >
+                    {renderContent()}
+                </motion.div>
+            </AnimatePresence>
 
             {/* Bottom Spacer for desktop */}
             <div style={{ height: LAYOUT.PAGE_MARGIN }} aria-hidden="true" />

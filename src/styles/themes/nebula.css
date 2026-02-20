@@ -1,124 +1,126 @@
 /* Nebula Theme - Cosmic Purple with Magenta & Cyan */
 :root[data-theme="nebula"] {
-   /* ============================================
+    /* ============================================
        BACKGROUNDS - Deep space purple
        ============================================ */
-   --bg-primary: #0f0a1a;
-   /* Deep space black with purple tint */
-   --bg-secondary: #1a1128;
-   /* Dark purple (cards) */
-   --bg-tertiary: #251a38;
-   /* Elevated purple */
-   --bg-hover: #322248;
-   /* Hover state */
+    --bg-primary: #0f0a1a;
+    /* Deep space black with purple tint */
+    --bg-secondary: #1a1128;
+    /* Dark purple (cards) */
+    --bg-tertiary: #251a38;
+    /* Elevated purple */
+    --bg-hover: #322248;
+    /* Hover state */
+    --bg-overlay: #201530;
+    /* Floating elements (toasts, notification cards) */
 
-   /* Glassmorphism - Purple-tinted */
-   --glass-bg: rgba(37, 26, 56, 0.6);
-   --glass-border: rgba(168, 85, 247, 0.15);
-   --glass-bg-light: rgba(37, 26, 56, 0.4);
+    /* Glassmorphism - Purple-tinted */
+    --glass-bg: rgba(37, 26, 56, 0.6);
+    --glass-border: rgba(168, 85, 247, 0.15);
+    --glass-bg-light: rgba(37, 26, 56, 0.4);
 
-   /* ============================================
+    /* ============================================
        ACCENT COLORS - Purple to Cyan
        ============================================ */
-   --accent: #a855f7;
-   /* Purple 500 */
-   --accent-hover: #c084fc;
-   /* Purple 400 */
-   --accent-light: #d8b4fe;
-   /* Purple 300 */
-   --accent-secondary: #22d3ee;
-   /* Cyan 400 */
+    --accent: #a855f7;
+    /* Purple 500 */
+    --accent-hover: #c084fc;
+    /* Purple 400 */
+    --accent-light: #d8b4fe;
+    /* Purple 300 */
+    --accent-secondary: #22d3ee;
+    /* Cyan 400 */
 
-   /* ============================================
+    /* ============================================
        GRADIENTS - Cosmic purple to cyan
        ============================================ */
-   --gradient-primary: linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #22d3ee 100%);
-   --gradient-primary-soft: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(236, 72, 153, 0.1) 50%, rgba(34, 211, 238, 0.05) 100%);
-   --gradient-card-hover: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(236, 72, 153, 0.05) 100%);
-   --gradient-text: linear-gradient(135deg, #c084fc 0%, #f472b6 50%, #22d3ee 100%);
+    --gradient-primary: linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #22d3ee 100%);
+    --gradient-primary-soft: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(236, 72, 153, 0.1) 50%, rgba(34, 211, 238, 0.05) 100%);
+    --gradient-card-hover: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(236, 72, 153, 0.05) 100%);
+    --gradient-text: linear-gradient(135deg, #c084fc 0%, #f472b6 50%, #22d3ee 100%);
 
-   /* ============================================
+    /* ============================================
        TEXT - Soft lavender whites
        ============================================ */
-   --text-primary: #f0e8f8;
-   /* Lavender white */
-   --text-secondary: #b8a8d0;
-   /* Muted purple */
-   --text-tertiary: #8878a0;
-   /* Dim purple */
+    --text-primary: #f0e8f8;
+    /* Lavender white */
+    --text-secondary: #b8a8d0;
+    /* Muted purple */
+    --text-tertiary: #8878a0;
+    /* Dim purple */
 
-   /* ============================================
+    /* ============================================
        BORDERS - Purple-tinted
        ============================================ */
-   --border: #382850;
-   /* Dark purple */
-   --border-light: #251a38;
-   /* Subtle */
-   --border-accent: rgba(168, 85, 247, 0.4);
+    --border: #382850;
+    /* Dark purple */
+    --border-light: #251a38;
+    /* Subtle */
+    --border-accent: rgba(168, 85, 247, 0.4);
 
-   /* ============================================
+    /* ============================================
        STATUS COLORS - Vibrant neon
        ============================================ */
-   --success: #4ade80;
-   /* Green 400 */
-   --warning: #fbbf24;
-   /* Amber 400 */
-   --error: #f472b6;
-   /* Pink 400 (matches theme) */
-   --info: #22d3ee;
-   /* Cyan (matches accent-secondary) */
+    --success: #4ade80;
+    /* Green 400 */
+    --warning: #fbbf24;
+    /* Amber 400 */
+    --error: #f472b6;
+    /* Pink 400 (matches theme) */
+    --info: #22d3ee;
+    /* Cyan (matches accent-secondary) */
 
-   /* ============================================
+    /* ============================================
        SHADOWS - Purple glow
        ============================================ */
-   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-   --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.6);
-   --shadow-lg: 0 10px 20px -5px rgba(0, 0, 0, 0.7);
-   --shadow-xl: 0 20px 30px -8px rgba(0, 0, 0, 0.8);
-   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 10px 20px -5px rgba(0, 0, 0, 0.7);
+    --shadow-xl: 0 20px 30px -8px rgba(0, 0, 0, 0.8);
+    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.85);
 
-   /* Glow shadows - Purple cosmic glow */
-   --shadow-glow: 0 0 20px rgba(168, 85, 247, 0.25);
-   --shadow-glow-lg: 0 0 40px rgba(168, 85, 247, 0.3);
-   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.5);
+    /* Glow shadows - Purple cosmic glow */
+    --shadow-glow: 0 0 20px rgba(168, 85, 247, 0.25);
+    --shadow-glow-lg: 0 0 40px rgba(168, 85, 247, 0.3);
+    --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.5);
 
-   /* ============================================
+    /* ============================================
        BLUR
        ============================================ */
-   --blur-sm: blur(4px);
-   --blur-md: blur(8px);
-   --blur-lg: blur(16px);
-   --blur-xl: blur(24px);
+    --blur-sm: blur(4px);
+    --blur-md: blur(8px);
+    --blur-lg: blur(16px);
+    --blur-xl: blur(24px);
 
-   /* ============================================
+    /* ============================================
        PREMIUM DESIGN SYSTEM - Nebula Aesthetic
        ============================================ */
 
-   /* Animated Gradient - Deep space purples */
-   --gradient-1: #0f0a1a;
-   --gradient-2: #1a1128;
-   --gradient-3: #2d1b4e;
-   --gradient-4: #0f0a1a;
+    /* Animated Gradient - Deep space purples */
+    --gradient-1: #0f0a1a;
+    --gradient-2: #1a1128;
+    --gradient-3: #2d1b4e;
+    --gradient-4: #0f0a1a;
 
-   /* Glassmorphism Colors */
-   --glass-start: rgba(37, 26, 56, 0.95);
-   --glass-end: rgba(15, 10, 26, 0.98);
-   --border-glass: rgba(168, 85, 247, 0.2);
+    /* Glassmorphism Colors */
+    --glass-start: rgba(37, 26, 56, 0.95);
+    --glass-end: rgba(15, 10, 26, 0.98);
+    --border-glass: rgba(168, 85, 247, 0.2);
 
-   /* Glow Effects */
-   --accent-glow: rgba(168, 85, 247, 0.35);
-   --accent-glow-soft: rgba(168, 85, 247, 0.18);
+    /* Glow Effects */
+    --accent-glow: rgba(168, 85, 247, 0.35);
+    --accent-glow-soft: rgba(168, 85, 247, 0.18);
 
-   /* Blur Intensity */
-   --blur-strong: 20px;
-   --blur-medium: 12px;
-   --blur-subtle: 8px;
+    /* Blur Intensity */
+    --blur-strong: 20px;
+    --blur-medium: 12px;
+    --blur-subtle: 8px;
 
-   /* ============================================
+    /* ============================================
        EDIT MODE - Dashboard editing indicators
        ============================================ */
-   --accent-edit: #22d3ee;
-   --accent-edit-soft: rgba(34, 211, 238, 0.3);
-   --scrollbar-thumb: rgba(34, 211, 238, 0.5);
-   --scrollbar-track: rgba(37, 26, 56, 0.5);
+    --accent-edit: #22d3ee;
+    --accent-edit-soft: rgba(34, 211, 238, 0.3);
+    --scrollbar-thumb: rgba(34, 211, 238, 0.5);
+    --scrollbar-track: rgba(37, 26, 56, 0.5);
 }

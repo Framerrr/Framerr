@@ -40,7 +40,7 @@ const IntegrationTypeCard: React.FC<IntegrationTypeCardProps> = ({
     const instanceCount = instances.length;
 
     return (
-        <div className="bg-theme-tertiary rounded-lg border border-theme shadow-sm overflow-hidden">
+        <div className="bg-theme-tertiary rounded-xl border border-theme overflow-hidden">
             {/* Header - Clickable to expand */}
             <button
                 onClick={() => setIsExpanded(!isExpanded)}

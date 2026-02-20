@@ -70,7 +70,7 @@ export const CacheSection: React.FC<CacheSectionProps> = ({
             icon={Database}
             description="View and manage cached data"
         >
-            <div className="overflow-x-auto">
+            <div className="rounded-xl overflow-hidden border border-theme bg-theme-tertiary">
                 <table className="w-full text-sm table-fixed">
                     <colgroup>
                         <col className="w-[40%]" />
@@ -78,26 +78,26 @@ export const CacheSection: React.FC<CacheSectionProps> = ({
                         <col className="w-[15%]" />
                         <col className="w-[25%]" />
                     </colgroup>
-                    <thead>
-                        <tr className="border-b border-theme-light">
-                            <th className="text-center py-2 px-3 text-theme-secondary font-medium">Cache</th>
-                            <th className="text-center py-2 px-3 text-theme-secondary font-medium">Entries</th>
-                            <th className="text-center py-2 px-3 text-theme-secondary font-medium">Size</th>
-                            <th className="text-center py-2 px-3 text-theme-secondary font-medium">Actions</th>
+                    <thead className="bg-theme-tertiary/50">
+                        <tr>
+                            <th className="text-left py-3 px-4 text-sm font-semibold text-theme-secondary">Cache</th>
+                            <th className="text-center py-3 px-4 text-sm font-semibold text-theme-secondary">Entries</th>
+                            <th className="text-center py-3 px-4 text-sm font-semibold text-theme-secondary">Size</th>
+                            <th className="text-right py-3 px-4 text-sm font-semibold text-theme-secondary">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {/* TMDB Metadata */}
-                        <tr className="border-b border-theme-light">
-                            <td className="py-3 px-3 text-theme-primary font-medium">TMDB Metadata</td>
-                            <td className="py-3 px-3 text-center text-theme-secondary">
+                        <tr className="border-t border-theme">
+                            <td className="py-3 px-4 text-theme-primary font-medium">TMDB Metadata</td>
+                            <td className="py-3 px-4 text-center text-theme-secondary">
                                 {cacheStats.tmdbMetadata.count} items
                                 <span className="text-xs text-theme-tertiary ml-1">
                                     ({cacheStats.tmdbMetadata.movieCount} movies, {cacheStats.tmdbMetadata.tvCount} TV)
                                 </span>
                             </td>
-                            <td className="py-3 px-3 text-center text-theme-secondary">—</td>
-                            <td className="py-3 px-3">
+                            <td className="py-3 px-4 text-center text-theme-secondary">—</td>
+                            <td className="py-3 px-4">
                                 <div className="flex flex-col items-end gap-1">
                                     <FlushButton
                                         isFlushing={flushingCache === 'tmdb-metadata'}
@@ -109,11 +109,11 @@ export const CacheSection: React.FC<CacheSectionProps> = ({
                         </tr>
 
                         {/* TMDB Images */}
-                        <tr className="border-b border-theme-light">
-                            <td className="py-3 px-3 text-theme-primary font-medium">TMDB Images</td>
-                            <td className="py-3 px-3 text-center text-theme-secondary">{cacheStats.tmdbImages.count} images</td>
-                            <td className="py-3 px-3 text-center text-theme-secondary">{formatSize(cacheStats.tmdbImages.sizeBytes)}</td>
-                            <td className="py-3 px-3">
+                        <tr className="border-t border-theme">
+                            <td className="py-3 px-4 text-theme-primary font-medium">TMDB Images</td>
+                            <td className="py-3 px-4 text-center text-theme-secondary">{cacheStats.tmdbImages.count} images</td>
+                            <td className="py-3 px-4 text-center text-theme-secondary">{formatSize(cacheStats.tmdbImages.sizeBytes)}</td>
+                            <td className="py-3 px-4">
                                 <div className="flex flex-col items-end gap-1">
                                     <FlushButton
                                         isFlushing={flushingCache === 'tmdb-images'}
@@ -128,22 +128,22 @@ export const CacheSection: React.FC<CacheSectionProps> = ({
                         {hasLibraryItems && (
                             <>
                                 <tr
-                                    className="border-b border-theme-light cursor-pointer [@media(hover:hover)]:hover:bg-theme-hover transition-colors"
+                                    className="border-t border-theme cursor-pointer [@media(hover:hover)]:hover:bg-theme-hover transition-colors"
                                     onClick={() => setLibraryExpanded(!libraryExpanded)}
                                 >
-                                    <td className="py-3 px-3 text-theme-primary font-medium">
+                                    <td className="py-3 px-4 text-theme-primary font-medium">
                                         <span className="inline-flex items-center gap-1.5">
                                             {libraryExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                             Library Cache
                                         </span>
                                     </td>
-                                    <td className="py-3 px-3 text-center text-theme-secondary">
+                                    <td className="py-3 px-4 text-center text-theme-secondary">
                                         {cacheStats.library.totalImages} images
                                     </td>
-                                    <td className="py-3 px-3 text-center text-theme-secondary">
+                                    <td className="py-3 px-4 text-center text-theme-secondary">
                                         {formatSize(cacheStats.library.sizeBytes)}
                                     </td>
-                                    <td className="py-3 px-3">
+                                    <td className="py-3 px-4">
                                         <div className="flex flex-col items-end gap-1">
                                             <FlushButton
                                                 isFlushing={flushingCache === 'library-all'}
@@ -158,7 +158,7 @@ export const CacheSection: React.FC<CacheSectionProps> = ({
                                 {libraryExpanded && cacheStats.libraryPerIntegration.map((integration) => (
                                     <tr
                                         key={integration.integrationId}
-                                        className="border-b border-theme-light bg-theme-hover/30"
+                                        className="border-t border-theme bg-theme-hover/30"
                                     >
                                         <td className="py-2.5 px-3 pl-10 text-theme-secondary text-xs overflow-hidden text-ellipsis">
                                             {integration.displayName || integration.integrationId}
@@ -194,11 +194,11 @@ export const CacheSection: React.FC<CacheSectionProps> = ({
                         )}
 
                         {/* Search History */}
-                        <tr className="last:border-b-0">
-                            <td className="py-3 px-3 text-theme-primary font-medium">Search History</td>
-                            <td className="py-3 px-3 text-center text-theme-secondary">{cacheStats.searchHistory.count} items</td>
-                            <td className="py-3 px-3 text-center text-theme-secondary">—</td>
-                            <td className="py-3 px-3">
+                        <tr className="border-t border-theme">
+                            <td className="py-3 px-4 text-theme-primary font-medium">Search History</td>
+                            <td className="py-3 px-4 text-center text-theme-secondary">{cacheStats.searchHistory.count} items</td>
+                            <td className="py-3 px-4 text-center text-theme-secondary">—</td>
+                            <td className="py-3 px-4">
                                 <div className="flex flex-col items-end gap-1">
                                     <FlushButton
                                         isFlushing={flushingCache === 'search-history'}
@@ -214,20 +214,20 @@ export const CacheSection: React.FC<CacheSectionProps> = ({
                         {cacheStats.metricHistory && cacheStats.metricHistory.totalDataPoints > 0 && (
                             <>
                                 <tr
-                                    className="border-b border-theme-light cursor-pointer [@media(hover:hover)]:hover:bg-theme-hover transition-colors"
+                                    className="border-t border-theme cursor-pointer [@media(hover:hover)]:hover:bg-theme-hover transition-colors"
                                     onClick={() => setMetricHistoryExpanded(!metricHistoryExpanded)}
                                 >
-                                    <td className="py-3 px-3 text-theme-primary font-medium">
+                                    <td className="py-3 px-4 text-theme-primary font-medium">
                                         <span className="inline-flex items-center gap-1.5">
                                             {metricHistoryExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                             Metric History
                                         </span>
                                     </td>
-                                    <td className="py-3 px-3 text-center text-theme-secondary">
+                                    <td className="py-3 px-4 text-center text-theme-secondary">
                                         {cacheStats.metricHistory.totalDataPoints.toLocaleString()} points
                                     </td>
-                                    <td className="py-3 px-3 text-center text-theme-secondary">—</td>
-                                    <td className="py-3 px-3">
+                                    <td className="py-3 px-4 text-center text-theme-secondary">—</td>
+                                    <td className="py-3 px-4">
                                         <div className="flex flex-col items-end gap-1">
                                             <FlushButton
                                                 isFlushing={flushingCache === 'metric-history'}
@@ -242,7 +242,7 @@ export const CacheSection: React.FC<CacheSectionProps> = ({
                                 {metricHistoryExpanded && cacheStats.metricHistory.integrations.map((integration) => (
                                     <tr
                                         key={integration.integrationId}
-                                        className="border-b border-theme-light bg-theme-hover/30"
+                                        className="border-t border-theme bg-theme-hover/30"
                                     >
                                         <td className="py-2.5 px-3 pl-10 text-theme-secondary text-xs overflow-hidden text-ellipsis">
                                             {integration.displayName}

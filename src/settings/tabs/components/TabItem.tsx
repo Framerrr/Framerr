@@ -44,7 +44,7 @@ export const TabItem: React.FC<TabItemProps> = ({
         <div
             ref={setNodeRef}
             style={style}
-            className="bg-theme-tertiary rounded-lg p-4 border border-theme shadow-sm flex items-center justify-between hover:bg-theme-hover transition-colors"
+            className="bg-theme-tertiary rounded-xl p-4 border border-theme flex items-center justify-between hover:bg-theme-hover transition-colors"
         >
             {/* Drag Handle */}
             <button

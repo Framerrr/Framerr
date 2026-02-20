@@ -11,6 +11,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { templatesApi } from '../../../api/endpoints';
 import { Monitor } from 'lucide-react';
 import { Modal } from '../../../shared/ui/Modal';
+import ConfirmDialog from '../../../shared/ui/ConfirmDialog/ConfirmDialog';
 import TemplateBuilderStep1 from './TemplateBuilderStep1';
 import TemplateBuilderStep2 from './TemplateBuilderStep2';
 import { Button } from '../../../shared/ui';
@@ -560,76 +561,46 @@ const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
                 )}
             </Modal >
 
-            {/* Confirm close modal - different behavior for edit vs create mode */}
-            < Modal
+            {/* Confirm close - different behavior for edit vs create mode */}
+            <ConfirmDialog
                 open={showConfirmClose}
                 onOpenChange={(open) => !open && setShowConfirmClose(false)}
-                size="sm"
-            >
-                <Modal.Header title={isEditMode ? 'Discard Changes?' : 'Save Changes?'} />
-                <Modal.Body>
-                    <p className="text-theme-secondary">
-                        {isEditMode
-                            ? 'Your changes have not been saved. Discard changes?'
-                            : 'Would you like to save your template as a draft?'
+                title={isEditMode ? 'Discard Changes?' : 'Save as Draft?'}
+                message={isEditMode
+                    ? 'Your changes have not been saved. Discard changes?'
+                    : 'Would you like to save your template as a draft before closing?'
+                }
+                confirmLabel={isEditMode ? 'Discard Changes' : 'Save Draft'}
+                variant={isEditMode ? 'danger' : 'primary'}
+                onConfirm={isEditMode
+                    ? () => {
+                        setShowConfirmClose(false);
+                        onClose();
+                    }
+                    : () => {
+                        setShowConfirmClose(false);
+                        onDraftSaved?.();
+                        onClose();
+                    }
+                }
+                showIcon={false}
+                secondaryAction={isEditMode ? undefined : {
+                    label: 'Discard',
+                    onClick: async () => {
+                        if (draftId) {
+                            try {
+                                await templatesApi.delete(draftId);
+                                logger.debug('Draft deleted', { id: draftId });
+                            } catch (err) {
+                                logger.error('Failed to delete draft', { error: err });
+                            }
                         }
-                    </p>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button
-                        variant="secondary"
-                        onClick={() => setShowConfirmClose(false)}
-                    >
-                        Keep Editing
-                    </Button>
-
-                    {isEditMode ? (
-                        // Edit mode: Just close without deleting (revert = do nothing, template unchanged)
-                        <Button
-                            variant="danger"
-                            onClick={() => {
-                                setShowConfirmClose(false);
-                                onClose();
-                            }}
-                        >
-                            Discard Changes
-                        </Button>
-                    ) : (
-                        // Create mode: Save Draft or Discard (delete draft)
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={() => {
-                                    // Draft is already saved from auto-save, just close and notify parent
-                                    setShowConfirmClose(false);
-                                    onDraftSaved?.(); // Trigger list refresh
-                                    onClose();
-                                }}
-                            >
-                                Save Draft
-                            </Button>
-                            <Button
-                                variant="danger"
-                                onClick={async () => {
-                                    // Delete draft if it exists (only in create mode)
-                                    if (draftId) {
-                                        try {
-                                            await templatesApi.delete(draftId);
-                                            logger.debug('Draft deleted', { id: draftId });
-                                        } catch (err) {
-                                            logger.error('Failed to delete draft', { error: err });
-                                        }
-                                    }
-                                    setShowConfirmClose(false);
-                                    onClose();
-                                }}
-                            >
-                                Discard
-                            </Button>
-                        </>
-                    )}
-                </Modal.Footer>
-            </Modal >
+                        setShowConfirmClose(false);
+                        onClose();
+                    },
+                    variant: 'danger',
+                }}
+            />
         </>
     );
 };

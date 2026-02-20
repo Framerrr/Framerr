@@ -25,6 +25,7 @@ import { useDashboardEdit } from '../../context/DashboardEditContext';
 import { useWalkthrough } from '../../features/walkthrough';
 import DevDebugOverlay from '../../components/dev/DevDebugOverlay';
 import { useDragAutoScroll } from '../../hooks/useDragAutoScroll';
+import { useResizeHeightLock } from '../../hooks/useResizeHeightLock';
 import { configApi } from '../../api/endpoints';
 // Grid wrapper - encapsulates RGL and provides library-agnostic API
 import { FramerrDashboardGrid } from '../../shared/grid';
@@ -238,7 +239,16 @@ const Dashboard = (): React.JSX.Element => {
     const {
         onDragStart: autoScrollDragStart,
         onDragStop: autoScrollDragStop,
+        setDownOnly: autoScrollSetDownOnly,
     } = useDragAutoScroll({ enabled: editMode });
+
+    // ========== RESIZE HEIGHT LOCK ==========
+    // Prevents page collapse when resizing a widget smaller at the bottom of the grid
+    const {
+        containerRef: gridAreaRef,
+        onResizeStart: heightLockStart,
+        onResizeStop: heightLockStop,
+    } = useResizeHeightLock();
 
     // iOS PWA workaround - set inline styles for resize handles
     useEffect(() => {
@@ -629,19 +639,23 @@ const Dashboard = (): React.JSX.Element => {
             )}
 
             {/* ==================== EDIT MODE SECTION ====================
-             * Single animated wrapper for all edit-mode content (subtitle + action bar).
+             * Two animated wrappers for edit-mode content:
              * 
-             * State 1 (header+tagline): Only the action bar — clips out from under header
-             * State 2 (header, no tagline): Subtitle + action bar — clip out together
-             * State 3 (no header): Subtitle + action bar — slide down from above viewport
+             * 1. Subtitle wrapper — height-clip animation (overflow: hidden)
+             *    Only rendered when tagline is OFF or header is OFF.
+             * 
+             * 2. Edit bar wrapper — sticky at top, opacity + translateY animation
+             *    Separated so position:sticky works (can't work inside overflow:hidden).
              */}
+
+            {/* Part 1: Subtitle (height-clip animation) */}
             <AnimatePresence>
-                {editMode && !isMobile && (
+                {editMode && !isMobile && (!taglineEnabled || !headerVisible) && (
                     <motion.div
-                        key="edit-section"
-                        initial={{ height: 0, marginBottom: 0 }}
-                        animate={{ height: 'auto', marginBottom: 12 }}
-                        exit={{ height: 0, marginBottom: 0 }}
+                        key="edit-subtitle"
+                        initial={{ height: 0 }}
+                        animate={{ height: 'auto' }}
+                        exit={{ height: 0 }}
                         transition={{
                             type: 'spring',
                             damping: 32,
@@ -650,19 +664,15 @@ const Dashboard = (): React.JSX.Element => {
                             restDelta: 2,
                         }}
                         style={{ overflow: 'hidden' }}
-                        className="z-30"
                     >
-                        {/* Edit subtitle — only shown when tagline is OFF or header is OFF */}
-                        {(!taglineEnabled || !headerVisible) && (
-                            <p className="text-lg text-theme-secondary mb-3 text-center">
-                                {isMobile
-                                    ? 'Hold to drag and rearrange widgets'
-                                    : 'Editing mode — Drag to rearrange widgets'}
-                            </p>
-                        )}
+                        <p className="text-lg text-theme-secondary mb-3 text-center">
+                            {isMobile
+                                ? 'Hold to drag and rearrange widgets'
+                                : 'Editing mode — Drag to rearrange widgets'}
+                        </p>
 
                         {/* Mobile link status badge (shown in edit section when no tagline) */}
-                        {isMobile && (!taglineEnabled || !headerVisible) && (
+                        {isMobile && (
                             <div className="flex items-center justify-center gap-2 mb-3">
                                 <span
                                     className={`text-xs px-2 py-1 rounded-lg flex items-center gap-1 font-medium ${(mobileLayoutMode === 'independent' || pendingUnlink)
@@ -684,7 +694,28 @@ const Dashboard = (): React.JSX.Element => {
                                 </span>
                             </div>
                         )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
+            {/* Part 2: Edit bar (sticky, opacity animation) */}
+            <AnimatePresence>
+                {editMode && !isMobile && (
+                    <motion.div
+                        key="edit-bar"
+                        initial={{ opacity: 0, height: 0, marginBottom: 0, overflow: 'hidden' as const }}
+                        animate={{ opacity: 1, height: 'auto', marginBottom: 12, overflow: 'visible' as const }}
+                        exit={{ opacity: 0, height: 0, marginBottom: 0, overflow: 'hidden' as const }}
+                        transition={{
+                            type: 'spring',
+                            damping: 32,
+                            stiffness: 300,
+                            mass: 0.8,
+                            restDelta: 2,
+                            overflow: { delay: 0.15 },
+                        }}
+                        className="sticky top-0 z-30 py-1"
+                    >
                         <DashboardEditBar
                             canUndo={canUndo}
                             canRedo={canRedo}
@@ -732,11 +763,14 @@ const Dashboard = (): React.JSX.Element => {
 
             {/* Grid Layout or Empty State */}
             <div
+                ref={gridAreaRef}
                 className="dashboard-grid-area relative"
                 data-walkthrough="dashboard-grid"
                 style={{
                     // When empty, fill remaining viewport height (accounting for header/edit bar ~200px)
                     minHeight: isEmpty ? 'calc(100dvh - 200px)' : '400px',
+                    // Extra bottom padding in edit mode so resize handles are accessible
+                    paddingBottom: editMode ? '200px' : undefined,
                 }}
             >
 
@@ -756,11 +790,17 @@ const Dashboard = (): React.JSX.Element => {
                     onDragStop={() => autoScrollDragStop()}
                     onResizeStart={() => {
                         gridProps.onResizeStart();
+                        autoScrollSetDownOnly(true);
                         autoScrollDragStart();
+                        heightLockStart();
                     }}
                     onLayoutCommit={(event) => {
                         gridProps.onLayoutCommit(event);
                         autoScrollDragStop();
+                        if (event.reason === 'resize') {
+                            heightLockStop();
+                            autoScrollSetDownOnly(false);
+                        }
                     }}
                     onExternalWidgetDrop={(event) => {
                         // Use layout info from external drop event
@@ -956,7 +996,7 @@ const Dashboard = (): React.JSX.Element => {
 
             {/* Widget Resize Modal */}
             {resizeModalWidgetId && (() => {
-                const widget = widgets.find(w => w.id === resizeModalWidgetId);
+                const widget = displayWidgets.find(w => w.id === resizeModalWidgetId);
                 if (!widget) return null;
                 // Get current layout from grid state
                 const breakpoint = isMobile ? 'sm' : 'lg';
@@ -979,6 +1019,7 @@ const Dashboard = (): React.JSX.Element => {
                         currentLayout={currentLayout}
                         currentShowHeader={widget.config?.showHeader !== false}
                         isMobile={isMobile}
+                        allLayouts={layouts[breakpoint]}
                         onSave={(id, layout) => {
                             resizeWidget(id, layout);
                             setResizeModalWidgetId(null);

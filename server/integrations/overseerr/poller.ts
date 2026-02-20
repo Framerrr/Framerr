@@ -13,7 +13,7 @@ import { enrichRequests, type RawOverseerrRequest } from '../../services/tmdbEnr
 import {
     isTmdbIdInLibrary,
     getMediaServerIntegrationsWithSync,
-    searchAndIndexItem
+    indexRecentlyAddedForTmdbIds
 } from '../../services/librarySyncService';
 import logger from '../../utils/logger';
 
@@ -121,13 +121,13 @@ async function triggerSurgicalRefresh(results: OverseerrRequest[]): Promise<void
     // We only care about >= 4 — status 3 means it's been sent to Sonarr/Radarr but not downloaded yet
     const availableRequests = results.filter(r =>
         r.media?.status !== undefined && r.media.status >= 4 &&
-        r.media?.tmdbId && r.media?.title
+        r.media?.tmdbId
     );
 
     if (availableRequests.length === 0) return;
 
-    // Check which ones need indexing (skip already verified)
-    const needsIndexing: OverseerrRequest[] = [];
+    // Collect TMDB IDs that need indexing (skip already verified)
+    const tmdbIdsToIndex = new Set<number>();
     for (const req of availableRequests) {
         const tmdbId = req.media!.tmdbId;
         if (verifiedTmdbIds.has(tmdbId)) continue; // Already confirmed in cache
@@ -137,31 +137,23 @@ async function triggerSurgicalRefresh(results: OverseerrRequest[]): Promise<void
             continue;
         }
 
-        needsIndexing.push(req);
+        tmdbIdsToIndex.add(tmdbId);
     }
 
-    if (needsIndexing.length === 0) return;
+    if (tmdbIdsToIndex.size === 0) return;
 
     // Get media servers with library sync enabled
     const mediaServers = getMediaServerIntegrationsWithSync();
     if (mediaServers.length === 0) return;
 
-    logger.debug(`[Overseerr Poller] Surgical refresh: ${needsIndexing.length} items to index across ${mediaServers.length} media servers`);
+    logger.debug(`[Overseerr Poller] Surgical refresh: ${tmdbIdsToIndex.size} items to index across ${mediaServers.length} media servers`);
 
-    // Search and index each missing item
-    for (const req of needsIndexing) {
-        const success = await searchAndIndexItem(
-            {
-                title: req.media!.title,
-                tmdbId: req.media!.tmdbId,
-                mediaType: req.type
-            },
-            mediaServers
-        );
+    // Fetch recently-added items from each server and index any matches
+    const indexed = await indexRecentlyAddedForTmdbIds(tmdbIdsToIndex, mediaServers);
 
-        if (success) {
-            verifiedTmdbIds.add(req.media!.tmdbId); // Don't check again
-        }
-        // If not found in media server, we'll retry next cycle (maybe Plex hasn't scanned yet)
+    // Mark successfully indexed items as verified
+    for (const tmdbId of indexed) {
+        verifiedTmdbIds.add(tmdbId);
     }
+    // Items not found will be retried next cycle (maybe Plex hasn't scanned yet)
 }

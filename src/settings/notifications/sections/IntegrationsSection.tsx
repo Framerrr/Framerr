@@ -99,7 +99,7 @@ export function IntegrationsSection({
             description="Configure notifications. Set up webhooks in Service Settings for compatible integrations."
         >
             {/* Webhook Base URL Config - Admin Only */}
-            <div className="p-4 bg-theme-tertiary rounded-lg border border-theme">
+            <div className="p-4 bg-theme-tertiary rounded-xl border border-theme">
                 <div className="flex items-center gap-2 mb-2">
                     <Link size={16} className="text-theme-secondary" />
                     <h4 className="text-sm font-medium text-theme-primary">
@@ -146,7 +146,7 @@ export function IntegrationsSection({
             </div>
 
             {/* Link to Service Settings */}
-            <div className="mt-4 p-4 bg-theme-secondary rounded-lg border border-theme">
+            <div className="mt-4 p-4 bg-theme-tertiary rounded-xl border border-theme">
                 <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-theme-primary">
                         Configure Webhooks

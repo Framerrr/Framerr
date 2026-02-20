@@ -108,6 +108,30 @@ function getNextCronExecution(cronExpression: string): Date | null {
             return next;
         }
 
+        if (/^\d+$/.test(minuteField) && hourField.startsWith('*/')) {
+            // Every N hours at fixed minute like "0 */6 * * *"
+            const targetMinute = parseInt(minuteField);
+            const hourInterval = parseInt(hourField.slice(2));
+            const next = new Date(now);
+            const currentHour = next.getHours();
+            // Find next hour that's a multiple of the interval
+            let nextHour = Math.ceil((currentHour * 60 + next.getMinutes() + 1) / (hourInterval * 60)) * hourInterval;
+            if (nextHour >= 24) {
+                next.setDate(next.getDate() + 1);
+                nextHour = 0;
+            }
+            next.setHours(nextHour, targetMinute, 0, 0);
+            // If we landed on current time or past, advance by one interval
+            if (next <= now) {
+                next.setHours(next.getHours() + hourInterval);
+                if (next.getHours() >= 24) {
+                    next.setDate(next.getDate() + 1);
+                    next.setHours(next.getHours() - 24);
+                }
+            }
+            return next;
+        }
+
         // For complex expressions, estimate ~1 hour from now
         const fallback = new Date(now.getTime() + 60 * 60 * 1000);
         return fallback;

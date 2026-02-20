@@ -22,13 +22,13 @@ export function FlattenUISection({
 }: FlattenUISectionProps) {
     return (
         <SettingsSection
-            title="Flatten UI Design"
+            title="Reduce Transparency"
             icon={Layers}
-            description="Remove glassmorphism effects, shadows, and backdrop blur for a minimal flat design aesthetic. This affects all cards and panels throughout the application."
+            description="Replace glass effects with solid backgrounds. Removes blur, transparency, and backdrop effects for a cleaner look."
         >
             <SettingsItem
-                label="Flatten UI Design"
-                description={flattenUI ? 'Flat design enabled' : '3D glassmorphism enabled'}
+                label="Reduce Transparency"
+                description={flattenUI ? 'Solid backgrounds enabled' : 'Glass effects enabled'}
             >
                 <Switch
                     checked={flattenUI}

@@ -16,6 +16,7 @@ import { SettingsSection } from '../../../shared/ui/settings';
 interface ActionsSectionProps {
     isMobile: boolean;
     hasBackup: boolean;
+    backupInfo: { createdAt: string; widgetCount: number } | null;
     reverting: boolean;
     fileInputRef: React.RefObject<HTMLInputElement | null>;
     onCreateNew: () => void;
@@ -24,9 +25,29 @@ interface ActionsSectionProps {
     onRevert: () => void;
 }
 
+function getRelativeTime(dateStr: string): string {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return 'today';
+    if (diffDays === 1) return 'yesterday';
+    return `${diffDays} days ago`;
+}
+
+function formatBackupDate(dateStr: string): string {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '';
+    const formatted = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const relative = getRelativeTime(dateStr);
+    return `${formatted} (${relative})`;
+}
+
 export const ActionsSection: React.FC<ActionsSectionProps> = ({
     isMobile,
     hasBackup,
+    backupInfo,
     reverting,
     fileInputRef,
     onCreateNew,
@@ -101,7 +122,10 @@ export const ActionsSection: React.FC<ActionsSectionProps> = ({
                         {reverting ? 'Reverting...' : 'Revert to Previous Dashboard'}
                     </Button>
                     <p className="text-xs text-theme-tertiary text-center mt-2">
-                        Restore the dashboard you had before applying a template.
+                        {backupInfo?.createdAt
+                            ? `Restore to dashboard from ${formatBackupDate(backupInfo.createdAt)}`
+                            : 'Restore the dashboard you had before applying a template.'
+                        }
                     </p>
                 </div>
             )}

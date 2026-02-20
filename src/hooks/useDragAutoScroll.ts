@@ -62,6 +62,7 @@ export const useDragAutoScroll = (options: UseDragAutoScrollOptions) => {
     const animationFrameRef = useRef<number | null>(null);
     const grabPositionRef = useRef<number | null>(null);
     const hasLeftGraceZoneRef = useRef(false);
+    const downOnlyRef = useRef(false);
 
     // Lerp state — smoothly interpolated each frame
     const currentSpeedRef = useRef(0);
@@ -109,14 +110,17 @@ export const useDragAutoScroll = (options: UseDragAutoScrollOptions) => {
         let targetSpeed = 0;  // Positive = scroll down, negative = scroll up
 
         // Top edge: pointer is in top zone AND not moving away (down)
-        const inTopZone = pointerY > 0 && pointerY < edgeThreshold;
-        const notMovingDown = velocity <= 2;
+        // Skip top-edge scrolling when in downOnly mode (e.g., during resize)
+        if (!downOnlyRef.current) {
+            const inTopZone = pointerY > 0 && pointerY < edgeThreshold;
+            const notMovingDown = velocity <= 2;
 
-        if (inTopZone && notMovingDown) {
-            // Quadratic scaling — gentler than cubic, still accelerates near edge
-            const normalizedPosition = 1 - (pointerY / edgeThreshold);
-            const intensity = normalizedPosition * normalizedPosition;
-            targetSpeed = -(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * intensity);
+            if (inTopZone && notMovingDown) {
+                // Quadratic scaling — gentler than cubic, still accelerates near edge
+                const normalizedPosition = 1 - (pointerY / edgeThreshold);
+                const intensity = normalizedPosition * normalizedPosition;
+                targetSpeed = -(MIN_SPEED + (MAX_SPEED - MIN_SPEED) * intensity);
+            }
         }
 
         // Bottom edge: pointer is in bottom zone AND not moving away (up)
@@ -197,9 +201,15 @@ export const useDragAutoScroll = (options: UseDragAutoScrollOptions) => {
         };
     }, []);
 
+    /** Toggle down-only mode (skips upward auto-scroll, e.g. during resize) */
+    const setDownOnly = useCallback((value: boolean) => {
+        downOnlyRef.current = value;
+    }, []);
+
     return {
         onDragStart,
         onDragStop,
+        setDownOnly,
     };
 };
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Activity, RefreshCw, Wifi, CheckCircle, XCircle, Database, Loader, Zap, Clock, Download, Upload } from 'lucide-react';
 import { Button } from '../../../shared/ui';
+import { SettingsSection } from '../../../shared/ui/settings';
 import type { SseStatus, DbStatus, SpeedTestState, ApiHealth, HealthStatus } from '../types';
 
 interface DiagnosticsSectionProps {
@@ -32,6 +33,7 @@ interface DiagnosticsSectionProps {
 
 /**
  * DiagnosticsSection - Health checks, database test, speed test, API health
+ * Uses SettingsSection for consistent L3 containers.
  */
 export function DiagnosticsSection({
     sseStatus,
@@ -56,29 +58,12 @@ export function DiagnosticsSection({
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between pl-4 md:pl-2">
-                <div>
-                    <h3 className="text-xl font-bold text-theme-primary mb-1">Diagnostics & Health</h3>
-                    <p className="text-theme-secondary text-sm">
-                        Test connections, verify API health, and monitor system status
-                    </p>
-                </div>
-                <Button
-                    onClick={onRefreshDiagnostics}
-                    variant="secondary"
-                    icon={RefreshCw}
-                    title="Refresh diagnostics"
-                />
-            </div>
-
+        <>
             {/* System Health - SSE & Integration Status */}
-            <div className="glass-subtle rounded-xl shadow-medium p-6 border border-theme">
-                <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-theme-primary font-medium flex items-center gap-2">
-                        <Activity size={18} className="text-accent" />
-                        System Health
-                    </h4>
+            <SettingsSection
+                title="System Health"
+                icon={Activity}
+                headerRight={
                     <Button
                         onClick={onFetchHealthStatus}
                         disabled={healthLoading}
@@ -86,8 +71,8 @@ export function DiagnosticsSection({
                     >
                         {healthLoading ? 'Checking...' : 'Refresh'}
                     </Button>
-                </div>
-
+                }
+            >
                 {healthLoading && !sseStatus && (
                     <div className="flex items-center gap-2 text-theme-secondary">
                         <Loader size={16} className="animate-spin" />
@@ -95,38 +80,33 @@ export function DiagnosticsSection({
                     </div>
                 )}
 
-                <div className="space-y-4">
-                    {/* SSE Connection Status */}
-                    {sseStatus && (
-                        <div className="flex items-center justify-between p-3 bg-theme-tertiary/50 rounded-lg">
-                            <div className="flex items-center gap-3">
-                                <Wifi size={18} className={sseStatus.status === 'active' ? 'text-success' : 'text-warning'} />
-                                <div>
-                                    <p className="text-theme-primary font-medium">Real-time Connection</p>
-                                    <p className="text-theme-secondary text-sm">
-                                        {sseStatus.connectedClients} client{sseStatus.connectedClients !== 1 ? 's' : ''} connected
-                                    </p>
-                                </div>
+                {/* SSE Connection Status */}
+                {sseStatus && (
+                    <div className="flex items-center justify-between p-3 bg-theme-tertiary/50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                            <Wifi size={18} className={sseStatus.status === 'active' ? 'text-success' : 'text-warning'} />
+                            <div>
+                                <p className="text-theme-primary font-medium">Real-time Connection</p>
+                                <p className="text-theme-secondary text-sm">
+                                    {sseStatus.connectedClients} client{sseStatus.connectedClients !== 1 ? 's' : ''} connected
+                                </p>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${sseStatus.status === 'active' ? 'bg-success/20 text-success' :
-                                sseStatus.status === 'idle' ? 'bg-warning/20 text-warning' :
-                                    'bg-error/20 text-error'
-                                }`}>
-                                {sseStatus.status}
-                            </span>
                         </div>
-                    )}
-
-                </div>
-            </div>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${sseStatus.status === 'active' ? 'bg-success/20 text-success' :
+                            sseStatus.status === 'idle' ? 'bg-warning/20 text-warning' :
+                                'bg-error/20 text-error'
+                            }`}>
+                            {sseStatus.status}
+                        </span>
+                    </div>
+                )}
+            </SettingsSection>
 
             {/* Database Test */}
-            <div className="glass-subtle rounded-xl shadow-medium p-6 border border-theme">
-                <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-theme-primary font-medium flex items-center gap-2">
-                        <Database size={18} className="text-accent" />
-                        Database Connection
-                    </h4>
+            <SettingsSection
+                title="Database Connection"
+                icon={Database}
+                headerRight={
                     <Button
                         onClick={onTestDatabase}
                         disabled={dbLoading}
@@ -134,7 +114,8 @@ export function DiagnosticsSection({
                     >
                         {dbLoading ? 'Testing...' : 'Test Database'}
                     </Button>
-                </div>
+                }
+            >
                 {dbStatus && (
                     <div className="bg-theme-tertiary rounded-lg p-4">
                         <div className="flex items-center gap-3 mb-3">
@@ -164,20 +145,14 @@ export function DiagnosticsSection({
                         )}
                     </div>
                 )}
-            </div>
+            </SettingsSection>
 
             {/* Speed Test */}
-            <div className="glass-subtle rounded-xl shadow-medium p-6 border border-theme">
-                <div className="flex items-center justify-between mb-4">
-                    <div>
-                        <h4 className="text-theme-primary font-medium flex items-center gap-2">
-                            <Wifi size={18} className="text-accent" />
-                            Network Speed Test
-                        </h4>
-                        <p className="text-theme-secondary text-sm mt-1">
-                            Test connection speed from your device to this server
-                        </p>
-                    </div>
+            <SettingsSection
+                title="Network Speed Test"
+                icon={Wifi}
+                description="Test connection speed from your device to this server"
+                headerRight={
                     <Button
                         onClick={onRunSpeedTest}
                         disabled={speedTest.running}
@@ -185,10 +160,10 @@ export function DiagnosticsSection({
                     >
                         {speedTest.running ? 'Testing...' : 'Start Test'}
                     </Button>
-                </div>
-
+                }
+            >
                 {speedTest.running && (
-                    <div className="bg-theme-tertiary rounded-lg p-4 mb-4">
+                    <div className="bg-theme-tertiary rounded-lg p-4">
                         <div className="flex items-center gap-3">
                             <Loader size={20} className="animate-spin text-accent" />
                             <p className="text-theme-primary">
@@ -235,15 +210,13 @@ export function DiagnosticsSection({
                         </div>
                     </div>
                 )}
-            </div>
+            </SettingsSection>
 
             {/* API Health */}
-            <div className="glass-subtle rounded-xl shadow-medium p-6 border border-theme">
-                <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-theme-primary font-medium flex items-center gap-2">
-                        <Zap size={18} className="text-accent" />
-                        API Health Checks
-                    </h4>
+            <SettingsSection
+                title="API Health Checks"
+                icon={Zap}
+                headerRight={
                     <Button
                         onClick={onTestApiHealth}
                         disabled={apiLoading}
@@ -251,8 +224,8 @@ export function DiagnosticsSection({
                     >
                         {apiLoading ? 'Testing...' : 'Refresh'}
                     </Button>
-                </div>
-
+                }
+            >
                 {apiLoading && (
                     <div className="text-center py-8">
                         <Loader size={40} className="mx-auto mb-4 animate-spin text-accent" />
@@ -293,7 +266,7 @@ export function DiagnosticsSection({
                         ))}
                     </div>
                 )}
-            </div>
-        </div>
+            </SettingsSection>
+        </>
     );
 }

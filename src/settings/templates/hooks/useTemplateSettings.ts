@@ -16,6 +16,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useNotifications } from '../../../context/NotificationContext';
 import { readFramerrFile } from '../../../utils/templateExportImport';
 import { generateWidgetId } from '../../../shared/grid/core/ops';
+import { filterRegisteredWidgets } from '../../../widgets/registry';
 import logger from '../../../utils/logger';
 import type { Template, BackupData, BuilderMode } from '../types';
 
@@ -32,6 +33,7 @@ interface UseTemplateSettingsReturn {
 
     // Backup state
     hasBackup: boolean;
+    backupInfo: { createdAt: string; widgetCount: number } | null;
     reverting: boolean;
     showRevertConfirm: boolean;
 
@@ -83,6 +85,7 @@ export function useTemplateSettings(): UseTemplateSettingsReturn {
 
     // Backup state
     const [hasBackup, setHasBackup] = useState(false);
+    const [backupInfo, setBackupInfo] = useState<{ createdAt: string; widgetCount: number } | null>(null);
     const [reverting, setReverting] = useState(false);
     const [showRevertConfirm, setShowRevertConfirm] = useState(false);
 
@@ -114,6 +117,18 @@ export function useTemplateSettings(): UseTemplateSettingsReturn {
             try {
                 const response = await templatesApi.getBackup();
                 setHasBackup(!!response.backup);
+                if (response.backup) {
+                    const widgets = Array.isArray(response.backup.widgets) ? response.backup.widgets : [];
+                    // Backend returns backedUpAt, fallback to createdAt for safety
+                    const backupAny = response.backup as unknown as Record<string, unknown>;
+                    const dateStr = (backupAny.backedUpAt as string) || response.backup.createdAt;
+                    setBackupInfo({
+                        createdAt: dateStr || '',
+                        widgetCount: widgets.length,
+                    });
+                } else {
+                    setBackupInfo(null);
+                }
             } catch (err) {
                 logger.debug('No backup available');
             }
@@ -338,23 +353,25 @@ export function useTemplateSettings(): UseTemplateSettingsReturn {
 
         if (builderMode === 'save-current') {
             // Widgets are already in FramerrWidget format from API - just clean configs
+            const cleaned = currentWidgets.map(w => ({
+                id: w.id,
+                type: w.type,
+                layout: w.layout,
+                mobileLayout: w.mobileLayout,
+                config: cleanConfig(w.config),
+            }));
+            const cleanedMobile = currentMobileWidgets.map(w => ({
+                id: w.id,
+                type: w.type,
+                layout: w.layout,
+                mobileLayout: w.mobileLayout,
+                config: cleanConfig(w.config),
+            }));
             return {
                 name: editingTemplate?.name,
-                widgets: currentWidgets.map(w => ({
-                    id: w.id,
-                    type: w.type,
-                    layout: w.layout,
-                    mobileLayout: w.mobileLayout,
-                    config: cleanConfig(w.config),
-                })),
+                widgets: filterRegisteredWidgets(cleaned, 'builder-save-current'),
                 mobileLayoutMode: currentMobileLayoutMode,
-                mobileWidgets: currentMobileWidgets.map(w => ({
-                    id: w.id,
-                    type: w.type,
-                    layout: w.layout,
-                    mobileLayout: w.mobileLayout,
-                    config: cleanConfig(w.config),
-                })),
+                mobileWidgets: filterRegisteredWidgets(cleanedMobile, 'builder-save-current-mobile'),
             };
         }
         if (builderMode === 'create' && editingTemplate) {
@@ -371,11 +388,13 @@ export function useTemplateSettings(): UseTemplateSettingsReturn {
                 name: editingTemplate.name,
                 description: editingTemplate.description,
                 categoryId: editingTemplate.categoryId,
-                widgets: editingTemplate.widgets,
+                widgets: filterRegisteredWidgets(editingTemplate.widgets || [], `builder-${builderMode}`),
                 isDefault: builderMode === 'edit' ? editingTemplate.isDefault : false,
                 // Mobile layout independence - include from template
                 mobileLayoutMode: editingTemplate.mobileLayoutMode,
-                mobileWidgets: editingTemplate.mobileWidgets,
+                mobileWidgets: editingTemplate.mobileWidgets
+                    ? filterRegisteredWidgets(editingTemplate.mobileWidgets, `builder-${builderMode}-mobile`)
+                    : editingTemplate.mobileWidgets,
             };
         }
         return undefined;
@@ -394,6 +413,7 @@ export function useTemplateSettings(): UseTemplateSettingsReturn {
 
         // Backup state
         hasBackup,
+        backupInfo,
         reverting,
         showRevertConfirm,
 

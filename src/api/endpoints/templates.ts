@@ -191,7 +191,7 @@ export const templatesApi = {
      * Revert to previous dashboard from backup
      */
     revert: () =>
-        api.post<ApiResponse<void>>('/api/templates/revert'),
+        api.post<ApiResponse<void>>('/api/templates/backup/revert'),
 
     // ========== Sharing ==========
 

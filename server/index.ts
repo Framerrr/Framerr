@@ -519,9 +519,7 @@ app.use((err: ServerError, req: Request, res: Response, next: NextFunction) => {
         const { seedDefaultIntegrations } = await import('./services/seedDefaultIntegrations');
         seedDefaultIntegrations();
 
-        // Initialize Metric History Service (after migrations)
-        const { metricHistoryService } = await import('./services/MetricHistoryService');
-        await metricHistoryService.initialize();
+
         // Now start server with config loaded
         const portNum = typeof PORT === 'string' ? parseInt(PORT, 10) : PORT;
 

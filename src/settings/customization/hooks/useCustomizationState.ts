@@ -148,13 +148,13 @@ export function useCustomizationState(options: UseCustomizationStateOptions = {}
             setCustomColors(themeColors);
         }
 
-        // Flatten UI initialization
+        // Solid UI initialization (stored as flattenUI for backward compat)
         const prefs = userConfig.preferences as { ui?: { flattenUI?: boolean }; dashboardGreeting?: { enabled?: boolean; mode?: string; text?: string; headerVisible?: boolean; taglineEnabled?: boolean; taglineText?: string } } | undefined;
         if (prefs?.ui?.flattenUI !== undefined) {
             const shouldFlatten = prefs.ui.flattenUI;
             setFlattenUI(shouldFlatten);
             if (shouldFlatten) {
-                document.documentElement.classList.add('flatten-ui');
+                document.documentElement.classList.add('solid-ui');
             }
         }
 
@@ -401,16 +401,16 @@ export function useCustomizationState(options: UseCustomizationStateOptions = {}
         }
     }, [applicationName, applicationIcon, showSuccess, showError]);
 
-    // Toggle flatten UI (optimistic update)
+    // Toggle solid UI mode (optimistic update)
     const handleToggleFlattenUI = useCallback(async (value: boolean): Promise<void> => {
         const previousValue = flattenUI;
 
         // Optimistic update
         setFlattenUI(value);
         if (value) {
-            document.documentElement.classList.add('flatten-ui');
+            document.documentElement.classList.add('solid-ui');
         } else {
-            document.documentElement.classList.remove('flatten-ui');
+            document.documentElement.classList.remove('solid-ui');
         }
 
         setSavingFlattenUI(true);
@@ -418,17 +418,17 @@ export function useCustomizationState(options: UseCustomizationStateOptions = {}
             await updateUserMutation.mutateAsync({
                 preferences: { ui: { flattenUI: value } }
             });
-            logger.info('Flatten UI preference saved');
+            logger.info('Solid UI preference saved');
         } catch (error) {
             // Rollback on error
-            logger.error('Failed to save flatten UI preference:', error);
-            showError('Save Failed', 'Failed to save flatten UI preference.');
+            logger.error('Failed to save solid UI preference:', error);
+            showError('Save Failed', 'Failed to save solid UI preference.');
 
             setFlattenUI(previousValue);
             if (previousValue) {
-                document.documentElement.classList.add('flatten-ui');
+                document.documentElement.classList.add('solid-ui');
             } else {
-                document.documentElement.classList.remove('flatten-ui');
+                document.documentElement.classList.remove('solid-ui');
             }
         } finally {
             setSavingFlattenUI(false);

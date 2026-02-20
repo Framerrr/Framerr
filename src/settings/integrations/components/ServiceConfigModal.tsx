@@ -14,6 +14,7 @@ import { TestTube, Loader, CheckCircle2, AlertCircle, Save, Pencil, Settings, Be
 import { Modal } from '../../../shared/ui';
 import { Switch } from '../../../shared/ui';
 import { Button } from '../../../shared/ui';
+import { ConfirmDialog } from '../../../shared/ui';
 
 /**
  * EditableName - Click-to-edit component for instance display name
@@ -98,6 +99,10 @@ interface ServiceConfigModalProps {
     canSave?: boolean;
     /** Content for the Notifications tab (webhook configuration) */
     webhookContent?: React.ReactNode;
+    /** Whether the form has unsaved changes */
+    hasUnsavedChanges?: boolean;
+    /** Called to discard changes and close */
+    onDiscard?: () => void;
 }
 
 /**
@@ -119,7 +124,9 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
     saving = false,
     isEnabled = false,
     canSave = true,
-    webhookContent
+    webhookContent,
+    hasUnsavedChanges = false,
+    onDiscard
 }) => {
     const Icon = service.icon;
     const hasWebhook = service.hasWebhook && webhookContent;
@@ -127,9 +134,19 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
     // Tab state - only relevant when webhooks are supported
     type ConfigTab = 'connection' | 'notifications';
     const [activeTab, setActiveTab] = useState<ConfigTab>('connection');
+    const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
 
     // Check if test button should be shown (default true)
     const showTestButton = service.hasConnectionTest !== false && onTest;
+
+    // Handle close attempt — intercept if there are unsaved changes
+    const handleCloseAttempt = () => {
+        if (hasUnsavedChanges) {
+            setShowUnsavedConfirm(true);
+        } else {
+            onClose();
+        }
+    };
 
     // Build the title content (either editable or static)
     const titleContent = (
@@ -166,111 +183,136 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
     );
 
     return (
-        <Modal
-            open={isOpen}
-            onOpenChange={(open) => !open && onClose()}
-            size="lg"
-            className="min-h-[400px]"
-        >
-            {/* Header */}
-            <Modal.Header
-                title={titleContent}
-                subtitle=""
-                icon={<Icon size={20} className="text-theme-secondary" />}
-                actions={headerActions}
-                className="p-6"
-            />
-
-            {/* Tab Bar - only show when webhook support exists */}
-            {hasWebhook && (
-                <div className="flex border-b border-theme px-6">
-                    <button
-                        onClick={() => setActiveTab('connection')}
-                        className={`flex items-center gap-2 py-3 px-4 text-sm font-medium border-b-2 -mb-px transition-colors ${activeTab === 'connection'
-                            ? 'border-accent text-accent'
-                            : 'border-transparent text-theme-secondary hover:text-theme-primary'
-                            }`}
-                    >
-                        <Settings size={16} />
-                        Connection
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('notifications')}
-                        className={`flex items-center gap-2 py-3 px-4 text-sm font-medium border-b-2 -mb-px transition-colors ${activeTab === 'notifications'
-                            ? 'border-accent text-accent'
-                            : 'border-transparent text-theme-secondary hover:text-theme-primary'
-                            }`}
-                    >
-                        <Bell size={16} />
-                        Notifications
-                    </button>
-                </div>
-            )}
-
-            {/* Content - Scrollable with disabled state */}
-            <Modal.Body
-                padded={false}
-                className={`p-2 transition-opacity ${!isEnabled ? 'opacity-50 pointer-events-none' : ''}`}
+        <>
+            <Modal
+                open={isOpen}
+                onOpenChange={(open) => !open && handleCloseAttempt()}
+                size="lg"
+                className="min-h-[400px]"
             >
-                {/* Connection tab or single-mode content */}
-                {(!hasWebhook || activeTab === 'connection') && children}
+                {/* Header */}
+                <Modal.Header
+                    title={titleContent}
+                    subtitle=""
+                    icon={<Icon size={20} className="text-theme-secondary" />}
+                    actions={headerActions}
+                    className="p-6"
+                />
 
-                {/* Notifications tab */}
-                {hasWebhook && activeTab === 'notifications' && webhookContent}
-            </Modal.Body>
-
-            {/* Footer */}
-            <Modal.Footer>
-                <div className="flex items-center justify-between gap-3 w-full">
-                    {/* Left side - Test button + result */}
-                    <div className="flex items-center gap-3 flex-wrap min-w-0">
-                        {showTestButton && (
-                            <Button
-                                onClick={onTest}
-                                disabled={testState?.loading}
-                                variant={testState && !testState.loading
-                                    ? (testState.success ? 'primary' : 'danger')
-                                    : 'secondary'
-                                }
-                                size="sm"
-                                icon={testState?.loading
-                                    ? Loader
-                                    : (testState?.success
-                                        ? CheckCircle2
-                                        : testState
-                                            ? AlertCircle
-                                            : TestTube
-                                    )
-                                }
-                                className={`flex-shrink-0 ${testState && !testState.loading && testState.success
-                                    ? 'bg-success border-success'
-                                    : ''
-                                    }`}
-                            >
-                                {testState?.loading ? 'Testing...' :
-                                    testState?.success ? 'Connected' :
-                                        testState ? 'Failed' : 'Test'}
-                            </Button>
-                        )}
-                        {testState?.message && !testState.loading && (
-                            <span className={`text-sm ${testState.success ? 'text-success' : 'text-error'}`}>
-                                {testState.message}
-                            </span>
-                        )}
+                {/* Tab Bar - only show when webhook support exists */}
+                {hasWebhook && (
+                    <div className="flex border-b border-theme px-6">
+                        <button
+                            onClick={() => setActiveTab('connection')}
+                            className={`flex items-center gap-2 py-3 px-4 text-sm font-medium border-b-2 -mb-px transition-colors ${activeTab === 'connection'
+                                ? 'border-accent text-accent'
+                                : 'border-transparent text-theme-secondary hover:text-theme-primary'
+                                }`}
+                        >
+                            <Settings size={16} />
+                            Connection
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('notifications')}
+                            className={`flex items-center gap-2 py-3 px-4 text-sm font-medium border-b-2 -mb-px transition-colors ${activeTab === 'notifications'
+                                ? 'border-accent text-accent'
+                                : 'border-transparent text-theme-secondary hover:text-theme-primary'
+                                }`}
+                        >
+                            <Bell size={16} />
+                            Notifications
+                        </button>
                     </div>
+                )}
 
-                    {/* Right side - Save */}
-                    <Button
-                        onClick={onSave}
-                        disabled={saving || !canSave}
-                        icon={saving ? Loader : Save}
-                        size="sm"
-                    >
-                        {saving ? 'Saving...' : 'Save'}
-                    </Button>
-                </div>
-            </Modal.Footer>
-        </Modal>
+                {/* Content - Scrollable with disabled state */}
+                <Modal.Body
+                    padded={false}
+                    className={`p-2 transition-opacity ${!isEnabled ? 'opacity-50 pointer-events-none' : ''}`}
+                >
+                    {/* Connection tab or single-mode content */}
+                    {(!hasWebhook || activeTab === 'connection') && children}
+
+                    {/* Notifications tab */}
+                    {hasWebhook && activeTab === 'notifications' && webhookContent}
+                </Modal.Body>
+
+                {/* Footer */}
+                <Modal.Footer>
+                    <div className="flex items-center justify-between gap-3 w-full">
+                        {/* Left side - Test button + result */}
+                        <div className="flex items-center gap-3 flex-wrap min-w-0">
+                            {showTestButton && (
+                                <Button
+                                    onClick={onTest}
+                                    disabled={testState?.loading}
+                                    variant={testState && !testState.loading
+                                        ? (testState.success ? 'primary' : 'danger')
+                                        : 'secondary'
+                                    }
+                                    size="sm"
+                                    icon={testState?.loading
+                                        ? Loader
+                                        : (testState?.success
+                                            ? CheckCircle2
+                                            : testState
+                                                ? AlertCircle
+                                                : TestTube
+                                        )
+                                    }
+                                    className={`flex-shrink-0 ${testState && !testState.loading && testState.success
+                                        ? 'bg-success border-success'
+                                        : ''
+                                        }`}
+                                >
+                                    {testState?.loading ? 'Testing...' :
+                                        testState?.success ? 'Connected' :
+                                            testState ? 'Failed' : 'Test'}
+                                </Button>
+                            )}
+                            {testState?.message && !testState.loading && (
+                                <span className={`text-sm ${testState.success ? 'text-success' : 'text-error'}`}>
+                                    {testState.message}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Right side - Save */}
+                        <Button
+                            onClick={onSave}
+                            disabled={saving || !canSave}
+                            icon={saving ? Loader : Save}
+                            size="sm"
+                        >
+                            {saving ? 'Saving...' : 'Save'}
+                        </Button>
+                    </div>
+                </Modal.Footer>
+            </Modal>
+
+            {/* Unsaved Changes Confirmation */}
+            <ConfirmDialog
+                open={showUnsavedConfirm}
+                onOpenChange={(open) => !open && setShowUnsavedConfirm(false)}
+                onConfirm={() => {
+                    setShowUnsavedConfirm(false);
+                    onSave();
+                }}
+                title="Unsaved Changes"
+                message="You have unsaved changes to this integration's settings. Would you like to save before closing?"
+                confirmLabel="Save"
+                variant="primary"
+                showIcon={false}
+                secondaryAction={onDiscard ? {
+                    label: 'Discard',
+                    onClick: () => {
+                        setShowUnsavedConfirm(false);
+                        onDiscard();
+                    },
+                    variant: 'danger',
+                } : undefined}
+            />
+        </>
     );
 };
 

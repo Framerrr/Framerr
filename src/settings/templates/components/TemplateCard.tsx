@@ -178,7 +178,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
                                 size="sm"
                                 onClick={() => onSync(template)}
                                 title="Sync with latest version"
-                                className="bg-success/15 text-success hover:bg-success/25"
+                                className="bg-success/25 text-success hover:bg-success/10"
                             >
                                 <RefreshCw size={14} />
                             </Button>
@@ -191,7 +191,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
                                 size="sm"
                                 onClick={() => onRevert(template)}
                                 title="Revert to shared version"
-                                className="bg-accent/15"
+                                className="bg-accent/25 hover:bg-accent/10"
                             >
                                 <RotateCcw size={14} />
                             </Button>
@@ -202,7 +202,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
                             size="sm"
                             onClick={() => onEdit(template)}
                             title="Edit template"
-                            className="bg-accent/15"
+                            className="bg-accent/25 hover:bg-accent/10"
                         >
                             <Edit2 size={14} />
                         </Button>
@@ -215,7 +215,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
                             size="sm"
                             onClick={() => onDuplicate(template)}
                             title="Duplicate template"
-                            className="bg-accent/15"
+                            className="bg-accent/25 hover:bg-accent/10"
                         >
                             <Copy size={14} />
                         </Button>
@@ -226,7 +226,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
                                 size="sm"
                                 onClick={() => onShare(template)}
                                 title={isAdmin ? "Share template" : "Export template"}
-                                className="bg-accent/15"
+                                className="bg-accent/25 hover:bg-accent/10"
                             >
                                 <Share2 size={14} />
                             </Button>

@@ -11,7 +11,7 @@
 /* ---- Track (container) ---- */
 
 .segmented-control {
-    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    background: var(--bg-hover);
     border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
     width: fit-content;
     flex-shrink: 0;

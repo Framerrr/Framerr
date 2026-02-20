@@ -263,9 +263,9 @@ const MonitorPopover: React.FC<MonitorPopoverProps> = ({
                                     className={`flex-1 h-5 rounded-sm ${tick.status === 'up' ? 'bg-success' :
                                         tick.status === 'down' ? 'bg-error' :
                                             tick.status === 'mixed' ? 'bg-warning' :
-                                                tick.status === 'maintenance' ? 'bg-info/40' :
-                                                    'bg-theme-tertiary/30'
+                                                'bg-theme-hover'
                                         }`}
+                                    style={tick.status === 'empty' ? { opacity: 0.5 } : undefined}
                                     title={`${tick.hour === 0 ? 'Now' : `${tick.hour}h ago`}${tick.status === 'maintenance' ? ' (maintenance)' : ''}`}
                                 />
                             ))}

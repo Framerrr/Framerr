@@ -61,11 +61,17 @@ export interface ConfirmDialogProps {
     /** Called when user confirms */
     onConfirm: () => void;
     /** Button color variant */
-    variant?: 'danger' | 'warning';
+    variant?: 'danger' | 'warning' | 'primary';
     /** Show loading state */
     loading?: boolean;
     /** Show icon in dialog */
     showIcon?: boolean;
+    /** Optional secondary action (3-button mode) — sits between Cancel and Confirm */
+    secondaryAction?: {
+        label: string;
+        onClick: () => void;
+        variant?: 'danger' | 'warning' | 'primary';
+    };
 }
 
 // ===========================
@@ -82,6 +88,11 @@ const variantStyles = {
         icon: 'text-warning',
         iconBg: 'bg-warning/10',
         button: 'bg-warning hover:bg-warning/90',
+    },
+    primary: {
+        icon: 'text-accent',
+        iconBg: 'bg-accent/10',
+        button: 'bg-accent hover:bg-accent/90',
     },
 } as const;
 
@@ -100,6 +111,7 @@ export function ConfirmDialog({
     variant = 'danger',
     loading = false,
     showIcon = true,
+    secondaryAction,
 }: ConfirmDialogProps) {
     // Use iOS-compatible scroll lock
     useScrollLock(open);
@@ -132,8 +144,8 @@ export function ConfirmDialog({
                             />
                         </Dialog.Overlay>
 
-                        {/* Content wrapper - Desktop: 25% from top, Mobile: centered */}
-                        <div className="fixed inset-0 z-[110] flex items-start md:items-start justify-center pt-[15vh] md:pt-[20vh] p-4">
+                        {/* Content wrapper - Centered */}
+                        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
                             <Dialog.Content asChild>
                                 <motion.div
                                     variants={scaleIn}
@@ -193,6 +205,30 @@ export function ConfirmDialog({
                                             >
                                                 {cancelLabel}
                                             </button>
+
+                                            {/* Secondary Action Button (3-button mode) */}
+                                            {secondaryAction && (
+                                                <button
+                                                    type="button"
+                                                    onClick={secondaryAction.onClick}
+                                                    disabled={loading}
+                                                    className={`
+                                                        flex-1 h-10 px-4
+                                                        rounded-lg font-medium text-sm
+                                                        disabled:opacity-50 disabled:cursor-not-allowed
+                                                        transition-colors
+                                                        inline-flex items-center justify-center
+                                                        ${secondaryAction.variant === 'danger'
+                                                            ? 'text-error bg-error/10 hover:bg-error/20 border border-error/30'
+                                                            : secondaryAction.variant === 'warning'
+                                                                ? 'text-warning bg-warning/10 hover:bg-warning/20 border border-warning/30'
+                                                                : 'text-accent bg-accent/10 hover:bg-accent/20 border border-accent/30'
+                                                        }
+                                                    `}
+                                                >
+                                                    {secondaryAction.label}
+                                                </button>
+                                            )}
 
                                             {/* Confirm Button */}
                                             <button

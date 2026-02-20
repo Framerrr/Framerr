@@ -11,10 +11,9 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { widgetsApi, configApi } from '../../../api/endpoints';
-import { Link, RefreshCw, Trash2, AlertTriangle, Smartphone, LayoutGrid, PanelLeftClose, Monitor } from 'lucide-react';
-import { Button, Switch } from '../../../shared/ui';
+import { Link, RefreshCw, Trash2, Smartphone, LayoutGrid, PanelLeftClose, Monitor } from 'lucide-react';
+import { Button, Switch, ConfirmDialog } from '../../../shared/ui';
 import { SettingsPage, SettingsSection, SettingsItem } from '../../../shared/ui/settings';
-import { Modal } from '../../../shared/ui/Modal';
 import { useLayout } from '../../../context/LayoutContext';
 import logger from '../../../utils/logger';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
@@ -322,84 +321,29 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
                 </AnimatePresence>
             </SettingsSection>
 
-            {/* Reconnect Confirmation Modal */}
-            <Modal
+            {/* Reconnect Confirmation Dialog */}
+            <ConfirmDialog
                 open={showReconnectModal}
                 onOpenChange={(open) => !open && setShowReconnectModal(false)}
-                size="sm"
-            >
-                <Modal.Header title="Reconnect Mobile Layout?" />
-                <Modal.Body>
-                    <div className="space-y-4">
-                        <div className="flex items-start gap-3 p-3 rounded-lg bg-warning/10 border border-warning/20">
-                            <AlertTriangle size={20} className="text-warning flex-shrink-0 mt-0.5" />
-                            <div className="text-sm text-theme-secondary">
-                                Your custom mobile layout will be replaced with the current desktop layout.
-                                Any mobile-only widgets will be removed.
-                            </div>
-                        </div>
+                onConfirm={handleReconnect}
+                title="Reconnect Mobile Layout?"
+                message={`Your custom mobile layout will be replaced with the current desktop layout. Any mobile-only widgets will be removed.\n\nAfter reconnecting, changes made on desktop will automatically update mobile.`}
+                confirmLabel={actionLoading ? 'Reconnecting...' : 'Reconnect'}
+                variant="warning"
+                loading={actionLoading}
+            />
 
-                        <p className="text-theme-secondary text-sm">
-                            After reconnecting, changes made on desktop will automatically update mobile.
-                        </p>
-                    </div>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button
-                        variant="secondary"
-                        onClick={() => setShowReconnectModal(false)}
-                        disabled={actionLoading}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="primary"
-                        onClick={handleReconnect}
-                        disabled={actionLoading}
-                    >
-                        {actionLoading ? 'Reconnecting...' : 'Reconnect'}
-                    </Button>
-                </Modal.Footer>
-            </Modal>
-
-            {/* Reset Confirmation Modal */}
-            <Modal
+            {/* Reset Confirmation Dialog */}
+            <ConfirmDialog
                 open={showResetModal}
                 onOpenChange={(open) => !open && setShowResetModal(false)}
-                size="sm"
-            >
-                <Modal.Header title="Reset All Widgets?" />
-                <Modal.Body>
-                    <div className="space-y-4">
-                        <div className="flex items-start gap-3 p-3 rounded-lg bg-error/10 border border-error/20">
-                            <AlertTriangle size={20} className="text-error flex-shrink-0 mt-0.5" />
-                            <div className="text-sm text-theme-secondary">
-                                This will permanently delete all widgets from both your desktop and mobile dashboards.
-                            </div>
-                        </div>
-
-                        <p className="text-theme-secondary text-sm">
-                            This action cannot be undone. You will start with an empty dashboard.
-                        </p>
-                    </div>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button
-                        variant="secondary"
-                        onClick={() => setShowResetModal(false)}
-                        disabled={actionLoading}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="danger"
-                        onClick={handleReset}
-                        disabled={actionLoading}
-                    >
-                        {actionLoading ? 'Resetting...' : 'Reset Dashboard'}
-                    </Button>
-                </Modal.Footer>
-            </Modal>
+                onConfirm={handleReset}
+                title="Reset All Widgets?"
+                message={`This will permanently delete all widgets from both your desktop and mobile dashboards.\n\nThis action cannot be undone. You will start with an empty dashboard.`}
+                confirmLabel={actionLoading ? 'Resetting...' : 'Reset Dashboard'}
+                variant="danger"
+                loading={actionLoading}
+            />
         </SettingsPage>
     );
 }

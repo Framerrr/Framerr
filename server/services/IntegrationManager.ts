@@ -16,7 +16,8 @@ import { getFirstEnabledByType, IntegrationInstance } from '../db/integrationIns
 import servicePoller from './servicePoller';
 import { initializeBackupScheduler, shutdownBackupScheduler } from './backupScheduler';
 import { startCleanupJob, stopCleanupJob } from './mediaCacheCleanup';
-import { deleteLibrarySyncData } from './librarySyncService';
+import { deleteLibrarySyncData, startLibrarySyncJob, stopLibrarySyncJob } from './librarySyncService';
+import { metricHistoryService } from './MetricHistoryService';
 import { getPlugin } from '../integrations/registry';
 
 // Track initialization state
@@ -90,6 +91,20 @@ export async function startAllServices(): Promise<void> {
         logger.error(`[IntegrationManager] Failed to start backup scheduler: error="${(error as Error).message}"`);
     }
 
+    // Initialize metric history service (reads DB config, starts recording if enabled)
+    try {
+        await metricHistoryService.initialize();
+    } catch (error) {
+        logger.error(`[IntegrationManager] Failed to start metric history: error="${(error as Error).message}"`);
+    }
+
+    // Start periodic library sync job (every 6 hours)
+    try {
+        startLibrarySyncJob();
+    } catch (error) {
+        logger.error(`[IntegrationManager] Failed to start library sync job: error="${(error as Error).message}"`);
+    }
+
     servicesStarted = true;
     logger.info('[IntegrationManager] All services started');
 }
@@ -108,6 +123,7 @@ export function shutdownIntegrationManager(): void {
     servicePoller.stop();
     shutdownBackupScheduler();
     stopCleanupJob();
+    stopLibrarySyncJob();
 
     servicesStarted = false;
     isInitialized = false;

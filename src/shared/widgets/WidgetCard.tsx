@@ -93,7 +93,7 @@ export const WidgetCard: React.FC<WidgetCardProps> = ({
     // Gallery/Modal variants - full display with GridStack drag support
     return (
         <div
-            className={`glass-subtle ${getDragClass()} ${variant === 'gallery' ? 'shadow-medium' : ''} rounded-xl p-${variant === 'gallery' ? '6' : '5'} border border-theme ${draggable ? 'hover:border-accent/50 cursor-grab active:cursor-grabbing' : ''} flex flex-col transition-all`}
+            className={`bg-theme-tertiary ${getDragClass()} rounded-xl p-${variant === 'gallery' ? '6' : '5'} border border-theme ${draggable ? 'hover:border-accent/50 cursor-grab active:cursor-grabbing' : ''} flex flex-col transition-all`}
             style={{
                 ...(fillContainer && { width: '100%', height: '100%', overflow: 'hidden' })
             }}

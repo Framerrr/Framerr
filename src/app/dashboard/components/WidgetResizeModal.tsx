@@ -28,6 +28,7 @@ export interface WidgetResizeModalProps {
     currentLayout: { x: number; y: number; w: number; h: number };
     currentShowHeader?: boolean; // For bidirectional sync
     isMobile: boolean;
+    allLayouts: Array<{ id: string; x: number; y: number; w: number; h: number }>; // All widgets' layouts for Y max
     onSave: (widgetId: string, layout: { x: number; y: number; w: number; h: number }) => void;
     onConfigUpdate?: (widgetId: string, config: Record<string, unknown>) => void;
 }
@@ -158,6 +159,7 @@ const WidgetResizeModal: React.FC<WidgetResizeModalProps> = ({
     currentLayout,
     currentShowHeader,
     isMobile,
+    allLayouts,
     onSave,
     onConfigUpdate
 }) => {
@@ -179,6 +181,14 @@ const WidgetResizeModal: React.FC<WidgetResizeModalProps> = ({
     const maxW = Math.min(metadata?.maxSize?.w ?? maxCols, maxCols);
     const minH = metadata?.minSize?.h ?? 1;
     const maxH = metadata?.maxSize?.h ?? 20;
+
+    // Compute max Y from grid height: bottom edge of lowest OTHER widget + 2 row buffer
+    const maxY = useMemo(() => {
+        const otherLayouts = allLayouts.filter(l => l.id !== widgetId);
+        if (otherLayouts.length === 0) return h + 2;
+        const gridBottom = Math.max(...otherLayouts.map(l => l.y + l.h));
+        return gridBottom + 2;
+    }, [allLayouts, widgetId, h]);
 
     // Reset form when modal opens with new layout
     useEffect(() => {
@@ -257,7 +267,7 @@ const WidgetResizeModal: React.FC<WidgetResizeModalProps> = ({
                                 value={y}
                                 onChange={setY}
                                 min={0}
-                                max={999}
+                                max={maxY}
                                 hasError={fieldErrors.y}
                             />
                         </div>

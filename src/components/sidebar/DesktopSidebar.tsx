@@ -178,9 +178,9 @@ export function DesktopSidebar() {
                 />
             )}
 
-            {/* Backdrop when sidebar is expanded */}
+            {/* Backdrop when sidebar is expanded (skip on settings — sidebar is always open there) */}
             <AnimatePresence>
-                {isExpanded && (
+                {isExpanded && !isOnSettingsPage && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -192,7 +192,7 @@ export function DesktopSidebar() {
             </AnimatePresence>
 
             <motion.aside
-                className="flex flex-col relative fade-in"
+                className="glass-card sidebar-shadow flex flex-col relative fade-in"
                 animate={{
                     width: showNotificationCenter ? 400 : (isExpanded ? 280 : 80),
                     left: sidebarLeft,
@@ -206,15 +206,8 @@ export function DesktopSidebar() {
                     top: '16px',
                     zIndex: 40,
                     overflow: 'hidden',
-                    background: 'linear-gradient(135deg, var(--glass-start), var(--glass-end))',
-                    backdropFilter: 'blur(var(--blur-strong))',
-                    WebkitBackdropFilter: 'blur(var(--blur-strong))',
                     borderRadius: '20px',
-                    boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6), 0 12px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-glass), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
                     transformOrigin: 'left center',
-                    // Fix: force GPU to properly clip backdrop-filter to border-radius
-                    WebkitMaskImage: '-webkit-radial-gradient(white, black)',
-                    maskImage: 'radial-gradient(white, black)',
                 }}
                 onMouseEnter={() => {
                     // Cancel any pending hide (prevents flicker)
@@ -288,7 +281,7 @@ export function DesktopSidebar() {
                     /* NotificationCenter has its own header */
                     null
                 ) : (
-                    <div className="h-20 flex items-center border-b border-slate-700/30 text-accent font-semibold text-lg whitespace-nowrap overflow-hidden relative z-10">
+                    <div className="h-20 flex items-center border-b border-theme-light text-accent font-semibold text-lg whitespace-nowrap overflow-hidden relative z-10">
                         {/* Icon - locked in 80px container */}
                         <div className="w-20 flex items-center justify-center flex-shrink-0 text-accent drop-shadow-lg">
                             {renderIcon(userSettings?.serverIcon, 28)}
@@ -461,7 +454,7 @@ export function DesktopSidebar() {
                     )}
 
                     {/* Footer - ALWAYS visible */}
-                    <div className="flex-shrink-0 py-3 border-t border-slate-700/50 flex flex-col gap-2 relative">
+                    <div className="flex-shrink-0 py-3 border-t border-theme-light flex flex-col gap-2 relative">
                         {/* Notifications Button */}
                         <HighlightItem value="notifications">
                             <button

@@ -558,8 +558,22 @@ function GridStackInner({
 
         gridStack.commit();
 
-
-
+        // If we replaced a -drop element, hide the new widget content during
+        // the FLIP slide animation so it doesn't show behind the overlay.
+        // Self-reveal after 310ms (matching the 300ms slide duration).
+        if (removedIds.some(id => id.endsWith('-drop'))) {
+            for (const id of addedIds) {
+                const contentEl = document.querySelector(
+                    `${mainGridSelector} [gs-id="${id}"] .grid-stack-item-content`
+                ) as HTMLElement | null;
+                if (contentEl) {
+                    contentEl.style.opacity = '0';
+                    setTimeout(() => {
+                        contentEl.style.opacity = '1';
+                    }, 310);
+                }
+            }
+        }
         // NOTE: Don't call compact() here - GridStack auto-compacts based on float setting
         // Manual height recalc without compact (avoids layout shifts)
 

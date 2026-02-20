@@ -28,7 +28,7 @@ import type {
 } from './types';
 
 import { createLgLayoutItem, createSmLayoutItem, createLayoutsFromWidgets } from './layoutCreators';
-import { applyBandDetection } from './mobileLayout';
+import { applyBandDetection, createMobileSnapshot } from './mobileLayout';
 import { useWidgetCrud, type WidgetCrudDeps } from './widgetCrud';
 import { generateAllMobileLayouts } from './widgetConversion';
 import type { HistoryStackName } from '../../shared/grid/core/types';
@@ -163,6 +163,11 @@ export function useWidgetActions(deps: WidgetActionDeps): WidgetActionReturn {
     /**
      * Programmatically resize/reposition a widget.
      * Used by the manual resize modal. Updates in-memory state only (dirty state).
+     * 
+     * Handles the same mobile linked→independent transition as addWidget/deleteWidget:
+     * - Mobile + independent/pendingUnlink: updates mobileWidgets
+     * - Mobile + linked (first edit): creates mobile snapshot, triggers pendingUnlink
+     * - Desktop: updates desktop widgets
      */
     const resizeWidget = useCallback((
         widgetId: string,
@@ -174,11 +179,38 @@ export function useWidgetActions(deps: WidgetActionDeps): WidgetActionReturn {
         const updateFn = (ws: FramerrWidget[]): FramerrWidget[] =>
             coreResizeWidget(ws, widgetId, layout, breakpoint);
 
-        // Update the correct widget array based on current mode
-        if (isMobile && (mobileLayoutMode === 'independent' || pendingUnlink)) {
-            setMobileWidgets(prev => {
-                const updated = updateFn(prev);
-                // Also sync layouts state
+        if (isMobile) {
+            if (mobileLayoutMode === 'independent' || pendingUnlink) {
+                // Already independent or pending — push to undo stack, then resize mobileWidgets
+                if (!isUndoRedoRef.current) {
+                    pushToStack('mobile', mobileWidgets);
+                }
+                setMobileWidgets(prev => {
+                    const updated = updateFn(prev);
+                    setLayouts(prevLayouts => ({
+                        ...prevLayouts,
+                        sm: updated.map(w => ({
+                            id: w.id,
+                            x: w.mobileLayout?.x ?? w.layout.x,
+                            y: w.mobileLayout?.y ?? w.layout.y,
+                            w: w.mobileLayout?.w ?? 4,
+                            h: w.mobileLayout?.h ?? w.layout.h,
+                        }))
+                    }));
+                    return updated;
+                });
+            } else {
+                // Linked mode — first mobile edit triggers pendingUnlink
+                // Create mobile snapshot from desktop, then apply resize to the snapshot
+                const workingMobileWidgets = createMobileSnapshot(widgets);
+
+                // Push the PRE-EDIT mobile state to undo stack
+                pushToStack('mobile', workingMobileWidgets);
+
+                // Apply resize to the snapshot
+                const updated = coreResizeWidget(workingMobileWidgets, widgetId, layout, 'sm');
+
+                setMobileWidgets(updated);
                 setLayouts(prevLayouts => ({
                     ...prevLayouts,
                     sm: updated.map(w => ({
@@ -189,12 +221,15 @@ export function useWidgetActions(deps: WidgetActionDeps): WidgetActionReturn {
                         h: w.mobileLayout?.h ?? w.layout.h,
                     }))
                 }));
-                return updated;
-            });
+                setPendingUnlink(true);
+            }
         } else {
+            // Desktop: push to undo stack, then resize
+            if (!isUndoRedoRef.current) {
+                pushToStack('desktop', widgets);
+            }
             setWidgets(prev => {
                 const updated = updateFn(prev);
-                // Also sync layouts state
                 setLayouts(prevLayouts => ({
                     ...prevLayouts,
                     lg: updated.map(w => ({
@@ -210,7 +245,9 @@ export function useWidgetActions(deps: WidgetActionDeps): WidgetActionReturn {
         }
 
         setHasUnsavedChanges(true);
-    }, [isMobile, mobileLayoutMode, pendingUnlink, setWidgets, setMobileWidgets, setLayouts, setHasUnsavedChanges]);
+    }, [isMobile, mobileLayoutMode, pendingUnlink, widgets, mobileWidgets,
+        isUndoRedoRef, pushToStack, setWidgets, setMobileWidgets, setLayouts,
+        setHasUnsavedChanges, setPendingUnlink]);
 
     // ========== SAVE/CANCEL ==========
 

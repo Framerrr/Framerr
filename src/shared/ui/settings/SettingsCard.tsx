@@ -47,7 +47,7 @@ export const SettingsCard: React.FC<SettingsCardProps> = ({
 
     return (
         <Container
-            className={`bg-theme-tertiary rounded-lg overflow-hidden border border-theme shadow-sm ${className}`}
+            className={`bg-theme-tertiary rounded-xl overflow-hidden border border-theme ${className}`}
             {...containerProps}
         >
             {/* Header - Clickable */}

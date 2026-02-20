@@ -6,7 +6,7 @@
  * Simple services use StandardIntegrationForm, complex services use render props.
  */
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { AlertCircle } from 'lucide-react';
 import ServiceCard from './ServiceCard';
 import IntegrationTypeCard from './IntegrationTypeCard';
@@ -115,6 +115,7 @@ interface ServiceSettingsGridProps {
 
     onSave: (instanceId: string) => Promise<void>;
     onCancel: () => void;
+    onReset: (instanceId: string) => void;
     onDeleteInstance: (instanceId: string) => Promise<void>;
     testStates: Record<string, TestState | null>;
     saving: boolean;
@@ -149,6 +150,7 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
 
     onSave,
     onCancel,
+    onReset,
     onDeleteInstance,
     testStates,
     saving,
@@ -226,6 +228,20 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
         await onSave(instanceId);  // Single-instance save
         setActiveModal(null); // Close modal after successful save
     };
+
+    // Detect unsaved changes for an instance by comparing current vs saved config
+    const hasInstanceChanges = useCallback((instanceId: string): boolean => {
+        const current = integrations[instanceId];
+        const saved = savedIntegrations[instanceId];
+        if (!current && !saved) return false;
+        if (!current || !saved) return true;
+        // Strip metadata fields for comparison
+        const strip = (cfg: Record<string, unknown>) => {
+            const { _instanceId, _type, ...rest } = cfg as Record<string, unknown>;
+            return rest;
+        };
+        return JSON.stringify(strip(current as Record<string, unknown>)) !== JSON.stringify(strip(saved as Record<string, unknown>));
+    }, [integrations, savedIntegrations]);
 
 
 
@@ -436,6 +452,11 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
                         saving={saving}
                         isEnabled={instance.enabled}
                         canSave={canSave(instance.id)}
+                        hasUnsavedChanges={hasInstanceChanges(instance.id)}
+                        onDiscard={() => {
+                            onReset(instance.id);
+                            setActiveModal(null);
+                        }}
                         webhookContent={supportsWebhook ? (
                             <IntegrationNotificationsTab
                                 mode={isLocalMode ? "local" : "webhook"}

@@ -113,9 +113,9 @@ export function ThemePresets({
                     <button
                         key={t.id}
                         onClick={(e) => handleThemeSelect(t.id, e)}
-                        className={`p-4 rounded-lg border-2 transition-all text-left ${displayTheme === t.id && !useCustomColors
+                        className={`p-4 rounded-xl border-2 transition-all text-left ${displayTheme === t.id && !useCustomColors
                             ? 'border-accent bg-accent/10'
-                            : 'border-theme hover:border-theme-light bg-theme-secondary hover:bg-theme-hover transition-all'
+                            : 'border-theme hover:border-theme-light bg-theme-tertiary hover:bg-theme-hover transition-all'
                             }`}
                     >
                         <div className="flex items-start justify-between mb-2">

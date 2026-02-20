@@ -10,7 +10,7 @@ import { useJobsSettings } from '../../jobs/hooks/useJobsSettings';
 import { JobsSection } from '../../jobs/sections/JobsSection';
 import { CacheSection } from '../../jobs/sections/CacheSection';
 import { DefaultsSection } from '../../jobs/sections/DefaultsSection';
-import { SettingsPage, SettingsAlert } from '../../../shared/ui/settings';
+import { SettingsPage } from '../../../shared/ui/settings';
 
 export const JobsPage = (): React.JSX.Element => {
     const {
@@ -44,9 +44,6 @@ export const JobsPage = (): React.JSX.Element => {
         handleSaveDefaults,
         handleRevertMonitorDefaults,
         handleRevertMetricHistoryDefaults,
-
-        error,
-        success,
     } = useJobsSettings();
 
     return (
@@ -54,13 +51,6 @@ export const JobsPage = (): React.JSX.Element => {
             title="Jobs & Cache"
             description="Manage background tasks, cached data, and monitor defaults"
         >
-            {/* Error/Success Messages */}
-            {error && (
-                <SettingsAlert type="error">{error}</SettingsAlert>
-            )}
-            {success && (
-                <SettingsAlert type="success">{success}</SettingsAlert>
-            )}
 
             {/* Background Jobs Table */}
             <JobsSection

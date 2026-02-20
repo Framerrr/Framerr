@@ -137,7 +137,7 @@ const IntegrationCard: React.FC<IntegrationCardProps> = (props) => {
     const allowedEventsForUser = events.filter(e => userEvents.includes(e.key));
 
     return (
-        <div className="bg-theme-tertiary rounded-lg overflow-hidden border border-theme shadow-sm">
+        <div className="bg-theme-tertiary rounded-xl overflow-hidden border border-theme">
             {/* Header - Clickable */}
             <div
                 role="button"

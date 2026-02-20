@@ -8,7 +8,7 @@
  *
  * Usage from wrappers:
  * ```typescript
- * const newWidgets = ops.duplicateWidget(widgets, widgetId);
+ * const newWidgets = ops.addWidget(widgets, newWidget);
  * setWidgets(newWidgets);
  * history.push(newWidgets);
  * ```
@@ -87,38 +87,7 @@ export function deleteWidget(
     return widgets.filter(w => w.id !== widgetId);
 }
 
-/**
- * Duplicate a widget by ID.
- * Creates a copy with a new ID and offset position.
- */
-export function duplicateWidget(
-    widgets: FramerrWidget[],
-    widgetId: string,
-    newId?: string
-): FramerrWidget[] {
-    const widget = widgets.find(w => w.id === widgetId);
-    if (!widget) return widgets;
 
-    const duplicatedWidget: FramerrWidget = {
-        ...widget,
-        id: newId ?? generateWidgetId(),
-        layout: {
-            ...widget.layout,
-            // Offset position to make duplication visible
-            x: Math.min(widget.layout.x + 1, 11), // Stay within 12-col grid
-            y: widget.layout.y + 1,
-        },
-        mobileLayout: widget.mobileLayout
-            ? {
-                ...widget.mobileLayout,
-                y: widget.mobileLayout.y + widget.mobileLayout.h,
-            }
-            : undefined,
-        config: widget.config ? { ...widget.config } : undefined,
-    };
-
-    return [...widgets, duplicatedWidget];
-}
 
 // ============================================================================
 // TENTATIVE WIDGET OPERATIONS (External Drag-to-Grid)

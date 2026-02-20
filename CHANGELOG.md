@@ -2,6 +2,22 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.1.5] - 2026-02-20
+
+### Added
+- Page height lock during widget resize — prevents page from collapsing when resizing widgets near the bottom of the grid
+
+### Changed
+- UI refinements
+
+### Fixed
+- Metric history not working after backup restore
+- Template builder widget filtering
+- Template revert returning 404
+- Integration settings discard not resetting form state
+
+---
+
 ## [0.1.4] - 2026-02-18
 
 ### Added

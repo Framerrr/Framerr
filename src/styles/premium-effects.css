@@ -81,11 +81,11 @@
     background: linear-gradient(135deg, var(--glass-start), var(--glass-end));
     backdrop-filter: blur(var(--blur-strong));
     -webkit-backdrop-filter: blur(var(--blur-strong));
+    border: 1px solid color-mix(in srgb, var(--border-glass) 45%, transparent);
     box-shadow:
         0 20px 40px rgba(0, 0, 0, 0.25),
         0 8px 16px rgba(0, 0, 0, 0.15),
-        0 0 0 1px var(--border-glass),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        inset 0 1px 0 rgba(255, 255, 255, 0.01);
     /* Fix: force GPU to properly clip backdrop-filter to border-radius */
     -webkit-mask-image: -webkit-radial-gradient(white, black);
     mask-image: radial-gradient(white, black);
@@ -96,9 +96,9 @@
     backdrop-filter: blur(var(--blur-medium));
     -webkit-backdrop-filter: blur(var(--blur-medium));
     box-shadow:
-        0 8px 16px rgba(0, 0, 0, 0.3),
-        0 4px 8px rgba(0, 0, 0, 0.2),
-        0 0 0 1px var(--border-glass);
+        0 2px 6px rgba(0, 0, 0, 0.04),
+        0 1px 3px rgba(0, 0, 0, 0.03),
+        0 0 0 1px color-mix(in srgb, var(--border-glass) 35%, transparent);
 }
 
 /* Gradient Border Accent */
@@ -247,7 +247,75 @@
     }
 }
 
-/* Global Flatten UI Mode */
+/* ========================================
+   SIDEBAR SHADOW — Subtle depth separation
+   Persists across glass, solid, and flatten modes
+   to keep sidebar/mobile bar visually distinct.
+   ======================================== */
+
+/* Glass mode: very subtle — let glassmorphism do the heavy lifting */
+.sidebar-shadow {
+    filter: drop-shadow(1px 0 2px rgba(120, 120, 130, 0.06)) !important;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+}
+
+/* Mobile bar: shadow radiates upward */
+.sidebar-shadow-bottom {
+    filter: drop-shadow(0 -1px 2px rgba(120, 120, 130, 0.06)) !important;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+}
+
+/* Reduce glass-card box-shadow on sidebar in glass mode (halved from default) */
+.sidebar-shadow.glass-card,
+.sidebar-shadow-bottom.glass-card {
+    box-shadow:
+        0 20px 40px rgba(0, 0, 0, 0.12),
+        0 8px 16px rgba(0, 0, 0, 0.07),
+        inset 0 1px 0 rgba(255, 255, 255, 0.01);
+}
+
+/* ========================================
+   SOLID UI MODE — Clean opaque aesthetic
+   Replaces glassmorphism with solid backgrounds,
+   clean borders, and subtle shadows. Uses existing
+   theme variables so every theme works automatically.
+   ======================================== */
+
+.solid-ui .glass-card {
+    background: color-mix(in srgb, var(--bg-secondary) 70%, var(--bg-tertiary)) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: var(--shadow-sm) !important;
+    border: 1px solid color-mix(in srgb, var(--border-light) 85%, transparent) !important;
+}
+
+/* Toast & notification center cards — darker bg in solid mode */
+.solid-ui .notification-card.glass-card,
+.solid-ui .notification-card {
+    background: var(--bg-overlay) !important;
+    border-color: var(--bg-hover) !important;
+}
+
+.solid-ui .glass-subtle {
+    background: color-mix(in srgb, var(--bg-secondary) 70%, var(--bg-tertiary)) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+    border: 1px solid var(--border-light) !important;
+}
+
+.solid-ui .glass-card::before,
+.solid-ui .glass-subtle::before {
+    display: none !important;
+}
+
+.solid-ui .glass-accent-border {
+    display: none !important;
+}
+
+/* Legacy alias — existing flatten-ui still works until Phase 3 rename */
 .flatten-ui .glass-card,
 .flatten-ui .glass-subtle {
     background: transparent !important;
@@ -261,7 +329,7 @@
     display: none !important;
 }
 
-/* Per-Widget Flatten Mode */
+/* Per-Widget Flatten Mode — transparent, borderless */
 .flatten-mode.glass-card,
 .flatten-mode.glass-subtle,
 .flatten-mode .glass-card,
@@ -270,6 +338,7 @@
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     box-shadow: none !important;
+    border: none !important;
 }
 
 .flatten-mode.glass-card::before,

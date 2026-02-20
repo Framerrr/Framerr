@@ -271,7 +271,7 @@ export const NotificationCenterProvider = ({ children }: NotificationCenterProvi
 
                 const toastOptions: ToastOptions = {
                     iconId: notification.iconId || undefined,
-                    duration: 10000,
+                    duration: 5000,
                     onBodyClick: openNotificationCenter,
                     notificationId: notification.id
                 };
@@ -362,7 +362,7 @@ export const NotificationCenterProvider = ({ children }: NotificationCenterProvi
                 iconId: data.iconId ?? undefined,
                 iconIds: data.iconIds,
                 metadata: data.metadata,
-                duration: 10000,
+                duration: 5000,
                 onBodyClick: openNotificationCenter
             };
 

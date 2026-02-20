@@ -47,21 +47,11 @@ export const WidgetCard: React.FC<WidgetCardProps> = ({
             <div className="flex items-start gap-2 sm:gap-4 mb-3 sm:mb-4">
                 {/* Icon - Compact on mobile, full on desktop */}
                 <div className="flex-shrink-0">
-                    {/* Mobile: compact icon-only */}
-                    <div className="sm:hidden">
-                        <IconPicker
-                            value={customIcon || getWidgetIconName(widget.type)}
-                            onChange={(iconName: string) => onIconSelect(widget.id, iconName)}
-                            compact
-                        />
-                    </div>
-                    {/* Desktop: full with name */}
-                    <div className="hidden sm:block">
-                        <IconPicker
-                            value={customIcon || getWidgetIconName(widget.type)}
-                            onChange={(iconName: string) => onIconSelect(widget.id, iconName)}
-                        />
-                    </div>
+                    <IconPicker
+                        value={customIcon || getWidgetIconName(widget.type)}
+                        onChange={(iconName: string) => onIconSelect(widget.id, iconName)}
+                        compact
+                    />
                 </div>
 
                 {/* Info */}

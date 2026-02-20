@@ -78,7 +78,7 @@ export const ToastProvider = ({ children }: ToastProviderProps): React.JSX.Eleme
         };
 
         setToasts(prev => {
-            const updated = [toast, ...prev].slice(0, 5);
+            const updated = [toast, ...prev].slice(0, 3);
             return updated;
         });
 

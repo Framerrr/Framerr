@@ -144,11 +144,10 @@
     content: '';
     position: absolute;
     bottom: 0;
-    left: 15%;
-    width: 70%;
+    left: 10%;
+    right: 10%;
     height: 1px;
     background: var(--border-light);
-    opacity: 0.5;
 }
 
 .media-search-item:last-child::after {

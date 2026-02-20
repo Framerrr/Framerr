@@ -5,8 +5,9 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { widgetSharesApi, SaveSharesData, UsersAndGroupsResponse, ExistingSharesResponse } from '../endpoints/widgetShares';
-import { templatesApi, CreateTemplateData, UpdateTemplateData, Template } from '../endpoints/templates';
+import { templatesApi, CreateTemplateData, UpdateTemplateData, Template, TemplatesResponse } from '../endpoints/templates';
 import { queryKeys } from '../queryKeys';
+import { filterRegisteredWidgets } from '../../widgets/registry';
 
 // ============================================================================
 // WIDGET SHARES
@@ -110,23 +111,49 @@ export function useRevokeAllShares() {
 // ============================================================================
 
 /**
+ * Filter template widgets through registry guard
+ */
+function filterTemplateWidgets(template: Template): Template {
+    return {
+        ...template,
+        widgets: filterRegisteredWidgets(template.widgets || [], 'template'),
+        mobileWidgets: template.mobileWidgets
+            ? filterRegisteredWidgets(template.mobileWidgets, 'template-mobile')
+            : template.mobileWidgets,
+    };
+}
+
+/**
  * Fetch all templates with categories
+ * Automatically filters out widget types not in the registry.
  */
 export function useTemplates() {
     return useQuery({
         queryKey: queryKeys.templates.list(),
-        queryFn: () => templatesApi.getAll(),
+        queryFn: async (): Promise<TemplatesResponse> => {
+            const data = await templatesApi.getAll();
+            return {
+                ...data,
+                templates: (data.templates || []).map(filterTemplateWidgets),
+            };
+        },
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 }
 
 /**
  * Fetch single template
+ * Automatically filters out widget types not in the registry.
  */
 export function useTemplate(id: string) {
     return useQuery({
         queryKey: queryKeys.templates.detail(Number(id)),
-        queryFn: () => templatesApi.getById(id),
+        queryFn: async () => {
+            const data = await templatesApi.getById(id);
+            return {
+                template: filterTemplateWidgets(data.template),
+            };
+        },
         enabled: !!id,
     });
 }

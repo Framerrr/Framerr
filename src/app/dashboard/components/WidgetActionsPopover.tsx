@@ -76,9 +76,9 @@ const WidgetActionsPopover: React.FC<WidgetActionsPopoverProps> = ({
             <Popover.Trigger asChild>
                 <button
                     onClick={(e) => e.stopPropagation()}
-                    className="w-6 h-6 rounded bg-white/20 backdrop-blur-md
-                        flex items-center justify-center text-white/80 hover:text-white hover:bg-white/30
-                        transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                    className="w-6 h-6 rounded bg-theme-hover backdrop-blur-md
+                        flex items-center justify-center text-theme-secondary hover:text-theme-primary hover:bg-theme-tertiary
+                        transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                     style={{ pointerEvents: 'auto', cursor: 'pointer' }}
                     aria-label="Widget actions"
                     data-widget-id={widgetId}

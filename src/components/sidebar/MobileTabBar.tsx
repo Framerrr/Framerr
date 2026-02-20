@@ -272,7 +272,7 @@ export function MobileTabBar() {
 
             {/* Mobile menu */}
             <motion.div
-                className="fixed left-4 right-4 z-50 flex flex-col"
+                className="glass-card sidebar-shadow-bottom fixed left-4 right-4 z-50 flex flex-col"
                 animate={{
                     // During drag, shrink height; otherwise use open/closed state
                     // Clamp minimum to 70px (tab bar height)
@@ -290,16 +290,12 @@ export function MobileTabBar() {
                 style={{
                     bottom: '1rem',
                     overflow: 'hidden',
-                    background: 'linear-gradient(135deg, var(--glass-start), var(--glass-end))',
-                    backdropFilter: 'blur(var(--blur-strong))',
-                    WebkitBackdropFilter: 'blur(var(--blur-strong))',
                     borderRadius: '20px',
-                    boxShadow: '0 24px 48px rgba(0, 0, 0, 0.6), 0 12px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--border-glass), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
                 }}
             >
                 {/* Gradient border accent */}
                 <div
-                    className="absolute inset-0 rounded-[20px] pointer-events-none"
+                    className="glass-accent-border absolute inset-0 rounded-[20px] pointer-events-none"
                     style={{
                         background: 'linear-gradient(to top, var(--accent-glow), var(--accent-glow-soft))',
                         WebkitMask: 'linear-gradient(black, black) padding-box, linear-gradient(black, black)',
@@ -412,7 +408,7 @@ export function MobileTabBar() {
                         </div>
                     }
                     footer={
-                        <div className="px-6 pt-4 pb-4 flex-shrink-0" style={{ borderTop: '1px solid rgba(100, 116, 139, 0.3)' }}>
+                        <div className="px-6 pt-4 pb-4 flex-shrink-0 border-t border-theme-light">
                             <button
                                 onClick={() => {
                                     triggerHaptic('light');
@@ -637,7 +633,7 @@ export function MobileTabBar() {
                                         return isActive && (
                                             <motion.div
                                                 layoutId="mobileTabIndicator"
-                                                className="absolute inset-0 rounded-xl bg-accent/20 shadow-lg"
+                                                className="absolute left-0 right-0 top-[-2px] bottom-[2px] rounded-xl bg-accent/20 shadow-sm"
                                                 transition={sidebarSpring}
                                             />
                                         );
@@ -666,7 +662,7 @@ export function MobileTabBar() {
                                         return isActive && (
                                             <motion.div
                                                 layoutId="mobileTabIndicator"
-                                                className="absolute inset-0 rounded-xl bg-accent/20 shadow-lg"
+                                                className="absolute left-0 right-0 top-[-2px] bottom-[2px] rounded-xl bg-accent/20 shadow-sm"
                                                 transition={sidebarSpring}
                                             />
                                         );
@@ -720,7 +716,7 @@ export function MobileTabBar() {
                                         return isActive && (
                                             <motion.div
                                                 layoutId="mobileTabIndicator"
-                                                className="absolute inset-0 rounded-xl bg-accent/20 shadow-lg"
+                                                className="absolute left-0 right-0 top-[-2px] bottom-[2px] rounded-xl bg-accent/20 shadow-sm"
                                                 transition={sidebarSpring}
                                             />
                                         );

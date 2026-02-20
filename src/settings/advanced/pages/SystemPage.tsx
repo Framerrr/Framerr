@@ -1,14 +1,16 @@
 import React from 'react';
+import { RefreshCw } from 'lucide-react';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
 import { useSystemSettings } from '../../system/hooks/useSystemSettings';
 import { InfoSection } from '../../system/sections/InfoSection';
 import { DiagnosticsSection } from '../../system/sections/DiagnosticsSection';
+import { SettingsPage } from '../../../shared/ui/settings';
 
 /**
  * SystemPage - System information and diagnostics (Admin only)
  * 
- * Thin orchestrator that composes InfoSection and DiagnosticsSection.
- * All state management is handled by useSystemSettings hook.
+ * Thin orchestrator that composes InfoSection and DiagnosticsSection
+ * inside a SettingsPage wrapper for consistent layout.
  */
 export const SystemPage = (): React.JSX.Element => {
     const {
@@ -55,7 +57,10 @@ export const SystemPage = (): React.JSX.Element => {
     }
 
     return (
-        <div className="space-y-8">
+        <SettingsPage
+            title="System"
+            description="View system details, resource usage, and run diagnostics"
+        >
             <InfoSection
                 systemInfo={systemInfo}
                 resources={resources}
@@ -79,7 +84,7 @@ export const SystemPage = (): React.JSX.Element => {
                 onRefreshDiagnostics={handleRefreshDiagnostics}
                 getStatusColor={getStatusColor}
             />
-        </div>
+        </SettingsPage>
     );
 };
 

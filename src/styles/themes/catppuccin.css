@@ -1,124 +1,126 @@
 /* Catppuccin Mocha Theme - Cozy Pastel Colors */
 :root[data-theme="catppuccin"] {
-    /* ============================================
+   /* ============================================
        BACKGROUNDS - Catppuccin Mocha Base Colors
        ============================================ */
-    --bg-primary: #1e1e2e;
-    /* Base - Main background */
-    --bg-secondary: #313244;
-    /* Surface0 - Card backgrounds */
-    --bg-tertiary: #45475a;
-    /* Surface1 - Elevated elements */
-    --bg-hover: #585b70;
-    /* Surface2 - Hover state */
+   --bg-primary: #1e1e2e;
+   /* Base - Main background */
+   --bg-secondary: #313244;
+   /* Surface0 - Card backgrounds */
+   --bg-tertiary: #45475a;
+   /* Surface1 - Elevated elements */
+   --bg-hover: #585b70;
+   /* Surface2 - Hover state */
+   --bg-overlay: #3a3b50;
+   /* Floating elements (toasts, notification cards) */
 
-    /* Glassmorphism */
-    --glass-bg: rgba(49, 50, 68, 0.6);
-    --glass-border: rgba(147, 153, 178, 0.15);
-    --glass-bg-light: rgba(49, 50, 68, 0.4);
+   /* Glassmorphism */
+   --glass-bg: rgba(49, 50, 68, 0.6);
+   --glass-border: rgba(147, 153, 178, 0.15);
+   --glass-bg-light: rgba(49, 50, 68, 0.4);
 
-    /* ============================================
+   /* ============================================
        ACCENT COLORS - Catppuccin Blue
        ============================================ */
-    --accent: #89b4fa;
-    /* Blue */
-    --accent-hover: #74c7ec;
-    /* Sapphire */
-    --accent-light: #b4befe;
-    /* Lavender */
-    --accent-secondary: #94e2d5;
-    /* Teal */
+   --accent: #89b4fa;
+   /* Blue */
+   --accent-hover: #74c7ec;
+   /* Sapphire */
+   --accent-light: #b4befe;
+   /* Lavender */
+   --accent-secondary: #94e2d5;
+   /* Teal */
 
-    /* ============================================
+   /* ============================================
        GRADIENTS - Pastel blue gradients
        ============================================ */
-    --gradient-primary: linear-gradient(135deg, #89b4fa 0%, #94e2d5 100%);
-    --gradient-primary-soft: linear-gradient(135deg, rgba(137, 180, 250, 0.15) 0%, rgba(148, 226, 213, 0.05) 100%);
-    --gradient-card-hover: linear-gradient(135deg, rgba(137, 180, 250, 0.1) 0%, rgba(148, 226, 213, 0.05) 100%);
-    --gradient-text: linear-gradient(135deg, #89b4fa 0%, #b4befe 100%);
+   --gradient-primary: linear-gradient(135deg, #89b4fa 0%, #94e2d5 100%);
+   --gradient-primary-soft: linear-gradient(135deg, rgba(137, 180, 250, 0.15) 0%, rgba(148, 226, 213, 0.05) 100%);
+   --gradient-card-hover: linear-gradient(135deg, rgba(137, 180, 250, 0.1) 0%, rgba(148, 226, 213, 0.05) 100%);
+   --gradient-text: linear-gradient(135deg, #89b4fa 0%, #b4befe 100%);
 
-    /* ============================================
+   /* ============================================
        TEXT - Catppuccin Text Colors
        ============================================ */
-    --text-primary: #cdd6f4;
-    /* Text */
-    --text-secondary: #bac2de;
-    /* Subtext1 */
-    --text-tertiary: #a6adc8;
-    /* Subtext0 */
+   --text-primary: #cdd6f4;
+   /* Text */
+   --text-secondary: #bac2de;
+   /* Subtext1 */
+   --text-tertiary: #a6adc8;
+   /* Subtext0 */
 
-    /* ============================================
+   /* ============================================
        BORDERS - Subtle overlay colors
        ============================================ */
-    --border: #6c7086;
-    /* Overlay1 - Visible on Surface backgrounds */
-    --border-light: #45475a;
-    /* Surface1 */
-    --border-accent: rgba(137, 180, 250, 0.4);
+   --border: #6c7086;
+   /* Overlay1 - Visible on Surface backgrounds */
+   --border-light: #45475a;
+   /* Surface1 */
+   --border-accent: rgba(137, 180, 250, 0.4);
 
-    /* ============================================
+   /* ============================================
        STATUS COLORS - Catppuccin Palette
        ============================================ */
-    --success: #a6e3a1;
-    /* Green */
-    --warning: #f9e2af;
-    /* Yellow */
-    --error: #f38ba8;
-    /* Red */
-    --info: #89b4fa;
-    /* Blue */
+   --success: #a6e3a1;
+   /* Green */
+   --warning: #f9e2af;
+   /* Yellow */
+   --error: #f38ba8;
+   /* Red */
+   --info: #89b4fa;
+   /* Blue */
 
-    /* ============================================
+   /* ============================================
        SHADOWS - Softer for pastel aesthetic
        ============================================ */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 10px 20px -5px rgba(0, 0, 0, 0.5);
-    --shadow-xl: 0 20px 30px -8px rgba(0, 0, 0, 0.6);
-    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+   --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4);
+   --shadow-lg: 0 10px 20px -5px rgba(0, 0, 0, 0.5);
+   --shadow-xl: 0 20px 30px -8px rgba(0, 0, 0, 0.6);
+   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
 
-    /* Glow shadows - Blue pastel glow */
-    --shadow-glow: 0 0 20px rgba(137, 180, 250, 0.2);
-    --shadow-glow-lg: 0 0 40px rgba(137, 180, 250, 0.25);
-    --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.35);
+   /* Glow shadows - Blue pastel glow */
+   --shadow-glow: 0 0 20px rgba(137, 180, 250, 0.2);
+   --shadow-glow-lg: 0 0 40px rgba(137, 180, 250, 0.25);
+   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.35);
 
-    /* ============================================
+   /* ============================================
        BLUR
        ============================================ */
-    --blur-sm: blur(4px);
-    --blur-md: blur(8px);
-    --blur-lg: blur(16px);
-    --blur-xl: blur(24px);
+   --blur-sm: blur(4px);
+   --blur-md: blur(8px);
+   --blur-lg: blur(16px);
+   --blur-xl: blur(24px);
 
-    /* ============================================
+   /* ============================================
        PREMIUM DESIGN SYSTEM - Catppuccin Aesthetic
        ============================================ */
 
-    /* Animated Gradient */
-    --gradient-1: #1e1e2e;
-    --gradient-2: #302d41;
-    --gradient-3: #45475a;
-    --gradient-4: #1e1e2e;
+   /* Animated Gradient */
+   --gradient-1: #1e1e2e;
+   --gradient-2: #302d41;
+   --gradient-3: #45475a;
+   --gradient-4: #1e1e2e;
 
-    /* Glassmorphism Colors */
-    --glass-start: rgba(49, 50, 68, 0.95);
-    --glass-end: rgba(30, 30, 46, 0.98);
-    --border-glass: rgba(147, 153, 178, 0.3);
+   /* Glassmorphism Colors */
+   --glass-start: rgba(49, 50, 68, 0.95);
+   --glass-end: rgba(30, 30, 46, 0.98);
+   --border-glass: rgba(147, 153, 178, 0.3);
 
-    /* Glow Effects */
-    --accent-glow: rgba(137, 180, 250, 0.35);
-    --accent-glow-soft: rgba(137, 180, 250, 0.2);
+   /* Glow Effects */
+   --accent-glow: rgba(137, 180, 250, 0.35);
+   --accent-glow-soft: rgba(137, 180, 250, 0.2);
 
-    /* Blur Intensity */
-    --blur-strong: 20px;
-    --blur-medium: 12px;
-    --blur-subtle: 8px;
+   /* Blur Intensity */
+   --blur-strong: 20px;
+   --blur-medium: 12px;
+   --blur-subtle: 8px;
 
-    /* ============================================
+   /* ============================================
        EDIT MODE - Dashboard editing indicators
        ============================================ */
-    --accent-edit: #74c7ec;
-    --accent-edit-soft: rgba(116, 199, 236, 0.3);
-    --scrollbar-thumb: rgba(116, 199, 236, 0.5);
-    --scrollbar-track: rgba(49, 50, 68, 0.5);
+   --accent-edit: #74c7ec;
+   --accent-edit-soft: rgba(116, 199, 236, 0.3);
+   --scrollbar-thumb: rgba(116, 199, 236, 0.5);
+   --scrollbar-track: rgba(49, 50, 68, 0.5);
 }

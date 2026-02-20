@@ -26,12 +26,12 @@ const CustomizeStep: React.FC<CustomizeStepProps> = ({
 }) => {
     const [saving, setSaving] = useState(false);
 
-    // Apply flattenUI immediately to document for instant visual feedback
+    // Apply solid UI mode immediately to document for instant visual feedback
     useEffect(() => {
         if (data.flattenUI) {
-            document.documentElement.classList.add('flatten-ui');
+            document.documentElement.classList.add('solid-ui');
         } else {
-            document.documentElement.classList.remove('flatten-ui');
+            document.documentElement.classList.remove('solid-ui');
         }
     }, [data.flattenUI]);
 

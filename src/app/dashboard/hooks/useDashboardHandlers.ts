@@ -337,30 +337,37 @@ export function useDashboardHandlers({
         const widget = widgets.find(w => w.id === widgetId);
         if (!widget) return;
 
-        // Get source widget's current position from grid layout state
-        const breakpoint = isMobile ? 'sm' : 'lg';
-        const sourceLayout = layouts[breakpoint].find(l => l.id === widgetId);
+        // Get source dimensions from BOTH breakpoints' live grid state
+        const lgLayout = layouts.lg.find(l => l.id === widgetId);
+        const smLayout = layouts.sm.find(l => l.id === widgetId);
 
-        // Create FramerrWidget format with same dimensions, positioned at source's Y
-        // GridStack compaction will handle finding the actual insertion point
+        // Desktop layout: same position, same size (24-col grid)
+        const desktopLayout = {
+            x: lgLayout?.x ?? widget.layout.x,
+            y: lgLayout?.y ?? widget.layout.y,
+            w: lgLayout?.w ?? widget.layout.w,
+            h: lgLayout?.h ?? widget.layout.h,
+        };
+
+        // Mobile layout: same position, same size (4-col grid)
+        // Always constructed so addWidget has correct mobile dimensions
+        const mobileLayout = {
+            x: smLayout?.x ?? widget.mobileLayout?.x ?? 0,
+            y: smLayout?.y ?? widget.mobileLayout?.y ?? 0,
+            w: smLayout?.w ?? widget.mobileLayout?.w ?? GRID_COLS.sm,
+            h: smLayout?.h ?? widget.mobileLayout?.h ?? widget.layout.h,
+        };
+
         const newWidget: FramerrWidget = {
             id: `widget-${Date.now()}`,
             type: widget.type,
-            layout: {
-                x: 0,
-                y: sourceLayout?.y ?? widget.layout.y ?? 0,
-                w: sourceLayout?.w ?? widget.layout.w ?? 4,
-                h: sourceLayout?.h ?? widget.layout.h ?? 4
-            },
-            mobileLayout: widget.mobileLayout ? {
-                ...widget.mobileLayout,
-                y: (isMobile && sourceLayout) ? sourceLayout.y : (widget.mobileLayout.y ?? 0),
-            } : undefined,
-            config: { ...widget.config }
+            layout: desktopLayout,
+            mobileLayout: mobileLayout,
+            config: { ...widget.config },
         };
 
         addWidget(newWidget);
-    }, [widgets, layouts, isMobile, addWidget]);
+    }, [widgets, layouts, addWidget]);
 
     const handleEditWidget = useCallback((widgetId: string): void => {
         setConfigModalWidgetId(widgetId);

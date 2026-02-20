@@ -25,6 +25,7 @@
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
+    border-radius: 0.75rem;
 }
 
 /* Segmented control: fluid width — fills widget up to max, then left-anchors */
@@ -88,7 +89,7 @@
     gap: 0.35rem 0rem;
     padding: 0.65rem 1.25rem;
     border-radius: 0.5rem;
-    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    background: var(--bg-hover);
     width: fit-content;
     margin: 0 auto;
 }
@@ -137,7 +138,7 @@
 
 .tautulli-divider {
     height: 1px;
-    background: var(--border-subtle, rgba(255, 255, 255, 0.06));
+    background: var(--border-light);
     margin: 0.1rem 0;
 }
 
@@ -163,7 +164,7 @@
     padding: 0.5rem;
     border-radius: 0.5rem;
     background: var(--widget-card-bg, rgba(255, 255, 255, 0.03));
-    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    border: 1px solid var(--border-light);
     transition: all 0.2s ease;
 }
 
@@ -245,7 +246,7 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding-bottom: 0.15rem;
-    border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    border-bottom: 1px solid var(--border-light);
     opacity: 0.8;
 }
 
@@ -337,7 +338,7 @@
     left: 10%;
     right: 10%;
     height: 1px;
-    background: var(--border-subtle, rgba(255, 255, 255, 0.04));
+    background: var(--border-light);
 }
 
 /* Poster thumbnail */

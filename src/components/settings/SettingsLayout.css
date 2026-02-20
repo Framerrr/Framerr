@@ -97,8 +97,8 @@
     border: 1px solid var(--border);
 }
 
-/* Group with glassmorphism (when flatten-ui is off) */
-:root:not(.flatten-ui) .settings-group {
+/* Group with glassmorphism (when neither flatten-ui nor solid-ui is active) */
+:root:not(.flatten-ui):not(.solid-ui) .settings-group {
     background: var(--glass-bg, rgba(255, 255, 255, 0.05));
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);

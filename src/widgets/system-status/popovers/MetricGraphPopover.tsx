@@ -381,7 +381,7 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
                                 onClick={() => setCurrentRange(range)}
                                 className={`text-xs px-2 py-1 rounded transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${currentRange === range
                                     ? 'bg-accent text-white'
-                                    : 'bg-theme-tertiary text-theme-secondary hover:text-theme-primary'
+                                    : 'bg-theme-secondary text-theme-secondary hover:text-theme-primary'
                                     }`}
                             >
                                 {range}

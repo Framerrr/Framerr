@@ -8,6 +8,7 @@ import { widgetsApi, SaveWidgetsData, WidgetsResponse } from '../endpoints/widge
 import { configApi, UserConfig } from '../endpoints/config';
 import { systemApi, SystemConfigResponse } from '../endpoints/system';
 import { queryKeys } from '../queryKeys';
+import { filterRegisteredWidgets } from '../../widgets/registry';
 
 // ============================================================================
 // WIDGETS
@@ -15,11 +16,21 @@ import { queryKeys } from '../queryKeys';
 
 /**
  * Fetch all widgets (desktop + mobile layouts)
+ * Automatically filters out widget types not in the registry.
  */
 export function useWidgets() {
     return useQuery({
         queryKey: queryKeys.widgets.dashboard(),
-        queryFn: () => widgetsApi.getAll(),
+        queryFn: async (): Promise<WidgetsResponse> => {
+            const data = await widgetsApi.getAll();
+            return {
+                ...data,
+                widgets: filterRegisteredWidgets(data.widgets || [], 'dashboard'),
+                mobileWidgets: data.mobileWidgets
+                    ? filterRegisteredWidgets(data.mobileWidgets, 'dashboard-mobile')
+                    : data.mobileWidgets,
+            };
+        },
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 }

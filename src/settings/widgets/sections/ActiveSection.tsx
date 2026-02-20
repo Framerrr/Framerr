@@ -61,7 +61,7 @@ const ActiveSection: React.FC = () => {
             </div>
 
             {/* Widgets Section */}
-            <div className="glass-subtle rounded-xl shadow-medium p-6 border border-theme">
+            <div className="glass-subtle rounded-xl p-6 border border-theme">
                 {/* Desktop/Mobile Toggle - only shown in independent mode */}
                 {showViewToggle && (
                     <div className="mb-6 flex items-center justify-between">
@@ -95,15 +95,15 @@ const ActiveSection: React.FC = () => {
 
                 {/* Stats - Inline on mobile */}
                 <div className="mb-6 grid grid-cols-3 gap-2 sm:gap-4">
-                    <div className="glass-subtle shadow-medium rounded-xl p-3 sm:p-4 border border-theme text-center">
+                    <div className="glass-subtle rounded-xl p-3 sm:p-4 border border-theme text-center">
                         <div className="text-xl sm:text-2xl font-bold text-theme-primary">{stats.total}</div>
                         <div className="text-xs sm:text-sm text-theme-secondary">Total</div>
                     </div>
-                    <div className="glass-subtle shadow-medium rounded-xl p-3 sm:p-4 border border-theme text-center">
+                    <div className="glass-subtle rounded-xl p-3 sm:p-4 border border-theme text-center">
                         <div className="text-xl sm:text-2xl font-bold text-theme-primary">{Object.keys(stats.byType).length}</div>
                         <div className="text-xs sm:text-sm text-theme-secondary">Types</div>
                     </div>
-                    <div className="glass-subtle shadow-medium rounded-xl p-3 sm:p-4 border border-theme text-center">
+                    <div className="glass-subtle rounded-xl p-3 sm:p-4 border border-theme text-center">
                         <div className="text-xl sm:text-2xl font-bold text-theme-primary">
                             {displayWidgets.length > 0
                                 ? `${Math.round(displayWidgets.reduce((sum, w) => sum + (w.layout.w ?? 1), 0) / stats.total)}×${Math.round(displayWidgets.reduce((sum, w) => sum + (w.layout.h ?? 1), 0) / stats.total)}`

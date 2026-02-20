@@ -11,6 +11,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Activity } from 'lucide-react';
 import type { WidgetPlugin, ConfigConstraints } from './types';
 import type { WidgetCategory } from '../../shared/types/widget';
+import logger from '../utils/logger';
 
 // ============================================================================
 // AUTO-DISCOVERY
@@ -267,6 +268,75 @@ export function getPreviewWidget(type: string): WidgetComponent | null {
  */
 export function getAllWidgetTypes(): string[] {
     return Array.from(widgetPluginMap.keys());
+}
+
+/**
+ * Check if a widget type exists in the registry
+ */
+export function isRegisteredWidgetType(type: string): boolean {
+    return widgetPluginMap.has(type);
+}
+
+// ============================================================================
+// WIDGET TYPE MIGRATIONS
+// ============================================================================
+
+/**
+ * Map of old widget type IDs to new ones.
+ * When a widget is renamed, add a mapping here so existing dashboards/templates
+ * auto-migrate instead of losing the widget.
+ * 
+ * Example: { 'qbittorrent': 'downloads' }
+ */
+const WIDGET_TYPE_MIGRATIONS: Record<string, string> = {
+    // Add future migrations here, e.g.:
+    // 'old-widget-id': 'new-widget-id',
+};
+
+/**
+ * Filter an array of widgets to only include types that exist in the registry.
+ * Also applies type migrations (old name → new name) before filtering.
+ * 
+ * Use this at every API boundary where widgets are loaded from the server,
+ * to guard against stale/renamed/removed widget types.
+ * 
+ * @param widgets - Array of widget objects with a `type` field
+ * @param context - Description of where this is called (for logging)
+ * @returns Filtered array with only registered widget types
+ */
+export function filterRegisteredWidgets<T extends { type: string }>(
+    widgets: T[],
+    context: string = 'unknown'
+): T[] {
+    if (!widgets || !Array.isArray(widgets)) return [];
+
+    let migratedCount = 0;
+    let removedCount = 0;
+
+    const result = widgets
+        .map(widget => {
+            // Apply migration if old type has a mapping
+            const migrated = WIDGET_TYPE_MIGRATIONS[widget.type];
+            if (migrated) {
+                migratedCount++;
+                return { ...widget, type: migrated };
+            }
+            return widget;
+        })
+        .filter(widget => {
+            if (widgetPluginMap.has(widget.type)) return true;
+            removedCount++;
+            return false;
+        });
+
+    if (migratedCount > 0 || removedCount > 0) {
+        logger.warn(
+            `[WidgetRegistry] ${context}: migrated=${migratedCount} removed=${removedCount} ` +
+            `(${widgets.length} → ${result.length} widgets)`
+        );
+    }
+
+    return result;
 }
 
 // ============================================================================

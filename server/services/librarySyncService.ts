@@ -906,38 +906,40 @@ export function getMediaServerIntegrationsWithSync(): IntegrationInstance[] {
     });
 }
 
+/** Number of recently-added items to fetch per library section */
+const RECENTLY_ADDED_LIMIT = 20;
+
 /**
- * Search a media server for a specific title and upsert it into the library cache.
- * Called surgically when the Overseerr poller detects newly available media.
+ * Fetch recently-added items from all media servers and index any that match
+ * the given set of TMDB IDs. This replaces the old title-based search approach
+ * which was fragile (TV show title suffixes, localization differences, etc.).
  * 
- * @param media - The media to search for (title, tmdbId, mediaType)
+ * @param tmdbIds - Set of TMDB IDs to look for in recently-added items
  * @param mediaServers - Media server instances with library sync enabled
- * @returns true if the item was found and indexed in at least one server
+ * @returns Set of TMDB IDs that were successfully indexed
  */
-export async function searchAndIndexItem(
-    media: { title: string; tmdbId: number; mediaType: 'movie' | 'tv' },
+export async function indexRecentlyAddedForTmdbIds(
+    tmdbIds: Set<number>,
     mediaServers: IntegrationInstance[]
-): Promise<boolean> {
-    let indexed = false;
+): Promise<Set<number>> {
+    const indexed = new Set<number>();
 
     for (const server of mediaServers) {
         try {
             const pluginInstance = toPluginInstance(server);
 
             if (server.type === 'plex') {
-                indexed = await searchAndIndexPlex(server, pluginInstance, media);
-            } else if (server.type === 'jellyfin') {
-                indexed = await searchAndIndexJellyfin(server, pluginInstance, media, 'jellyfin');
-            } else if (server.type === 'emby') {
-                indexed = await searchAndIndexJellyfin(server, pluginInstance, media, 'emby');
+                const found = await indexRecentlyAddedPlex(server, pluginInstance, tmdbIds);
+                for (const id of found) indexed.add(id);
+            } else if (server.type === 'jellyfin' || server.type === 'emby') {
+                const found = await indexRecentlyAddedJellyfin(server, pluginInstance, tmdbIds, server.type);
+                for (const id of found) indexed.add(id);
             }
 
-            if (indexed) {
-                logger.info(`[LibrarySync] Surgical index: title="${media.title}", tmdbId=${media.tmdbId}, server=${server.type}:${server.id}`);
-                break; // Found in one server, no need to check others
-            }
+            // If all TMDB IDs found, no need to check remaining servers
+            if (indexed.size >= tmdbIds.size) break;
         } catch (error) {
-            logger.debug(`[LibrarySync] Surgical search failed: server=${server.type}:${server.id}, error="${(error as Error).message}"`);
+            logger.debug(`[LibrarySync] Surgical refresh failed: server=${server.type}:${server.id}, error="${(error as Error).message}"`);
         }
     }
 
@@ -945,39 +947,40 @@ export async function searchAndIndexItem(
 }
 
 /**
- * Search Plex for a specific title and index if found.
- * Uses per-library-section search (universally supported across Plex versions).
+ * Fetch recently-added items from Plex and index any matching the target TMDB IDs.
  */
-async function searchAndIndexPlex(
+async function indexRecentlyAddedPlex(
     instance: IntegrationInstance,
     pluginInstance: PluginInstance,
-    media: { title: string; tmdbId: number; mediaType: 'movie' | 'tv' }
-): Promise<boolean> {
+    targetTmdbIds: Set<number>
+): Promise<Set<number>> {
     const adapter = new PlexAdapter();
+    const indexed = new Set<number>();
 
-    // First get library sections (same pattern as full sync)
+    // Get library sections
     const sectionsResult = await adapter.execute(pluginInstance, {
         method: 'GET',
         path: '/library/sections'
     });
 
-    if (!sectionsResult.success || !sectionsResult.data) return false;
+    if (!sectionsResult.success || !sectionsResult.data) return indexed;
 
     const mediaContainer = (sectionsResult.data as { MediaContainer?: { Directory?: PlexLibrarySection[] } }).MediaContainer;
     const sections = mediaContainer?.Directory || [];
-
-    // Filter to relevant section type (movies → movie, tv → show)
-    const targetType = media.mediaType === 'tv' ? 'show' : 'movie';
-    const mediaSections = sections.filter(s => s.type === targetType);
+    const mediaSections = sections.filter(s => ['movie', 'show'].includes(s.type));
 
     for (const section of mediaSections) {
-        // Search within this section using title filter
-        // type=1 for movies, type=2 for shows
-        const plexType = targetType === 'movie' ? '1' : '2';
+        // Fetch recently-added items sorted by addedAt descending
+        const plexType = section.type === 'movie' ? '1' : '2';
         const result = await adapter.execute(pluginInstance, {
             method: 'GET',
             path: `/library/sections/${section.key}/all`,
-            query: { type: plexType, title: media.title, includeGuids: '1', 'X-Plex-Container-Size': '10' }
+            query: {
+                type: plexType,
+                sort: 'addedAt:desc',
+                includeGuids: '1',
+                'X-Plex-Container-Size': String(RECENTLY_ADDED_LIMIT)
+            }
         });
 
         if (!result.success || !result.data) continue;
@@ -986,69 +989,120 @@ async function searchAndIndexPlex(
         const items = container?.Metadata || [];
 
         for (const item of items) {
-            // Match by TMDB ID (most reliable)
             const itemTmdbId = item.Guid?.find(g => g.id.startsWith('tmdb://'))?.id.replace('tmdb://', '');
-            if (itemTmdbId && parseInt(itemTmdbId, 10) === media.tmdbId) {
-                // Found it — index into cache
-                await indexPlexItem(
-                    instance.id, instance, section.key,
-                    targetType,
-                    item
-                );
-                return true;
+            if (!itemTmdbId) continue;
+
+            const tmdbId = parseInt(itemTmdbId, 10);
+            if (targetTmdbIds.has(tmdbId) && !indexed.has(tmdbId)) {
+                await indexPlexItem(instance.id, instance, section.key, section.type, item);
+                indexed.add(tmdbId);
+                logger.info(`[LibrarySync] Surgical index: title="${item.title}", tmdbId=${tmdbId}, server=plex:${instance.id}`);
             }
         }
+
+        // If all targets found, stop early
+        if (indexed.size >= targetTmdbIds.size) break;
     }
 
-    return false;
+    return indexed;
 }
 
-
 /**
- * Search Jellyfin/Emby for a specific title and index if found.
+ * Fetch recently-added items from Jellyfin/Emby and index any matching the target TMDB IDs.
  */
-async function searchAndIndexJellyfin(
+async function indexRecentlyAddedJellyfin(
     instance: IntegrationInstance,
     pluginInstance: PluginInstance,
-    media: { title: string; tmdbId: number; mediaType: 'movie' | 'tv' },
+    targetTmdbIds: Set<number>,
     serverType: 'jellyfin' | 'emby'
-): Promise<boolean> {
+): Promise<Set<number>> {
     const adapter = serverType === 'jellyfin' ? new JellyfinAdapter() : new EmbyAdapter();
     const userId = instance.config.userId as string;
+    const indexed = new Set<number>();
 
-    if (!userId) return false;
+    if (!userId) return indexed;
 
-    // Search via Items endpoint with searchTerm
-    const includeTypes = media.mediaType === 'tv' ? 'Series' : 'Movie';
-    const result = await adapter.execute(pluginInstance, {
-        method: 'GET',
-        path: `/Users/${userId}/Items`,
-        query: {
-            searchTerm: media.title,
-            limit: '10',
-            includeItemTypes: includeTypes,
-            recursive: 'true',
-            fields: 'Overview,Genres,Studios,People,ProviderIds'
+    // Fetch recently-added movies and series
+    for (const includeType of ['Movie', 'Series']) {
+        const result = await adapter.execute(pluginInstance, {
+            method: 'GET',
+            path: `/Users/${userId}/Items`,
+            query: {
+                includeItemTypes: includeType,
+                sortBy: 'DateCreated',
+                sortOrder: 'Descending',
+                limit: String(RECENTLY_ADDED_LIMIT),
+                recursive: 'true',
+                fields: 'Overview,Genres,Studios,People,ProviderIds'
+            }
+        });
+
+        if (!result.success || !result.data) continue;
+
+        const items = (result.data as { Items?: JellyfinMediaItem[] }).Items || [];
+
+        for (const item of items) {
+            const itemTmdbId = item.ProviderIds?.Tmdb ? parseInt(item.ProviderIds.Tmdb, 10) : null;
+            if (itemTmdbId === null) continue;
+
+            if (targetTmdbIds.has(itemTmdbId) && !indexed.has(itemTmdbId)) {
+                await indexJellyfinItem(instance.id, instance, 'recent', item, serverType);
+                indexed.add(itemTmdbId);
+                logger.info(`[LibrarySync] Surgical index: title="${item.Name}", tmdbId=${itemTmdbId}, server=${serverType}:${instance.id}`);
+            }
         }
-    });
 
-    if (!result.success || !result.data) return false;
-
-    const items = (result.data as { Items?: JellyfinMediaItem[] }).Items || [];
-
-    for (const item of items) {
-        // Match by TMDB ID
-        const itemTmdbId = item.ProviderIds?.Tmdb ? parseInt(item.ProviderIds.Tmdb, 10) : null;
-        if (itemTmdbId === media.tmdbId) {
-            // Found it — index into cache
-            await indexJellyfinItem(
-                instance.id, instance,
-                'search',
-                item, serverType
-            );
-            return true;
-        }
+        // If all targets found, stop early
+        if (indexed.size >= targetTmdbIds.size) break;
     }
 
-    return false;
+    return indexed;
+}
+
+// ============================================================================
+// PERIODIC SYNC JOB
+// ============================================================================
+
+const LIBRARY_SYNC_JOB_ID = 'library-sync';
+
+/**
+ * Start the periodic library sync cron job (every 6 hours).
+ * Runs startFullSync for every media server with library sync enabled.
+ */
+export function startLibrarySyncJob(): void {
+    const { registerJob } = require('./jobScheduler');
+
+    registerJob({
+        id: LIBRARY_SYNC_JOB_ID,
+        name: 'Library Sync',
+        cronExpression: '0 */6 * * *',
+        description: 'Every 6 hours',
+        execute: async () => {
+            const mediaServers = getMediaServerIntegrationsWithSync();
+            if (mediaServers.length === 0) {
+                logger.debug('[LibrarySync] Periodic sync: no media servers with sync enabled');
+                return;
+            }
+
+            logger.info(`[LibrarySync] Periodic sync starting: ${mediaServers.length} server(s)`);
+
+            // Run syncs sequentially to avoid overloading
+            for (const server of mediaServers) {
+                try {
+                    await startFullSync(server.id);
+                } catch (error) {
+                    logger.error(`[LibrarySync] Periodic sync failed for ${server.type}:${server.id}: error="${(error as Error).message}"`);
+                }
+            }
+        },
+        runOnStart: false, // IntegrationManager already syncs on startup
+    });
+}
+
+/**
+ * Stop the periodic library sync cron job.
+ */
+export function stopLibrarySyncJob(): void {
+    const { unregisterJob } = require('./jobScheduler');
+    unregisterJob(LIBRARY_SYNC_JOB_ID);
 }

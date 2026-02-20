@@ -22,7 +22,7 @@ export const StatsSection = ({
     onRefresh
 }: StatsSectionProps): React.JSX.Element => {
     return (
-        <div className="glass-subtle rounded-xl shadow-medium p-4 border border-theme flex items-center gap-4 md:gap-6">
+        <div className="glass-subtle rounded-xl p-4 border border-theme flex items-center gap-4 md:gap-6">
             <div className="flex items-center gap-2 text-theme-secondary">
                 <Archive size={18} className="text-accent" />
                 <span className="font-medium text-theme-primary">{backupCount}</span>

@@ -47,12 +47,12 @@ const AccountSettings: React.FC = () => {
     return (
         <SettingsPage
             title="Linked Accounts"
-            description="Connect external services to enable SSO login and personalized features"
+            description="Connect external services to personalize your Framerr experience"
         >
             <SettingsSection title="External Services" icon={Link2}>
                 {/* Info Banner */}
                 <SettingsAlert type="info" className="mb-4">
-                    <strong>About Linked Accounts:</strong> Link your Plex for SSO login and Overseerr for personalized notifications.
+                    <strong>About Linked Accounts:</strong> Connect your external accounts to Framerr for personalized content, notifications, and streamlined sign-in.
                     Credentials are only used for verification and never stored.
                 </SettingsAlert>
 

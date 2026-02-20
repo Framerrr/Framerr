@@ -1,6 +1,7 @@
 import React from 'react';
 import { Server, Cpu, HardDrive, RefreshCw } from 'lucide-react';
 import { Button } from '../../../shared/ui';
+import { SettingsSection } from '../../../shared/ui/settings';
 import type { SystemInfo, Resources } from '../types';
 
 interface InfoSectionProps {
@@ -24,6 +25,7 @@ function formatMemory(mb: number): string {
 
 /**
  * InfoSection - System information and resource usage display
+ * Uses SettingsSection for consistent L3 containers.
  */
 export function InfoSection({
     systemInfo,
@@ -33,30 +35,22 @@ export function InfoSection({
     formatUptime
 }: InfoSectionProps): React.JSX.Element {
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between pl-4 md:pl-2">
-                <div>
-                    <h3 className="text-xl font-bold text-theme-primary mb-1">System Information</h3>
-                    <p className="text-theme-secondary text-sm">
-                        View system details and resource usage
-                    </p>
-                </div>
-                <Button
-                    onClick={onRefresh}
-                    disabled={refreshing}
-                    variant="secondary"
-                    icon={RefreshCw}
-                    title="Refresh data"
-                    className={refreshing ? '[&>svg]:animate-spin' : ''}
-                />
-            </div>
-
+        <>
             {/* System Details */}
-            <div className="glass-subtle rounded-xl shadow-medium p-6 border border-theme">
-                <h4 className="text-theme-primary font-medium mb-4 flex items-center gap-2">
-                    <Server size={18} className="text-accent" />
-                    System Details
-                </h4>
+            <SettingsSection
+                title="System Details"
+                icon={Server}
+                headerRight={
+                    <Button
+                        onClick={onRefresh}
+                        disabled={refreshing}
+                        variant="secondary"
+                        icon={RefreshCw}
+                        title="Refresh data"
+                        className={refreshing ? '[&>svg]:animate-spin' : ''}
+                    />
+                }
+            >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <p className="text-theme-secondary text-sm">App Version</p>
@@ -77,15 +71,10 @@ export function InfoSection({
                         </p>
                     </div>
                 </div>
-            </div>
+            </SettingsSection>
 
             {/* Resource Usage */}
-            <div className="glass-subtle rounded-xl shadow-medium p-6 border border-theme">
-                <h4 className="text-theme-primary font-medium mb-4 flex items-center gap-2">
-                    <Cpu size={18} className="text-accent" />
-                    Resource Usage
-                </h4>
-
+            <SettingsSection title="Resource Usage" icon={Cpu}>
                 {/* Memory */}
                 <div className="mb-6">
                     <div className="flex justify-between mb-2">
@@ -119,7 +108,7 @@ export function InfoSection({
                         Percentage of system memory in use
                     </p>
                 </div>
-            </div>
-        </div>
+            </SettingsSection>
+        </>
     );
 }

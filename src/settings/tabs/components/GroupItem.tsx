@@ -43,7 +43,7 @@ export const GroupItem: React.FC<GroupItemProps> = ({
         <div
             ref={setNodeRef}
             style={style}
-            className="bg-theme-tertiary rounded-lg p-4 border border-theme shadow-sm flex items-center gap-4 hover:bg-theme-hover transition-colors"
+            className="bg-theme-tertiary rounded-xl p-4 border border-theme flex items-center gap-4 hover:bg-theme-hover transition-colors"
         >
             {/* Drag Handle */}
             <button
