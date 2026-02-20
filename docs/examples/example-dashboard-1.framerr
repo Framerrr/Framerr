@@ -1,0 +1,581 @@
+{
+  "version": 1,
+  "exportedAt": "2026-02-20T06:01:43.257Z",
+  "exportedFrom": "Framerr",
+  "template": {
+    "name": "example-dashboard-1",
+    "description": null,
+    "widgets": [
+      {
+        "type": "link-grid",
+        "layout": {
+          "x": 0,
+          "y": 0,
+          "w": 10,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 1
+        },
+        "config": {
+          "hideHeader": true,
+          "title": "Link Grid",
+          "links": [
+            {
+              "id": "link-1771457860478",
+              "title": "",
+              "icon": "Power",
+              "size": "circle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": false
+              }
+            },
+            {
+              "id": "link-1771457904430",
+              "title": "",
+              "icon": "RotateCcw",
+              "size": "circle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": false
+              }
+            },
+            {
+              "id": "link-1771457835448",
+              "title": "Unraid",
+              "icon": "system:unraid",
+              "size": "rectangle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": true
+              }
+            },
+            {
+              "id": "link-1771457848877",
+              "title": "Youtube",
+              "icon": "cdn:youtube",
+              "size": "rectangle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": true
+              }
+            },
+            {
+              "id": "link-1771457886018",
+              "title": "Twitch",
+              "icon": "cdn:twitch",
+              "size": "rectangle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": true
+              }
+            }
+          ],
+          "flatten": true,
+          "gridJustify": "left"
+        }
+      },
+      {
+        "type": "service-status",
+        "layout": {
+          "x": 0,
+          "y": 1,
+          "w": 9,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 1,
+          "w": 4,
+          "h": 1
+        },
+        "config": {
+          "title": "Framerr Monitor",
+          "integrationId": "monitor-5a61b485",
+          "showHeader": false,
+          "flatten": true
+        }
+      },
+      {
+        "type": "media-search",
+        "layout": {
+          "x": 9,
+          "y": 1,
+          "w": 15,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 2,
+          "w": 4,
+          "h": 1
+        },
+        "config": {
+          "showHeader": false,
+          "searchTakeover": true,
+          "hideOverseerrAvailable": true,
+          "title": "Media Search",
+          "libraryIntegrationIds": [
+            "plex-8ee2061d"
+          ],
+          "overseerrIntegrationIds": [
+            "overseerr-a2894886"
+          ]
+        }
+      },
+      {
+        "type": "clock",
+        "layout": {
+          "x": 0,
+          "y": 2,
+          "w": 5,
+          "h": 3
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 3,
+          "w": 4,
+          "h": 3
+        },
+        "config": {
+          "title": "Clock",
+          "showHeader": false
+        }
+      },
+      {
+        "type": "weather",
+        "layout": {
+          "x": 0,
+          "y": 5,
+          "w": 5,
+          "h": 3
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 6,
+          "w": 4,
+          "h": 3
+        },
+        "config": {
+          "locationMode": "search",
+          "citySearch": "New York, New York",
+          "cityName": "New York, New York",
+          "latitude": 40.7128,
+          "longitude": -74.006,
+          "showCity": true,
+          "title": "Weather",
+          "showHeader": false
+        }
+      },
+      {
+        "type": "system-status",
+        "layout": {
+          "x": 5,
+          "y": 2,
+          "w": 8,
+          "h": 6
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 9,
+          "w": 4,
+          "h": 6
+        },
+        "config": {
+          "layout": "grid",
+          "showCpu": true,
+          "showMemory": true,
+          "showTemperature": true,
+          "showUptime": true,
+          "showDiskUsage": true,
+          "showNetworkUp": true,
+          "showNetworkDown": true,
+          "diskCollapsed": "collapsed",
+          "title": "Unraid",
+          "integrationId": "glances-9290350e",
+          "titleOverridden": true,
+          "customIcon": "system:unraid",
+          "iconOverridden": true,
+          "metricOrder": [
+            "cpu",
+            "memory",
+            "temperature",
+            "uptime",
+            "networkUp",
+            "networkDown"
+          ],
+          "metricSpans": {
+            "cpu": 4,
+            "memory": 4,
+            "temperature": 3,
+            "uptime": 1
+          }
+        }
+      },
+      {
+        "type": "overseerr",
+        "layout": {
+          "x": 13,
+          "y": 2,
+          "w": 11,
+          "h": 6
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 15,
+          "w": 4,
+          "h": 6
+        },
+        "config": {
+          "viewMode": "auto",
+          "title": "Overseerr",
+          "integrationId": "overseerr-a2894886",
+          "customIcon": "system:overseerr"
+        }
+      },
+      {
+        "type": "calendar",
+        "layout": {
+          "x": 0,
+          "y": 8,
+          "w": 10,
+          "h": 6
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 21,
+          "w": 4,
+          "h": 6
+        },
+        "config": {
+          "viewMode": "both",
+          "title": "Calendar",
+          "sonarrIntegrationIds": [
+            "sonarr-1a6a3e63"
+          ],
+          "radarrIntegrationIds": [
+            "radarr-9e03f144"
+          ]
+        }
+      },
+      {
+        "type": "sonarr",
+        "layout": {
+          "x": 10,
+          "y": 8,
+          "w": 6,
+          "h": 6
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 27,
+          "w": 4,
+          "h": 6
+        },
+        "config": {
+          "viewMode": "stacked",
+          "title": "Sonarr",
+          "integrationId": "sonarr-1a6a3e63",
+          "showStatsBar": "false"
+        }
+      },
+      {
+        "type": "downloads",
+        "layout": {
+          "x": 16,
+          "y": 8,
+          "w": 8,
+          "h": 6
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 33,
+          "w": 4,
+          "h": 6
+        },
+        "config": {
+          "title": "Downloads",
+          "integrationId": "qbittorrent-76a2fef7"
+        }
+      }
+    ],
+    "mobileLayoutMode": "independent",
+    "mobileWidgets": [
+      {
+        "type": "link-grid",
+        "layout": {
+          "x": 0,
+          "y": 1,
+          "w": 4,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 1
+        },
+        "config": {
+          "hideHeader": true,
+          "title": "Link Grid",
+          "links": [
+            {
+              "id": "link-1771458709269",
+              "title": "",
+              "icon": "Power",
+              "size": "circle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": true
+              }
+            },
+            {
+              "id": "link-1771458726012",
+              "title": "",
+              "icon": "RotateCcw",
+              "size": "circle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": true
+              }
+            },
+            {
+              "id": "link-1771458738336",
+              "title": "Unraid",
+              "icon": "system:unraid",
+              "size": "rectangle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": true
+              }
+            },
+            {
+              "id": "link-1771458749159",
+              "title": "Youtube",
+              "icon": "cdn:youtube",
+              "size": "rectangle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": true
+              }
+            },
+            {
+              "id": "link-1771458768701",
+              "title": "Twitch",
+              "icon": "cdn:twitch",
+              "size": "rectangle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": true
+              }
+            }
+          ],
+          "flatten": true
+        }
+      },
+      {
+        "type": "media-search",
+        "layout": {
+          "x": 9,
+          "y": 1,
+          "w": 15,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 1,
+          "w": 4,
+          "h": 1
+        },
+        "config": {
+          "showHeader": false,
+          "searchTakeover": true,
+          "hideOverseerrAvailable": true,
+          "title": "Media Search",
+          "libraryIntegrationIds": [
+            "plex-8ee2061d"
+          ],
+          "overseerrIntegrationIds": [
+            "overseerr-a2894886"
+          ]
+        }
+      },
+      {
+        "type": "service-status",
+        "layout": {
+          "x": 0,
+          "y": 1,
+          "w": 9,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 3,
+          "y": 2,
+          "w": 1,
+          "h": 5
+        },
+        "config": {
+          "title": "Framerr Monitor",
+          "integrationId": "monitor-5a61b485",
+          "showHeader": false,
+          "flatten": false
+        }
+      },
+      {
+        "type": "system-status",
+        "layout": {
+          "x": 5,
+          "y": 2,
+          "w": 8,
+          "h": 6
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 2,
+          "w": 3,
+          "h": 5
+        },
+        "config": {
+          "layout": "grid",
+          "showCpu": true,
+          "showMemory": true,
+          "showTemperature": true,
+          "showUptime": true,
+          "showDiskUsage": true,
+          "showNetworkUp": true,
+          "showNetworkDown": true,
+          "diskCollapsed": "collapsed",
+          "title": "Unraid",
+          "integrationId": "glances-9290350e",
+          "titleOverridden": true,
+          "customIcon": "system:unraid",
+          "iconOverridden": true,
+          "metricOrder": [
+            "cpu",
+            "memory",
+            "temperature",
+            "uptime",
+            "networkUp",
+            "networkDown"
+          ],
+          "metricSpans": {
+            "cpu": 4,
+            "memory": 4,
+            "temperature": 3,
+            "uptime": 1
+          }
+        }
+      },
+      {
+        "type": "overseerr",
+        "layout": {
+          "x": 13,
+          "y": 2,
+          "w": 11,
+          "h": 6
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 7,
+          "w": 4,
+          "h": 6
+        },
+        "config": {
+          "viewMode": "auto",
+          "title": "Overseerr",
+          "integrationId": "overseerr-f93d40fc",
+          "customIcon": "system:overseerr"
+        }
+      },
+      {
+        "type": "calendar",
+        "layout": {
+          "x": 0,
+          "y": 8,
+          "w": 10,
+          "h": 6
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 13,
+          "w": 4,
+          "h": 6
+        },
+        "config": {
+          "viewMode": "both",
+          "title": "Calendar",
+          "sonarrIntegrationIds": [
+            "sonarr-1a6a3e63"
+          ],
+          "radarrIntegrationIds": [
+            "radarr-9e03f144"
+          ]
+        }
+      },
+      {
+        "type": "sonarr",
+        "layout": {
+          "x": 10,
+          "y": 8,
+          "w": 6,
+          "h": 6
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 19,
+          "w": 4,
+          "h": 6
+        },
+        "config": {
+          "viewMode": "stacked",
+          "title": "Sonarr",
+          "integrationId": "sonarr-1a6a3e63",
+          "showStatsBar": "false"
+        }
+      },
+      {
+        "type": "downloads",
+        "layout": {
+          "x": 16,
+          "y": 8,
+          "w": 8,
+          "h": 6
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 25,
+          "w": 4,
+          "h": 6
+        },
+        "config": {
+          "title": "Downloads",
+          "integrationId": "qbittorrent-76a2fef7"
+        }
+      }
+    ]
+  }
+}

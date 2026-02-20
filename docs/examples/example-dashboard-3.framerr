@@ -1,0 +1,734 @@
+{
+  "version": 1,
+  "exportedAt": "2026-02-20T06:07:40.649Z",
+  "exportedFrom": "Framerr",
+  "template": {
+    "name": "Dashboard 1",
+    "description": null,
+    "widgets": [
+      {
+        "type": "link-grid",
+        "layout": {
+          "x": 0,
+          "y": 0,
+          "w": 24,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 1
+        },
+        "config": {
+          "hideHeader": true,
+          "title": "Link Grid",
+          "flatten": true,
+          "links": [
+            {
+              "id": "link-1770719106194",
+              "title": "Wake PC",
+              "icon": "Power",
+              "size": "rectangle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": true
+              }
+            },
+            {
+              "id": "link-1770719141671",
+              "title": "Unraid",
+              "icon": "system:unraid",
+              "size": "rectangle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": true
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "tautulli",
+        "layout": {
+          "x": 12,
+          "y": 23,
+          "w": 12,
+          "h": 8
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 58,
+          "w": 4,
+          "h": 8
+        },
+        "config": {
+          "title": "Tautulli",
+          "integrationId": "tautulli-71199816",
+          "itemCount": "20",
+          "showStatsBar": "true"
+        }
+      },
+      {
+        "type": "service-status",
+        "layout": {
+          "x": 0,
+          "y": 1,
+          "w": 24,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 1,
+          "w": 4,
+          "h": 1
+        },
+        "config": {
+          "flatten": true,
+          "integrationId": "monitor-5a61b485",
+          "showHeader": false
+        }
+      },
+      {
+        "type": "clock",
+        "layout": {
+          "x": 0,
+          "y": 2,
+          "w": 12,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 2,
+          "w": 4,
+          "h": 1
+        },
+        "config": {
+          "showHeader": true,
+          "flatten": true
+        }
+      },
+      {
+        "type": "weather",
+        "layout": {
+          "x": 12,
+          "y": 2,
+          "w": 12,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 3,
+          "w": 4,
+          "h": 1
+        },
+        "config": {
+          "showHeader": true,
+          "flatten": true,
+          "locationMode": "search",
+          "citySearch": "New York, New York, United States",
+          "latitude": 40.71427,
+          "longitude": -74.00597,
+          "cityName": "New York, New York"
+        }
+      },
+      {
+        "type": "media-search",
+        "layout": {
+          "x": 0,
+          "y": 3,
+          "w": 24,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 4,
+          "w": 4,
+          "h": 1
+        },
+        "config": {
+          "showHeader": false,
+          "plexIntegrationIds": [
+            "plex-8ee2061d"
+          ],
+          "flatten": true,
+          "searchTakeover": true,
+          "overseerrIntegrationIds": [
+            "overseerr-a2894886"
+          ],
+          "libraryIntegrationIds": [
+            "plex-8ee2061d"
+          ],
+          "hideOverseerrAvailable": false
+        }
+      },
+      {
+        "type": "system-status",
+        "layout": {
+          "x": 0,
+          "y": 4,
+          "w": 10,
+          "h": 7
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 5,
+          "w": 4,
+          "h": 7
+        },
+        "config": {
+          "layout": "grid",
+          "showCpu": true,
+          "showMemory": true,
+          "showTemperature": true,
+          "showUptime": true,
+          "showDiskUsage": true,
+          "showNetworkUp": true,
+          "showNetworkDown": true,
+          "diskCollapsed": "collapsed",
+          "title": "Unraid",
+          "integrationId": "glances-9290350e",
+          "titleOverridden": true,
+          "customIcon": "system:unraid",
+          "iconOverridden": true,
+          "showHeader": false,
+          "_diskList": [
+            {
+              "id": "data-1",
+              "name": "disk1"
+            },
+            {
+              "id": "data-2",
+              "name": "disk2"
+            },
+            {
+              "id": "data-3",
+              "name": "disk3"
+            },
+            {
+              "id": "cache-30",
+              "name": "cache"
+            }
+          ],
+          "metricOrder": [
+            "cpu",
+            "memory",
+            "temperature",
+            "uptime",
+            "networkUp",
+            "networkDown"
+          ]
+        }
+      },
+      {
+        "type": "overseerr",
+        "layout": {
+          "x": 10,
+          "y": 4,
+          "w": 14,
+          "h": 7
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 12,
+          "w": 4,
+          "h": 7
+        },
+        "config": {
+          "viewMode": "auto",
+          "integrationId": "overseerr-a2894886",
+          "customIcon": "system:overseerr",
+          "title": "Overseerr"
+        }
+      },
+      {
+        "type": "radarr",
+        "layout": {
+          "x": 0,
+          "y": 11,
+          "w": 8,
+          "h": 7
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 19,
+          "w": 4,
+          "h": 7
+        },
+        "config": {
+          "integrationId": "radarr-9e03f144",
+          "showHeader": true,
+          "customIcon": "system:radarr",
+          "title": "Radarr",
+          "viewMode": "auto",
+          "showStatsBar": "false"
+        }
+      },
+      {
+        "type": "sonarr",
+        "layout": {
+          "x": 8,
+          "y": 11,
+          "w": 9,
+          "h": 7
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 26,
+          "w": 4,
+          "h": 7
+        },
+        "config": {
+          "integrationId": "sonarr-1a6a3e63",
+          "showHeader": true,
+          "customIcon": "system:sonarr",
+          "title": "Sonarr",
+          "viewMode": "auto",
+          "showStatsBar": "false"
+        }
+      },
+      {
+        "type": "calendar",
+        "layout": {
+          "x": 17,
+          "y": 11,
+          "w": 7,
+          "h": 7
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 33,
+          "w": 4,
+          "h": 7
+        },
+        "config": {
+          "viewMode": "agenda",
+          "sonarrIntegrationId": "sonarr-1a6a3e63",
+          "radarrIntegrationId": "radarr-9e03f144"
+        }
+      },
+      {
+        "type": "media-stream",
+        "layout": {
+          "x": 0,
+          "y": 18,
+          "w": 12,
+          "h": 5
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 40,
+          "w": 4,
+          "h": 5
+        },
+        "config": {
+          "hideWhenEmpty": false,
+          "title": "Plex",
+          "customIcon": "system:plex",
+          "integrationId": "plex-8ee2061d"
+        }
+      },
+      {
+        "type": "downloads",
+        "layout": {
+          "x": 12,
+          "y": 18,
+          "w": 12,
+          "h": 5
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 45,
+          "w": 4,
+          "h": 5
+        },
+        "config": {
+          "title": "Downloads",
+          "integrationId": "qbittorrent-76a2fef7"
+        }
+      },
+      {
+        "type": "calendar",
+        "layout": {
+          "x": 0,
+          "y": 23,
+          "w": 12,
+          "h": 8
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 50,
+          "w": 4,
+          "h": 8
+        },
+        "config": {
+          "sonarrIntegrationIds": [
+            "sonarr-1a6a3e63"
+          ],
+          "radarrIntegrationIds": [
+            "radarr-9e03f144"
+          ],
+          "viewMode": "month"
+        }
+      }
+    ],
+    "mobileLayoutMode": "independent",
+    "mobileWidgets": [
+      {
+        "type": "link-grid",
+        "layout": {
+          "x": 0,
+          "y": 0,
+          "w": 24,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 0,
+          "w": 4,
+          "h": 1
+        },
+        "config": {
+          "hideHeader": true,
+          "title": "Link Grid",
+          "flatten": true,
+          "links": [
+            {
+              "id": "link-1770719106194",
+              "title": "Wake PC",
+              "icon": "Power",
+              "size": "rectangle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": true
+              }
+            },
+            {
+              "id": "link-1770719141671",
+              "title": "Unraid",
+              "icon": "system:unraid",
+              "size": "rectangle",
+              "type": "link",
+              "url": "",
+              "style": {
+                "showIcon": true,
+                "showText": true
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "service-status",
+        "layout": {
+          "x": 0,
+          "y": 1,
+          "w": 24,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 1,
+          "w": 4,
+          "h": 1
+        },
+        "config": {
+          "flatten": true,
+          "integrationId": "monitor-5a61b485",
+          "showHeader": false
+        }
+      },
+      {
+        "type": "clock",
+        "layout": {
+          "x": 4,
+          "y": 2,
+          "w": 8,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 2,
+          "w": 2,
+          "h": 1
+        },
+        "config": {
+          "showHeader": true,
+          "flatten": true
+        }
+      },
+      {
+        "type": "weather",
+        "layout": {
+          "x": 12,
+          "y": 2,
+          "w": 8,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 2,
+          "y": 2,
+          "w": 2,
+          "h": 1
+        },
+        "config": {
+          "showHeader": true,
+          "flatten": true,
+          "locationMode": "search",
+          "citySearch": "New York, New York, United States",
+          "latitude": 40.71427,
+          "longitude": -74.00597,
+          "cityName": "New York, New York"
+        }
+      },
+      {
+        "type": "media-search",
+        "layout": {
+          "x": 0,
+          "y": 3,
+          "w": 24,
+          "h": 1
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 3,
+          "w": 4,
+          "h": 1
+        },
+        "config": {
+          "showHeader": false,
+          "plexIntegrationIds": [
+            "plex-8ee2061d"
+          ],
+          "flatten": true,
+          "searchTakeover": true,
+          "overseerrIntegrationIds": [
+            "overseerr-a2894886"
+          ],
+          "libraryIntegrationIds": [
+            "plex-8ee2061d"
+          ],
+          "hideOverseerrAvailable": false
+        }
+      },
+      {
+        "type": "system-status",
+        "layout": {
+          "x": 0,
+          "y": 4,
+          "w": 8,
+          "h": 7
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 4,
+          "w": 4,
+          "h": 7
+        },
+        "config": {
+          "layout": "grid",
+          "showCpu": true,
+          "showMemory": true,
+          "showTemperature": true,
+          "showUptime": true,
+          "showDiskUsage": true,
+          "showNetworkUp": true,
+          "showNetworkDown": true,
+          "diskCollapsed": "collapsed",
+          "title": "Unraid",
+          "integrationId": "glances-9290350e",
+          "titleOverridden": true,
+          "customIcon": "system:unraid",
+          "iconOverridden": true,
+          "showHeader": false,
+          "_diskList": [
+            {
+              "id": "data-1",
+              "name": "disk1"
+            },
+            {
+              "id": "data-2",
+              "name": "disk2"
+            },
+            {
+              "id": "data-3",
+              "name": "disk3"
+            },
+            {
+              "id": "cache-30",
+              "name": "cache"
+            }
+          ],
+          "metricOrder": [
+            "cpu",
+            "memory",
+            "temperature",
+            "uptime",
+            "networkUp",
+            "networkDown"
+          ]
+        }
+      },
+      {
+        "type": "overseerr",
+        "layout": {
+          "x": 8,
+          "y": 4,
+          "w": 16,
+          "h": 7
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 11,
+          "w": 4,
+          "h": 7
+        },
+        "config": {
+          "viewMode": "auto",
+          "integrationId": "overseerr-a2894886",
+          "customIcon": "system:overseerr",
+          "title": "Overseerr",
+          "sonarrIntegrationId": "sonarr-1a6a3e63",
+          "radarrIntegrationId": "radarr-9e03f144"
+        }
+      },
+      {
+        "type": "radarr",
+        "layout": {
+          "x": 0,
+          "y": 11,
+          "w": 12,
+          "h": 9
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 18,
+          "w": 4,
+          "h": 8
+        },
+        "config": {
+          "integrationId": "radarr-9e03f144",
+          "showHeader": true,
+          "customIcon": "system:radarr",
+          "title": "Radarr",
+          "viewMode": "auto",
+          "showStatsBar": "false"
+        }
+      },
+      {
+        "type": "sonarr",
+        "layout": {
+          "x": 12,
+          "y": 11,
+          "w": 12,
+          "h": 9
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 26,
+          "w": 4,
+          "h": 8
+        },
+        "config": {
+          "integrationId": "sonarr-1a6a3e63",
+          "showHeader": true,
+          "customIcon": "system:sonarr",
+          "title": "Sonarr",
+          "viewMode": "auto",
+          "showStatsBar": "false"
+        }
+      },
+      {
+        "type": "media-stream",
+        "layout": {
+          "x": 0,
+          "y": 20,
+          "w": 24,
+          "h": 6
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 34,
+          "w": 4,
+          "h": 6
+        },
+        "config": {
+          "hideWhenEmpty": true,
+          "title": "Plex",
+          "customIcon": "system:plex",
+          "integrationId": "plex-8ee2061d"
+        }
+      },
+      {
+        "type": "downloads",
+        "layout": {
+          "x": 0,
+          "y": 26,
+          "w": 12,
+          "h": 7
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 40,
+          "w": 4,
+          "h": 7
+        },
+        "config": {
+          "title": "Downloads",
+          "integrationId": "qbittorrent-76a2fef7"
+        }
+      },
+      {
+        "type": "tautulli",
+        "layout": {
+          "x": 12,
+          "y": 26,
+          "w": 12,
+          "h": 7
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 47,
+          "w": 4,
+          "h": 7
+        },
+        "config": {
+          "title": "Tautulli",
+          "integrationId": "tautulli-71199816",
+          "itemCount": "20",
+          "showStatsBar": "true"
+        }
+      },
+      {
+        "type": "calendar",
+        "layout": {
+          "x": 0,
+          "y": 33,
+          "w": 24,
+          "h": 8
+        },
+        "mobileLayout": {
+          "x": 0,
+          "y": 54,
+          "w": 4,
+          "h": 8
+        },
+        "config": {
+          "sonarrIntegrationIds": [
+            "sonarr-1a6a3e63"
+          ],
+          "radarrIntegrationIds": [
+            "radarr-9e03f144"
+          ],
+          "viewMode": "both"
+        }
+      }
+    ]
+  }
+}
