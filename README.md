@@ -74,7 +74,7 @@ Then open `http://localhost:3001` and follow the setup wizard.
 
 ### Unraid
 
-An Unraid template is available at [`docs/unraid/framerr.xml`](docs/unraid/framerr.xml). Copy it to `/boot/config/plugins/dockerMan/templates-user/` on your Unraid server, then add the container from the Docker tab.
+An Unraid template is available at [`docs/unraid/Framerr.xml`](docs/unraid/Framerr.xml). Copy it to `/boot/config/plugins/dockerMan/templates/` on your Unraid server, then add the container from the Docker tab.
 
 
 ## Configuration
