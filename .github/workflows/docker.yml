@@ -1,0 +1,55 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches: [develop]
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Read version from package.json
+        id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Build and push (develop)
+        if: github.ref == 'refs/heads/develop'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: APP_VERSION=${{ steps.version.outputs.version }}
+          tags: pickels23/framerr:develop
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push (production)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: APP_VERSION=${{ steps.version.outputs.version }}
+          tags: |
+            pickels23/framerr:latest
+            pickels23/framerr:${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
