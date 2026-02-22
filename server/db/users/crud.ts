@@ -255,11 +255,13 @@ export async function deleteUser(userId: string): Promise<boolean> {
 /**
  * List all users (without password hashes)
  * Includes profilePicture from user_config preferences via JOIN
+ * Includes groupIds from user_group_members via subquery
  */
-export async function listUsers(): Promise<(Omit<User, 'passwordHash'> & { profilePictureUrl?: string })[]> {
+export async function listUsers(): Promise<(Omit<User, 'passwordHash'> & { profilePictureUrl?: string; groupIds: string[] })[]> {
     try {
-        interface UserWithPictureRow extends UserRow {
+        interface UserWithExtrasRow extends UserRow {
             profilePictureUrl?: string;
+            groupIdsCsv?: string;
         }
 
         const users = getDb().prepare(`
@@ -271,18 +273,25 @@ export async function listUsers(): Promise<(Omit<User, 'passwordHash'> & { profi
                 u.is_setup_admin as isSetupAdmin,
                 u.created_at as createdAt, 
                 u.last_login as lastLogin,
-                json_extract(p.preferences, '$.profilePicture') as profilePictureUrl
+                json_extract(p.preferences, '$.profilePicture') as profilePictureUrl,
+                (
+                    SELECT GROUP_CONCAT(gm.group_id)
+                    FROM user_group_members gm
+                    WHERE gm.user_id = u.id
+                ) as groupIdsCsv
             FROM users u
             LEFT JOIN user_preferences p ON u.id = p.user_id
             ORDER BY u.created_at ASC
-        `).all() as UserWithPictureRow[];
+        `).all() as UserWithExtrasRow[];
 
         return users.map(user => ({
             ...user,
             isSetupAdmin: Boolean(user.isSetupAdmin),
             preferences: user.preferences ? JSON.parse(user.preferences) : DEFAULT_PREFS,
             walkthroughFlows: user.walkthroughFlows ? JSON.parse(user.walkthroughFlows as string) : {},
-            profilePictureUrl: user.profilePictureUrl || undefined
+            profilePictureUrl: user.profilePictureUrl || undefined,
+            groupIds: user.groupIdsCsv ? user.groupIdsCsv.split(',') : [],
+            groupIdsCsv: undefined
         }));
     } catch (error) {
         logger.error(`[Users] Failed to list: error="${(error as Error).message}"`);
@@ -326,6 +335,22 @@ export function hasUsers(): boolean {
     } catch (error) {
         logger.error(`[Users] Failed to check count: error="${(error as Error).message}"`);
         return false;
+    }
+}
+
+/**
+ * Get count of admin users.
+ * Used to enforce "at least 1 admin must exist" on demotion/deletion.
+ */
+export function getAdminCount(): number {
+    try {
+        const result = getDb().prepare(
+            "SELECT COUNT(*) as count FROM users WHERE group_id = 'admin'"
+        ).get() as { count: number };
+        return result.count;
+    } catch (error) {
+        logger.error(`[Users] Failed to count admins: error="${(error as Error).message}"`);
+        return 0;
     }
 }
 

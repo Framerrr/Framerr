@@ -22,6 +22,7 @@ import { MonitorForm } from '../../integrations/monitor';
 import { UptimeKumaForm } from '../../integrations/uptime-kuma';
 import { getIntegrationIcon } from '../../integrations/_core/iconMapping';
 import { useIntegrationSettings } from './hooks/useIntegrationSettings';
+import { useWalkthrough } from '../../features/walkthrough/WalkthroughContext';
 import { useIntegrationSchemas } from '../../api/hooks';
 import { useAdminNotificationConfig } from '../../api/hooks/useSettings';
 import { useRealtimeSSE, type LibrarySyncProgressEvent } from '../../hooks/useRealtimeSSE';
@@ -88,12 +89,17 @@ const IntegrationSettings: React.FC = () => {
         handleMonitorFormReady,
         handleMonitorSave,
         handleMonitorCancel,
+        monitorDirty,
+        handleMonitorDirtyChange,
 
         // UptimeKuma handlers
         handleUptimeKumaFormReady,
         handleUptimeKumaSave,
         handleUptimeKumaCancel
     } = useIntegrationSettings();
+
+    // Walkthrough emit for custom-event advancement
+    const walkthrough = useWalkthrough();
 
     // Fetch plugin schemas for dynamic form generation (P4 Phase 4.4)
     const { data: schemas } = useIntegrationSchemas();
@@ -272,6 +278,7 @@ const IntegrationSettings: React.FC = () => {
             instanceId={instanceId}
             integrations={integrations}
             onReady={handleMonitorFormReady}
+            onDirtyChange={handleMonitorDirtyChange}
         />
     );
 
@@ -312,13 +319,16 @@ const IntegrationSettings: React.FC = () => {
                             <ChevronDown size={14} />
                         </Button>
                     </DropdownMenu.Trigger>
-                    <DropdownMenu.Content align="end" sideOffset={8} className="w-56 max-h-[400px]">
+                    <DropdownMenu.Content align="end" sideOffset={8} className="w-56 max-h-[400px] integration-type-dropdown" data-walkthrough="integration-type-dropdown">
                         {serviceList.map(service => {
                             const Icon = service.icon;
                             return (
                                 <DropdownMenu.Item
                                     key={service.id}
-                                    onSelect={() => handleAddIntegration(service.id, service.name)}
+                                    onSelect={() => {
+                                        handleAddIntegration(service.id, service.name);
+                                        walkthrough?.emit('integration-type-selected');
+                                    }}
                                 >
                                     <Icon size={16} className="text-theme-secondary" />
                                     {service.name}
@@ -357,6 +367,7 @@ const IntegrationSettings: React.FC = () => {
                     onMonitorSave={handleMonitorSave}
                     onMonitorCancel={handleMonitorCancel}
                     onUptimeKumaSave={handleUptimeKumaSave}
+                    monitorHasChanges={monitorDirty}
                     webhookBaseUrl={webhookBaseUrl}
                 />
             </SettingsSection>

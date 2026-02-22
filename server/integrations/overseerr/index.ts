@@ -26,4 +26,5 @@ export const plugin: IntegrationPlugin = {
         poll: poller.poll,
     },
     webhook,
+    notificationMode: 'webhook',
 };

@@ -12,6 +12,8 @@ export interface User {
     group?: string;
     createdAt?: number;
     profilePictureUrl?: string;
+    /** Custom group IDs (for sharing categories) - populated from list endpoint */
+    groupIds?: string[];
 }
 
 /** Form data for creating/editing users */

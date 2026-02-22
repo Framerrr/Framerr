@@ -2,6 +2,44 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.1.6] - 2026-02-22
+
+### Added
+- Link Library for Link Widget — save links to reuse across widgets
+- User role management — admins can now promote and demote users (previously locked to role assigned at creation)
+- Media recommendations for Jellyfin and Emby (previously Plex-only)
+- Recommendation cards show source badge when multiple media server types are bound
+- Preset integrations pre-populate service settings on first install (disabled, ready to configure)
+
+### Changed
+- Pollers now throw on errors instead of failing silently — feeds into retry and backoff pipeline
+- Config errors (missing URL/API key) detected immediately without burning retries
+- Standardized integration error backoff: 15s → 30s → 60s → 120s → 180s cap (was per-poller, max 5 min)
+- Calendar widget "Agenda" view now defaults to "Today". Can now filter out "Past Events"
+- Search overlay and info modal stay open when clicking "Open in Plex/Jellyfin/Emby"
+- Walkthrough skip now shows a confirmation dialog
+- Uptime tick tooltips show status label (Up/Down/Degraded/Maintenance/Unavailable)
+
+### Fixed
+- Proxy auth placeholder was a valid password hash
+- Docker entrypoint UID/GID collision handling
+- Favicon upload failing in Docker
+- Sensitive field masking — clearing fields now works correctly
+- Walkthrough event and modal interaction issues during onboarding flow
+- New integration forms showing false "unsaved changes" on close
+- qBittorrent widget not working with auth enabled — added cookie-based session auth
+- Widget fallback persistence
+- Mobile-only widgets returning 404 on config save
+- Stale data flash when widget falls back to a different integration
+- Auth errors (401/403) skip retries and show "Authentication Failed" with settings link
+- Jellyfin metadata fetch and library sync fixes
+- Image caching extended to Jellyfin/Emby large posters
+- `librarySyncEnabled` not persisting across reloads
+- Double border on input focus
+- Sync Now badge showing stale "Complete" after re-opening modal
+
+---
+
 ## [0.1.5] - 2026-02-20
 
 ### Added

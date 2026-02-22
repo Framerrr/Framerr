@@ -15,6 +15,7 @@ import { Modal } from '../../../shared/ui';
 import { Switch } from '../../../shared/ui';
 import { Button } from '../../../shared/ui';
 import { ConfirmDialog } from '../../../shared/ui';
+import { useWalkthrough } from '../../../features/walkthrough/WalkthroughContext';
 
 /**
  * EditableName - Click-to-edit component for instance display name
@@ -60,7 +61,7 @@ const EditableName: React.FC<{
             title="Click to rename"
         >
             {value || placeholder}
-            <Pencil size={14} className="text-theme-tertiary opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Pencil size={14} className="text-theme-tertiary transition-opacity" />
         </button>
     );
 };
@@ -91,6 +92,7 @@ interface ServiceConfigModalProps {
     onTest?: () => void;
 
     onSave: () => void;
+    onSaveAndEnable?: () => void;  // Save and enable in one atomic operation
     onToggle?: () => void;  // Toggle enabled/disabled state
     testState?: TestState | null;
     saving?: boolean;
@@ -119,6 +121,7 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
     onTest,
 
     onSave,
+    onSaveAndEnable,
     onToggle,
     testState,
     saving = false,
@@ -131,16 +134,32 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
     const Icon = service.icon;
     const hasWebhook = service.hasWebhook && webhookContent;
 
+    // Walkthrough protection — prevents Radix outside-click from closing the modal
+    const walkthrough = useWalkthrough();
+
     // Tab state - only relevant when webhooks are supported
     type ConfigTab = 'connection' | 'notifications';
     const [activeTab, setActiveTab] = useState<ConfigTab>('connection');
     const [showUnsavedConfirm, setShowUnsavedConfirm] = useState(false);
+    const [showEnableConfirm, setShowEnableConfirm] = useState(false);
+
+    // Snapshot enabled state at modal open — used to decide whether to show Save & Enable dialog
+    const wasDisabledOnOpen = useRef(false);
+    useEffect(() => {
+        if (isOpen) {
+            wasDisabledOnOpen.current = !isEnabled;
+        }
+    }, [isOpen]); // Only on open, intentionally not tracking isEnabled
 
     // Check if test button should be shown (default true)
     const showTestButton = service.hasConnectionTest !== false && onTest;
 
     // Handle close attempt — intercept if there are unsaved changes
     const handleCloseAttempt = () => {
+        // During walkthrough, Radix fires onOpenChange(false) when the walkthrough
+        // card is clicked (it's outside Dialog.Content). Suppress the close.
+        if (walkthrough?.isModalProtected) return;
+
         if (hasUnsavedChanges) {
             setShowUnsavedConfirm(true);
         } else {
@@ -279,8 +298,17 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
 
                         {/* Right side - Save */}
                         <Button
-                            onClick={onSave}
-                            disabled={saving || !canSave}
+                            onClick={() => {
+                                // Show Save & Enable dialog only if:
+                                // 1. Integration was disabled when modal opened (preset/manually disabled)
+                                // 2. Integration is STILL disabled (user didn't toggle it on)
+                                if (wasDisabledOnOpen.current && !isEnabled && onSaveAndEnable) {
+                                    setShowEnableConfirm(true);
+                                } else {
+                                    onSave();
+                                }
+                            }}
+                            disabled={saving || !canSave || !hasUnsavedChanges}
                             icon={saving ? Loader : Save}
                             size="sm"
                         >
@@ -294,16 +322,20 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
             <ConfirmDialog
                 open={showUnsavedConfirm}
                 onOpenChange={(open) => !open && setShowUnsavedConfirm(false)}
-                onConfirm={() => {
-                    setShowUnsavedConfirm(false);
-                    onSave();
-                }}
-                title="Unsaved Changes"
-                message="You have unsaved changes to this integration's settings. Would you like to save before closing?"
-                confirmLabel="Save"
-                variant="primary"
+                onConfirm={canSave
+                    ? () => { setShowUnsavedConfirm(false); onSave(); }
+                    : () => { setShowUnsavedConfirm(false); onDiscard?.(); }
+                }
+                title={canSave ? 'Unsaved Changes' : 'Discard changes?'}
+                message={canSave
+                    ? "You have unsaved changes to this integration's settings. Would you like to save before closing?"
+                    : 'Required fields are missing. Your changes will be lost.'
+                }
+                confirmLabel={canSave ? 'Save' : 'Discard'}
+                cancelLabel={canSave ? 'Cancel' : 'Keep Editing'}
+                variant={canSave ? 'primary' : 'danger'}
                 showIcon={false}
-                secondaryAction={onDiscard ? {
+                secondaryAction={canSave && onDiscard ? {
                     label: 'Discard',
                     onClick: () => {
                         setShowUnsavedConfirm(false);
@@ -311,6 +343,29 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
                     },
                     variant: 'danger',
                 } : undefined}
+            />
+
+            {/* Save & Enable Confirmation - shown when saving a disabled integration */}
+            <ConfirmDialog
+                open={showEnableConfirm}
+                onOpenChange={(open) => !open && setShowEnableConfirm(false)}
+                onConfirm={() => {
+                    setShowEnableConfirm(false);
+                    if (onSaveAndEnable) onSaveAndEnable();
+                }}
+                title="Enable Integration?"
+                message="This integration is currently disabled. Would you like to enable it so it starts connecting to your service?"
+                confirmLabel="Save & Enable"
+                variant="primary"
+                showIcon={false}
+                secondaryAction={{
+                    label: 'Save Only',
+                    onClick: () => {
+                        setShowEnableConfirm(false);
+                        onSave();
+                    },
+                    variant: 'primary',
+                }}
             />
         </>
     );

@@ -50,6 +50,26 @@ export function useRadarrData({ integrationId, enabled }: UseRadarrDataOpts): Ra
     const missingLoadingRef = useRef(false);
 
     // ========================================================================
+    // RESET ON INTEGRATION CHANGE
+    // ========================================================================
+    // When the effective integration changes (e.g., fallback to another instance),
+    // clear all on-demand state. SSE hooks auto-resubscribe, but local state
+    // (missing movies, queue items) would otherwise show data from the old integration.
+    const prevIntegrationRef = useRef(integrationId);
+    useEffect(() => {
+        if (prevIntegrationRef.current !== integrationId) {
+            prevIntegrationRef.current = integrationId;
+            setUpcoming([]);
+            setMissingCounts(null);
+            setMissingMovies([]);
+            setMissingPage(1);
+            setMissingTotal(0);
+            setQueueItems([]);
+            setError(null);
+        }
+    }, [integrationId]);
+
+    // ========================================================================
     // SSE: Calendar (upcoming movies)
     // ========================================================================
 

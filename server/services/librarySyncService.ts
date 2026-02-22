@@ -555,7 +555,7 @@ async function runJellyfinSync(
             const countResult = await adapter.execute(toPluginInstance(instance), {
                 method: 'GET',
                 path: `/Users/${userId}/Items`,
-                query: { parentId: view.Id, recursive: 'true', limit: '0' }
+                query: { parentId: view.Id, recursive: 'true', includeItemTypes: 'Movie,Series', limit: '0' }
             });
 
             if (countResult.success && countResult.data) {
@@ -584,7 +584,7 @@ async function runJellyfinSync(
             const result = await adapter.execute(toPluginInstance(instance), {
                 method: 'GET',
                 path: `/Users/${userId}/Items`,
-                query: { parentId: view.Id, recursive: 'true', fields: 'Overview,Genres,Studios,People,ProviderIds' }
+                query: { parentId: view.Id, recursive: 'true', includeItemTypes: 'Movie,Series', fields: 'Overview,Genres,Studios,People,ProviderIds' }
             });
 
             if (!result.success || !result.data) {
@@ -697,7 +697,7 @@ async function runEmbySync(
             const countResult = await adapter.execute(toPluginInstance(instance), {
                 method: 'GET',
                 path: `/Users/${userId}/Items`,
-                query: { parentId: view.Id, recursive: 'true', limit: '0' }
+                query: { parentId: view.Id, recursive: 'true', includeItemTypes: 'Movie,Series', limit: '0' }
             });
 
             if (countResult.success && countResult.data) {
@@ -726,7 +726,7 @@ async function runEmbySync(
             const result = await adapter.execute(toPluginInstance(instance), {
                 method: 'GET',
                 path: `/Users/${userId}/Items`,
-                query: { parentId: view.Id, recursive: 'true', fields: 'Overview,Genres,Studios,People,ProviderIds' }
+                query: { parentId: view.Id, recursive: 'true', includeItemTypes: 'Movie,Series', fields: 'Overview,Genres,Studios,People,ProviderIds' }
             });
 
             if (!result.success || !result.data) {

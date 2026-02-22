@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { hashPassword } from '../auth/password';
 import { createUser, listUsers } from '../db/users';
+import { createInstance } from '../db/integrationInstances';
 import logger from '../utils/logger';
 import { onFirstUserCreated } from '../services/IntegrationManager';
 
@@ -85,6 +86,31 @@ router.post('/', async (req: Request, res: Response) => {
         // Start services now that first user exists
         await onFirstUserCreated();
 
+        // Seed preset integrations (disabled, with Docker-convention URLs)
+        // These give new users a starting point — edit, fill in details, enable
+        try {
+            const presets = [
+                { type: 'plex', displayName: 'Plex', config: { url: 'http://plex:32400' } },
+                { type: 'sonarr', displayName: 'Sonarr', config: { url: 'http://sonarr:8989', apiKey: '' } },
+                { type: 'radarr', displayName: 'Radarr', config: { url: 'http://radarr:7878', apiKey: '' } },
+                { type: 'qbittorrent', displayName: 'qBittorrent', config: { url: 'http://qbittorrent:8080' } },
+                { type: 'glances', displayName: 'Glances', config: { url: 'http://glances:61208' } },
+                { type: 'uptime-kuma', displayName: 'Uptime Kuma', config: { url: 'http://uptime-kuma:3001' } },
+            ];
+
+            for (const preset of presets) {
+                createInstance({
+                    type: preset.type,
+                    displayName: preset.displayName,
+                    config: preset.config,
+                    enabled: false,
+                });
+            }
+            logger.info(`[Setup] Seeded ${presets.length} preset integrations`);
+        } catch (seedError) {
+            // Non-fatal — setup succeeds even if presets fail
+            logger.warn(`[Setup] Failed to seed preset integrations: error="${(seedError as Error).message}"`);
+        }
         res.json({
             success: true,
             user: {

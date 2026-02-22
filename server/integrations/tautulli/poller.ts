@@ -107,7 +107,7 @@ async function callTautulli(
  */
 export async function poll(instance: PluginInstance): Promise<TautulliLibrary[]> {
     if (!instance.config.url || !instance.config.apiKey) {
-        return [];
+        throw new Error('URL and API key required');
     }
 
     const data = await callTautulli(instance, 'get_libraries_table', {
@@ -154,7 +154,7 @@ export const statsIntervalMs = 300000; // 5 minutes
  */
 export async function pollStats(instance: PluginInstance): Promise<TautulliStatCategory[]> {
     if (!instance.config.url || !instance.config.apiKey) {
-        return [];
+        throw new Error('URL and API key required');
     }
 
     const data = await callTautulli(instance, 'get_home_stats', {
@@ -197,7 +197,7 @@ export const recentIntervalMs = 300000; // 5 minutes
  */
 export async function pollRecent(instance: PluginInstance): Promise<TautulliRecentItem[]> {
     if (!instance.config.url || !instance.config.apiKey) {
-        return [];
+        throw new Error('URL and API key required');
     }
 
     const data = await callTautulli(instance, 'get_recently_added', {

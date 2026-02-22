@@ -13,6 +13,7 @@
 import React, { ChangeEvent } from 'react';
 import { Info, Code, Lightbulb } from 'lucide-react';
 import { Input } from '../../components/common/Input';
+import { Switch } from '../../shared/ui';
 import { ServiceDefinition, IntegrationConfig } from './definitions';
 import { ConfigSchema, ConfigField } from '../../api/endpoints/integrations';
 
@@ -53,22 +54,15 @@ const StandardIntegrationForm: React.FC<StandardIntegrationFormProps> = ({
             case 'checkbox':
                 return (
                     <div key={field.key} className="flex items-center justify-between p-3 bg-theme-tertiary/30 rounded-xl">
-                        <div>
+                        <div className="min-w-0 mr-3">
                             <p className="text-sm font-medium text-theme-primary">{field.label}</p>
                             {field.hint && <p className="text-xs text-theme-tertiary">{field.hint}</p>}
                         </div>
-                        <button
-                            onClick={() => onFieldChange(field.key, value ? '' : 'true')}
-                            className={`
-                                relative w-12 h-6 rounded-full transition-colors
-                                ${value ? 'bg-success' : 'bg-theme-tertiary'}
-                            `}
-                        >
-                            <div className={`
-                                absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform
-                                ${value ? 'translate-x-6' : 'translate-x-0'}
-                            `} />
-                        </button>
+                        <Switch
+                            checked={!!value}
+                            onCheckedChange={(checked) => onFieldChange(field.key, checked ? 'true' : '')}
+                            className="flex-shrink-0"
+                        />
                     </div>
                 );
 

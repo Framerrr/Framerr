@@ -5,6 +5,7 @@
  */
 
 import type { MediaSession, SessionAdapter } from './types';
+import { getPlexDeepLink } from '../../../shared/utils/mediaDeepLinks';
 
 // ============================================================================
 // PLEX RAW TYPES
@@ -39,7 +40,10 @@ interface PlexRawSession {
         videoCodec?: string;
         audioCodec?: string;
     };
-    Media?: unknown;
+    Media?: Array<{
+        videoCodec?: string;
+        audioCodec?: string;
+    }>;
 }
 
 // ============================================================================
@@ -59,6 +63,12 @@ function mapPlexType(type?: string): MediaSession['type'] {
     }
 }
 
+function mapDecision(decision?: string): 'directplay' | 'copy' | 'transcode' | undefined {
+    if (!decision) return undefined;
+    if (decision === 'directplay' || decision === 'copy' || decision === 'transcode') return decision;
+    return undefined;
+}
+
 // ============================================================================
 // PLEX ADAPTER
 // ============================================================================
@@ -66,6 +76,7 @@ function mapPlexType(type?: string): MediaSession['type'] {
 export const plexAdapter: SessionAdapter = {
     normalize(raw: unknown, _integrationId: string): MediaSession {
         const session = raw as PlexRawSession;
+        const media = session.Media?.[0];
         return {
             sessionKey: session.sessionKey || '',
             integrationType: 'plex',
@@ -81,6 +92,18 @@ export const plexAdapter: SessionAdapter = {
             thumb: session.thumb,
             playerState: session.Player?.state === 'paused' ? 'paused' : 'playing',
             userName: session.user?.title || 'Unknown',
+            playbackInfo: {
+                ipAddress: session.Player?.address,
+                location: session.Session?.location === 'lan' ? 'lan' : session.Session?.location ? 'wan' : undefined,
+                bandwidth: session.Session?.bandwidth,
+                videoDecision: mapDecision(session.TranscodeSession?.videoDecision),
+                audioDecision: mapDecision(session.TranscodeSession?.audioDecision),
+                videoCodec: session.TranscodeSession?.videoCodec || media?.videoCodec,
+                audioCodec: session.TranscodeSession?.audioCodec || media?.audioCodec,
+                device: session.Player?.device,
+                platform: session.Player?.platform,
+                application: session.Player?.product,
+            },
             _raw: raw,
         };
     },
@@ -93,9 +116,7 @@ export const plexAdapter: SessionAdapter = {
     getDeepLink(session: MediaSession, machineId?: string): string {
         const ratingKey = session.ratingKey;
         if (!ratingKey || !machineId) return '';
-        // Plex Web URL - works on desktop, mobile apps intercept via Universal Links
-        const encodedKey = encodeURIComponent(`/library/metadata/${ratingKey}`);
-        return `https://app.plex.tv/desktop#!/server/${machineId}/details?key=${encodedKey}`;
+        return getPlexDeepLink(ratingKey, machineId);
     },
 
     getStopEndpoint(integrationId: string): string {

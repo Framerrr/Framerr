@@ -3,39 +3,71 @@
  * 
  * Modal for adding/editing links in the LinkGrid widget.
  * Handles title, icon, shape, type (link vs action), URL, and display options.
+ * 
+ * Modes:
+ * - 'create': Form for a new link. Save shows confirmation: Add Link / Add Link to Library.
+ * - 'edit': Form for editing an existing widget link (title: "Edit Link")
  */
 
 import React from 'react';
+import { BookmarkPlus } from 'lucide-react';
 import { Modal, Checkbox, Select, ConfirmButton, Button } from '../../../shared/ui';
 import IconPicker from '../../../components/IconPicker';
+import { LinkLibraryPicker, type LibraryLink } from '../components/LinkLibraryPicker';
 import type { LinkFormData, HttpMethod } from '../types';
+
+/** Form mode determines title, save behavior, and whether warning is shown */
+export type LinkFormMode = 'create' | 'edit';
 
 interface LinkFormModalProps {
     isOpen: boolean;
-    isEditing: boolean;
+    mode: LinkFormMode;
     editingLinkId: string | null;
     formData: LinkFormData;
     setFormData: React.Dispatch<React.SetStateAction<LinkFormData>>;
     onSave: () => void;
+    onSaveToLibrary: () => void;
     onDelete: (linkId: string) => void;
     onClose: () => void;
+    /** Library templates for the picker */
+    libraryLinks?: LibraryLink[];
+    /** Called when user selects a template to pre-fill form */
+    onLibrarySelect?: (link: LibraryLink) => void;
+    /** Called when user deletes a library template */
+    onLibraryDelete?: (linkId: string) => void;
 }
 
 export const LinkFormModal: React.FC<LinkFormModalProps> = ({
     isOpen,
-    isEditing,
+    mode,
     editingLinkId,
     formData,
     setFormData,
     onSave,
+    onSaveToLibrary,
     onDelete,
     onClose,
+    libraryLinks = [],
+    onLibrarySelect,
+    onLibraryDelete,
 }) => {
+    const isEditing = mode === 'edit';
+    const title = isEditing ? 'Edit Link' : 'New Link';
+
     return (
-        <Modal open={isOpen} onOpenChange={(open) => !open && onClose()} size="sm">
-            <Modal.Header title={isEditing ? 'Edit Link' : 'Add New Link'} />
+        <Modal open={isOpen} onOpenChange={(open) => !open && onClose()} size="md">
+            <Modal.Header title={title} />
             <Modal.Body>
                 <div className="space-y-4">
+                    {/* Library Picker - show when templates exist */}
+                    {libraryLinks.length > 0 && (
+                        <LinkLibraryPicker
+                            libraryLinks={libraryLinks}
+                            onSelect={(link) => onLibrarySelect?.(link)}
+                            onDelete={(id) => onLibraryDelete?.(id)}
+                        />
+                    )}
+
                     {/* Title */}
                     <div>
                         <label className="block text-xs text-theme-secondary mb-1">Title</label>
@@ -196,6 +228,17 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
                             confirmMode="icon"
                         />
                     )}
+
+                    {/* Bookmark button — left-aligned, saves form data as library template */}
+                    <Button
+                        onClick={onSaveToLibrary}
+                        variant="secondary"
+                        size="md"
+                        title="Save as library template"
+                    >
+                        <BookmarkPlus size={16} />
+                    </Button>
+
                     <div className="flex-1" />
                     <Button
                         onClick={onClose}
@@ -209,7 +252,7 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
                         variant="primary"
                         size="md"
                     >
-                        Save Link
+                        {isEditing ? 'Update Link' : 'Save Link'}
                     </Button>
                 </div>
             </Modal.Footer>
@@ -218,5 +261,3 @@ export const LinkFormModal: React.FC<LinkFormModalProps> = ({
 };
 
 export default LinkFormModal;
-
-

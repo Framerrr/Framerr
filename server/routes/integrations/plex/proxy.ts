@@ -217,7 +217,7 @@ router.get('/:id/proxy/image', requireAuth, async (req: Request, res: Response, 
 
         const contentType = response.headers['content-type'] || 'image/jpeg';
         res.set('Content-Type', contentType);
-        res.set('Cache-Control', 'public, max-age=86400');
+        res.set('Cache-Control', 'public, max-age=14400');
         res.send(response.data);
     } catch (error) {
         logger.error(`[Plex Proxy] Image error: error="${(error as Error).message}"`);
@@ -430,7 +430,7 @@ router.get('/:id/proxy/*', requireAuth, async (req: Request, res: Response, next
 
         const contentType = response.headers['content-type'] || 'image/jpeg';
         res.set('Content-Type', contentType);
-        res.set('Cache-Control', 'public, max-age=86400');
+        res.set('Cache-Control', 'public, max-age=14400');
         res.send(response.data);
     } catch (error) {
         logger.error(`[Plex Proxy] Wildcard image error: path="${path}" error="${(error as Error).message}"`);

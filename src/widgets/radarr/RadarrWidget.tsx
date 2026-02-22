@@ -221,6 +221,7 @@ const RadarrWidget = ({ widget, previewMode = false }: RadarrWidgetProps): React
 
     const {
         effectiveIntegrationId,
+        effectiveDisplayName,
         status: accessStatus,
         loading: accessLoading,
     } = useWidgetIntegration('radarr', configuredIntegrationId, widget.id);
@@ -263,6 +264,7 @@ const RadarrWidget = ({ widget, previewMode = false }: RadarrWidgetProps): React
             <WidgetStateMessage
                 variant={isUnavailable ? 'unavailable' : 'error'}
                 serviceName="Radarr"
+                instanceName={isUnavailable ? effectiveDisplayName : undefined}
                 message={isUnavailable ? undefined : data.error}
             />
         );

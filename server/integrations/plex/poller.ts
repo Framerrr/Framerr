@@ -27,7 +27,11 @@ export interface PlexSession {
     viewOffset?: number;
     art?: string;
     thumb?: string;
+    ratingKey?: string;
     Player?: unknown;
+    Session?: unknown;
+    TranscodeSession?: unknown;
+    Media?: unknown;
     user?: unknown;
 }
 
@@ -36,45 +40,45 @@ export interface PlexSession {
  */
 export async function poll(instance: PluginInstance): Promise<PlexSession[]> {
     if (!instance.config.url || !instance.config.token) {
-        return [];
+        throw new Error('URL and token required');
     }
 
     const url = (instance.config.url as string).replace(/\/$/, '');
     const token = instance.config.token as string;
 
-    try {
-        const response = await axios.get(`${url}/status/sessions`, {
-            headers: {
-                'X-Plex-Token': token,
-                'Accept': 'application/json'
-            },
-            httpsAgent,
-            timeout: 10000
-        });
+    const response = await axios.get(`${url}/status/sessions`, {
+        headers: {
+            'X-Plex-Token': token,
+            'Accept': 'application/json'
+        },
+        httpsAgent,
+        timeout: 10000
+    });
 
-        // Parse sessions
-        const sessions = Array.isArray(response.data)
-            ? response.data
-            : response.data?.MediaContainer?.Metadata || [];
+    // Parse sessions
+    const sessions = Array.isArray(response.data)
+        ? response.data
+        : response.data?.MediaContainer?.Metadata || [];
 
-        // Format sessions
-        return sessions
-            .filter((s: { Player?: { state?: string } }) => s.Player?.state !== 'stopped')
-            .map((session: Record<string, unknown>) => ({
-                sessionKey: session.sessionKey || session.key,
-                type: session.type,
-                title: session.title,
-                grandparentTitle: session.grandparentTitle,
-                parentIndex: session.parentIndex,
-                index: session.index,
-                duration: parseInt(String(session.duration)) || 0,
-                viewOffset: parseInt(String(session.viewOffset)) || 0,
-                art: session.art,
-                thumb: session.thumb,
-                Player: session.Player,
-                user: session.User
-            })) as PlexSession[];
-    } catch {
-        return [];
-    }
+    // Format sessions
+    return sessions
+        .filter((s: { Player?: { state?: string } }) => s.Player?.state !== 'stopped')
+        .map((session: Record<string, unknown>) => ({
+            sessionKey: session.sessionKey || session.key,
+            type: session.type,
+            title: session.title,
+            grandparentTitle: session.grandparentTitle,
+            parentIndex: session.parentIndex,
+            index: session.index,
+            duration: parseInt(String(session.duration)) || 0,
+            viewOffset: parseInt(String(session.viewOffset)) || 0,
+            art: session.art,
+            thumb: session.thumb,
+            ratingKey: session.ratingKey,
+            Player: session.Player,
+            Session: session.Session,
+            TranscodeSession: session.TranscodeSession,
+            Media: session.Media,
+            user: session.User
+        })) as PlexSession[];
 }

@@ -78,6 +78,7 @@ interface CalendarConfig {
     sonarrIntegrationId?: string;   // Legacy
     radarrIntegrationId?: string;   // Legacy
     viewMode?: ViewMode;
+    showPastEvents?: boolean;
 }
 
 const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = false }) => {
@@ -89,6 +90,7 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
     // ---- Config ----
     const config = widget.config as CalendarConfig | undefined;
     const viewMode: ViewMode = config?.viewMode ?? 'month';
+    const showPastEvents = config?.showPastEvents ?? false;
 
     // ---- Integration access ----
     const { data: allIntegrations } = useRoleAwareIntegrations();
@@ -148,6 +150,10 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
     // ---- Helpers ----
     const buildEventsMap = (sonarrItems: CalendarEvent[], radarrItems: CalendarEvent[]): EventsMap => {
         const newEvents: EventsMap = {};
+        // Date boundaries matching the backend poller window (30 past / 60 future)
+        const now = Date.now();
+        const startBound = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const endBound = new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         sonarrItems.forEach(item => {
             const date = item.airDate;
             if (date) {
@@ -160,6 +166,9 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
             const date = item.physicalRelease || item.digitalRelease || item.inCinemas;
             if (date) {
                 const dateStr = date.split('T')[0];
+                // Skip entries whose plotted date falls outside the calendar window
+                // (Radarr returns movies if ANY date overlaps the window)
+                if (dateStr < startBound || dateStr > endBound) return;
                 if (!newEvents[dateStr]) newEvents[dateStr] = [];
                 newEvents[dateStr].push({ ...item, type: 'radarr' });
             }
@@ -306,6 +315,8 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
                                 hasMultipleRadarr={hasMultipleRadarr}
                                 showFilter
                                 onFilterChange={setFilter}
+                                showPastEvents={showPastEvents}
+                                showTodayButton
                             />
                         )}
 
@@ -349,6 +360,7 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
                                         hasMultipleRadarr={hasMultipleRadarr}
                                         showFilter={false}
                                         compact
+                                        showPastEvents={showPastEvents}
                                         scrollToMonth={`${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`}
                                     />
                                 </div>

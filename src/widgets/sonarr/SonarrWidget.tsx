@@ -223,6 +223,7 @@ const SonarrWidget = ({ widget, previewMode = false }: SonarrWidgetProps): React
 
     const {
         effectiveIntegrationId,
+        effectiveDisplayName,
         status: accessStatus,
         loading: accessLoading,
     } = useWidgetIntegration('sonarr', configuredIntegrationId, widget.id);
@@ -265,6 +266,7 @@ const SonarrWidget = ({ widget, previewMode = false }: SonarrWidgetProps): React
             <WidgetStateMessage
                 variant={isUnavailable ? 'unavailable' : 'error'}
                 serviceName="Sonarr"
+                instanceName={isUnavailable ? effectiveDisplayName : undefined}
                 message={isUnavailable ? undefined : data.error}
             />
         );

@@ -18,6 +18,7 @@ import { getDb } from '../../database/db';
 import { getInstanceById } from '../../db/integrationInstances';
 import {
     getOrFetchLargeImage,
+    getOrFetchLargeImageJellyfinEmby,
     getLargeImagePath,
     isLargeImageCached
 } from '../../services/libraryImageCache';
@@ -105,7 +106,7 @@ router.get('/library/:integrationId/:filename', async (req: Request, res: Respon
                 return;
             }
 
-            // Need to fetch from Plex - get thumb path from database
+            // Need to fetch from media server — get thumb path from database
             const db = getDb();
             const row = db.prepare(`
                 SELECT thumb FROM media_library 
@@ -119,22 +120,36 @@ router.get('/library/:integrationId/:filename', async (req: Request, res: Respon
 
             // Get integration credentials
             const instance = getInstanceById(integrationId);
-            if (!instance || instance.type !== 'plex') {
-                res.status(400).json({ error: 'Integration not found or not Plex' });
+            if (!instance) {
+                res.status(400).json({ error: 'Integration not found' });
                 return;
             }
 
-            const plexBaseUrl = translateHostUrl(instance.config.url as string);
-            const plexToken = instance.config.token as string;
+            let filePath: string | null = null;
+            const baseUrl = translateHostUrl(instance.config.url as string);
 
-            // Fetch and cache
-            const filePath = await getOrFetchLargeImage(
-                integrationId,
-                itemKey,
-                plexBaseUrl,
-                plexToken,
-                row.thumb
-            );
+            if (instance.type === 'plex') {
+                const plexToken = instance.config.token as string;
+                filePath = await getOrFetchLargeImage(
+                    integrationId,
+                    itemKey,
+                    baseUrl,
+                    plexToken,
+                    row.thumb
+                );
+            } else if (instance.type === 'jellyfin' || instance.type === 'emby') {
+                const apiKey = instance.config.apiKey as string;
+                filePath = await getOrFetchLargeImageJellyfinEmby(
+                    integrationId,
+                    itemKey,
+                    baseUrl,
+                    instance.type,
+                    apiKey
+                );
+            } else {
+                res.status(400).json({ error: `Unsupported integration type: ${instance.type}` });
+                return;
+            }
 
             if (!filePath) {
                 res.status(500).json({ error: 'Failed to fetch large image' });

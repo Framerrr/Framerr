@@ -119,6 +119,7 @@ const UpcomingCarousel = ({ episodes, integrationId, onEpisodeClick, vertical = 
                                     alt={seriesTitle}
                                     className="snr-stack-poster"
                                     loading="lazy"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                 />
                             ) : (
                                 <div className="snr-stack-poster-placeholder">
@@ -162,6 +163,7 @@ const UpcomingCarousel = ({ episodes, integrationId, onEpisodeClick, vertical = 
                                     alt={seriesTitle}
                                     className="snr-carousel-poster"
                                     loading="lazy"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                 />
                             ) : (
                                 <div className="snr-carousel-poster-placeholder">

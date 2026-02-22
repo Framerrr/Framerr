@@ -22,7 +22,7 @@ import SearchTakeover from './components/SearchTakeover';
 import RecommendationRow from './components/RecommendationRow';
 import { useRecommendations } from './hooks/useRecommendations';
 import type { RecommendationItem } from './hooks/useRecommendations';
-import { openInApp } from './mediaUrls';
+import { openMediaInApp } from '../../shared/utils/mediaDeepLinks';
 import type { WidgetProps } from '../types';
 import type { MediaItem, OverseerrMediaResult, RequestButtonState } from './types';
 import './styles.css';
@@ -159,10 +159,21 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
         hideOverseerrAvailable,
     });
 
-    // Recommendations hook (only when search overlay could be used)
+    // Recommendations hook — scoped to widget's bound integrations
     const { items: recommendationItems, source: recommendationSource, isLoading: isRecsLoading } = useRecommendations(
-        configuredIntegrations.length > 0 && !previewMode
+        previewMode ? [] : configuredIntegrations
     );
+
+    // Show integration type badge on recommendation cards when 2+ different types are bound
+    const hasMultipleIntegrationTypes = useMemo(() => {
+        if (!allIntegrations || configuredIntegrations.length < 2) return false;
+        const types = new Set<string>();
+        for (const id of configuredIntegrations) {
+            const integration = allIntegrations.find(i => i.id === id);
+            if (integration) types.add(integration.type);
+        }
+        return types.size >= 2;
+    }, [allIntegrations, configuredIntegrations]);
 
     // Handle recommendation card click → open info modal
     const handleRecommendationClick = useCallback((rec: RecommendationItem) => {
@@ -180,7 +191,7 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
             imdbId: rec.imdbId ?? undefined,
             integrationId: rec.integrationId,
             integrationName: '',
-            integrationType: 'plex',
+            integrationType: rec.integrationType,
         };
         setSelectedItem(item);
     }, []);
@@ -324,15 +335,12 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
         setSelectedItem(item);
     }, [query, addRecentSearch]);
 
-    // Handle "Open in X" click
+    // Handle "Open in X" click — opens new tab, keeps search state intact
     const handleOpenIn = useCallback((item: MediaItem, e: React.MouseEvent) => {
         e.stopPropagation();
-        // Use machineId for Plex, serverUrl for Jellyfin/Emby
         const machineId = machineIds[item.integrationId];
         const serverUrl = serverUrls[item.integrationId];
-        openInApp(item, { machineId, serverUrl });
-        setIsDropdownOpen(false);
-        setIsTakeoverActive(false);
+        openMediaInApp(item.integrationType, item.externalId || '', { machineId, serverUrl });
     }, [machineIds, serverUrls]);
 
     // Handle recent search click
@@ -451,6 +459,7 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
                     source={recommendationSource}
                     isLoading={isRecsLoading}
                     onItemClick={handleRecommendationClick}
+                    showTypeBadge={hasMultipleIntegrationTypes}
                 />
             )}
 
@@ -845,7 +854,6 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
                     onClose={() => setSelectedItem(null)}
                     onOpenInApp={(item) => {
                         handleOpenIn(item, { stopPropagation: () => { } } as React.MouseEvent);
-                        setSelectedItem(null);
                     }}
                     zIndex={isTakeoverActive ? 250 : undefined}
                 />

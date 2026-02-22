@@ -300,20 +300,20 @@ export function ConfirmButton({
         const iconOnlyTrigger = `
             ${iconOnlyButtonBase}
             bg-red-500/15 text-red-500
-            hover:bg-red-500/25
+            hover:text-red-400
             disabled:opacity-50 disabled:cursor-not-allowed
         `;
 
         const iconOnlyConfirm = `
             ${iconOnlyButtonBase}
-            bg-red-500 text-white
-            hover:bg-red-600
+            bg-red-500/15 text-red-500
+            hover:text-red-400
         `;
 
         const iconOnlyCancel = `
             ${iconOnlyButtonBase}
-            bg-theme-tertiary text-theme-primary
-            hover:bg-theme-hover
+            bg-theme-tertiary text-theme-tertiary
+            hover:text-theme-primary
         `;
 
         // Determine flex direction based on anchor and expand direction
@@ -435,7 +435,7 @@ export function ConfirmButton({
                 {/* Trigger measurement - this sets minimum width */}
                 <div className={`${buttonBaseClass} whitespace-nowrap`}>
                     {showTriggerIcon && <Trash2 size={styles.iconSize} />}
-                    <span>{label}</span>
+                    {label && <span>{label}</span>}
                 </div>
             </div>
             {useTextMode && (
@@ -472,7 +472,7 @@ export function ConfirmButton({
                             title={!label ? 'Delete' : undefined}
                         >
                             {showTriggerIcon && <Trash2 size={styles.iconSize} className="flex-shrink-0" />}
-                            <span className="truncate">{label}</span>
+                            {label && <span className="truncate">{label}</span>}
                         </motion.button>
                     ) : cancelPosition === 'left' ? (
                         // CONFIRM STATE: Cancel on left

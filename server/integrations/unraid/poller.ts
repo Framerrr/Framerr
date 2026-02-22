@@ -236,159 +236,154 @@ function formatUptime(uptimeValue: unknown): string | null {
 // POLL FUNCTION
 // ============================================================================
 
-export async function poll(instance: PluginInstance): Promise<UnraidData | null> {
+export async function poll(instance: PluginInstance): Promise<UnraidData> {
     const url = instance.config.url as string;
     const apiKey = instance.config.apiKey as string;
 
-    if (!url || !apiKey) return null;
+    if (!url || !apiKey) {
+        throw new Error('URL and API key required');
+    }
 
     const translatedUrl = translateHostUrl(url);
 
-    try {
-        const response = await axios.post(
-            `${translatedUrl}/graphql`,
-            { query: SYSTEM_QUERY },
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': apiKey,
-                },
-                httpsAgent,
-                timeout: 10000,
-            }
-        );
-
-        // Log GraphQL-level errors (these return 200 status but contain errors)
-        if (response.data?.errors?.length) {
-            const errMsg = response.data.errors.map((e: { message?: string }) => e.message).join('; ');
-            logger.warn(`[Poller:unraid] GraphQL errors: ${errMsg}`);
+    const response = await axios.post(
+        `${translatedUrl}/graphql`,
+        { query: SYSTEM_QUERY },
+        {
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+            },
+            httpsAgent,
+            timeout: 10000,
         }
+    );
 
-        const data = response.data?.data;
-        if (!data) {
-            logger.warn(`[Poller:unraid] No data in response`);
-            return null;
-        }
-
-        // ================================================================
-        // EXTRACT REAL-TIME METRICS (from `metrics` query)
-        // ================================================================
-
-        // CPU usage — metrics.cpu.percentTotal is a Float (0-100)
-        const cpu = typeof data.metrics?.cpu?.percentTotal === 'number'
-            ? Math.round(data.metrics.cpu.percentTotal)
-            : null;
-
-        // Memory usage — metrics.memory.percentTotal is a Float (0-100)
-        const memory = typeof data.metrics?.memory?.percentTotal === 'number'
-            ? Math.round(data.metrics.memory.percentTotal)
-            : null;
-
-        // ================================================================
-        // EXTRACT STATIC INFO (from `info` query)
-        // ================================================================
-
-        // Temperature — Not reliably available via Unraid GraphQL API
-        // info.cpu.packages.temp exists in schema but depends on hardware support
-        // Array disk temps are per-disk, not system temp
-        const temperature: number | null = null;
-
-        // Uptime — info.os.uptime is a boot-time ISO string
-        const uptime = formatUptime(data.info?.os?.uptime);
-
-        // ================================================================
-        // EXTRACT ARRAY METRICS (from `array` query)
-        // ================================================================
-
-        let diskUsage: number | null = null;
-        let arrayStatus: string | null = null;
-
-        if (data.array) {
-            // Array state: STARTED, STOPPED, etc.
-            const rawState = data.array.state;
-            if (typeof rawState === 'string') {
-                const stateMap: Record<string, string> = {
-                    'STARTED': 'healthy',
-                    'STOPPED': 'stopped',
-                    'NEW_ARRAY': 'new',
-                    'RECON_DISK': 'rebuilding',
-                    'DISABLE_DISK': 'degraded',
-                    'SWAP_DSBL': 'degraded',
-                    'INVALID_EXPANSION': 'error',
-                    'PARITY_NOT_BIGGEST': 'error',
-                    'TOO_MANY_MISSING_DISKS': 'degraded',
-                    'NEW_DISK_TOO_SMALL': 'error',
-                    'NO_DATA_DISKS': 'error',
-                };
-                arrayStatus = stateMap[rawState] || rawState.toLowerCase();
-            }
-
-            // Capacity — array.capacity.kilobytes has free/used/total as String!
-            // Values are in kilobytes
-            const kb = data.array.capacity?.kilobytes;
-            if (kb) {
-                const totalKb = parseFloat(kb.total);
-                const usedKb = parseFloat(kb.used);
-                if (!isNaN(totalKb) && totalKb > 0 && !isNaN(usedKb)) {
-                    diskUsage = Math.round((usedKb / totalKb) * 100);
-                } else {
-                    // Fallback: calculate used from total - free
-                    const freeKb = parseFloat(kb.free);
-                    if (!isNaN(totalKb) && totalKb > 0 && !isNaN(freeKb)) {
-                        diskUsage = Math.round(((totalKb - freeKb) / totalKb) * 100);
-                    }
-                }
-            }
-        }
-
-        // ================================================================
-        // EXTRACT PER-DISK DETAILS
-        // ================================================================
-
-        const disks: DiskInfo[] = [];
-        if (data.array) {
-            // Parities
-            const rawParities = data.array.parities as Record<string, unknown>[] | undefined;
-            if (Array.isArray(rawParities)) {
-                for (const raw of rawParities) {
-                    const disk = parseDisk(raw, 'parity');
-                    if (disk) disks.push(disk);
-                }
-            }
-            // Data disks
-            const rawDisks = data.array.disks as Record<string, unknown>[] | undefined;
-            if (Array.isArray(rawDisks)) {
-                for (const raw of rawDisks) {
-                    const disk = parseDisk(raw, 'data');
-                    if (disk) disks.push(disk);
-                }
-            }
-            // Cache disks
-            const rawCaches = data.array.caches as Record<string, unknown>[] | undefined;
-            if (Array.isArray(rawCaches)) {
-                for (const raw of rawCaches) {
-                    const disk = parseDisk(raw, 'cache');
-                    if (disk) disks.push(disk);
-                }
-            }
-        }
-
-        const result: UnraidData = {
-            cpu,
-            memory,
-            temperature,
-            uptime,
-            diskUsage,
-            arrayStatus,
-            disks,
-        };
-
-        logger.debug(`[Poller:unraid] Poll result: cpu=${cpu} mem=${memory} temp=${temperature} uptime=${uptime} disk=${diskUsage} array=${arrayStatus} disks=${disks.length}`);
-
-        return result;
-    } catch (error) {
-        const err = error as { message?: string; response?: { status?: number } };
-        logger.warn(`[Poller:unraid] Poll failed: ${err.message}${err.response?.status ? ` (HTTP ${err.response.status})` : ''}`);
-        return null;
+    // GraphQL-level errors (200 status but contain errors) — throw so orchestrator handles
+    if (response.data?.errors?.length) {
+        const errMsg = response.data.errors.map((e: { message?: string }) => e.message).join('; ');
+        throw new Error(`GraphQL errors: ${errMsg}`);
     }
+
+    const data = response.data?.data;
+    if (!data) {
+        throw new Error('No data in GraphQL response');
+    }
+
+    // ================================================================
+    // EXTRACT REAL-TIME METRICS (from `metrics` query)
+    // ================================================================
+
+    // CPU usage — metrics.cpu.percentTotal is a Float (0-100)
+    const cpu = typeof data.metrics?.cpu?.percentTotal === 'number'
+        ? Math.round(data.metrics.cpu.percentTotal)
+        : null;
+
+    // Memory usage — metrics.memory.percentTotal is a Float (0-100)
+    const memory = typeof data.metrics?.memory?.percentTotal === 'number'
+        ? Math.round(data.metrics.memory.percentTotal)
+        : null;
+
+    // ================================================================
+    // EXTRACT STATIC INFO (from `info` query)
+    // ================================================================
+
+    // Temperature — Not reliably available via Unraid GraphQL API
+    // info.cpu.packages.temp exists in schema but depends on hardware support
+    // Array disk temps are per-disk, not system temp
+    const temperature: number | null = null;
+
+    // Uptime — info.os.uptime is a boot-time ISO string
+    const uptime = formatUptime(data.info?.os?.uptime);
+
+    // ================================================================
+    // EXTRACT ARRAY METRICS (from `array` query)
+    // ================================================================
+
+    let diskUsage: number | null = null;
+    let arrayStatus: string | null = null;
+
+    if (data.array) {
+        // Array state: STARTED, STOPPED, etc.
+        const rawState = data.array.state;
+        if (typeof rawState === 'string') {
+            const stateMap: Record<string, string> = {
+                'STARTED': 'healthy',
+                'STOPPED': 'stopped',
+                'NEW_ARRAY': 'new',
+                'RECON_DISK': 'rebuilding',
+                'DISABLE_DISK': 'degraded',
+                'SWAP_DSBL': 'degraded',
+                'INVALID_EXPANSION': 'error',
+                'PARITY_NOT_BIGGEST': 'error',
+                'TOO_MANY_MISSING_DISKS': 'degraded',
+                'NEW_DISK_TOO_SMALL': 'error',
+                'NO_DATA_DISKS': 'error',
+            };
+            arrayStatus = stateMap[rawState] || rawState.toLowerCase();
+        }
+
+        // Capacity — array.capacity.kilobytes has free/used/total as String!
+        // Values are in kilobytes
+        const kb = data.array.capacity?.kilobytes;
+        if (kb) {
+            const totalKb = parseFloat(kb.total);
+            const usedKb = parseFloat(kb.used);
+            if (!isNaN(totalKb) && totalKb > 0 && !isNaN(usedKb)) {
+                diskUsage = Math.round((usedKb / totalKb) * 100);
+            } else {
+                // Fallback: calculate used from total - free
+                const freeKb = parseFloat(kb.free);
+                if (!isNaN(totalKb) && totalKb > 0 && !isNaN(freeKb)) {
+                    diskUsage = Math.round(((totalKb - freeKb) / totalKb) * 100);
+                }
+            }
+        }
+    }
+
+    // ================================================================
+    // EXTRACT PER-DISK DETAILS
+    // ================================================================
+
+    const disks: DiskInfo[] = [];
+    if (data.array) {
+        // Parities
+        const rawParities = data.array.parities as Record<string, unknown>[] | undefined;
+        if (Array.isArray(rawParities)) {
+            for (const raw of rawParities) {
+                const disk = parseDisk(raw, 'parity');
+                if (disk) disks.push(disk);
+            }
+        }
+        // Data disks
+        const rawDisks = data.array.disks as Record<string, unknown>[] | undefined;
+        if (Array.isArray(rawDisks)) {
+            for (const raw of rawDisks) {
+                const disk = parseDisk(raw, 'data');
+                if (disk) disks.push(disk);
+            }
+        }
+        // Cache disks
+        const rawCaches = data.array.caches as Record<string, unknown>[] | undefined;
+        if (Array.isArray(rawCaches)) {
+            for (const raw of rawCaches) {
+                const disk = parseDisk(raw, 'cache');
+                if (disk) disks.push(disk);
+            }
+        }
+    }
+
+    const result: UnraidData = {
+        cpu,
+        memory,
+        temperature,
+        uptime,
+        diskUsage,
+        arrayStatus,
+        disks,
+    };
+
+    logger.debug(`[Poller:unraid] Poll result: cpu=${cpu} mem=${memory} temp=${temperature} uptime=${uptime} disk=${diskUsage} array=${arrayStatus} disks=${disks.length}`);
+
+    return result;
 }

@@ -24,7 +24,7 @@ import { useMonitorForm } from './hooks/useMonitorForm';
 import type { MonitorFormProps, MonitorFormRef, IntegrationConfig, Monitor, MaintenanceSchedule } from './types';
 
 const MonitorForm = forwardRef<MonitorFormRef, MonitorFormProps>((
-    { instanceId, integrations = {}, onReady },
+    { instanceId, integrations = {}, onReady, onDirtyChange },
     ref
 ) => {
     const {
@@ -38,6 +38,7 @@ const MonitorForm = forwardRef<MonitorFormRef, MonitorFormProps>((
         importDropdownOpen,
         importTriggerRef,
         sensors,
+        hasChanges,
 
         // Actions
         setExpandedId,
@@ -68,6 +69,11 @@ const MonitorForm = forwardRef<MonitorFormRef, MonitorFormProps>((
     useEffect(() => {
         onReady?.();
     }, [onReady]);
+
+    // Notify parent when dirty state changes
+    useEffect(() => {
+        onDirtyChange?.(hasChanges);
+    }, [hasChanges, onDirtyChange]);
 
     // Get available integrations (not already monitored)
     const availableIntegrations = getConfiguredIntegrations().filter(

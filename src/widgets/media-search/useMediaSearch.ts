@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { widgetFetch } from '../../utils/widgetFetch';
+import { useMediaServerMeta } from '../../shared/hooks/useMediaServerMeta';
 import logger from '../../utils/logger';
 import type { MediaItem, SearchResults, OverseerrMediaResult, OverseerrSearchResults } from './types';
 
@@ -123,10 +124,11 @@ export function useMediaSearch({
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [syncStatuses, setSyncStatuses] = useState<Record<string, SyncStatus>>({});
     const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
-    const [machineIds, setMachineIds] = useState<Record<string, string>>({});
-    const [serverUrls, setServerUrls] = useState<Record<string, string>>({});
     // Track offsets for pagination
     const [offsets, setOffsets] = useState<Record<string, number>>({});
+
+    // Shared hook for machineId (Plex) and serverUrl (Jellyfin/Emby)
+    const { machineIds, serverUrls } = useMediaServerMeta(integrationIds, 'media-search');
 
     // Overseerr search state
     const [overseerrResults, setOverseerrResults] = useState<OverseerrSearchResults | null>(null);
@@ -139,63 +141,7 @@ export function useMediaSearch({
 
     const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-    // Fetch machine IDs for Plex integrations only (needed for "Open in Plex" URLs)
-    // Jellyfin/Emby use serverUrls instead (fetched separately)
-    useEffect(() => {
-        // Filter to only Plex integrations (ID starts with "plex-")
-        const plexIntegrations = integrationIds.filter(id => id.startsWith('plex-'));
-        if (plexIntegrations.length === 0) return;
 
-        const fetchMachineIds = async () => {
-            const newMachineIds: Record<string, string> = {};
-
-            await Promise.all(plexIntegrations.map(async (integrationId) => {
-                try {
-                    const response = await widgetFetch(
-                        `/api/integrations/${integrationId}/proxy/machineId`,
-                        'media-search'
-                    );
-                    if (response.ok) {
-                        const xml = await response.text();
-                        const match = xml.match(/machineIdentifier="([^"]+)"/);
-                        if (match) {
-                            newMachineIds[integrationId] = match[1];
-                        }
-                    }
-                } catch {
-                    // Continue without machineId for this integration
-                }
-            }));
-
-            setMachineIds(prev => ({ ...prev, ...newMachineIds }));
-        };
-
-        fetchMachineIds();
-    }, [integrationIds.join(',')]);
-
-    // Fetch web URLs for Jellyfin/Emby integrations (needed for "Open in" URLs)
-    useEffect(() => {
-        if (integrationIds.length === 0) return;
-
-        const fetchWebUrls = async () => {
-            try {
-                const response = await widgetFetch(
-                    `/api/media/web-urls?integrations=${integrationIds.join(',')}`,
-                    'media-search'
-                );
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.webUrls) {
-                        setServerUrls(data.webUrls);
-                    }
-                }
-            } catch {
-                // Continue without webUrls
-            }
-        };
-
-        fetchWebUrls();
-    }, [integrationIds.join(',')]);
 
     // Fetch search history from API on mount
     useEffect(() => {

@@ -230,6 +230,7 @@ const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({
 
     const {
         effectiveIntegrationId,
+        effectiveDisplayName,
         status: accessStatus,
         loading: accessLoading,
     } = useWidgetIntegration('system-status', configuredIntegrationId, widget.id);
@@ -276,25 +277,25 @@ const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({
         () => new Set(schemaInfo?.metrics?.filter(m => m.recordable).map(m => m.key) ?? []),
         [schemaInfo]
     );
-    const { loading, isConnected } = useIntegrationSSE<StatusData>({
+    const { loading, isConnected, isUnavailable, isAuthError } = useIntegrationSSE<StatusData>({
         integrationType,
         integrationId,
         enabled: isIntegrationBound,
         onData: (sseData) => {
-            setStatusState({
+            setStatusState(prev => ({
                 sourceId: integrationId || null,
                 data: {
-                    cpu: sseData.cpu || 0,
-                    memory: sseData.memory || 0,
-                    temperature: sseData.temperature || 0,
-                    uptime: sseData.uptime || '--',
+                    cpu: sseData.cpu ?? prev.data.cpu,
+                    memory: sseData.memory ?? prev.data.memory,
+                    temperature: sseData.temperature ?? prev.data.temperature,
+                    uptime: sseData.uptime ?? prev.data.uptime,
                     diskUsage: sseData.diskUsage ?? null,
                     arrayStatus: sseData.arrayStatus ?? null,
                     networkUp: sseData.networkUp ?? null,
                     networkDown: sseData.networkDown ?? null,
                     disks: Array.isArray(sseData.disks) ? sseData.disks : [],
                 }
-            });
+            }));
         },
     });
 
@@ -343,6 +344,14 @@ const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({
 
     if (loading || !isConnected) {
         return <WidgetStateMessage variant="loading" />;
+    }
+
+    if (isUnavailable) {
+        // Auth errors: admin sees specific message, users see generic unavailable
+        if (isAuthError && userIsAdmin) {
+            return <WidgetStateMessage variant="authError" serviceName="System Health" instanceName={effectiveDisplayName} isAdmin={userIsAdmin} />;
+        }
+        return <WidgetStateMessage variant="unavailable" serviceName="System Health" instanceName={effectiveDisplayName} />;
     }
 
     const liveGridClassName = `system-status-grid${liveLayout === 'stacked' ? ' system-status-grid--stacked' : ''}`;

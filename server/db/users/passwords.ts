@@ -28,7 +28,7 @@ export async function resetUserPassword(userId: string): Promise<{ success: bool
 
         getDb().prepare(`
             UPDATE users 
-            SET password = ?, require_password_reset = 1
+            SET password = ?, require_password_reset = 1, has_local_password = 1
             WHERE id = ?
         `).run(passwordHash, userId);
 

@@ -1,4 +1,4 @@
-import { ConfigSchema, IntegrationCategory } from '../types';
+import { ConfigSchema, IntegrationCategory, WebhookEventDefinition } from '../types';
 
 // ============================================================================
 // UPTIME KUMA PLUGIN METADATA
@@ -35,3 +35,9 @@ export const configSchema: ConfigSchema = {
         content: 'Generate an API key in Uptime Kuma under Settings → API Keys. The /metrics endpoint must be enabled.',
     },
 };
+
+export const notificationEvents: WebhookEventDefinition[] = [
+    { key: 'serviceUp', label: 'Service Recovered', category: 'status', defaultAdmin: true, defaultUser: true },
+    { key: 'serviceDown', label: 'Service Down', category: 'status', defaultAdmin: true, defaultUser: true },
+    { key: 'serviceDegraded', label: 'Service Degraded', category: 'status', defaultAdmin: true },
+];

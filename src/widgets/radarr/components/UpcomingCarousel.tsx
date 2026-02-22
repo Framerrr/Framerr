@@ -116,6 +116,7 @@ const UpcomingCarousel = ({ movies, integrationId, onMovieClick, vertical = fals
                                     alt={title}
                                     className="rdr-stack-poster"
                                     loading="lazy"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                 />
                             ) : (
                                 <div className="rdr-stack-poster-placeholder">
@@ -156,6 +157,7 @@ const UpcomingCarousel = ({ movies, integrationId, onMovieClick, vertical = fals
                                     alt={title}
                                     className="rdr-carousel-poster"
                                     loading="lazy"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                 />
                             ) : (
                                 <div className="rdr-carousel-poster-placeholder">

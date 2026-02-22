@@ -73,30 +73,6 @@ else
     mkdir -p /config /config/upload/temp /config/upload/profile-pictures /config/upload/custom-icons
 fi
 
-# --- AUTO-MIGRATION: JSON to SQLite ---
-echo ""
-echo "Checking for database migration..."
-if [ -f "/config/users.json" ] && [ ! -f "/config/.migration-complete" ]; then
-    echo "JSON files detected - running automatic migration to SQLite..."
-    echo "This will preserve all your data in the new database format."
-    echo ""
-
-    if RUN_AS node /app/server/scripts/migrate-to-sqlite.js; then
-        echo ""
-        echo "✓ Migration successful!"
-        RUN_AS touch /config/.migration-complete
-        echo "  ✓ Migration complete"
-    else
-        echo ""
-        echo "⚠️  Migration failed - server will start but may not work correctly"
-        echo "    Please check logs and report this issue"
-    fi
-elif [ -f "/config/.migration-complete" ]; then
-    echo "Database already migrated (marker file exists)"
-else
-    echo "No JSON files found - starting with fresh SQLite database"
-fi
-echo ""
 
 # --- Start the app ---
 echo "Starting Framerr (UID:$PUID, GID:$PGID)"

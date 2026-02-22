@@ -12,6 +12,7 @@
 export { default as crudRouter } from './crud';
 export { default as testRouter } from './test';
 export { default as schemasRouter } from './schemas';
+export { default as itemMetadataRouter } from './itemMetadata';
 
 // Shared types
 export * from './types';

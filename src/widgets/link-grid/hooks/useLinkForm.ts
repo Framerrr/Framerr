@@ -2,12 +2,16 @@
  * useLinkForm Hook
  * 
  * Manages form state for adding/editing links.
- * Handles save, delete, and form population.
+ * Saves go directly to widget config.
+ * Optionally saves to library as a reusable template.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Link, LinkFormData, LinkGridWidgetConfig } from '../types';
 import { DEFAULT_FORM_DATA } from '../types';
+import { linkLibraryApi } from '../../../api/endpoints/linkLibrary';
+import { queryKeys } from '../../../api/queryKeys';
 import logger from '../../../utils/logger';
 
 interface UseLinkFormProps {
@@ -28,6 +32,7 @@ interface UseLinkFormReturn {
 
     // Actions
     handleSaveLink: () => void;
+    handleSaveToLibrary: () => Promise<void>;
     handleDeleteLink: (linkId: string) => void;
     resetForm: () => void;
 }
@@ -41,6 +46,7 @@ export function useLinkForm({
     const [formData, setFormData] = useState<LinkFormData>(DEFAULT_FORM_DATA);
     const [showAddForm, setShowAddForm] = useState<boolean>(false);
     const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
+    const queryClient = useQueryClient();
 
     // Ref for accessing current links without effect dependencies
     const linksRef = useRef<Link[]>(links);
@@ -85,7 +91,7 @@ export function useLinkForm({
     }, [showAddForm, editingLinkId, setGlobalDragEnabled]);
 
     /**
-     * Save link (create or update)
+     * Save link to widget config only (no library involvement)
      */
     const handleSaveLink = useCallback((): void => {
         // Build link object
@@ -108,7 +114,7 @@ export function useLinkForm({
             ? links.map(l => l.id === editingLinkId ? newLink : l)
             : [...links, newLink];
 
-        logger.debug(`Link ${editingLinkId ? 'updated' : 'added'} (tentative)`);
+        logger.debug(`Link ${editingLinkId ? 'updated' : 'added'} to widget`);
 
         // Close form
         setShowAddForm(false);
@@ -124,15 +130,39 @@ export function useLinkForm({
     }, [editingLinkId, formData, links, widgetId, config]);
 
     /**
-     * Delete link
+     * Save current form data to library as a reusable template (does NOT add to widget)
+     */
+    const handleSaveToLibrary = useCallback(async (): Promise<void> => {
+        try {
+            await linkLibraryApi.create({
+                title: formData.title,
+                icon: formData.icon,
+                size: formData.size,
+                type: formData.type,
+                url: formData.url,
+                style: {
+                    showIcon: formData.showIcon,
+                    showText: formData.showText
+                },
+                action: formData.type === 'action' ? formData.action : undefined,
+            });
+
+            // Invalidate library cache so picker shows the new template
+            queryClient.invalidateQueries({ queryKey: queryKeys.linkLibrary.list() });
+            logger.debug('Form data saved to library as template');
+        } catch (error) {
+            logger.error(`Failed to save to library: ${(error as Error).message}`);
+        }
+    }, [formData, queryClient]);
+
+    /**
+     * Delete link from widget
      */
     const handleDeleteLink = useCallback((linkId: string): void => {
-        // Remove from links array
         const updatedLinks = links.filter(l => l.id !== linkId);
 
-        logger.debug('Link deleted (tentative)');
+        logger.debug('Link removed from widget');
 
-        // Dispatch event to update Dashboard's local state
         window.dispatchEvent(new CustomEvent('widget-config-changed', {
             detail: {
                 widgetId,
@@ -158,6 +188,7 @@ export function useLinkForm({
         editingLinkId,
         setEditingLinkId,
         handleSaveLink,
+        handleSaveToLibrary,
         handleDeleteLink,
         resetForm
     };

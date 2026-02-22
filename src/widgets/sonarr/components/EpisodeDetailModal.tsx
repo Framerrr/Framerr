@@ -316,6 +316,7 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
                                             objectFit: 'cover',
                                             display: 'block'
                                         }}
+                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                     />
                                 </div>
                             ) : (

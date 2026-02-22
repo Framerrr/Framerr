@@ -204,6 +204,9 @@ router.put('/auth', requireAdmin, async (req: Request, res: Response) => {
         await updateSystemConfig({ auth: body as unknown } as Parameters<typeof updateSystemConfig>[0]);
         const config = await getSystemConfig();
 
+        // Broadcast so all connected devices update (e.g., proxy username field visibility)
+        invalidateSystemSettings('auth-config');
+
         logger.info(`[Config] Auth config updated: user=${req.user?.id} username="${req.user?.username}"`);
 
         res.json(config.auth);

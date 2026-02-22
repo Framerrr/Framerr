@@ -21,7 +21,7 @@ import { getSystemConfig } from './db/systemConfig';
 import { getUser, createUser, getUserById } from './db/users';
 import { getUserConfig } from './db/userConfig';
 import { hashPassword } from './auth/password';
-import { validateSession } from './auth/session';
+import { validateSession, createUserSession } from './auth/session';
 import { validateProxyWhitelist } from './middleware/proxyWhitelist';
 import { csrfProtection } from './middleware/csrfProtection';
 import { authRateLimit } from './middleware/rateLimit';
@@ -62,8 +62,9 @@ import mediaRoutes from './routes/media';
 import jobsRoutes from './routes/jobs';
 import iconsRoutes from './routes/icons';
 import metricHistoryRoutes from './routes/metricHistory';
-import plexRecommendationsRoutes from './routes/plex-recommendations';
+import recommendationsRoutes from './routes/recommendations';
 import walkthroughRoutes from './routes/walkthrough';
+import linkLibraryRoutes from './routes/linkLibrary';
 
 
 // Type for package.json version
@@ -135,23 +136,38 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
                 req.headers['remote-email']) as string | undefined;
 
             if (username) {
+                // Match by username
                 let user = await getUser(username);
 
                 // Auto-create user from proxy auth if doesn't exist
                 if (!user) {
                     logger.info(`[ProxyAuth] Auto-creating user: ${username}`);
-                    const passwordHash = await hashPassword('PROXY_AUTH_PLACEHOLDER');
-
                     user = await createUser({
                         username,
                         email: email || `${username}@proxy.local`,
-                        passwordHash,  // createUser expects passwordHash, not password
-                        group: 'user'  // New proxy users are regular users by default
+                        passwordHash: '$PROXY_NO_PASSWORD$',
+                        group: 'user',
+                        hasLocalPassword: false
                     });
                 }
 
                 req.user = user as unknown as Express.Request['user'];
                 req.proxyAuth = true;  // Flag to indicate proxy auth was used
+
+                // Create a persistent session if one doesn't exist yet
+                // This ensures the user stays logged in if proxy auth is disabled
+                if (!req.cookies?.sessionId) {
+                    const authConfig = systemConfig?.auth;
+                    const expiresIn = authConfig?.session?.timeout || 86400000; // 24h default
+                    const session = await createUserSession(user, req, expiresIn);
+                    res.cookie('sessionId', session.id, {
+                        httpOnly: true,
+                        secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+                        sameSite: 'lax',
+                        maxAge: expiresIn
+                    });
+                }
+
                 return next();
             }
         }
@@ -293,8 +309,9 @@ app.use('/api/media', mediaRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/icons', iconsRoutes);
 app.use('/api/metric-history', metricHistoryRoutes);
-app.use('/api/plex/recommendations', plexRecommendationsRoutes);
+app.use('/api/media/recommendations', recommendationsRoutes);
 app.use('/api/walkthrough', walkthroughRoutes);
+app.use('/api/link-library', linkLibraryRoutes);
 
 
 // Theme splash color map — server injects these into index.html template

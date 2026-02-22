@@ -5,7 +5,7 @@
  * This is a "complex" integration that requires custom UI (OAuth flow).
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { CheckCircle2, AlertCircle, ExternalLink, Loader, RefreshCw, Server } from 'lucide-react';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../shared/ui';
@@ -44,8 +44,13 @@ const PlexForm: React.FC<PlexFormProps> = ({
 }) => {
     const servers = config.servers || [];
 
-    // Default librarySyncEnabled to true for new integrations
+    // Ensure librarySyncEnabled default is persisted to form state
     const librarySyncEnabled = config.librarySyncEnabled ?? true;
+    useEffect(() => {
+        if (config.librarySyncEnabled === undefined) {
+            onFieldChange('librarySyncEnabled', true);
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps -- one-time init
 
     return (
         <div className="space-y-2">

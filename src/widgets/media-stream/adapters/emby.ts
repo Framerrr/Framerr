@@ -7,6 +7,7 @@
  */
 
 import type { MediaSession, SessionAdapter } from './types';
+import { getEmbyDeepLink } from '../../../shared/utils/mediaDeepLinks';
 
 // ============================================================================
 // EMBY RAW TYPES (identical to Jellyfin)
@@ -32,6 +33,14 @@ interface EmbyRawSession {
     UserName?: string;
     DeviceName?: string;
     Client?: string;
+    RemoteEndPoint?: string;
+    TranscodingInfo?: {
+        IsVideoDirect?: boolean;
+        IsAudioDirect?: boolean;
+        VideoCodec?: string;
+        AudioCodec?: string;
+        Bitrate?: number;
+    };
 }
 
 // ============================================================================
@@ -63,6 +72,7 @@ export const embyAdapter: SessionAdapter = {
     normalize(raw: unknown, _integrationId: string): MediaSession {
         const session = raw as EmbyRawSession;
         const item = session.NowPlayingItem;
+        const ti = session.TranscodingInfo;
 
         return {
             sessionKey: session.Id || '',
@@ -85,6 +95,17 @@ export const embyAdapter: SessionAdapter = {
                     : undefined,
             playerState: session.PlayState?.IsPaused ? 'paused' : 'playing',
             userName: session.UserName || 'Unknown',
+            playbackInfo: {
+                ipAddress: session.RemoteEndPoint,
+                bandwidth: ti?.Bitrate ? Math.round(ti.Bitrate / 1000) : undefined,
+                videoDecision: ti ? (ti.IsVideoDirect ? 'directplay' : 'transcode') : 'directplay',
+                audioDecision: ti ? (ti.IsAudioDirect ? 'directplay' : 'transcode') : 'directplay',
+                videoCodec: ti?.VideoCodec,
+                audioCodec: ti?.AudioCodec,
+                device: session.DeviceName,
+                platform: session.Client,
+                application: session.Client,
+            },
             _raw: raw,
         };
     },
@@ -93,13 +114,13 @@ export const embyAdapter: SessionAdapter = {
         return `/api/integrations/${integrationId}/proxy${path}`;
     },
 
-    getDeepLink(session: MediaSession): string {
+    getDeepLink(session: MediaSession, _machineId?: string, serverUrl?: string): string {
         const itemId = session.ratingKey;
-        if (!itemId) return '';
-        return `#!/details?id=${itemId}`;
+        if (!itemId || !serverUrl) return '';
+        return getEmbyDeepLink(itemId, serverUrl);
     },
 
     getStopEndpoint(integrationId: string): string {
-        return `/api/integrations/${integrationId}/proxy/Sessions`;
+        return `/api/integrations/${integrationId}/proxy/stop`;
     },
 };

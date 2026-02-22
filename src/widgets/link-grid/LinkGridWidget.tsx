@@ -43,6 +43,9 @@ import { AddButton } from './components/AddButton';
 // import { DragOverlay } from './components/DragOverlay';
 import { LinkItem } from './components/LinkItem';
 import { LinkFormModal } from './modals/LinkFormModal';
+import type { LibraryLink } from './components/LinkLibraryPicker';
+import { useLinkLibraryLinks, useDeleteLibraryLink } from './hooks/useLinkLibrary';
+import type { LinkFormData } from './types';
 
 // Preview mode mock links
 const PREVIEW_LINKS: Link[] = [
@@ -51,6 +54,8 @@ const PREVIEW_LINKS: Link[] = [
     { id: 'preview-3', title: 'Google', icon: 'Globe', size: 'circle', type: 'link' },
     { id: 'preview-4', title: 'Discord', icon: 'MessageCircle', size: 'circle', type: 'link' },
 ];
+
+
 
 export const LinkGridWidget: React.FC<LinkGridWidgetProps> = ({
     widget,
@@ -84,6 +89,7 @@ export const LinkGridWidget: React.FC<LinkGridWidgetProps> = ({
         editingLinkId,
         setEditingLinkId,
         handleSaveLink,
+        handleSaveToLibrary,
         handleDeleteLink,
         resetForm
     } = useLinkForm({
@@ -92,6 +98,10 @@ export const LinkGridWidget: React.FC<LinkGridWidgetProps> = ({
         config,
         setGlobalDragEnabled
     });
+
+    // === Link Library Hook ===
+    const { data: libraryLinks = [], isLoading: _libraryLoading } = useLinkLibraryLinks();
+    const deleteLibraryLink = useDeleteLibraryLink();
 
     // === DISABLED: Desktop & Touch Drag Hooks ===
     // Reordering now handled via config modal (LinkOrderEditor component).
@@ -293,13 +303,31 @@ export const LinkGridWidget: React.FC<LinkGridWidgetProps> = ({
             {editMode && (
                 <LinkFormModal
                     isOpen={showAddForm || !!editingLinkId}
-                    isEditing={!!editingLinkId}
+                    mode={editingLinkId ? 'edit' : 'create'}
                     editingLinkId={editingLinkId}
                     formData={formData}
                     setFormData={setFormData}
                     onSave={handleSaveLink}
+                    onSaveToLibrary={handleSaveToLibrary}
                     onDelete={handleDeleteLink}
                     onClose={resetForm}
+                    libraryLinks={libraryLinks as LibraryLink[]}
+                    onLibrarySelect={(link) => {
+                        // Pre-fill form from library template
+                        setFormData({
+                            title: link.title || '',
+                            icon: link.icon || 'Link',
+                            size: link.size || 'circle',
+                            type: link.type || 'link',
+                            url: link.url || '',
+                            showIcon: link.style?.showIcon !== false,
+                            showText: link.style?.showText !== false,
+                            action: link.action || { method: 'GET', url: '', headers: {}, body: null }
+                        } as LinkFormData);
+                    }}
+                    onLibraryDelete={(linkId) => {
+                        deleteLibraryLink.mutate(linkId);
+                    }}
                 />
             )}
 

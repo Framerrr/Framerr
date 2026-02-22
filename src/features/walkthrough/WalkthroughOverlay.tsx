@@ -390,7 +390,7 @@ const WalkthroughOverlay: React.FC = () => {
             return;
         }
         if (!walkthrough?.state.isActive) return;
-        if (e.key === 'Escape') walkthrough.skip();
+        if (e.key === 'Escape') setShowEndConfirmation(true);
         else if (e.key === 'Enter' && walkthrough.currentStep?.advanceOn.type === 'button') {
             walkthrough.advance();
         }
@@ -448,7 +448,7 @@ const WalkthroughOverlay: React.FC = () => {
                                 stepNumber={currentStepNumber}
                                 totalSteps={totalSteps}
                                 onNext={walkthrough.advance}
-                                onSkip={walkthrough.skip}
+                                onSkip={() => setShowEndConfirmation(true)}
                                 isFirst={isFirst}
                                 isLast={isLast}
                             />
@@ -479,7 +479,7 @@ const WalkthroughOverlay: React.FC = () => {
                                 stepNumber={currentStepNumber}
                                 totalSteps={totalSteps}
                                 onNext={walkthrough.advance}
-                                onSkip={walkthrough.skip}
+                                onSkip={() => setShowEndConfirmation(true)}
                                 isFirst={isFirst}
                                 isLast={isLast}
                             />

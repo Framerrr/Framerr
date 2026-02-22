@@ -96,7 +96,12 @@ export function validateProxyWhitelist() {
         });
 
         if (!isWhitelisted) {
-            logger.warn(`[ProxyAuth] Blocked spoofed headers from ${clientIp} (not in whitelist)`);
+            // Log once per IP to avoid log spam (e.g., dev server on localhost)
+            const blockedIps = (app as unknown as Record<string, Set<string>>)._blockedProxyIps ??= new Set();
+            if (!blockedIps.has(clientIp)) {
+                logger.warn(`[ProxyAuth] Blocked spoofed headers from ${clientIp} (not in whitelist)`);
+                blockedIps.add(clientIp);
+            }
             // Remove ALL possible proxy headers to prevent spoofing
             delete req.headers[configuredHeader];
             delete req.headers[configuredEmailHeader];

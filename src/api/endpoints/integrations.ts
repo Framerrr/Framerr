@@ -72,6 +72,8 @@ export interface IntegrationSchemaInfo {
     hasCustomForm: boolean;
     hasConnectionTest: boolean;
     metrics?: Array<{ key: string; recordable: boolean }>;
+    notificationMode?: 'webhook' | 'local';
+    notificationEvents?: Array<{ key: string; label: string; category?: string; adminOnly?: boolean; defaultAdmin?: boolean; defaultUser?: boolean }>;
 }
 
 export interface TestConnectionResult {

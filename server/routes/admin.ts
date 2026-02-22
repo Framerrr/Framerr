@@ -5,6 +5,7 @@ import * as userGroups from '../db/userGroups';
 import { hashPassword } from '../auth/password';
 import logger from '../utils/logger';
 import { invalidateSystemSettings } from '../utils/invalidateUserSettings';
+import { setHasLocalPassword } from '../db/users';
 
 const router = Router();
 
@@ -57,12 +58,6 @@ router.post('/users', async (req: Request, res: Response) => {
             return;
         }
 
-        // Enforce single-admin model: cannot create additional admins
-        if (group === 'admin') {
-            res.status(400).json({ error: 'Cannot create additional admin users. Only one admin is allowed.' });
-            return;
-        }
-
         // Hash password
         const passwordHash = await hashPassword(password);
 
@@ -90,18 +85,15 @@ router.put('/users/:id', async (req: Request, res: Response) => {
         const { id } = req.params;
         const { username, email, password, group } = req.body as UpdateUserBody;
 
-        // Prevent admin from changing their own group
-        if (id === authReq.user!.id && group && group !== authReq.user!.group) {
-            res.status(400).json({ error: 'Cannot change your own permission group' });
-            return;
-        }
-
-        // Enforce single-admin model: cannot promote users to admin
-        if (group === 'admin') {
+        // Guard: prevent demoting the last admin
+        if (group && group !== 'admin') {
             const targetUser = await users.getUserById(id);
-            if (targetUser && targetUser.group !== 'admin') {
-                res.status(400).json({ error: 'Cannot promote users to admin. Only one admin is allowed.' });
-                return;
+            if (targetUser && targetUser.group === 'admin') {
+                const adminCount = users.getAdminCount();
+                if (adminCount <= 1) {
+                    res.status(400).json({ error: 'Cannot demote the last admin. Promote another user first.' });
+                    return;
+                }
             }
         }
 
@@ -116,6 +108,12 @@ router.put('/users/:id', async (req: Request, res: Response) => {
             updates.passwordHash = await hashPassword(password);
         }
 
+        // Track if we're setting a password (to flip has_local_password after save)
+        const isSettingPassword = !!(password && password.trim() !== '');
+
+        // Capture old role before update (for session revocation)
+        const oldUser = group ? await users.getUserById(id) : null;
+
         const updatedUser = await users.updateUser(id, updates);
 
         if (!updatedUser) {
@@ -123,8 +121,20 @@ router.put('/users/:id', async (req: Request, res: Response) => {
             return;
         }
 
+        // If role changed, revoke all sessions so user re-authenticates with correct role
+        if (oldUser && oldUser.group !== group) {
+            await users.revokeAllUserSessions(id);
+            logger.info(`[Admin] Role changed for user ${id}: ${oldUser.group} → ${group}, all sessions revoked`);
+        }
+
+        // If admin set a password, mark user as having a local password
+        if (isSettingPassword) {
+            setHasLocalPassword(id, true);
+        }
+
         // Broadcast to admins so user list updates
         invalidateSystemSettings('users');
+        invalidateSystemSettings('groups');
 
         res.json({ user: updatedUser });
     } catch (error) {
@@ -145,12 +155,9 @@ router.delete('/users/:id', async (req: Request, res: Response) => {
             return;
         }
 
-        const allUsers = await users.getAllUsers();
-        const adminUsers = allUsers.filter(u => u.group === 'admin');
-
         // Prevent deleting the last admin
-        const userToDelete = allUsers.find(u => u.id === id);
-        if (userToDelete && userToDelete.group === 'admin' && adminUsers.length <= 1) {
+        const userToDelete = await users.getUserById(id);
+        if (userToDelete && userToDelete.group === 'admin' && users.getAdminCount() <= 1) {
             res.status(400).json({ error: 'Cannot delete the last admin user' });
             return;
         }
@@ -165,6 +172,7 @@ router.delete('/users/:id', async (req: Request, res: Response) => {
         // Broadcast to admins so user list and widget shares update
         invalidateSystemSettings('users');
         invalidateSystemSettings('widget-shares');
+        invalidateSystemSettings('groups');
 
         res.json({ success: true });
     } catch (error) {

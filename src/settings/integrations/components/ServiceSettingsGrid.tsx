@@ -25,71 +25,9 @@ import {
 import type { IntegrationSchemaInfo } from '../../../api/endpoints/integrations';
 import { IntegrationNotificationsTab, NotificationEvent, NotificationConfigData } from '../../../shared/ui';
 
-// Types that support webhooks (temporary until schema-driven)
-const WEBHOOK_SUPPORTED_TYPES = ['sonarr', 'radarr', 'overseerr', 'monitor', 'uptimekuma'];
-
-// Types that use 'local' mode (internal status notifications, no external webhook URL)
-const LOCAL_NOTIFICATION_TYPES = ['monitor', 'uptimekuma'];
-
-// Demo webhook events per type (temporary until schema-driven)
-const WEBHOOK_EVENTS: Record<string, NotificationEvent[]> = {
-    sonarr: [
-        { key: 'grab', label: 'Episode Grabbed', category: 'download', defaultAdmin: true },
-        { key: 'download', label: 'Episode Downloaded', category: 'download', defaultAdmin: true },
-        { key: 'upgrade', label: 'Episode Upgraded', category: 'download' },
-        { key: 'importComplete', label: 'Import Complete', category: 'download' },
-        { key: 'rename', label: 'Episode Renamed', category: 'library' },
-        { key: 'seriesAdd', label: 'Series Added', category: 'library' },
-        { key: 'seriesDelete', label: 'Series Removed', category: 'library' },
-        { key: 'episodeFileDelete', label: 'Episode Deleted', category: 'library' },
-        { key: 'healthIssue', label: 'Health Issue', category: 'system', defaultAdmin: true },
-        { key: 'healthRestored', label: 'Health Restored', category: 'system' },
-        { key: 'applicationUpdate', label: 'Update Available', category: 'system' },
-        { key: 'manualInteractionRequired', label: 'Manual Action Required', category: 'system', defaultAdmin: true },
-        { key: 'test', label: 'Test', category: 'system', defaultAdmin: true, defaultUser: false },
-    ],
-    radarr: [
-        { key: 'grab', label: 'Movie Grabbed', category: 'download', defaultAdmin: true },
-        { key: 'download', label: 'Movie Downloaded', category: 'download', defaultAdmin: true },
-        { key: 'upgrade', label: 'Movie Upgraded', category: 'download' },
-        { key: 'importComplete', label: 'Import Complete', category: 'download' },
-        { key: 'rename', label: 'Movie Renamed', category: 'library' },
-        { key: 'movieAdded', label: 'Movie Added', category: 'library' },
-        { key: 'movieDelete', label: 'Movie Removed', category: 'library' },
-        { key: 'movieFileDelete', label: 'Movie File Deleted', category: 'library' },
-        { key: 'healthIssue', label: 'Health Issue', category: 'system', defaultAdmin: true },
-        { key: 'healthRestored', label: 'Health Restored', category: 'system' },
-        { key: 'applicationUpdate', label: 'Update Available', category: 'system' },
-        { key: 'manualInteractionRequired', label: 'Manual Action Required', category: 'system', defaultAdmin: true },
-        { key: 'test', label: 'Test', category: 'system', defaultAdmin: true, defaultUser: false },
-    ],
-    overseerr: [
-        { key: 'requestPending', label: 'Request Pending', category: 'request', adminOnly: true, defaultAdmin: true },
-        { key: 'requestApproved', label: 'Request Approved', category: 'request', defaultAdmin: true, defaultUser: true },
-        { key: 'requestAutoApproved', label: 'Auto-Approved', category: 'request', defaultAdmin: true, defaultUser: true },
-        { key: 'requestAvailable', label: 'Now Available', category: 'request', defaultAdmin: true, defaultUser: true },
-        { key: 'requestDeclined', label: 'Request Declined', category: 'request', defaultUser: true },
-        { key: 'requestFailed', label: 'Request Failed', category: 'request', adminOnly: true, defaultAdmin: true },
-        { key: 'requestProcessing', label: 'Processing Started', category: 'request' },
-        { key: 'issueReported', label: 'Issue Reported', category: 'issue', defaultAdmin: true },
-        { key: 'issueComment', label: 'Issue Comment', category: 'issue' },
-        { key: 'issueResolved', label: 'Issue Resolved', category: 'issue' },
-        { key: 'issueReopened', label: 'Issue Reopened', category: 'issue' },
-        { key: 'test', label: 'Test', category: 'system', defaultAdmin: true, defaultUser: false },
-    ],
-    monitor: [
-        { key: 'serviceUp', label: 'Service Recovered', category: 'status', defaultAdmin: true },
-        { key: 'serviceDown', label: 'Service Down', category: 'status', defaultAdmin: true },
-        { key: 'serviceDegraded', label: 'Service Degraded', category: 'status', defaultAdmin: true },
-        { key: 'serviceMaintenanceStart', label: 'Maintenance Started', category: 'maintenance', defaultAdmin: true },
-        { key: 'serviceMaintenanceEnd', label: 'Maintenance Ended', category: 'maintenance', defaultAdmin: true },
-    ],
-    uptimekuma: [
-        { key: 'serviceUp', label: 'Service Recovered', category: 'status', defaultAdmin: true },
-        { key: 'serviceDown', label: 'Service Down', category: 'status', defaultAdmin: true },
-        { key: 'serviceDegraded', label: 'Service Degraded', category: 'status', defaultAdmin: true },
-    ]
-};
+// Note: Notification events and modes are now auto-detected from plugin schemas.
+// No hardcoded WEBHOOK_SUPPORTED_TYPES, LOCAL_NOTIFICATION_TYPES, or WEBHOOK_EVENTS needed.
+// Plugins declare notificationMode and notificationEvents in their schema.
 
 // Instance from backend
 interface IntegrationInstance {
@@ -113,7 +51,7 @@ interface ServiceSettingsGridProps {
     onToggleInstance?: (instanceId: string) => void;  // Toggle specific instance enabled state
     onTest: (service: string) => Promise<void>;
 
-    onSave: (instanceId: string) => Promise<void>;
+    onSave: (instanceId: string, overrides?: { enabled?: boolean }) => Promise<void>;
     onCancel: () => void;
     onReset: (instanceId: string) => void;
     onDeleteInstance: (instanceId: string) => Promise<void>;
@@ -135,6 +73,8 @@ interface ServiceSettingsGridProps {
     onMonitorSave?: () => Promise<void>;
     onMonitorCancel?: () => void;
     onUptimeKumaSave?: () => Promise<void>;
+    /** Whether the monitor form has unsaved changes (new/edited/reordered monitors) */
+    monitorHasChanges?: boolean;
 }
 
 const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
@@ -165,7 +105,8 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
     renderUptimeKuma,
     onMonitorSave,
     onMonitorCancel,
-    onUptimeKumaSave
+    onUptimeKumaSave,
+    monitorHasChanges
 }) => {
 
     // Ref for MetricHistorySection dirty state — committed on modal save
@@ -210,7 +151,7 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
         setActiveModal(null);
     };
 
-    const handleModalSave = async (instanceId: string) => {
+    const handleModalSave = async (instanceId: string, overrides?: { enabled?: boolean }) => {
         // Get type from instances for special case handling
         const instance = instances.find(i => i.id === instanceId);
         const type = instance?.type;
@@ -225,7 +166,7 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
         }
         // Commit metric history dirty state (no-op if nothing changed)
         await metricHistoryRef.current?.save();
-        await onSave(instanceId);  // Single-instance save
+        await onSave(instanceId, overrides);  // Single-instance save with optional overrides
         setActiveModal(null); // Close modal after successful save
     };
 
@@ -338,7 +279,7 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
     return (
         <>
             {/* Categorized Service List */}
-            <div className="space-y-6">
+            <div className="space-y-6" data-walkthrough="integration-grid">
                 {CATEGORY_ORDER.map(category => {
                     // Get all service types in this category from schemas
                     const servicesInCategory = serviceDefinitions.filter(
@@ -408,11 +349,17 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
                 // Standard types need schema to render
                 if (!schemaInfo && !hasCustomForm(instance.type)) return null;
 
-                const supportsWebhook = WEBHOOK_SUPPORTED_TYPES.includes(instance.type);
-                const isLocalMode = LOCAL_NOTIFICATION_TYPES.includes(instance.type);
-                const webhookEvents = WEBHOOK_EVENTS[instance.type] || [];
+                const supportsWebhook = !!schemaInfo?.notificationMode;
+                const isLocalMode = schemaInfo?.notificationMode === 'local';
+                const webhookEvents: NotificationEvent[] = schemaInfo?.notificationEvents || [];
                 const instanceConfig = integrations[instance.id] || {};
-                const webhookConfig = (instanceConfig as { webhookConfig?: NotificationConfigData }).webhookConfig || {};
+                const savedWebhookConfig = (instanceConfig as { webhookConfig?: NotificationConfigData }).webhookConfig;
+
+                // For local-mode integrations with no saved config, pre-populate with schema defaults
+                const webhookConfig: NotificationConfigData = savedWebhookConfig || (isLocalMode ? {
+                    adminEvents: webhookEvents.filter(e => e.defaultAdmin).map(e => e.key),
+                    userEvents: webhookEvents.filter(e => e.defaultUser).map(e => e.key),
+                } : {});
 
                 // Build serviceDef from schema for modal props
                 const serviceDef: ServiceDefinition = schemaInfo ? {
@@ -447,12 +394,17 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
                         }
 
                         onSave={() => handleModalSave(instance.id)}
+                        onSaveAndEnable={() => handleModalSave(instance.id, { enabled: true })}
                         onToggle={onToggleInstance ? () => onToggleInstance(instance.id) : undefined}
                         testState={testStates[instance.id]}
                         saving={saving}
-                        isEnabled={instance.enabled}
+                        isEnabled={integrations[instance.id]?.enabled ?? instance.enabled}
                         canSave={canSave(instance.id)}
-                        hasUnsavedChanges={hasInstanceChanges(instance.id)}
+                        hasUnsavedChanges={
+                            instance.type === 'monitor'
+                                ? (hasInstanceChanges(instance.id) || !!monitorHasChanges)
+                                : hasInstanceChanges(instance.id)
+                        }
                         onDiscard={() => {
                             onReset(instance.id);
                             setActiveModal(null);

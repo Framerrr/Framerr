@@ -93,6 +93,7 @@ const EventPopover: React.FC<EventPopoverProps> = ({ event, showInstanceName, ch
                                 alt={displayTitle}
                                 className="cal-popover-poster"
                                 loading="lazy"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
                         ) : (
                             <div className="cal-popover-poster-placeholder">

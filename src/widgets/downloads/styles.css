@@ -56,9 +56,16 @@
     /* gap (0.25rem) adds to right side, so reduce to center */
 }
 
-.qbt-stats-item:first-child::before,
-.qbt-stats-item.wrap-start::before {
+.qbt-stats-item:first-child::before {
     display: none;
+}
+
+/* Use visibility:hidden (not display:none) so the separator still
+   takes up space — prevents a width oscillation loop where hiding
+   the separator shrinks the row enough to unwrap, which re-shows
+   the separator, re-wraps, etc. */
+.qbt-stats-item.wrap-start::before {
+    visibility: hidden;
 }
 
 /* Clickable stats (Popover triggers) — button reset */

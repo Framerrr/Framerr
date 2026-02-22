@@ -1,55 +1,29 @@
 import React from 'react';
 import { Wifi, WifiOff, Activity, Tv, HardDrive, LucideIcon } from 'lucide-react';
 import { Modal } from '../../../shared/ui';
-
-interface Player {
-    address?: string;
-    device?: string;
-    platform?: string;
-    product?: string;
-}
-
-interface SessionData {
-    location?: string;
-    bandwidth?: number;
-}
-
-interface TranscodeSession {
-    videoDecision?: string;
-    audioDecision?: string;
-    videoCodec?: string;
-    audioCodec?: string;
-}
-
-interface PlexSession {
-    Player?: Player;
-    Session?: SessionData;
-    TranscodeSession?: TranscodeSession;
-    Media?: Record<string, unknown>;
-}
+import type { PlaybackInfo } from '../adapters/types';
 
 interface PlaybackDataModalProps {
-    session: PlexSession | null;
+    playbackInfo: PlaybackInfo | undefined;
     onClose: () => void;
 }
 
-const PlaybackDataModal: React.FC<PlaybackDataModalProps> = ({ session, onClose }) => {
-    if (!session) return null;
-
-    const { Player, Session: SessionData, TranscodeSession } = session;
+const PlaybackDataModal: React.FC<PlaybackDataModalProps> = ({ playbackInfo, onClose }) => {
+    if (!playbackInfo) return null;
 
     // Determine connection type
-    const isLAN = SessionData?.location === 'lan';
+    const hasLocation = playbackInfo.location != null;
+    const isLAN = playbackInfo.location === 'lan';
     const ConnectionIcon: LucideIcon = isLAN ? Wifi : WifiOff;
     const connectionColor = isLAN ? 'var(--success)' : 'var(--warning)';
 
     // Format bandwidth
-    const bandwidth = SessionData?.bandwidth
-        ? `${(SessionData.bandwidth / 1000).toFixed(1)} Mbps`
-        : 'Unknown';
+    const bandwidth = playbackInfo.bandwidth
+        ? `${(playbackInfo.bandwidth / 1000).toFixed(1)} Mbps`
+        : undefined;
 
-    // Video decision - No TranscodeSession means Direct Play
-    const videoDecision = TranscodeSession?.videoDecision || (TranscodeSession ? 'Unknown' : 'directplay');
+    // Video decision
+    const videoDecision = playbackInfo.videoDecision || 'directplay';
     const videoColor = videoDecision === 'directplay' ? 'var(--success)'
         : videoDecision === 'copy' ? 'var(--info)'
             : 'var(--warning)';
@@ -58,8 +32,8 @@ const PlaybackDataModal: React.FC<PlaybackDataModalProps> = ({ session, onClose 
             : videoDecision === 'transcode' ? 'Transcode'
                 : videoDecision;
 
-    // Audio decision - No TranscodeSession means Direct Play
-    const audioDecision = TranscodeSession?.audioDecision || (TranscodeSession ? 'Unknown' : 'directplay');
+    // Audio decision
+    const audioDecision = playbackInfo.audioDecision || 'directplay';
     const audioColor = audioDecision === 'directplay' ? 'var(--success)'
         : audioDecision === 'copy' ? 'var(--info)'
             : 'var(--warning)';
@@ -86,24 +60,35 @@ const PlaybackDataModal: React.FC<PlaybackDataModalProps> = ({ session, onClose 
                             textTransform: 'uppercase',
                             letterSpacing: '0.05em'
                         }}>
-                            <ConnectionIcon size={16} style={{ color: connectionColor }} />
+                            <ConnectionIcon size={16} style={{ color: hasLocation ? connectionColor : 'var(--text-secondary)' }} />
                             Network
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>IP Address:</span>
-                                <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{Player?.address || 'Unknown'}</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Connection:</span>
-                                <span style={{ fontWeight: 500, color: connectionColor }}>
-                                    {isLAN ? 'LAN' : 'WAN'}
+                            {playbackInfo.ipAddress && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>IP Address:</span>
+                                    <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{playbackInfo.ipAddress}</span>
+                                </div>
+                            )}
+                            {hasLocation && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>Connection:</span>
+                                    <span style={{ fontWeight: 500, color: connectionColor }}>
+                                        {isLAN ? 'LAN' : 'WAN'}
+                                    </span>
+                                </div>
+                            )}
+                            {bandwidth && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>Bandwidth:</span>
+                                    <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{bandwidth}</span>
+                                </div>
+                            )}
+                            {!playbackInfo.ipAddress && !hasLocation && !bandwidth && (
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                                    No network data available
                                 </span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Bandwidth:</span>
-                                <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{bandwidth}</span>
-                            </div>
+                            )}
                         </div>
                     </div>
 
@@ -130,11 +115,11 @@ const PlaybackDataModal: React.FC<PlaybackDataModalProps> = ({ session, onClose 
                                     {videoText}
                                 </span>
                             </div>
-                            {TranscodeSession?.videoCodec && (
+                            {playbackInfo.videoCodec && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <span style={{ color: 'var(--text-secondary)' }}>Codec:</span>
                                     <span style={{ fontWeight: 500, textTransform: 'uppercase', color: 'var(--text-primary)' }}>
-                                        {TranscodeSession.videoCodec}
+                                        {playbackInfo.videoCodec}
                                     </span>
                                 </div>
                             )}
@@ -164,11 +149,11 @@ const PlaybackDataModal: React.FC<PlaybackDataModalProps> = ({ session, onClose 
                                     {audioText}
                                 </span>
                             </div>
-                            {TranscodeSession?.audioCodec && (
+                            {playbackInfo.audioCodec && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <span style={{ color: 'var(--text-secondary)' }}>Codec:</span>
                                     <span style={{ fontWeight: 500, textTransform: 'uppercase', color: 'var(--text-primary)' }}>
-                                        {TranscodeSession.audioCodec}
+                                        {playbackInfo.audioCodec}
                                     </span>
                                 </div>
                             )}
@@ -192,18 +177,24 @@ const PlaybackDataModal: React.FC<PlaybackDataModalProps> = ({ session, onClose 
                             Client
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Device:</span>
-                                <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{Player?.device || 'Unknown'}</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Platform:</span>
-                                <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{Player?.platform || 'Unknown'}</span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span style={{ color: 'var(--text-secondary)' }}>Application:</span>
-                                <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{Player?.product || 'Unknown'}</span>
-                            </div>
+                            {playbackInfo.device && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>Device:</span>
+                                    <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{playbackInfo.device}</span>
+                                </div>
+                            )}
+                            {playbackInfo.platform && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>Platform:</span>
+                                    <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{playbackInfo.platform}</span>
+                                </div>
+                            )}
+                            {playbackInfo.application && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ color: 'var(--text-secondary)' }}>Application:</span>
+                                    <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{playbackInfo.application}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -213,4 +204,3 @@ const PlaybackDataModal: React.FC<PlaybackDataModalProps> = ({ session, onClose 
 };
 
 export default PlaybackDataModal;
-

@@ -7,9 +7,10 @@
  * Phase 4: Refactored from usePlexSessions to support multi-integration.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useIntegrationSSE } from '../../../shared/widgets';
 import { widgetFetch } from '../../../utils/widgetFetch';
+import { useMediaServerMeta } from '../../../shared/hooks/useMediaServerMeta';
 import logger from '../../../utils/logger';
 import { getAdapter, type MediaSession, type IntegrationType } from '../adapters';
 
@@ -30,6 +31,8 @@ interface UseMediaStreamReturn {
     /** True during first 5 seconds of subscription - errors are suppressed during this time */
     isInitializing: boolean;
     machineId: string | null;
+    /** Server web URL for Jellyfin/Emby deep links */
+    serverUrl: string | null;
     lastUpdateTime: number;
     refreshSessions: () => Promise<void>;
 }
@@ -45,10 +48,18 @@ export const useMediaStream = ({
 }: UseMediaStreamProps): UseMediaStreamReturn => {
     const [sessions, setSessions] = useState<MediaSession[]>([]);
     const [error, setError] = useState<string | null>(null);
-    const [machineId, setMachineId] = useState<string | null>(null);
     const [isInitializing, setIsInitializing] = useState(true);
     const lastUpdateRef = useRef<number>(Date.now());
     const initTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+    // Shared hook for machineId (Plex) and serverUrl (Jellyfin/Emby)
+    const integrationIds = useMemo(
+        () => (integrationId ? [integrationId] : []),
+        [integrationId]
+    );
+    const { machineIds, serverUrls } = useMediaServerMeta(integrationIds, 'media-stream');
+    const machineId = integrationId ? (machineIds[integrationId] ?? null) : null;
+    const serverUrl = integrationId ? (serverUrls[integrationId] ?? null) : null;
 
     // Get the appropriate adapter for this integration type
     const adapter = getAdapter(integrationType);
@@ -58,7 +69,6 @@ export const useMediaStream = ({
     useEffect(() => {
         setSessions([]);
         setError(null);
-        setMachineId(null);
         setIsInitializing(true);
 
         // Clear any existing timeout
@@ -159,8 +169,12 @@ export const useMediaStream = ({
     });
 
     // Refresh sessions manually (called after stopping a session)
+    // Only Plex has a /proxy/sessions GET endpoint — Jellyfin/Emby updates arrive via SSE
     const refreshSessions = useCallback(async (): Promise<void> => {
         if (!integrationId) return;
+
+        // Jellyfin/Emby don't have a sessions polling endpoint — SSE handles updates
+        if (integrationType !== 'plex') return;
 
         try {
             const response = await widgetFetch(
@@ -184,37 +198,7 @@ export const useMediaStream = ({
         }
     }, [integrationId, adapter, integrationType]);
 
-    // Fetch machine ID on mount (Plex only - needed for deep links)
-    useEffect(() => {
-        if (!isIntegrationBound || !integrationId) return;
 
-        // Machine ID is only used for Plex deep links
-        if (integrationType !== 'plex') {
-            setMachineId(null);
-            return;
-        }
-
-        const fetchMachineId = async (): Promise<void> => {
-            try {
-                const response = await widgetFetch(
-                    `/api/integrations/${integrationId}/proxy/machineId`,
-                    'media-stream'
-                );
-                if (response.ok) {
-                    const xml = await response.text();
-                    const match = xml.match(/machineIdentifier="([^"]+)"/);
-                    if (match) setMachineId(match[1]);
-                }
-            } catch (err) {
-                logger.error('[MediaStream] Error fetching machine ID', {
-                    error: (err as Error).message,
-                    integrationType,
-                });
-            }
-        };
-
-        fetchMachineId();
-    }, [isIntegrationBound, integrationId, integrationType]);
 
     return {
         sessions,
@@ -222,6 +206,7 @@ export const useMediaStream = ({
         error,
         isInitializing,
         machineId,
+        serverUrl,
         lastUpdateTime: lastUpdateRef.current,
         refreshSessions,
     };

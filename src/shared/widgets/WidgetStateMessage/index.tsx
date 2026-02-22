@@ -36,7 +36,8 @@ export type WidgetStateVariant =
     | 'noAccess'
     | 'crash'
     | 'empty'
-    | 'unavailable';
+    | 'unavailable'
+    | 'authError';
 
 export interface WidgetStateMessageProps {
     /** State variant to display */
@@ -95,7 +96,7 @@ const variantConfigs: Record<WidgetStateVariant, VariantConfig> = {
         iconClass: 'widget-state__icon--warning',
         title: 'No Integrations Available',
         getMessage: (_name?: string, isAdmin?: boolean) => isAdmin
-            ? 'Add an integration in settings'
+            ? 'Add an integration in Service Settings'
             : '',
         showSettingsLink: true,
         showRetry: false,
@@ -105,11 +106,7 @@ const variantConfigs: Record<WidgetStateVariant, VariantConfig> = {
         icon: Settings,
         iconClass: 'widget-state__icon--muted',
         title: 'Not Configured',
-        getMessage: (name) => {
-            if (!name) return 'Select an integration to use this widget';
-            const article = /^[aeiou]/i.test(name) ? 'an' : 'a';
-            return `Select ${article} ${name} integration to use this widget`;
-        },
+        getMessage: () => 'Select an integration',
         showSettingsLink: false,
         showRetry: false,
         showDetails: false,
@@ -149,6 +146,17 @@ const variantConfigs: Record<WidgetStateVariant, VariantConfig> = {
             ? `Unable to reach ${serviceName}`
             : 'Unable to reach service',
         showSettingsLink: false,
+        showRetry: false,
+        showDetails: false,
+    },
+    authError: {
+        icon: ShieldOff,
+        iconClass: 'widget-state__icon--error',
+        title: 'Authentication Failed',
+        getMessage: (serviceName) => serviceName
+            ? `Check ${serviceName} credentials in Settings`
+            : 'Check credentials in Settings',
+        showSettingsLink: true,
         showRetry: false,
         showDetails: false,
     },
@@ -199,7 +207,10 @@ export const WidgetStateMessage: React.FC<WidgetStateMessageProps> = ({
         displayMessage = emptySubtitle;
     } else if (variant === 'unavailable' && instanceName) {
         // Use instance name for more specific unavailable message
-        displayMessage = `Unable to reach ${instanceName}`;
+        displayMessage = `Unable to reach "${instanceName}"`;
+    } else if (variant === 'authError' && instanceName) {
+        // Use instance name for more specific auth error message
+        displayMessage = `Check "${instanceName}" credentials in Settings`;
     } else {
         displayMessage = config.getMessage(serviceName, isAdmin);
     }

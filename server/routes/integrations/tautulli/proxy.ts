@@ -68,7 +68,7 @@ router.get('/:id/proxy/tautulli-image', requireAuth, async (req: Request, res: R
 
         const contentType = response.headers['content-type'] || 'image/jpeg';
         res.set('Content-Type', contentType);
-        res.set('Cache-Control', 'public, max-age=86400'); // 1 day browser cache
+        res.set('Cache-Control', 'public, max-age=14400'); // 4 hours browser cache
         res.send(response.data);
     } catch (error) {
         logger.error(`[Tautulli Proxy] Image error: error="${(error as Error).message}"`);

@@ -26,6 +26,10 @@ interface AgendaListProps {
     compact?: boolean;
     /** When set, scroll to the first date group matching this month (YYYY-MM format) */
     scrollToMonth?: string;
+    /** Whether to show events before today (default: false) */
+    showPastEvents?: boolean;
+    /** Whether to show a "Today" button for scrolling back (agenda-only mode) */
+    showTodayButton?: boolean;
 }
 
 interface DateGroup {
@@ -103,6 +107,8 @@ const AgendaList: React.FC<AgendaListProps> = ({
     onFilterChange,
     compact = false,
     scrollToMonth,
+    showPastEvents = false,
+    showTodayButton = false,
 }) => {
     // Modal state
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -117,13 +123,30 @@ const AgendaList: React.FC<AgendaListProps> = ({
     // Scroll to month when scrollToMonth changes
     useEffect(() => {
         if (!scrollToMonth || !scrollRef.current) return;
-        // Find the first date group element matching the target month
-        const target = scrollRef.current.querySelector(
+        const container = scrollRef.current;
+
+        // If target month is the current month, scroll to today (or next future item)
+        const todayStr = new Date().toISOString().split('T')[0];
+        const currentMonthStr = todayStr.substring(0, 7); // YYYY-MM
+        if (scrollToMonth === currentMonthStr) {
+            // Find today's group or the next future group
+            const todayTarget = container.querySelector(
+                `[data-date="${todayStr}"]`
+            ) as HTMLElement | null
+                ?? Array.from(container.querySelectorAll('[data-date]'))
+                    .find(el => (el as HTMLElement).dataset.date! >= todayStr) as HTMLElement | null;
+            if (todayTarget) {
+                const targetTop = todayTarget.offsetTop - container.offsetTop;
+                container.scrollTo({ top: targetTop, behavior: 'smooth' });
+                return;
+            }
+        }
+
+        // For other months, scroll to the first date group in that month
+        const target = container.querySelector(
             `[data-date^="${scrollToMonth}"]`
         ) as HTMLElement | null;
         if (target) {
-            // Scroll within the container only, not the page
-            const container = scrollRef.current;
             const targetTop = target.offsetTop - container.offsetTop;
             container.scrollTo({ top: targetTop, behavior: 'smooth' });
         }
@@ -131,9 +154,13 @@ const AgendaList: React.FC<AgendaListProps> = ({
 
     // Build sorted, grouped, filtered list
     const groups: DateGroup[] = useMemo(() => {
+        const todayStr = new Date().toISOString().split('T')[0];
         const dateKeys = Object.keys(events).sort();
         return dateKeys
             .map(dateStr => {
+                // Hide past events if toggle is off
+                if (!showPastEvents && dateStr < todayStr) return null;
+
                 let dayEvents = events[dateStr];
                 // Apply filter
                 if (filter === 'tv') dayEvents = dayEvents.filter(ev => ev.type === 'sonarr');
@@ -144,9 +171,48 @@ const AgendaList: React.FC<AgendaListProps> = ({
                 return { dateStr, label, isToday, events: dayEvents };
             })
             .filter((g): g is DateGroup => g !== null);
-    }, [events, filter]);
+    }, [events, filter, showPastEvents]);
 
     const hasEvents = groups.length > 0;
+
+    // Scroll to today (or next future item)
+    const scrollToToday = useCallback(() => {
+        if (!scrollRef.current || groups.length === 0) return;
+        const todayStr = new Date().toISOString().split('T')[0];
+        // Find today's group or the next future group
+        const targetGroup = groups.find(g => g.dateStr >= todayStr);
+        if (!targetGroup) return;
+        const target = scrollRef.current.querySelector(
+            `[data-date="${targetGroup.dateStr}"]`
+        ) as HTMLElement | null;
+        if (target) {
+            const container = scrollRef.current;
+            const targetTop = target.offsetTop - container.offsetTop;
+            container.scrollTo({ top: targetTop, behavior: 'smooth' });
+        }
+    }, [groups]);
+
+    // Auto-scroll to today on initial data load AND when showPastEvents toggles off (snap back)
+    const hasData = groups.length > 0;
+    const prevShowPast = useRef(showPastEvents);
+    useEffect(() => {
+        if (!scrollRef.current || !hasData) return;
+        const todayStr = new Date().toISOString().split('T')[0];
+        const targetGroup = groups.find(g => g.dateStr >= todayStr);
+        if (!targetGroup) return;
+        const target = scrollRef.current.querySelector(
+            `[data-date="${targetGroup.dateStr}"]`
+        ) as HTMLElement | null;
+        if (target) {
+            const container = scrollRef.current;
+            const targetTop = target.offsetTop - container.offsetTop;
+            // Instant on mount, smooth when toggling past events off
+            const behavior = prevShowPast.current !== showPastEvents ? 'smooth' : 'instant';
+            container.scrollTo({ top: targetTop, behavior });
+        }
+        prevShowPast.current = showPastEvents;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hasData, showPastEvents]);
 
     return (
         <div className={`cal-agenda ${compact ? 'cal-agenda--compact' : ''}`}>
@@ -171,6 +237,11 @@ const AgendaList: React.FC<AgendaListProps> = ({
                     >
                         Movies
                     </button>
+                    {showTodayButton && (
+                        <button className="cal-agenda-today-btn" onClick={scrollToToday}>
+                            Today
+                        </button>
+                    )}
                 </div>
             )}
 
@@ -203,7 +274,7 @@ const AgendaList: React.FC<AgendaListProps> = ({
                                     {/* Poster thumbnail */}
                                     <div className="cal-agenda-poster">
                                         {posterUrl ? (
-                                            <img src={posterUrl} alt={title} loading="lazy" />
+                                            <img src={posterUrl} alt={title} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                         ) : (
                                             <div className="cal-agenda-poster-placeholder">
                                                 {isTV ? <Tv size={18} /> : <Film size={18} />}

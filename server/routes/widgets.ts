@@ -152,6 +152,9 @@ router.patch('/:widgetId/config', requireAuth, async (req: Request, res: Respons
         const widgets = (userConfig.dashboard?.widgets || []) as DashboardWidget[];
         const mobileWidgets = (userConfig.dashboard?.mobileWidgets || []) as DashboardWidget[];
 
+        // DEBUG: Log what we got from the database
+        logger.debug(`[Widgets] PATCH debug: user=${authReq.user!.id} desktopWidgetCount=${widgets.length} mobileWidgetCount=${mobileWidgets.length} desktopIds=[${widgets.map(w => w.id).join(', ')}] mobileIds=[${mobileWidgets.map(w => w.id).join(', ')}]`);
+
         // Find and update the widget in desktop widgets
         let found = false;
         const updatedWidgets = widgets.map(w => {
@@ -185,15 +188,30 @@ router.patch('/:widgetId/config', requireAuth, async (req: Request, res: Respons
         // Also update in mobile widgets if present
         const updatedMobileWidgets = mobileWidgets.map(w => {
             if (w.id === widgetId) {
+                found = true;
+
+                // LAYER 3: Same protection as desktop widgets
+                const existingIntegrationId = (w.config as Record<string, unknown>)?.integrationId;
+                let finalConfig = { ...w.config, ...config };
+
+                if (existingIntegrationId && (config.integrationId === null || config.integrationId === undefined)) {
+                    if (!(config as Record<string, unknown>).forceClearIntegration) {
+                        logger.warn(`[Widgets] BLOCKED: Attempted to clear integrationId on mobile widget=${widgetId} - preserving existing value`);
+                        finalConfig.integrationId = existingIntegrationId;
+                    }
+                }
+
                 return {
                     ...w,
-                    config: { ...w.config, ...config }
+                    config: finalConfig
                 };
             }
             return w;
         });
 
         if (!found) {
+            const savedIds = widgets.map(w => w.id);
+            logger.warn(`[Widgets] Widget not found for PATCH: user=${authReq.user!.id} widgetId=${widgetId} savedWidgets=[${savedIds.join(', ')}]`);
             res.status(404).json({ error: 'Widget not found' });
             return;
         }

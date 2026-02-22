@@ -137,6 +137,8 @@ export interface MonitorFormProps {
     integrations?: Record<string, IntegrationConfig>;
     /** Called when form mounts so parent can access ref methods */
     onReady?: () => void;
+    /** Called when monitor dirty state changes (new/edited/reordered monitors) */
+    onDirtyChange?: (dirty: boolean) => void;
 }
 
 // Exposed methods for parent to call via ref

@@ -16,7 +16,8 @@ export {
     deleteUser,
     listUsers,
     getAllUsers,
-    hasUsers
+    hasUsers,
+    getAdminCount
 } from './crud';
 
 // Session management

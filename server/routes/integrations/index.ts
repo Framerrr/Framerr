@@ -27,7 +27,7 @@
 import { Router } from 'express';
 
 // Import core routers from _core folder
-import { crudRouter, testRouter, schemasRouter } from './_core';
+import { crudRouter, testRouter, schemasRouter, itemMetadataRouter } from './_core';
 
 // Import proxy routers from each integration
 import { plexProxyRouter } from './plex';
@@ -75,6 +75,9 @@ router.use('/', sabnzbdProxyRouter);
 // Overseerr-specific: actions and server discovery
 router.use('/', overseerrActionsRouter);
 router.use('/', overseerrServersRouter);
+
+// Item metadata - unified endpoint for all integration types
+router.use('/', itemMetadataRouter);
 
 // Mount CRUD operations (includes /shared before /:id per route order)
 // NOTE: This must come AFTER proxy routes since it has /:id catch-all

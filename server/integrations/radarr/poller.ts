@@ -33,7 +33,7 @@ export interface RadarrQueueItem {
  */
 export async function poll(instance: PluginInstance): Promise<RadarrQueueItem[]> {
     if (!instance.config.url || !instance.config.apiKey) {
-        return [];
+        throw new Error('URL and API key required');
     }
 
     const url = (instance.config.url as string).replace(/\/$/, '');
@@ -97,21 +97,20 @@ export interface CalendarMovie {
 
 /**
  * Poll Radarr calendar for a specific instance.
- * Returns movies for 60-day window (30 days past, 30 days future).
+ * Returns movies for 90-day window (30 days past, 60 days future).
  */
 export async function pollCalendar(instance: PluginInstance): Promise<CalendarMovie[]> {
     if (!instance.config.url || !instance.config.apiKey) {
-        return [];
+        throw new Error('URL and API key required');
     }
 
     const url = (instance.config.url as string).replace(/\/$/, '');
     const apiKey = instance.config.apiKey as string;
 
-    // Calendar window: 90 days past → 30 days future
-    // Wide past window ensures movies in cinemas (waiting for digital release) aren't missed
+    // Calendar window: 30 days past → 60 days future
     const now = Date.now();
-    const startDate = new Date(now - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const endDate = new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const startDate = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const endDate = new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     const response = await axios.get(`${url}/api/v3/calendar`, {
         params: { start: startDate, end: endDate, unmonitored: false },
@@ -158,7 +157,7 @@ export interface MissingCounts {
  */
 export async function pollMissing(instance: PluginInstance): Promise<MissingCounts> {
     if (!instance.config.url || !instance.config.apiKey) {
-        return { missingCount: 0, cutoffUnmetCount: 0 };
+        throw new Error('URL and API key required');
     }
 
     const url = (instance.config.url as string).replace(/\/$/, '');

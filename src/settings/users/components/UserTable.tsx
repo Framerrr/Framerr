@@ -72,7 +72,7 @@ export const UserTable: React.FC<UserTableProps> = ({
                                             ? 'bg-accent/20 text-accent'
                                             : 'bg-theme-tertiary text-theme-secondary'
                                             }`}>
-                                            {user.group || 'user'}
+                                            {(user.group || 'user').charAt(0).toUpperCase() + (user.group || 'user').slice(1)}
                                         </span>
                                     </td>
                                     <td className="px-4 py-3 text-theme-secondary text-sm hidden lg:table-cell">

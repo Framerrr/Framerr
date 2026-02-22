@@ -44,29 +44,24 @@ export async function poll(instance: PluginInstance): Promise<JellyfinSession[]>
     const apiKey = instance.config.apiKey as string;
 
     if (!url || !apiKey) {
-        return [];
+        throw new Error('URL and API key required');
     }
 
-    try {
-        const baseUrl = translateHostUrl(url).replace(/\/$/, '');
-        const response = await axios.get<JellyfinSession[]>(`${baseUrl}/Sessions`, {
-            headers: {
-                'Authorization': `MediaBrowser Token="${apiKey}"`,
-                'Accept': 'application/json',
-            },
-            httpsAgent,
-            timeout: 10000,
-        });
+    const baseUrl = translateHostUrl(url).replace(/\/$/, '');
+    const response = await axios.get<JellyfinSession[]>(`${baseUrl}/Sessions`, {
+        headers: {
+            'Authorization': `MediaBrowser Token="${apiKey}"`,
+            'Accept': 'application/json',
+        },
+        httpsAgent,
+        timeout: 10000,
+    });
 
-        // Filter to only sessions with active playback
-        const activeSessions = response.data.filter(
-            (session) => session.NowPlayingItem != null
-        );
+    // Filter to only sessions with active playback
+    const activeSessions = response.data.filter(
+        (session) => session.NowPlayingItem != null
+    );
 
-        logger.debug(`[Poller:jellyfin] Found ${activeSessions.length} active sessions`);
-        return activeSessions;
-    } catch (error) {
-        logger.error(`[Poller:jellyfin] Failed: error="${(error as Error).message}"`);
-        return [];
-    }
+    logger.debug(`[Poller:jellyfin] Found ${activeSessions.length} active sessions`);
+    return activeSessions;
 }

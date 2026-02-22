@@ -1,4 +1,4 @@
-import { ConfigSchema, IntegrationCategory } from '../types';
+import { ConfigSchema, IntegrationCategory, WebhookEventDefinition } from '../types';
 
 // ============================================================================
 // MONITOR (FRAMERR FIRST-PARTY) PLUGIN METADATA
@@ -20,3 +20,11 @@ export const configSchema: ConfigSchema = {
         content: 'This integration uses Framerr\'s built-in service monitoring. Monitors are configured per-widget after adding this integration.',
     },
 };
+
+export const notificationEvents: WebhookEventDefinition[] = [
+    { key: 'serviceUp', label: 'Service Recovered', category: 'status', defaultAdmin: true, defaultUser: true },
+    { key: 'serviceDown', label: 'Service Down', category: 'status', defaultAdmin: true, defaultUser: true },
+    { key: 'serviceDegraded', label: 'Service Degraded', category: 'status', defaultAdmin: true },
+    { key: 'serviceMaintenanceStart', label: 'Maintenance Started', category: 'maintenance', defaultAdmin: true, defaultUser: true },
+    { key: 'serviceMaintenanceEnd', label: 'Maintenance Ended', category: 'maintenance', defaultAdmin: true, defaultUser: true },
+];

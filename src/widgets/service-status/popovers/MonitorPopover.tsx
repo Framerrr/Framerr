@@ -266,7 +266,7 @@ const MonitorPopover: React.FC<MonitorPopoverProps> = ({
                                                 'bg-theme-hover'
                                         }`}
                                     style={tick.status === 'empty' ? { opacity: 0.5 } : undefined}
-                                    title={`${tick.hour === 0 ? 'Now' : `${tick.hour}h ago`}${tick.status === 'maintenance' ? ' (maintenance)' : ''}`}
+                                    title={`${tick.hour === 0 ? 'Now' : `${tick.hour}h ago`} - ${tick.status === 'up' ? 'Up' : tick.status === 'down' ? 'Down' : tick.status === 'mixed' ? 'Degraded' : tick.status === 'maintenance' ? 'Maintenance' : 'Unavailable'}`}
                                 />
                             ))}
                         </div>

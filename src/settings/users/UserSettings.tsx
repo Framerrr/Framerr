@@ -8,7 +8,7 @@
 import React from 'react';
 import { Users as UsersIcon, Plus } from 'lucide-react';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { Button } from '../../shared/ui';
+import { Button, ConfirmDialog } from '../../shared/ui';
 import { useUserSettings } from './hooks/useUserSettings';
 import { UserTable } from './components/UserTable';
 import { UserFormModal } from './components/UserFormModal';
@@ -29,7 +29,9 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ activeSubTab }) => {
         formData,
         confirmResetId,
         tempPassword,
+        showSelfDemoteConfirm,
         setConfirmResetId,
+        setShowSelfDemoteConfirm,
         isAdminGroup,
         handleCreateUser,
         handleEditUser,
@@ -40,6 +42,7 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ activeSubTab }) => {
         updateFormField,
         copyTempPassword,
         dismissTempPassword,
+        confirmSelfDemotion,
     } = useUserSettings();
 
     // Route to groups section
@@ -93,6 +96,17 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ activeSubTab }) => {
                 onClose={closeModal}
                 onSubmit={handleSubmit}
                 onUpdateField={updateFormField}
+            />
+
+            {/* Self-Demotion Confirmation */}
+            <ConfirmDialog
+                open={showSelfDemoteConfirm}
+                onOpenChange={(open) => !open && setShowSelfDemoteConfirm(false)}
+                title="Remove Admin Access?"
+                message="You will be logged out and lose access to admin settings. You'll need to log back in."
+                confirmLabel="Demote & Log Out"
+                onConfirm={confirmSelfDemotion}
+                variant="warning"
             />
         </SettingsPage>
     );

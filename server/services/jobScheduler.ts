@@ -255,6 +255,43 @@ export async function triggerJob(id: string): Promise<boolean> {
 }
 
 /**
+ * Trigger a job to run in the background (fire-and-forget).
+ * Returns immediately after setting status to 'running'.
+ * Used for long-running jobs like library-sync where the API should respond instantly.
+ */
+export function triggerJobAsync(id: string): boolean {
+    const job = jobs.get(id);
+    if (!job) {
+        logger.warn(`[JobScheduler] Cannot trigger unknown job: ${id}`);
+        return false;
+    }
+
+    if (job.status === 'running') {
+        logger.warn(`[JobScheduler] Job already running: ${id}`);
+        return false;
+    }
+
+    job.status = 'running';
+    logger.info(`[JobScheduler] Manually triggering job (async): ${id}`);
+
+    // Fire-and-forget: execute in background, reset status when done
+    Promise.resolve()
+        .then(() => job.config.execute())
+        .then(() => {
+            job.lastRun = new Date();
+            logger.info(`[JobScheduler] Async trigger completed: ${id}`);
+        })
+        .catch((error) => {
+            logger.error(`[JobScheduler] Async trigger failed: ${id}, error="${(error as Error).message}"`);
+        })
+        .finally(() => {
+            job.status = 'idle';
+        });
+
+    return true;
+}
+
+/**
  * Get status of all registered jobs.
  */
 export function getJobStatuses(): JobStatus[] {

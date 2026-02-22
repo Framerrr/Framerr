@@ -10,6 +10,7 @@
   <a href="https://hub.docker.com/r/pickels23/framerr"><img src="https://img.shields.io/docker/pulls/pickels23/framerr" alt="Docker Pulls"></a>
   <img src="https://img.shields.io/github/package-json/v/Framerrr/Framerr" alt="Version">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Framerrr/Framerr" alt="License"></a>
+  <a href="https://buymeacoffee.com/framerr"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-☕-yellow" alt="Buy Me a Coffee"></a>
 </p>
 
 > [!WARNING]
@@ -120,6 +121,12 @@ npm install
 cd server && npm install && cd ..
 npm run dev:all
 ```
+
+## Support
+
+If you enjoy Framerr, consider buying me a coffee! ☕
+
+<a href="https://buymeacoffee.com/framerr"><img src="https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?logo=buymeacoffee&logoColor=000" alt="Buy Me a Coffee" height="28"></a>
 
 ## License
 

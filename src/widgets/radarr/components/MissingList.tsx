@@ -129,6 +129,7 @@ const MissingList = ({
                                 alt={title}
                                 className="rdr-missing-poster"
                                 loading="lazy"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
                         ) : (
                             <div className="rdr-missing-poster-placeholder">

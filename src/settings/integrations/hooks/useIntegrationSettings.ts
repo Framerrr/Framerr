@@ -60,7 +60,7 @@ export interface UseIntegrationSettingsReturn {
     // Handlers
     handleFieldChange: (service: string, field: string, value: string | boolean) => void;
     handleToggle: (service: string) => void;
-    handleSave: (instanceId: string) => Promise<void>;
+    handleSave: (instanceId: string, overrides?: { enabled?: boolean }) => Promise<void>;
     handleTest: (instanceId: string) => Promise<void>;
     handleReset: (instanceId: string) => void;
     fetchIntegrations: () => Promise<void>;
@@ -79,6 +79,9 @@ export interface UseIntegrationSettingsReturn {
     handleMonitorFormReady: () => void;
     handleMonitorSave: () => Promise<void>;
     handleMonitorCancel: () => void;
+    /** Whether the monitor form has unsaved changes (new/edited/reordered monitors) */
+    monitorDirty: boolean;
+    handleMonitorDirtyChange: (dirty: boolean) => void;
 
     // UptimeKuma handlers
     handleUptimeKumaFormReady: () => void;
@@ -132,6 +135,8 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
     // Force re-render when forms mount
     const [, setMonitorFormReady] = useState(0);
     const [, setUptimeKumaFormReady] = useState(0);
+    // Track monitor form dirty state (new/edited/reordered monitors)
+    const [monitorDirty, setMonitorDirty] = useState(false);
 
 
 
@@ -217,47 +222,17 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
         }));
     }, []);
 
-    /**
-     * Compares two config objects (excluding transient metadata fields).
-     * Returns true if configs are equal (no changes).
-     */
-    const configsAreEqual = useCallback((
-        current: IntegrationConfig | undefined,
-        saved: IntegrationConfig | undefined
-    ): boolean => {
-        if (!current && !saved) return true;
-        if (!current || !saved) return false;
-
-        // Extract config without metadata fields for comparison
-        const extractConfig = (cfg: IntegrationConfig) => {
-            const { _instanceId, _displayName, _type, ...rest } = cfg as IntegrationConfig & {
-                _instanceId?: string; _displayName?: string; _type?: string
-            };
-            return { ...rest, _displayName }; // Keep displayName in comparison
-        };
-
-        const currentClean = extractConfig(current);
-        const savedClean = extractConfig(saved);
-
-        return JSON.stringify(currentClean) === JSON.stringify(savedClean);
-    }, []);
 
     /**
      * Save a single integration instance.
-     * Includes change detection - skips save if config unchanged.
+     * The Save button is already disabled when there are no changes,
+     * so this handler always saves what it's given.
      */
-    const handleSave = useCallback(async (instanceId: string): Promise<void> => {
+    const handleSave = useCallback(async (instanceId: string, overrides?: { enabled?: boolean }): Promise<void> => {
         const config = integrations[instanceId];
         if (!config || typeof config !== 'object') {
             logger.warn(`[useIntegrationSettings] No config found for instanceId=${instanceId}`);
             return;
-        }
-
-        // Change detection: compare current vs saved config
-        const savedConfig = savedIntegrations[instanceId];
-        if (configsAreEqual(config, savedConfig)) {
-            logger.info(`[useIntegrationSettings] No changes detected for instanceId=${instanceId}, skipping save`);
-            return; // No changes - skip API call
         }
 
         setSaving(true);
@@ -266,6 +241,9 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
                 _instanceId?: string; _displayName?: string; _type?: string
             };
 
+            // Allow callers to override enabled (e.g., Save & Enable flow)
+            const finalEnabled = overrides?.enabled ?? enabled;
+
             const isNewInstance = instanceId.startsWith('new-');
 
             if (isNewInstance) {
@@ -273,7 +251,7 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
                     type: _type || '',
                     name: _displayName || (_type ? _type.charAt(0).toUpperCase() + _type.slice(1) : 'Integration'),
                     config: configWithoutMeta,
-                    enabled
+                    enabled: finalEnabled
                 });
                 // Remove from ephemeral instances after successful create
                 setLocalInstances(prev => prev.filter(i => i.id !== instanceId));
@@ -284,9 +262,20 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
                     data: {
                         name: _displayName,
                         config: configWithoutMeta,
-                        enabled
+                        enabled: finalEnabled
                     }
                 });
+            }
+
+            // Also update local form state if override was used
+            if (overrides?.enabled !== undefined) {
+                setIntegrations(prev => ({
+                    ...prev,
+                    [instanceId]: {
+                        ...prev[instanceId],
+                        enabled: overrides.enabled!
+                    }
+                }));
             }
 
             showSuccess('Settings Saved', 'Integration settings saved successfully');
@@ -300,7 +289,7 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
         } finally {
             setSaving(false);
         }
-    }, [integrations, savedIntegrations, configsAreEqual, createMutation, updateMutation, showSuccess, showError]);
+    }, [integrations, createMutation, updateMutation, showSuccess, showError]);
 
     const handleTest = useCallback(async (instanceId: string): Promise<void> => {
         const config = integrations[instanceId];
@@ -415,6 +404,17 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
                 _type: type
             }
         }));
+        // Mirror initial config into saved state so hasInstanceChanges starts at false.
+        // Without this, a brand new untouched form shows "unsaved changes" on close.
+        setSavedIntegrations(prev => ({
+            ...prev,
+            [tempId]: {
+                enabled: true,
+                _instanceId: tempId,
+                _displayName: displayName,
+                _type: type
+            }
+        }));
 
         setNewInstanceId(tempId);
         setActiveModal(tempId);
@@ -432,10 +432,12 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
     }, [deleteMutation, showSuccess, showError]);
 
     const handleToggleInstance = useCallback((instanceId: string): void => {
-        const instance = instances.find(i => i.id === instanceId);
-        if (!instance) return;
+        // Read current enabled state from form state (not server state)
+        // Server state (instance.enabled) is read-only and doesn't reflect local toggles
+        const currentEnabled = integrations[instanceId]?.enabled;
+        if (currentEnabled === undefined) return;
 
-        const newEnabled = !instance.enabled;
+        const newEnabled = !currentEnabled;
 
         setLocalInstances(prev => prev.map(i =>
             i.id === instanceId ? { ...i, enabled: newEnabled } : i
@@ -448,7 +450,7 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
                 enabled: newEnabled
             }
         }));
-    }, [instances]);
+    }, [integrations]);
 
     // ========================================================================
     // Plex Handlers
@@ -535,6 +537,10 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
         setUptimeKumaFormReady(prev => prev + 1);
     }, []);
 
+    const handleMonitorDirtyChange = useCallback((dirty: boolean) => {
+        setMonitorDirty(dirty);
+    }, []);
+
     // ========================================================================
     // Monitor/UptimeKuma Handlers
     // ========================================================================
@@ -604,6 +610,8 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
         handleMonitorFormReady,
         handleMonitorSave,
         handleMonitorCancel,
+        monitorDirty,
+        handleMonitorDirtyChange,
 
         // UptimeKuma handlers
         handleUptimeKumaFormReady,

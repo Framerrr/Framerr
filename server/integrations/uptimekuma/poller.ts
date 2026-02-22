@@ -52,115 +52,115 @@ export interface UptimeKumaMonitor {
  */
 export async function poll(instance: PluginInstance): Promise<UptimeKumaMonitor[]> {
     if (!instance.config.url || !instance.config.apiKey) {
-        return [];
+        throw new Error('URL and API key required');
     }
 
     const url = (instance.config.url as string).replace(/\/$/, '');
     const apiKey = instance.config.apiKey as string;
     const translatedUrl = translateHostUrl(url);
 
-    try {
-        // Use Basic auth: empty username, apiKey as password (same as proxy route)
-        const authHeader = `Basic ${Buffer.from(':' + apiKey).toString('base64')}`;
+    // Use Basic auth: empty username, apiKey as password (same as proxy route)
+    const authHeader = `Basic ${Buffer.from(':' + apiKey).toString('base64')}`;
 
-        const response = await axios.get(`${translatedUrl}/metrics`, {
-            headers: { 'Authorization': authHeader },
-            httpsAgent,
-            timeout: 10000
-        });
+    const response = await axios.get(`${translatedUrl}/metrics`, {
+        headers: { 'Authorization': authHeader },
+        httpsAgent,
+        timeout: 10000
+    });
 
-        const metricsText = response.data as string;
+    const metricsText = response.data as string;
 
-        // Check if we got HTML (auth failed)
-        if (metricsText.startsWith('<!DOCTYPE') || metricsText.startsWith('<html')) {
-            return [];
-        }
-
-        // Parse Prometheus format - DEDUPLICATE BY NAME (same as proxy route)
-        const monitorMap = new Map<string, { name: string; status: number }>();
-        const latencyMap = new Map<string, number>();
-
-        const lines = metricsText.split('\n');
-
-        for (const line of lines) {
-            if (line.startsWith('monitor_status{')) {
-                const match = line.match(/monitor_status\{([^}]+)\}\s+(\d+)/);
-                if (match) {
-                    const labels = match[1];
-                    const status = parseInt(match[2]);
-
-                    // Skip pending (status 2) - same as proxy route
-                    if (status === 2) continue;
-
-                    const nameMatch = labels.match(/monitor_name="([^"]*)"/);
-                    const name = nameMatch?.[1] || 'Unknown';
-
-                    // Deduplicate by name - only keep first occurrence
-                    if (!monitorMap.has(name)) {
-                        monitorMap.set(name, { name, status });
-                    }
-                }
-            }
-
-            if (line.startsWith('monitor_response_time{')) {
-                const match = line.match(/monitor_name="([^"]*)".*\}\s+(\d+)/);
-                if (match) {
-                    // Only set latency if we haven't seen this monitor yet
-                    if (!latencyMap.has(match[1])) {
-                        latencyMap.set(match[1], parseInt(match[2]));
-                    }
-                }
-            }
-        }
-
-        // Convert to monitor array with SSE-compatible format
-        const monitors: UptimeKumaMonitor[] = [];
-        for (const [name, data] of monitorMap.entries()) {
-            // Map UK status (0=down, 1=up, 3=maintenance) to our status
-            let status: UptimeKumaMonitor['status'] = 'pending';
-            if (data.status === 1) status = 'up';
-            else if (data.status === 0) status = 'down';
-            else if (data.status === 3) status = 'maintenance';
-
-            monitors.push({
-                id: name,
-                name: data.name,
-                url: null,
-                iconName: null,
-                iconId: null,
-                maintenance: data.status === 3,
-                status,
-                responseTimeMs: latencyMap.get(name) ?? null,
-                lastCheck: new Date().toISOString(),
-                uptimePercent: null
-            });
-        }
-
-        // Filter by selectedMonitorIds if configured
-        // selectedMonitorIds is stored as JSON string of monitor names/IDs
-        let filteredMonitors = monitors;
-        const selectedMonitorIdsRaw = instance.config.selectedMonitorIds as string | undefined;
-        if (selectedMonitorIdsRaw) {
-            try {
-                const selectedIds: string[] = JSON.parse(selectedMonitorIdsRaw);
-                if (selectedIds.length > 0) {
-                    // Filter to only include monitors whose id is in the selection
-                    filteredMonitors = monitors.filter(m => selectedIds.includes(m.id));
-                    logger.debug(`[UptimeKumaPoller] Filtered monitors: instance=${instance.id} total=${monitors.length} selected=${filteredMonitors.length}`);
-                }
-            } catch {
-                // Invalid JSON, skip filtering
-                logger.warn(`[UptimeKumaPoller] Invalid selectedMonitorIds JSON: instance=${instance.id}`);
-            }
-        }
-
-        // Status change detection for notifications (use filtered list)
-        await detectStatusChangesAndNotify(instance, filteredMonitors);
-
-        return filteredMonitors;
-    } catch {
-        return [];
+    // Check if we got HTML (auth failed)
+    if (metricsText.startsWith('<!DOCTYPE') || metricsText.startsWith('<html')) {
+        throw new Error('Authentication failed — check API key');
     }
+
+    // Parse Prometheus format - DEDUPLICATE BY NAME (same as proxy route)
+    const monitorMap = new Map<string, { name: string; status: number }>();
+    const latencyMap = new Map<string, number>();
+
+    const lines = metricsText.split('\n');
+
+    for (const line of lines) {
+        if (line.startsWith('monitor_status{')) {
+            const match = line.match(/monitor_status\{([^}]+)\}\s+(\d+)/);
+            if (match) {
+                const labels = match[1];
+                const status = parseInt(match[2]);
+
+                // Skip pending (status 2) - same as proxy route
+                if (status === 2) continue;
+
+                const nameMatch = labels.match(/monitor_name="([^"]*)"/);
+                const name = nameMatch?.[1] || 'Unknown';
+
+                // Deduplicate by name - only keep first occurrence
+                if (!monitorMap.has(name)) {
+                    monitorMap.set(name, { name, status });
+                }
+            }
+        }
+
+        if (line.startsWith('monitor_response_time{')) {
+            const match = line.match(/monitor_name="([^"]*)".*\}\s+(\d+)/);
+            if (match) {
+                // Only set latency if we haven't seen this monitor yet
+                if (!latencyMap.has(match[1])) {
+                    latencyMap.set(match[1], parseInt(match[2]));
+                }
+            }
+        }
+    }
+
+    // Convert to monitor array with SSE-compatible format
+    const monitors: UptimeKumaMonitor[] = [];
+    for (const [name, data] of monitorMap.entries()) {
+        // Map UK status (0=down, 1=up, 3=maintenance) to our status
+        let status: UptimeKumaMonitor['status'] = 'pending';
+        if (data.status === 1) status = 'up';
+        else if (data.status === 0) status = 'down';
+        else if (data.status === 3) status = 'maintenance';
+
+        monitors.push({
+            id: name,
+            name: data.name,
+            url: null,
+            iconName: null,
+            iconId: null,
+            maintenance: data.status === 3,
+            status,
+            responseTimeMs: latencyMap.get(name) ?? null,
+            lastCheck: new Date().toISOString(),
+            uptimePercent: null
+        });
+    }
+
+    // Filter by selectedMonitorIds if configured
+    // selectedMonitorIds is stored as JSON string of monitor names/IDs
+    let filteredMonitors = monitors;
+    const selectedMonitorIdsRaw = instance.config.selectedMonitorIds as string | undefined;
+    if (selectedMonitorIdsRaw) {
+        try {
+            const selectedIds: string[] = JSON.parse(selectedMonitorIdsRaw);
+            if (selectedIds.length > 0) {
+                // Filter to only include monitors whose id is in the selection
+                filteredMonitors = monitors.filter(m => selectedIds.includes(m.id));
+                logger.debug(`[UptimeKumaPoller] Filtered monitors: instance=${instance.id} total=${monitors.length} selected=${filteredMonitors.length}`);
+            }
+        } catch {
+            // Invalid JSON, skip filtering
+            logger.warn(`[UptimeKumaPoller] Invalid selectedMonitorIds JSON: instance=${instance.id}`);
+        }
+    }
+
+    // Status change detection for notifications (fire-and-forget, errors don't affect poll)
+    try {
+        await detectStatusChangesAndNotify(instance, filteredMonitors);
+    } catch {
+        // Notification errors should not affect the poll result
+    }
+
+    return filteredMonitors;
 }
 
 /**

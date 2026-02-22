@@ -453,6 +453,7 @@ const TautulliWidget = ({ widget, previewMode = false }: TautulliWidgetProps): R
 
     const {
         effectiveIntegrationId,
+        effectiveDisplayName,
         status: accessStatus,
         loading: accessLoading,
     } = useWidgetIntegration('tautulli', configuredIntegrationId, widget.id);
@@ -551,7 +552,7 @@ const TautulliWidget = ({ widget, previewMode = false }: TautulliWidgetProps): R
     // Error state
     if (error) {
         const isUnavailable = error.includes('unavailable') || error.includes('Unable to reach');
-        return <WidgetStateMessage variant={isUnavailable ? 'unavailable' : 'error'} serviceName="Tautulli" message={isUnavailable ? undefined : error} />;
+        return <WidgetStateMessage variant={isUnavailable ? 'unavailable' : 'error'} serviceName="Tautulli" instanceName={isUnavailable ? effectiveDisplayName : undefined} message={isUnavailable ? undefined : error} />;
     }
 
     // Empty state

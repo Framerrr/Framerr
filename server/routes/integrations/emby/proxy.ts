@@ -66,11 +66,71 @@ router.get('/:id/proxy/*', requireAuth, async (req: Request, res: Response, next
 
         const contentType = response.headers['content-type'] || 'image/jpeg';
         res.set('Content-Type', contentType);
-        res.set('Cache-Control', 'public, max-age=86400');
+        res.set('Cache-Control', 'public, max-age=14400');
         res.send(response.data);
     } catch (error) {
         logger.error(`[Emby Proxy] Image error: path="${path}" error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Failed to fetch image' });
+    }
+});
+
+/**
+ * POST /:id/proxy/stop - Stop an Emby playback session (ADMIN ONLY)
+ * 
+ * Sends a stop command to the Emby session via:
+ *   POST /Sessions/{sessionId}/Playing/Stop
+ */
+router.post('/:id/proxy/stop', requireAuth, async (req: Request, res: Response): Promise<void> => {
+    if (req.user!.group !== 'admin') {
+        res.status(403).json({ error: 'Admin access required to stop sessions' });
+        return;
+    }
+
+    const { id } = req.params;
+    const { sessionKey } = req.body;
+
+    if (!sessionKey) {
+        res.status(400).json({ error: 'Session key required' });
+        return;
+    }
+
+    const instance = integrationInstancesDb.getInstanceById(id);
+    if (!instance || instance.type !== 'emby') {
+        res.status(404).json({ error: 'Emby integration not found' });
+        return;
+    }
+
+    const url = instance.config.url as string;
+    const apiKey = instance.config.apiKey as string;
+
+    if (!url || !apiKey) {
+        res.status(400).json({ error: 'Invalid Emby configuration' });
+        return;
+    }
+
+    try {
+        const translatedUrl = translateHostUrl(url);
+        const stopUrl = `${translatedUrl}/Sessions/${sessionKey}/Playing/Stop`;
+        // Full MediaBrowser header gives Emby a session context to route the command
+        const headers = {
+            'Authorization': `MediaBrowser Client="Framerr", Device="Server", DeviceId="framerr-server", Version="0.1.5", Token="${apiKey}"`
+        };
+
+        // Emby's stop is a client command — send twice with delay for reliability
+        // (same pattern as Jellyfin, first attempt is often ignored by clients)
+        await axios.post(stopUrl, {}, { headers, httpsAgent, timeout: 10000 });
+
+        // Wait 750ms then send again
+        await new Promise(resolve => setTimeout(resolve, 750));
+        await axios.post(stopUrl, {}, { headers, httpsAgent, timeout: 10000 }).catch(() => {
+            // Second attempt may fail if session already ended — that's fine
+        });
+
+        logger.info(`[Emby Proxy] Session termination request sent: sessionId=${sessionKey}`);
+        res.json({ success: true });
+    } catch (error) {
+        logger.error(`[Emby Proxy] Stop session failed: sessionId=${sessionKey}, error="${(error as Error).message}"`);
+        res.status(500).json({ error: 'Failed to stop playback' });
     }
 });
 

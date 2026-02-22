@@ -108,7 +108,8 @@ export function useWalkthroughInteraction({
             }
 
             // Allow clicks on the walkthrough target element — fully unblocked
-            if (targetEl?.contains(target)) {
+            // UNLESS blockTarget is set (target is view-only, not clickable)
+            if (targetEl?.contains(target) && !currentStep?.blockTarget) {
                 return;
             }
 

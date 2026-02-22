@@ -51,9 +51,13 @@ export function useUserSettings() {
     // Temp password display
     const [tempPassword, setTempPassword] = useState<TempPassword | null>(null);
 
+    // Self-demotion confirmation
+    const [showSelfDemoteConfirm, setShowSelfDemoteConfirm] = useState(false);
+    const [pendingSelfDemoteData, setPendingSelfDemoteData] = useState<{ body: Record<string, unknown>; groupIds: string[] } | null>(null);
+
     // Context
     const { error: showError, success: showSuccess } = useNotifications();
-    const { user: currentUser } = useAuth();
+    const { user: currentUser, logout } = useAuth();
 
     // Check if group is admin
     const isAdminGroup = useCallback((group: string | undefined): boolean => {
@@ -69,30 +73,19 @@ export function useUserSettings() {
         setShowModal(true);
     }, [fetchGroups]);
 
-    // Open edit modal - also fetches user's group memberships
-    const handleEditUser = useCallback(async (user: User) => {
+    // Open edit modal - groupIds are pre-fetched from the user list
+    const handleEditUser = useCallback((user: User) => {
         fetchGroups(); // Refresh groups in case new ones were created
         setModalMode('edit');
         setSelectedUser(user);
-        setShowModal(true);
-
-        // Start with empty groupIds, then fetch actual memberships
         setFormData({
             username: user.username,
             email: user.email || '',
             password: '',
             group: user.group || 'user',
-            groupIds: []
+            groupIds: user.groupIds || []
         });
-
-        // Fetch user's current group memberships
-        try {
-            const response = await usersApi.getUserGroups(user.id);
-            const groupIds = (response.groups || []).map(g => g.id);
-            setFormData(prev => ({ ...prev, groupIds }));
-        } catch (error) {
-            logger.debug('Could not fetch user groups (may not exist yet):', error);
-        }
+        setShowModal(true);
     }, [fetchGroups]);
 
     // Close modal
@@ -110,6 +103,21 @@ export function useUserSettings() {
             const body = modalMode === 'create'
                 ? userData
                 : { ...userData, password: userData.password || undefined };
+
+            // Intercept self-demotion: show confirmation dialog instead of saving
+            // But only if there are other admins — if last admin, let backend reject with error
+            const adminCount = users.filter(u => u.group === 'admin').length;
+            if (
+                modalMode === 'edit' &&
+                selectedUser?.id === currentUser?.id &&
+                formData.group !== currentUser?.group &&
+                formData.group !== 'admin' &&
+                adminCount > 1
+            ) {
+                setPendingSelfDemoteData({ body: body as Record<string, unknown>, groupIds });
+                setShowSelfDemoteConfirm(true);
+                return;
+            }
 
             let savedUserId: string;
             if (modalMode === 'create') {
@@ -135,7 +143,24 @@ export function useUserSettings() {
             logger.error('Error saving user:', error);
             showError('Save Failed', extractErrorMessage(error));
         }
-    }, [modalMode, selectedUser, formData, fetchUsers, showSuccess, showError]);
+    }, [modalMode, selectedUser, formData, currentUser, fetchUsers, showSuccess, showError]);
+
+    // Confirm self-demotion: save + logout
+    const confirmSelfDemotion = useCallback(async () => {
+        if (!pendingSelfDemoteData || !selectedUser) return;
+
+        try {
+            // Save groups first (while still admin), then role change, then logout
+            await usersApi.updateUserGroups(selectedUser.id, pendingSelfDemoteData.groupIds);
+            await usersApi.update(selectedUser.id, pendingSelfDemoteData.body);
+            // Server revokes all sessions on role change — just redirect to login
+            logout();
+        } catch (error) {
+            logger.error('Error self-demoting:', error);
+            showError('Save Failed', extractErrorMessage(error));
+            setShowSelfDemoteConfirm(false);
+        }
+    }, [pendingSelfDemoteData, selectedUser, showError, logout]);
 
     // Delete user
     const handleDeleteUser = useCallback(async (userId: string, username: string) => {
@@ -199,9 +224,11 @@ export function useUserSettings() {
         // Confirmation state
         confirmResetId,
         tempPassword,
+        showSelfDemoteConfirm,
 
         // Setters for inline confirmations
         setConfirmResetId,
+        setShowSelfDemoteConfirm,
 
         // Handlers
         isAdminGroup,
@@ -214,5 +241,6 @@ export function useUserSettings() {
         updateFormField,
         copyTempPassword,
         dismissTempPassword,
+        confirmSelfDemotion,
     };
 }

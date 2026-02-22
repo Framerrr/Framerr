@@ -11,7 +11,7 @@
  * with clientType conditionals — no duplicated rendering code.
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { CheckCircle2, Download } from 'lucide-react';
 import { WidgetStateMessage, useWidgetIntegration, useIntegrationSSE } from '../../shared/widgets';
 import { useAuth } from '../../context/AuthContext';
@@ -151,6 +151,7 @@ const DownloadsWidget: React.FC<WidgetProps> = ({ widget, previewMode = false })
     // Use the 'downloads' widget type — the hook resolves compatible integrations
     const {
         effectiveIntegrationId,
+        effectiveDisplayName,
         status: accessStatus,
         loading: accessLoading,
         availableIntegrations,
@@ -187,6 +188,22 @@ const DownloadsWidget: React.FC<WidgetProps> = ({ widget, previewMode = false })
 
     // Suppress stale SSE updates briefly after optimistic actions
     const optimisticUntil = useRef(0);
+
+    // Reset all state when integration changes (e.g., fallback to different instance)
+    // Prevents showing stale data from old integration, especially across client types
+    const prevIntegrationRef = useRef(integrationId);
+    useEffect(() => {
+        if (prevIntegrationRef.current !== integrationId) {
+            prevIntegrationRef.current = integrationId;
+            setTorrents([]);
+            setTransferInfo(null);
+            setSabQueue([]);
+            setSabHistory([]);
+            setSabQueueInfo(null);
+            setError(null);
+            setSelectedId(null);
+        }
+    }, [integrationId]);
 
     // ---------- SSE ----------
     const { loading, isConnected } = useIntegrationSSE<QBittorrentSSEData | SABnzbdSSEData>({
@@ -319,6 +336,7 @@ const DownloadsWidget: React.FC<WidgetProps> = ({ widget, previewMode = false })
             <WidgetStateMessage
                 variant={isServiceUnavailable ? 'unavailable' : 'error'}
                 serviceName={serviceName}
+                instanceName={isServiceUnavailable ? effectiveDisplayName : undefined}
                 message={isServiceUnavailable ? undefined : error}
             />
         );

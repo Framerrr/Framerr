@@ -5,97 +5,59 @@
  * Title, meta, and status are overlaid on the bottom of the image.
  * Handles hover/tap interactions for mobile and desktop.
  * Supports Plex, Jellyfin, and Emby through normalized MediaSession type.
+ *
+ * Uses useSessionCardData hook for data computation —
+ * same data source as StackedCard, only the layout differs.
  */
 
 import React, { useState } from 'react';
 import { Film, Network, Info, ExternalLink, StopCircle, Play, Pause } from 'lucide-react';
-import { getAdapter, type MediaSession } from '../adapters';
+import { useSessionCardData } from '../hooks/useSessionCardData';
+import type { MediaSession } from '../adapters';
 
 interface SessionCardProps {
     session: MediaSession;
     integrationId: string;
     machineId: string | null;
-    userIsAdmin: boolean;
+    serverUrl: string | null;
     lastUpdateTime: number;
+    userIsAdmin: boolean;
     onShowPlaybackData: (session: MediaSession) => void;
     onShowMediaInfo: (session: MediaSession) => void;
-    onConfirmStop: (session: MediaSession) => void;
+    onConfirmStop?: (session: MediaSession) => void;
 }
 
 export const SessionCard: React.FC<SessionCardProps> = ({
     session,
     integrationId,
     machineId,
-    userIsAdmin,
+    serverUrl,
     lastUpdateTime,
+    userIsAdmin,
     onShowPlaybackData,
     onShowMediaInfo,
     onConfirmStop,
 }) => {
     const [isActive, setIsActive] = useState(false);
 
-    // Get adapter for this session's integration type
-    const adapter = getAdapter(session.integrationType);
-
-    const userName = session.userName;
-    const grandparent = session.grandparentTitle || '';
-    const title = session.title || 'Unknown';
-    const displayTitle = grandparent || title;
-    const duration = session.duration || 0;
-
-    // Play state
-    const isPlaying = session.playerState === 'playing';
-
-    // Calculate current position with local time interpolation
-    const baseOffset = session.viewOffset || 0;
-    const elapsed = isPlaying ? Date.now() - lastUpdateTime : 0;
-    const viewOffset = Math.min(baseOffset + elapsed, duration);
-    const percent = duration > 0 ? Math.round((viewOffset / duration) * 100) : 0;
-
-    // Calculate current position (time played)
-    const playedMin = Math.floor(viewOffset / 60000);
-    const playedSec = Math.floor((viewOffset % 60000) / 1000);
-    const playedStr = `${playedMin}:${playedSec.toString().padStart(2, '0')}`;
-
-    // Format total duration
-    const durationMin = Math.floor(duration / 60000);
-    const durationSec = Math.floor((duration % 60000) / 1000);
-    const durationStr = `${durationMin}:${durationSec.toString().padStart(2, '0')}`;
-
-    // Episode/subtitle info
-    let subtitle = '';
-    if (session.type === 'episode' && session.parentIndex && session.index) {
-        subtitle = `S${session.parentIndex} · E${session.index}`;
-    } else if (session.type === 'movie') {
-        subtitle = 'Movie';
-    } else if (session.type === 'track') {
-        subtitle = 'Music';
-    }
-
-    // Use adapter for image URL generation
-    const imageUrl = session.art
-        ? adapter.getImageUrl(session.art, integrationId)
-        : session.thumb
-            ? adapter.getImageUrl(session.thumb, integrationId)
-            : null;
-
-    // Use adapter for deep link generation
-    const getDeepLink = (): string => {
-        return adapter.getDeepLink(session, machineId || undefined);
-    };
+    // Shared data computation
+    const {
+        displayTitle,
+        subtitle,
+        imageUrl,
+        isPlaying,
+        percent,
+        playedStr,
+        durationStr,
+        deepLink,
+        externalLinkTitle,
+        userName,
+    } = useSessionCardData({ session, integrationId, machineId, serverUrl, lastUpdateTime });
 
     // Toggle controls on tap (mobile), set on hover (desktop)
     const handleImageClick = () => {
         setIsActive(!isActive);
     };
-
-    // Title for external link button based on integration type
-    const externalLinkTitle =
-        session.integrationType === 'plex'
-            ? 'Open in Plex'
-            : session.integrationType === 'jellyfin'
-                ? 'Open in Jellyfin'
-                : 'Open in Emby';
 
     return (
         <div
@@ -150,8 +112,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        const link = getDeepLink();
-                        if (link) window.open(link, '_blank');
+                        if (deepLink) window.open(deepLink, '_blank');
                     }}
                     className="w-9 h-9 rounded-lg bg-theme-hover border border-theme flex items-center justify-center text-theme-primary hover:bg-theme-tertiary transition-colors"
                     title={externalLinkTitle}
@@ -159,7 +120,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
                     <ExternalLink size={18} />
                 </button>
                 {/* Stop button - Admin only */}
-                {userIsAdmin && (
+                {userIsAdmin && onConfirmStop && (
                     <button
                         onClick={(e) => {
                             e.stopPropagation();

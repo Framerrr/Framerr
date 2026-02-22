@@ -2,12 +2,12 @@
  * User Form Modal
  * 
  * Modal for creating and editing users.
- * Includes group selection for custom sharing groups.
+ * Includes group selection using MultiSelectDropdown.
  */
 
-import React, { ChangeEvent, FormEvent, useState } from 'react';
-import { Save, ChevronDown, Check } from 'lucide-react';
-import { Modal, Popover, Checkbox, Button } from '../../../shared/ui';
+import React, { ChangeEvent, FormEvent, useMemo } from 'react';
+import { Save } from 'lucide-react';
+import { Modal, MultiSelectDropdown, Button, Select } from '../../../shared/ui';
 import { Input } from '../../../components/common/Input';
 import type { UserFormData, ModalMode } from '../types';
 import type { UserGroup } from '../hooks/useUserGroups';
@@ -31,33 +31,14 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
     onSubmit,
     onUpdateField,
 }) => {
-    const [groupsOpen, setGroupsOpen] = useState(false);
-
-    // Toggle a group in the selection
-    const handleGroupToggle = (groupId: string) => {
-        const currentIds = formData.groupIds || [];
-        const newIds = currentIds.includes(groupId)
-            ? currentIds.filter(id => id !== groupId)
-            : [...currentIds, groupId];
-        onUpdateField('groupIds', newIds);
-    };
-
-    // Get display text for selected groups
-    const getGroupsDisplayText = () => {
-        const selectedIds = formData.groupIds || [];
-        if (selectedIds.length === 0) return 'No groups assigned';
-
-        const selectedNames = groups
-            .filter(g => selectedIds.includes(g.id))
-            .map(g => g.name);
-
-        if (selectedNames.length === 1) return selectedNames[0];
-        if (selectedNames.length === 2) return selectedNames.join(' & ');
-        return `${selectedNames.length} groups`;
-    };
+    // Map groups to MultiSelectDropdown options
+    const groupOptions = useMemo(
+        () => groups.map(g => ({ id: g.id, label: g.name })),
+        [groups]
+    );
 
     return (
-        <Modal open={isOpen} onOpenChange={(open) => !open && onClose()} size="sm">
+        <Modal open={isOpen} onOpenChange={(open) => !open && onClose()} size="md">
             <Modal.Header title={mode === 'create' ? 'Create User' : 'Edit User'} />
             <Modal.Body>
                 <form onSubmit={onSubmit} className="space-y-4" id="user-form">
@@ -85,53 +66,46 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
                         required={mode === 'create'}
                     />
 
-                    {/* Group Selection Dropdown */}
-                    {groups.length > 0 && (
+                    {/* Role Selection */}
+                    <div className="space-y-1.5">
+                        <label className="block text-sm font-medium text-theme-primary">
+                            Role
+                        </label>
+                        <Select value={formData.group} onValueChange={(value) => onUpdateField('group', value)}>
+                            <Select.Trigger className="w-full">
+                                <Select.Value placeholder="Select role" />
+                            </Select.Trigger>
+                            <Select.Content>
+                                <Select.Item value="user">User</Select.Item>
+                                <Select.Item value="admin">Admin</Select.Item>
+                            </Select.Content>
+                        </Select>
+                        {formData.group === 'admin' && (
+                            <p className="text-xs text-warning">
+                                Admins have full access to all settings, integrations, and user management
+                            </p>
+                        )}
+                        {formData.group !== 'admin' && (
+                            <p className="text-xs text-theme-tertiary">
+                                Users can only access their dashboard and shared integrations
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Group Selection - hidden for admins (they have full access) */}
+                    {groups.length > 0 && formData.group !== 'admin' && (
                         <div className="space-y-1.5">
                             <label className="block text-sm font-medium text-theme-primary">
                                 Groups
                             </label>
-                            <Popover open={groupsOpen} onOpenChange={setGroupsOpen}>
-                                <Popover.Trigger asChild>
-                                    <button
-                                        type="button"
-                                        className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-theme-tertiary border border-theme rounded-lg text-sm text-theme-primary hover:bg-theme-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                                    >
-                                        <span className={(formData.groupIds || []).length === 0 ? 'text-theme-tertiary' : ''}>
-                                            {getGroupsDisplayText()}
-                                        </span>
-                                        <ChevronDown size={16} className="text-theme-secondary" />
-                                    </button>
-                                </Popover.Trigger>
-                                <Popover.Content align="start" className="w-64 p-1">
-                                    <div
-                                        className="max-h-48 overflow-y-scroll overscroll-contain"
-                                    >
-                                        {groups.map(group => {
-                                            const isSelected = (formData.groupIds || []).includes(group.id);
-                                            return (
-                                                <button
-                                                    key={group.id}
-                                                    type="button"
-                                                    onClick={() => handleGroupToggle(group.id)}
-                                                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-theme-primary hover:bg-theme-hover rounded transition-colors"
-                                                >
-                                                    <Checkbox
-                                                        checked={isSelected}
-                                                        onCheckedChange={() => handleGroupToggle(group.id)}
-                                                    />
-                                                    <span>{group.name}</span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                    {groups.length === 0 && (
-                                        <div className="px-3 py-2 text-sm text-theme-tertiary">
-                                            No groups available
-                                        </div>
-                                    )}
-                                </Popover.Content>
-                            </Popover>
+                            <MultiSelectDropdown
+                                options={groupOptions}
+                                selectedIds={formData.groupIds || []}
+                                onChange={(ids) => onUpdateField('groupIds', ids)}
+                                placeholder="No groups assigned"
+                                showBulkActions={false}
+                                fullWidth
+                            />
                             <p className="text-xs text-theme-tertiary">
                                 Assign user to groups for easier sharing
                             </p>

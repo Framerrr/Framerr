@@ -29,6 +29,7 @@ export const plugin: WidgetPlugin = {
     ],
     defaultConfig: {
         viewMode: 'month',
+        showPastEvents: false,
     },
     configConstraints: {
         contentPadding: 'none',
@@ -43,6 +44,13 @@ export const plugin: WidgetPlugin = {
                     { value: 'agenda', label: 'Agenda' },
                     { value: 'both', label: 'Both' },
                 ],
+            },
+            {
+                key: 'showPastEvents',
+                label: 'Show Past Events',
+                type: 'toggle',
+                defaultValue: false,
+                visibleWhen: { key: 'viewMode', value: ['agenda', 'both'] },
             },
         ],
     },

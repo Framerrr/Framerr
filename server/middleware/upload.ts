@@ -1,11 +1,12 @@
 import multer from 'multer';
 import path from 'path';
+import os from 'os';
 import { Request } from 'express';
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
-        cb(null, path.join(__dirname, '../uploads'));
+        cb(null, os.tmpdir());
     },
     filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
         // Use timestamp + original name to avoid conflicts

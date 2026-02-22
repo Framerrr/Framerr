@@ -95,46 +95,42 @@ export interface SABnzbdData {
 /**
  * Poll SABnzbd for queue and history data.
  */
-export async function poll(instance: PluginInstance): Promise<SABnzbdData | null> {
+export async function poll(instance: PluginInstance): Promise<SABnzbdData> {
     if (!instance.config.url || !instance.config.apiKey) {
-        return null;
+        throw new Error('URL and API key required');
     }
 
     const url = translateHostUrl((instance.config.url as string).replace(/\/$/, ''));
     const apiKey = instance.config.apiKey as string;
 
-    try {
-        // Fetch queue and history in parallel
-        const [queueRes, historyRes] = await Promise.all([
-            axios.get<SABnzbdQueueResponse>(`${url}/api`, {
-                params: { mode: 'queue', output: 'json', apikey: apiKey },
-                httpsAgent,
-                timeout: 10000,
-            }),
-            axios.get<SABnzbdHistoryResponse>(`${url}/api`, {
-                params: { mode: 'history', output: 'json', apikey: apiKey, limit: 20 },
-                httpsAgent,
-                timeout: 10000,
-            }),
-        ]);
+    // Fetch queue and history in parallel — errors propagate to orchestrator
+    const [queueRes, historyRes] = await Promise.all([
+        axios.get<SABnzbdQueueResponse>(`${url}/api`, {
+            params: { mode: 'queue', output: 'json', apikey: apiKey },
+            httpsAgent,
+            timeout: 10000,
+        }),
+        axios.get<SABnzbdHistoryResponse>(`${url}/api`, {
+            params: { mode: 'history', output: 'json', apikey: apiKey, limit: 20 },
+            httpsAgent,
+            timeout: 10000,
+        }),
+    ]);
 
-        const queue = queueRes.data?.queue;
-        const history = historyRes.data?.history;
+    const queue = queueRes.data?.queue;
+    const history = historyRes.data?.history;
 
-        return {
-            queue: queue?.slots || [],
-            history: history?.slots || [],
-            queueInfo: queue ? {
-                status: queue.status,
-                speed: parseFloat(queue.kbpersec || '0') * 1024,
-                totalMb: parseFloat(queue.mb || '0'),
-                remainingMb: parseFloat(queue.mbleft || '0'),
-                paused: queue.paused ?? false,
-                speedlimit: queue.speedlimit || '',
-                totalSlots: queue.noofslots_total || 0,
-            } : null,
-        };
-    } catch {
-        return null;
-    }
+    return {
+        queue: queue?.slots || [],
+        history: history?.slots || [],
+        queueInfo: queue ? {
+            status: queue.status,
+            speed: parseFloat(queue.kbpersec || '0') * 1024,
+            totalMb: parseFloat(queue.mb || '0'),
+            remainingMb: parseFloat(queue.mbleft || '0'),
+            paused: queue.paused ?? false,
+            speedlimit: queue.speedlimit || '',
+            totalSlots: queue.noofslots_total || 0,
+        } : null,
+    };
 }

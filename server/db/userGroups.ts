@@ -99,9 +99,10 @@ export async function getGroups(): Promise<UserGroup[]> {
             g.id,
             g.name,
             g.created_at,
-            COUNT(m.user_id) as member_count
+            COUNT(u.id) as member_count
         FROM user_groups g
         LEFT JOIN user_group_members m ON g.id = m.group_id
+        LEFT JOIN users u ON m.user_id = u.id AND u.group_id != 'admin'
         GROUP BY g.id
         ORDER BY g.name ASC
     `);
@@ -124,9 +125,10 @@ export async function getGroupById(id: string): Promise<UserGroup | null> {
             g.id,
             g.name,
             g.created_at,
-            COUNT(m.user_id) as member_count
+            COUNT(u.id) as member_count
         FROM user_groups g
         LEFT JOIN user_group_members m ON g.id = m.group_id
+        LEFT JOIN users u ON m.user_id = u.id AND u.group_id != 'admin'
         WHERE g.id = ?
         GROUP BY g.id
     `);
@@ -254,7 +256,9 @@ export async function getUserGroups(userId: string): Promise<UserGroup[]> {
             g.id,
             g.name,
             g.created_at,
-            (SELECT COUNT(*) FROM user_group_members WHERE group_id = g.id) as member_count
+            (SELECT COUNT(*) FROM user_group_members ugm
+             JOIN users u ON ugm.user_id = u.id
+             WHERE ugm.group_id = g.id AND u.group_id != 'admin') as member_count
         FROM user_groups g
         INNER JOIN user_group_members m ON g.id = m.group_id
         WHERE m.user_id = ?

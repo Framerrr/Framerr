@@ -25,10 +25,10 @@ export interface DiskInfo {
 }
 
 export interface StatusData {
-    cpu: number;
-    memory: number;
-    temperature: number;
-    uptime: string;
+    cpu: number | null;
+    memory: number | null;
+    temperature: number | null;
+    uptime: string | null;
     /** Aggregate disk/array usage percentage (0-100) */
     diskUsage: number | null;
     /** Array health status string (Unraid only, e.g. 'healthy', 'syncing') */

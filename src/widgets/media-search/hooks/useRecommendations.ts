@@ -2,7 +2,8 @@
  * useRecommendations Hook
  *
  * Fetches search bar recommendations from the backend.
- * Session-level cache: fetches once per mount, subsequent calls return cached data.
+ * Accepts integration IDs to scope recommendations to widget-bound integrations.
+ * Cache is keyed by integration set — different widgets get their own cache.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -19,6 +20,7 @@ export interface RecommendationItem {
     mediaType: 'movie' | 'show';
     thumb: string | null;
     integrationId: string;
+    integrationType: 'plex' | 'jellyfin' | 'emby';
     summary: string | null;
     genres: string[] | null;
     rating: number | null;
@@ -37,58 +39,70 @@ interface UseRecommendationsReturn {
     isLoading: boolean;
 }
 
-// Session-level cache (shared across all hook instances)
-let cachedData: RecommendationsResponse | null = null;
-let fetchPromise: Promise<RecommendationsResponse | null> | null = null;
+// Cache keyed by sorted integration IDs — different widgets get separate caches
+const cacheMap = new Map<string, RecommendationsResponse>();
+const fetchPromiseMap = new Map<string, Promise<RecommendationsResponse | null>>();
 
 // ============================================================================
 // HOOK
 // ============================================================================
 
-export function useRecommendations(enabled: boolean = true): UseRecommendationsReturn {
-    const [data, setData] = useState<RecommendationsResponse | null>(cachedData);
-    const [isLoading, setIsLoading] = useState(!cachedData && enabled);
+export function useRecommendations(integrationIds: string[]): UseRecommendationsReturn {
+    const cacheKey = [...integrationIds].sort().join(',');
+    const enabled = integrationIds.length > 0;
+
+    const [data, setData] = useState<RecommendationsResponse | null>(
+        cacheKey ? (cacheMap.get(cacheKey) ?? null) : null
+    );
+    const [isLoading, setIsLoading] = useState(enabled && !cacheMap.has(cacheKey));
     const mountedRef = useRef(true);
 
     const fetchRecommendations = useCallback(async () => {
+        if (!cacheKey) return;
+
         // Return cached data immediately
-        if (cachedData) {
-            setData(cachedData);
+        const cached = cacheMap.get(cacheKey);
+        if (cached) {
+            setData(cached);
             setIsLoading(false);
             return;
         }
 
-        // Deduplicate concurrent fetches
-        if (!fetchPromise) {
-            fetchPromise = (async () => {
+        // Deduplicate concurrent fetches for the same key
+        if (!fetchPromiseMap.has(cacheKey)) {
+            const promise = (async () => {
                 try {
                     const response = await widgetFetch(
-                        '/api/plex/recommendations?limit=20',
+                        `/api/media/recommendations?integrationIds=${encodeURIComponent(cacheKey)}&limit=20`,
                         'media-search'
                     );
                     if (!response.ok) return null;
                     const result = await response.json() as RecommendationsResponse;
-                    cachedData = result;
+                    cacheMap.set(cacheKey, result);
                     return result;
                 } catch {
                     return null;
                 } finally {
-                    fetchPromise = null;
+                    fetchPromiseMap.delete(cacheKey);
                 }
             })();
+            fetchPromiseMap.set(cacheKey, promise);
         }
 
-        const result = await fetchPromise;
+        const result = await fetchPromiseMap.get(cacheKey)!;
         if (mountedRef.current) {
             setData(result);
             setIsLoading(false);
         }
-    }, []);
+    }, [cacheKey]);
 
     useEffect(() => {
         mountedRef.current = true;
         if (enabled) {
             fetchRecommendations();
+        } else {
+            setData(null);
+            setIsLoading(false);
         }
         return () => { mountedRef.current = false; };
     }, [enabled, fetchRecommendations]);

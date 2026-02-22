@@ -163,6 +163,7 @@ const ServiceStatusWidget: React.FC<ServiceStatusWidgetProps> = ({ widget, isEdi
     // Use the unified access hook for widget + integration access
     const {
         effectiveIntegrationId,
+        effectiveDisplayName,
         status: accessStatus,
         isFallback,
         isAdmin: hookIsAdmin,
@@ -232,6 +233,7 @@ const ServiceStatusWidget: React.FC<ServiceStatusWidgetProps> = ({ widget, isEdi
             <WidgetStateMessage
                 variant="error"
                 serviceName="Service Monitoring"
+                instanceName={effectiveDisplayName}
                 message={error}
             />
         );

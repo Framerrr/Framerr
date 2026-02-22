@@ -70,6 +70,8 @@ export interface WalkthroughStep {
     interaction?: StepInteraction;
     /** When true, prevent modals containing the target from auto-closing */
     modalProtection?: boolean;
+    /** When true, clicks on the target element are silently blocked (target still visible/highlighted) */
+    blockTarget?: boolean;
     /** ms to wait before overlay appears — user sees the raw UI first */
     enterDelay?: number;
     /** ms to wait after advancing before next step starts */

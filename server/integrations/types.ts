@@ -252,6 +252,22 @@ export interface IntegrationPlugin {
      */
     metrics?: MetricDefinition[];
 
+    // === NOTIFICATION EVENTS (optional — integrations with notifications) ===
+    /**
+     * How this integration delivers notifications:
+     * - 'webhook': External webhook (Sonarr, Radarr, Overseerr) — events from webhook.events
+     * - 'local': Internal status notifications (Monitor, Uptime Kuma) — events from notificationEvents
+     * - undefined: No notification support (Plex, qBittorrent, etc.)
+     */
+    notificationMode?: 'webhook' | 'local';
+
+    /**
+     * Notification event definitions for 'local' mode integrations.
+     * For 'webhook' mode, events are defined in webhook.events instead.
+     * Used by both frontend (UI dropdowns) and backend (default resolution).
+     */
+    notificationEvents?: WebhookEventDefinition[];
+
     // === FLAGS ===
     hasCustomForm?: boolean; // True = skip form auto-generation
 }

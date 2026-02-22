@@ -27,11 +27,7 @@ interface LinkedAccountRow {
     external_username: string | null;
 }
 
-// Default events for Service Monitoring when webhookConfig not configured
-const SERVICE_MONITORING_DEFAULTS = {
-    adminEvents: ['serviceDown', 'serviceUp', 'serviceDegraded'],
-    userEvents: ['serviceDown', 'serviceUp', 'serviceMaintenanceStart', 'serviceMaintenanceEnd']
-};
+import { plugins } from '../integrations/registry';
 
 interface WebhookConfig {
     adminEvents?: string[];
@@ -39,17 +35,38 @@ interface WebhookConfig {
 }
 
 /**
- * Get effective events for a service, falling back to defaults if not configured
+ * Get default notification events for a plugin from its schema.
+ * Replaces hardcoded SERVICE_MONITORING_DEFAULTS with dynamic lookup.
+ */
+function getPluginDefaults(pluginType: string): { adminEvents: string[]; userEvents: string[] } {
+    const plugin = plugins.find(p => p.id === pluginType);
+    if (!plugin || !plugin.notificationMode) {
+        return { adminEvents: [], userEvents: [] };
+    }
+
+    // Get events from the appropriate source
+    const events = plugin.notificationMode === 'webhook'
+        ? plugin.webhook?.events || []
+        : plugin.notificationEvents || [];
+
+    return {
+        adminEvents: events.filter(e => e.defaultAdmin).map(e => e.key),
+        userEvents: events.filter(e => e.defaultUser).map(e => e.key),
+    };
+}
+
+/**
+ * Get effective events for a service, falling back to plugin defaults if not configured
  */
 function getEffectiveEvents(service: string, webhookConfig: WebhookConfig | null | undefined, isAdmin: boolean): string[] {
-    if (service === 'servicemonitoring') {
-        if (isAdmin) {
-            return webhookConfig?.adminEvents || SERVICE_MONITORING_DEFAULTS.adminEvents;
-        }
-        return webhookConfig?.userEvents || SERVICE_MONITORING_DEFAULTS.userEvents;
+    // Look up plugin defaults (works for any plugin type including 'servicemonitoring' mapped to 'monitor')
+    const pluginType = service === 'servicemonitoring' ? 'monitor' : service;
+    const defaults = getPluginDefaults(pluginType);
+
+    if (isAdmin) {
+        return webhookConfig?.adminEvents || defaults.adminEvents;
     }
-    // Other services: use webhookConfig or empty
-    return isAdmin ? (webhookConfig?.adminEvents || []) : (webhookConfig?.userEvents || []);
+    return webhookConfig?.userEvents || defaults.userEvents;
 }
 
 interface UserSettings {

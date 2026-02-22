@@ -44,6 +44,8 @@ export interface AccessibleIntegration {
 export interface UseWidgetIntegrationResult {
     /** The resolved integration ID to use (null if not active) */
     effectiveIntegrationId: string | null;
+    /** Display name of the effective integration (for error messages) */
+    effectiveDisplayName: string | undefined;
     /** Status for rendering decision */
     status: WidgetIntegrationStatus;
     /** Whether a fallback integration is being used (consumer should persist) */
@@ -122,6 +124,7 @@ export function useWidgetIntegration(
         if (accessLoading || fallbackResult.loading) {
             return {
                 effectiveIntegrationId: null,
+                effectiveDisplayName: undefined,
                 status: 'loading',
                 isFallback: false,
                 availableIntegrations: [],
@@ -134,6 +137,7 @@ export function useWidgetIntegration(
         if (isUtilityWidget) {
             return {
                 effectiveIntegrationId: null,
+                effectiveDisplayName: undefined,
                 status: 'notConfigured', // Utility widgets don't use integrations
                 isFallback: false,
                 availableIntegrations: [],
@@ -146,6 +150,7 @@ export function useWidgetIntegration(
         if (!hasWidgetAccess) {
             return {
                 effectiveIntegrationId: null,
+                effectiveDisplayName: undefined,
                 status: 'noAccess',
                 isFallback: false,
                 availableIntegrations: [],
@@ -157,10 +162,16 @@ export function useWidgetIntegration(
         // Widget accessible - check integration status
         const { integrationId, isFallback, reason, fallbackInstance } = fallbackResult;
 
+        // Derive display name from available integrations
+        const displayName = integrationId
+            ? available.find(i => i.id === integrationId)?.name
+            : undefined;
+
         if (reason === 'not_configured') {
             // No integration selected yet
             return {
                 effectiveIntegrationId: null,
+                effectiveDisplayName: undefined,
                 status: 'notConfigured',
                 isFallback: false,
                 availableIntegrations: available,
@@ -173,6 +184,7 @@ export function useWidgetIntegration(
             // Widget shared but no integrations available
             return {
                 effectiveIntegrationId: null,
+                effectiveDisplayName: undefined,
                 status: 'disabled',
                 isFallback: false,
                 availableIntegrations: available,
@@ -184,6 +196,7 @@ export function useWidgetIntegration(
         // Integration accessible (original or fallback)
         return {
             effectiveIntegrationId: integrationId,
+            effectiveDisplayName: displayName,
             status: 'active',
             isFallback,
             fallbackInstance,
@@ -205,49 +218,57 @@ export function useWidgetIntegration(
     const persistedFallbackRef = useRef<string | null>(null);
     const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // Track the latest desired fallback in a ref so the timer callback can read
+    // the CURRENT value instead of the stale closure value.
+    const desiredFallbackRef = useRef<string | null>(null);
+    desiredFallbackRef.current = (result.isFallback && result.effectiveIntegrationId)
+        ? result.effectiveIntegrationId
+        : null;
+
     useEffect(() => {
         // Skip if no widgetId provided (persistence disabled)
         if (!widgetId) return;
 
-        // Skip if not a fallback situation
-        if (!result.isFallback || !result.effectiveIntegrationId) {
-            // Clear any pending timer if we're no longer in fallback state
-            if (fallbackTimerRef.current) {
-                clearTimeout(fallbackTimerRef.current);
-                fallbackTimerRef.current = null;
-            }
+        const desiredId = result.isFallback ? result.effectiveIntegrationId : null;
+
+        // Not a fallback situation — nothing to persist
+        if (!desiredId) {
             return;
         }
 
-        // Skip if we already persisted this fallback
-        if (persistedFallbackRef.current === result.effectiveIntegrationId) return;
+        // Already persisted this exact fallback
+        if (persistedFallbackRef.current === desiredId) return;
+
+        // Already have a timer running — let it check the ref when it fires.
+        // Don't restart the timer on every useMemo recalculation; the ref
+        // tracks the latest desired value, so the timer will read it.
+        if (fallbackTimerRef.current) return;
 
         // STABILITY DELAY: Wait 500ms before persisting to ensure this isn't a transient state
-        // This prevents persisting a fallback that was triggered by a brief network hiccup
-        if (fallbackTimerRef.current) {
-            clearTimeout(fallbackTimerRef.current);
-        }
-
         fallbackTimerRef.current = setTimeout(async () => {
-            // Double-check we're still in the same fallback state after delay
+            fallbackTimerRef.current = null;
+
+            // Read the LATEST desired fallback from the ref (not the stale closure)
+            const currentDesired = desiredFallbackRef.current;
+            if (!currentDesired) {
+                logger.debug(`[useWidgetIntegration] Fallback persistence cancelled — no longer in fallback state`);
+                return;
+            }
+
+            // Skip if already persisted
+            if (persistedFallbackRef.current === currentDesired) return;
+
             try {
-                logger.info(`[useWidgetIntegration] Persisting fallback integration ${result.effectiveIntegrationId} for widget ${widgetId}`);
-                await widgetsApi.updateWidgetConfig(widgetId, { integrationId: result.effectiveIntegrationId });
-                persistedFallbackRef.current = result.effectiveIntegrationId;
+                logger.info(`[useWidgetIntegration] Persisting fallback integration ${currentDesired} for widget ${widgetId}`);
+                await widgetsApi.updateWidgetConfig(widgetId, { integrationId: currentDesired });
+                persistedFallbackRef.current = currentDesired;
                 logger.info(`[useWidgetIntegration] Successfully persisted fallback for widget ${widgetId}`);
                 // Trigger dashboard refetch to update local state
                 window.dispatchEvent(new CustomEvent('widget-config-updated'));
             } catch (error) {
                 logger.error(`[useWidgetIntegration] Failed to persist fallback for widget ${widgetId}:`, { error });
             }
-        }, 500); // 500ms stability delay
-
-        return () => {
-            if (fallbackTimerRef.current) {
-                clearTimeout(fallbackTimerRef.current);
-                fallbackTimerRef.current = null;
-            }
-        };
+        }, 500);
     }, [widgetId, result.isFallback, result.effectiveIntegrationId]);
 
     return result;

@@ -4,7 +4,7 @@
  * Simple form with URL, API Key, User ID, and Library Sync section.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Input } from '../../components/common/Input';
 import { LibrarySyncSection, type SyncStatus } from '../shared';
 
@@ -36,8 +36,13 @@ const JellyfinForm: React.FC<JellyfinFormProps> = ({
     syncStatus,
     onSyncNow
 }) => {
-    // Default librarySyncEnabled to true for new integrations
+    // Ensure librarySyncEnabled default is persisted to form state
     const librarySyncEnabled = config.librarySyncEnabled ?? true;
+    useEffect(() => {
+        if (config.librarySyncEnabled === undefined) {
+            onFieldChange('librarySyncEnabled', true);
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps -- one-time init
 
     return (
         <div className="space-y-4">
@@ -69,7 +74,14 @@ const JellyfinForm: React.FC<JellyfinFormProps> = ({
                 value={config.userId || ''}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFieldChange('userId', e.target.value)}
                 placeholder="Enter your user ID"
-                helperText="Found in Dashboard → Users → select user → copy from URL"
+                helperText={
+                    <span>
+                        Found in Dashboard → Users → select user → copy from URL
+                        <br />
+                        <span style={{ opacity: 0.7 }}>…/users/profile?userId=</span>
+                        <strong>abc123def456</strong>
+                    </span>
+                }
             />
 
             {/* Web Interface URL (optional) */}

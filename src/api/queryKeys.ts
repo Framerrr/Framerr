@@ -169,6 +169,14 @@ export const queryKeys = {
         all: ['profile'] as const,
         me: () => [...queryKeys.profile.all, 'me'] as const,
     },
+
+    // ============================================
+    // LINK LIBRARY
+    // ============================================
+    linkLibrary: {
+        all: ['linkLibrary'] as const,
+        list: () => [...queryKeys.linkLibrary.all, 'list'] as const,
+    },
 } as const;
 
 // Export type for query key values

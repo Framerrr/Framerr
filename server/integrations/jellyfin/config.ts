@@ -33,8 +33,8 @@ export const configSchema: ConfigSchema = {
             key: 'userId',
             type: 'text',
             label: 'User ID',
-            placeholder: 'User ID for session access',
-            hint: 'Found in Dashboard → Users → User → User ID',
+            placeholder: 'Jellyfin User ID (GUID)',
+            hint: 'Found in Dashboard → Users → click user → the userId parameter in the URL.',
             required: true,
         },
         {

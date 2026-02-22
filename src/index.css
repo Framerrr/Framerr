@@ -15,6 +15,15 @@
     -webkit-tap-highlight-color: transparent;
 }
 
+/* Buttons always show pointer cursor */
+button {
+    cursor: pointer;
+}
+
+button:disabled {
+    cursor: not-allowed;
+}
+
 /* Kill focus outlines on tap — keep for keyboard navigation (:focus-visible) */
 :focus:not(:focus-visible) {
     outline: none;
@@ -94,7 +103,7 @@ body {
     box-shadow: none;
 }
 
-*:focus-visible {
+*:focus-visible:not(input):not(textarea):not(select) {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
 }

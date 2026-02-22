@@ -38,6 +38,8 @@ interface UseMonitorFormReturn {
     importDropdownOpen: boolean;
     importTriggerRef: React.RefObject<HTMLButtonElement | null>;
     sensors: ReturnType<typeof useSensors>;
+    /** Whether the monitor form has unsaved changes */
+    hasChanges: boolean;
 
     // Actions
     setExpandedId: (id: string | null) => void;
@@ -537,6 +539,9 @@ export function useMonitorForm({ instanceId, integrations }: UseMonitorFormProps
         return ordered;
     }, [newMonitors, monitors, displayOrder]);
 
+    // Computed dirty state: true when any monitors are new, edited, or reordered
+    const hasChanges = newMonitors.length > 0 || modifiedIds.size > 0 || orderModified;
+
     return {
         // State
         monitors,
@@ -550,6 +555,7 @@ export function useMonitorForm({ instanceId, integrations }: UseMonitorFormProps
         importDropdownOpen,
         importTriggerRef,
         sensors,
+        hasChanges,
 
         // Actions
         setExpandedId,

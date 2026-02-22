@@ -148,15 +148,49 @@ export function useJobsSettings(): UseJobsSettingsReturn {
 
     const handleTriggerJob = useCallback(async (jobId: string) => {
         setTriggeringJobId(jobId);
+        let isAsync = false;
 
         try {
-            await withMinDelay(api.post(`/api/jobs/${jobId}/run`));
+            const data = await api.post<{ success: boolean; libraryCount?: number }>(`/api/jobs/${jobId}/run`);
+
+            // Library sync: async trigger — show toast immediately, poll for completion
+            if (typeof data.libraryCount === 'number') {
+                isAsync = true;
+                const count = data.libraryCount;
+                if (count === 0) {
+                    toast.info('Library Sync', 'No libraries have sync enabled');
+                    setTriggeringJobId(null);
+                } else {
+                    toast.success('Library Sync Started', `Syncing ${count} ${count === 1 ? 'library' : 'libraries'}`);
+                    // Poll until job finishes (status goes idle), then clear spinner
+                    const pollInterval = setInterval(async () => {
+                        try {
+                            const jobData = await api.get<{ jobs: JobStatus[] }>('/api/jobs');
+                            const job = jobData.jobs.find(j => j.id === jobId);
+                            if (!job || job.status !== 'running') {
+                                clearInterval(pollInterval);
+                                setTriggeringJobId(null);
+                                await refreshJobs();
+                            }
+                        } catch {
+                            clearInterval(pollInterval);
+                            setTriggeringJobId(null);
+                        }
+                    }, 5000);
+                }
+                return;
+            }
+
+            // All other jobs: synchronous — already complete when we get here
             toast.success('Job Triggered', 'Job completed successfully');
             await refreshJobs();
         } catch (err) {
             toast.error('Job Failed', extractErrorMessage(err));
         } finally {
-            setTriggeringJobId(null);
+            // Only clear for synchronous jobs (async ones manage their own cleanup via polling)
+            if (!isAsync) {
+                setTriggeringJobId(null);
+            }
         }
     }, [refreshJobs, toast]);
 

@@ -68,6 +68,20 @@
     color: var(--text-tertiary);
 }
 
+/* Integration type badge — top-right corner of poster */
+.recommendation-type-badge {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 0.1875rem;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 0.125rem;
+    pointer-events: none;
+    object-fit: contain;
+}
+
 /* ============================================================================
  * Skeleton loading state
  * ============================================================================ */

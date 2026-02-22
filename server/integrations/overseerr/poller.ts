@@ -65,7 +65,7 @@ export interface OverseerrData {
  */
 export async function poll(instance: PluginInstance): Promise<OverseerrData> {
     if (!instance.config.url || !instance.config.apiKey) {
-        return { results: [] };
+        throw new Error('URL and API key required');
     }
 
     const url = (instance.config.url as string).replace(/\/$/, '');

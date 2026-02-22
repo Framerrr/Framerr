@@ -218,26 +218,26 @@ const SabDetailModal: React.FC<SabDetailModalProps> = ({
                 )}
             </div>
 
-            <Modal.Body padded={false}>
-                {/* Tabs */}
-                <div className="qbt-modal-tabs" style={{ padding: '0 1.25rem' }}>
-                    {([
-                        { id: 'overview' as TabId, label: 'Overview', icon: <Info size={13} /> },
-                        { id: 'files' as TabId, label: `Files${files.length > 0 ? ` (${files.length})` : ''}`, icon: <FileText size={13} /> },
-                    ]).map(t => (
-                        <button
-                            key={t.id}
-                            className={`qbt-modal-tab ${tab === t.id ? 'active' : ''}`}
-                            onClick={() => setTab(t.id)}
-                        >
-                            {t.icon}
-                            <span style={{ marginLeft: '0.3rem' }}>{t.label}</span>
-                        </button>
-                    ))}
-                </div>
+            {/* Tabs — outside Modal.Body so they stay pinned on short viewports */}
+            <div className="qbt-modal-tabs flex-shrink-0" style={{ padding: '0 1.25rem' }}>
+                {([
+                    { id: 'overview' as TabId, label: 'Overview', icon: <Info size={13} /> },
+                    { id: 'files' as TabId, label: `Files${files.length > 0 ? ` (${files.length})` : ''}`, icon: <FileText size={13} /> },
+                ]).map(t => (
+                    <button
+                        key={t.id}
+                        className={`qbt-modal-tab ${tab === t.id ? 'active' : ''}`}
+                        onClick={() => setTab(t.id)}
+                    >
+                        {t.icon}
+                        <span style={{ marginLeft: '0.3rem' }}>{t.label}</span>
+                    </button>
+                ))}
+            </div>
 
+            <Modal.Body padded={false}>
                 {/* Tab Content */}
-                <div className="qbt-modal-tab-content" style={{ padding: '0.75rem 1.25rem', minHeight: '40vh', maxHeight: '40vh', overflowY: 'auto' }}>
+                <div className="qbt-modal-tab-content" style={{ padding: '0.75rem 1.25rem', minHeight: '40vh' }}>
                     {dataLoading && <div className="qbt-empty-state"><span>Loading details…</span></div>}
 
                     {/* Overview Tab */}
@@ -336,44 +336,41 @@ const SabDetailModal: React.FC<SabDetailModalProps> = ({
                         <div className="qbt-empty-state"><span>Could not load details</span></div>
                     )}
                 </div>
+            </Modal.Body>
 
-                {/* Delete Confirmation */}
-                {deleteConfirm && (
-                    <div className="qbt-actions-bar" style={{ margin: '0 1.25rem', justifyContent: 'center' }}>
-                        <div className="qbt-confirm-delete" style={{ flex: 1 }}>
-                            <p style={{ fontWeight: 600, color: 'var(--error)' }}>
-                                Remove download from SABnzbd?
-                            </p>
-                            <div className="qbt-confirm-delete-actions">
-                                <Button variant="secondary" size="sm" onClick={() => setDeleteConfirm(false)}>
-                                    Cancel
-                                </Button>
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    disabled={deleteLoading}
-                                    loading={deleteLoading}
-                                    onClick={() => handleDelete(false)}
-                                >
-                                    Keep Files
-                                </Button>
-                                <Button
-                                    variant="danger"
-                                    size="sm"
-                                    disabled={deleteLoading}
-                                    loading={deleteLoading}
-                                    onClick={() => handleDelete(true)}
-                                >
-                                    Delete Files
-                                </Button>
-                            </div>
+            {/* Footer: Delete Confirmation or Actions */}
+            <Modal.Footer className={deleteConfirm ? 'justify-center' : 'justify-start'}>
+                {deleteConfirm ? (
+                    <div className="qbt-confirm-delete" style={{ flex: 1 }}>
+                        <p style={{ fontWeight: 600, color: 'var(--error)' }}>
+                            Remove download from SABnzbd?
+                        </p>
+                        <div className="qbt-confirm-delete-actions">
+                            <Button variant="secondary" size="sm" onClick={() => setDeleteConfirm(false)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                disabled={deleteLoading}
+                                loading={deleteLoading}
+                                onClick={() => handleDelete(false)}
+                            >
+                                Keep Files
+                            </Button>
+                            <Button
+                                variant="danger"
+                                size="sm"
+                                disabled={deleteLoading}
+                                loading={deleteLoading}
+                                onClick={() => handleDelete(true)}
+                            >
+                                Delete Files
+                            </Button>
                         </div>
                     </div>
-                )}
-
-                {/* Actions Bar */}
-                {!deleteConfirm && (
-                    <div className="qbt-actions-bar" style={{ margin: '0 1.25rem' }}>
+                ) : (
+                    <>
                         {isPaused ? (
                             <Button variant="secondary" size="sm" icon={Play} onClick={handleResume}>
                                 Resume
@@ -404,9 +401,9 @@ const SabDetailModal: React.FC<SabDetailModalProps> = ({
                         <Button variant="danger" size="sm" icon={Trash2} onClick={() => setDeleteConfirm(true)}>
                             Delete
                         </Button>
-                    </div>
+                    </>
                 )}
-            </Modal.Body>
+            </Modal.Footer>
         </Modal>
     );
 };

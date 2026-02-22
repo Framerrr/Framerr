@@ -23,6 +23,7 @@ interface RecommendationRowProps {
     source: 'personalized' | 'random' | 'none';
     isLoading: boolean;
     onItemClick: (item: RecommendationItem) => void;
+    showTypeBadge?: boolean;
 }
 
 // Card sizing constraints (px)
@@ -39,6 +40,7 @@ const RecommendationRow: React.FC<RecommendationRowProps> = ({
     source,
     isLoading,
     onItemClick,
+    showTypeBadge = false,
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const [cardWidth, setCardWidth] = useState(90);
@@ -135,6 +137,13 @@ const RecommendationRow: React.FC<RecommendationRowProps> = ({
                                         <Tv size={18} />
                                     )}
                                 </div>
+                            )}
+                            {showTypeBadge && item.integrationType && (
+                                <img
+                                    src={`/api/icons/system/${item.integrationType}/file`}
+                                    alt={item.integrationType}
+                                    className="recommendation-type-badge"
+                                />
                             )}
                         </div>
                     ))

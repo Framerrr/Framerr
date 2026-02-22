@@ -5,7 +5,7 @@
  * Provides toggle, progress bar, sync status, and sync now button.
  */
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, AlertCircle, Loader, RefreshCw, Database } from 'lucide-react';
 import { Switch, Button } from '../../shared/ui';
 
@@ -49,6 +49,9 @@ function formatLastSync(dateStr: string | null): string | null {
     return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
 }
 
+/** Duration (ms) to show the "Complete" badge before reverting to Sync Now */
+const COMPLETE_BADGE_DURATION = 5000;
+
 export const LibrarySyncSection: React.FC<LibrarySyncSectionProps> = ({
     enabled,
     onToggle,
@@ -56,6 +59,28 @@ export const LibrarySyncSection: React.FC<LibrarySyncSectionProps> = ({
     syncStatus,
     onSyncNow
 }) => {
+    // Show green "Complete" badge briefly, then revert to "Sync Now" button
+    // Only triggers on a LIVE syncing→completed transition (not on mount with stale 'completed')
+    const [showComplete, setShowComplete] = useState(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const prevStatusRef = useRef<string | undefined>(undefined);
+
+    useEffect(() => {
+        const currentStatus = syncStatus?.syncStatus;
+        const prevStatus = prevStatusRef.current;
+        prevStatusRef.current = currentStatus;
+
+        if (currentStatus === 'completed' && prevStatus === 'syncing') {
+            // Live transition: user watched it finish → show badge
+            setShowComplete(true);
+            timerRef.current = setTimeout(() => setShowComplete(false), COMPLETE_BADGE_DURATION);
+        } else if (currentStatus !== 'completed') {
+            setShowComplete(false);
+        }
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+        };
+    }, [syncStatus?.syncStatus]);
     return (
         <div className="p-3 rounded-lg border border-theme bg-theme-hover">
             <div className="flex items-start justify-between gap-4">
@@ -126,7 +151,7 @@ export const LibrarySyncSection: React.FC<LibrarySyncSectionProps> = ({
 
                 {/* Sync Now button - only for existing integrations with sync enabled */}
                 {!isNewIntegration && enabled && (
-                    syncStatus?.syncStatus === 'completed' ? (
+                    showComplete ? (
                         <div className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-success/20 text-success border border-success/30">
                             <CheckCircle2 size={14} />
                             Complete

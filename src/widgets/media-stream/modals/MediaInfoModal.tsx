@@ -5,137 +5,193 @@ import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
 import { widgetFetch } from '../../../utils/widgetFetch';
 import logger from '../../../utils/logger';
 
-interface Role {
-    tag: string;
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface CastMember {
+    name: string;
     role?: string;
 }
 
-// Genre, Director, Writer are returned as string arrays from backend
-// No separate interface needed - they are string[]
-
-interface MediaMetadata {
-    ratingKey?: string;
-    guid?: string;
+interface ItemMetadata {
+    title: string;
+    originalTitle?: string;
     year?: number;
     rating?: number;
     contentRating?: string;
     studio?: string;
     summary?: string;
     tagline?: string;
-}
-
-interface PlexSession {
-    sessionKey?: string;
-    Media?: MediaMetadata;
-    Role?: Role[];
-    Genre?: string[];
-    Director?: string[];
-    Writer?: string[];
-    title?: string;
-    grandparentTitle?: string;
-    type?: string;
-    parentIndex?: number;
-    index?: number;
+    genres: string[];
+    directors: string[];
+    writers: string[];
+    cast: CastMember[];
     thumb?: string;
 }
 
 interface MediaInfoModalProps {
-    session: PlexSession | null;
+    /** The item ID (ratingKey for Plex, Id for Jellyfin/Emby) */
+    itemId: string;
+    /** Integration instance ID for building the API URL */
     integrationId: string;
+    /** Media type for display formatting */
+    mediaType?: 'movie' | 'episode' | 'track' | 'unknown';
+    /** Episode title (for episodes, the actual episode name) */
+    episodeTitle?: string;
+    /** Season/episode info for subtitle display */
+    seasonNumber?: number;
+    episodeNumber?: number;
+    /** Initial title from session data — shown immediately before fetch completes */
+    initialTitle?: string;
+    /** Initial thumb URL from session data — shown immediately before fetch completes */
+    initialThumb?: string;
     onClose: () => void;
 }
 
-const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId, onClose }) => {
-    const [fullSession, setFullSession] = React.useState<PlexSession | null>(null);
-    const [loading, setLoading] = React.useState(true);
+// ============================================================================
+// METADATA CACHE
+// Module-level cache so reopening the modal for the same title while it's
+// still playing doesn't trigger a redundant API call.
+// ============================================================================
+
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface CacheEntry<T> {
+    data: T;
+    timestamp: number;
+}
+
+const metadataCache = new Map<string, CacheEntry<ItemMetadata>>();
+const externalIdsCache = new Map<string, CacheEntry<{ tmdbId: number | null; imdbId: string | null }>>();
+
+function getCached<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
+    const entry = cache.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
+        cache.delete(key);
+        return null;
+    }
+    return entry.data;
+}
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
+const MediaInfoModal: React.FC<MediaInfoModalProps> = ({
+    itemId,
+    integrationId,
+    mediaType,
+    episodeTitle,
+    seasonNumber,
+    episodeNumber,
+    initialTitle,
+    initialThumb,
+    onClose
+}) => {
+    const [metadata, setMetadata] = React.useState<ItemMetadata | null>(null);
+    const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
     const [externalIds, setExternalIds] = React.useState<{ tmdbId: number | null; imdbId: string | null }>({ tmdbId: null, imdbId: null });
 
-    // Fetch full session data from API when modal opens
+    // Fetch metadata from unified endpoint (with cache)
     React.useEffect(() => {
-        if (!session) {
+        if (!itemId || !integrationId) {
             setLoading(false);
             return;
         }
 
-        const fetchSessionData = async () => {
+        const cacheKey = `${integrationId}:${itemId}`;
+        const cached = getCached(metadataCache, cacheKey);
+        if (cached) {
+            setMetadata(cached);
+            setLoading(false);
+            return;
+        }
+
+        const fetchMetadata = async () => {
             try {
                 setLoading(true);
-                const response = await widgetFetch(`/api/integrations/${integrationId}/proxy/sessions`, 'plex-media-info');
+                const response = await widgetFetch(
+                    `/api/integrations/${integrationId}/item-metadata/${itemId}`,
+                    'media-info'
+                );
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-                const data = await response.json();
-                const sessions = data.sessions || [];
-
-                // Find the matching session by sessionKey
-                const matchingSession = sessions.find(
-                    (s: PlexSession) => s.sessionKey === session.sessionKey
-                );
-
-                if (matchingSession) {
-                    setFullSession(matchingSession);
-                } else {
-                    // Session may have ended, use what we have
-                    setFullSession(session);
-                }
+                const data: ItemMetadata = await response.json();
+                metadataCache.set(cacheKey, { data, timestamp: Date.now() });
+                setMetadata(data);
                 setError(null);
             } catch (err) {
-                logger.error('Failed to fetch session data', { error: err });
+                logger.error('Failed to fetch item metadata', { error: err });
                 setError((err as Error).message);
-                // Fall back to passed session data
-                setFullSession(session);
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchSessionData();
-    }, [session?.sessionKey]);
+        fetchMetadata();
+    }, [itemId, integrationId]);
 
-    // Fetch external IDs (TMDB/IMDB) by ratingKey
+    // Fetch external IDs (TMDB/IMDB) — with cache
     React.useEffect(() => {
-        const ratingKey = fullSession?.Media?.ratingKey || session?.Media?.ratingKey;
-        if (!ratingKey || !integrationId) return;
+        if (!itemId || !integrationId) return;
 
-        fetch(`/api/media/external-ids?itemKey=${ratingKey}&integrationId=${integrationId}`, { credentials: 'include' })
+        const cacheKey = `ext:${integrationId}:${itemId}`;
+        const cached = getCached(externalIdsCache, cacheKey);
+        if (cached) {
+            setExternalIds(cached);
+            return;
+        }
+
+        fetch(`/api/media/external-ids?itemKey=${itemId}&integrationId=${integrationId}`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
-            .then(data => { if (data) setExternalIds(data); })
+            .then(data => {
+                if (data) {
+                    externalIdsCache.set(cacheKey, { data, timestamp: Date.now() });
+                    setExternalIds(data);
+                }
+            })
             .catch(() => { });
-    }, [fullSession?.Media?.ratingKey, session?.Media?.ratingKey, integrationId]);
+    }, [itemId, integrationId]);
 
-    if (!session) return null;
+    if (!itemId) return null;
 
-    // Use fetched data or fall back to passed session
-    const displaySession = fullSession || session;
-    const { Media, Role, Genre, Director, Writer, title, grandparentTitle, type } = displaySession;
-    const displayTitle = type === 'episode' ? grandparentTitle || title : title;
-    const subtitle = type === 'episode' && displaySession.parentIndex && displaySession.index
-        ? `Season ${displaySession.parentIndex} • Episode ${displaySession.index}`
+    // Display logic — use metadata when available, fall back to initial props
+    const displayTitle = metadata?.title || initialTitle || 'Unknown Title';
+    const displayThumb = metadata?.thumb || initialThumb;
+    const subtitle = mediaType === 'episode' && seasonNumber && episodeNumber
+        ? `Season ${seasonNumber} • Episode ${episodeNumber}`
         : null;
-
-    const posterUrl = displaySession.thumb
-        ? `/api/integrations/${integrationId}/proxy${displaySession.thumb}`
-        : null;
+    const hasContent = metadata || initialTitle;
 
     return (
         <Modal open={true} onOpenChange={(open) => !open && onClose()} size="lg" fixedHeight>
             <Modal.Header title="Media Info" />
             <Modal.Body>
-                {/* Loading indicator */}
-                {loading && (
+                {/* Loading indicator — only shown if we have NO initial data at all */}
+                {!hasContent && loading && (
                     <div className="flex flex-col items-center justify-center gap-4 py-12">
                         <div className="w-10 h-10 border-3 border-theme border-t-accent rounded-full animate-spin" />
                         <span className="text-theme-secondary">Loading media info...</span>
                     </div>
                 )}
 
-                {/* Main content - only show when not loading */}
-                {!loading && (
+                {/* Error state — only shown if we have no data at all */}
+                {!hasContent && !loading && error && (
+                    <div className="flex flex-col items-center justify-center gap-2 py-12">
+                        <span className="text-theme-secondary">Failed to load media info</span>
+                    </div>
+                )}
+
+                {/* Main content — shown immediately with initial data, enriched with metadata */}
+                {hasContent && (
                     <div className="space-y-6">
                         {/* Poster and Basic Info */}
                         <div style={{ display: 'flex', gap: '1.5rem' }}>
                             {/* Poster */}
-                            {posterUrl && (
+                            {displayThumb && (
                                 <div style={{
                                     width: '150px',
                                     flexShrink: 0,
@@ -145,12 +201,15 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                     boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
                                 }}>
                                     <img
-                                        src={posterUrl}
-                                        alt={displayTitle || 'Media poster'}
+                                        src={displayThumb}
+                                        alt={displayTitle}
                                         style={{
                                             width: '100%',
                                             height: 'auto',
                                             display: 'block'
+                                        }}
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).style.display = 'none';
                                         }}
                                     />
                                 </div>
@@ -164,7 +223,7 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                     fontWeight: 700,
                                     color: 'var(--text-primary)'
                                 }}>
-                                    {displayTitle || 'Unknown Title'}
+                                    {displayTitle}
                                 </h2>
                                 {subtitle && (
                                     <p style={{
@@ -175,14 +234,14 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                         {subtitle}
                                     </p>
                                 )}
-                                {type === 'episode' && title && (
+                                {mediaType === 'episode' && episodeTitle && (
                                     <p style={{
                                         margin: '0 0 0.75rem 0',
                                         fontSize: '1.1rem',
                                         fontWeight: 500,
                                         color: 'var(--text-primary)'
                                     }}>
-                                        {title}
+                                        {episodeTitle}
                                     </p>
                                 )}
 
@@ -194,19 +253,19 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                     marginTop: '0.75rem',
                                     fontSize: '0.9rem'
                                 }}>
-                                    {Media?.year && (
+                                    {metadata?.year && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-primary)' }}>
                                             <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
-                                            <span>{Media.year}</span>
+                                            <span>{metadata.year}</span>
                                         </div>
                                     )}
-                                    {Media?.rating && (
+                                    {metadata?.rating && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-primary)' }}>
                                             <Star size={14} style={{ color: 'var(--warning)' }} />
-                                            <span>{Media.rating}/10</span>
+                                            <span>{metadata.rating.toFixed(1)}/10</span>
                                         </div>
                                     )}
-                                    {Media?.contentRating && (
+                                    {metadata?.contentRating && (
                                         <div style={{
                                             padding: '0.125rem 0.5rem',
                                             background: 'var(--bg-hover)',
@@ -215,13 +274,13 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                             fontWeight: 600,
                                             color: 'var(--text-primary)'
                                         }}>
-                                            {Media.contentRating}
+                                            {metadata.contentRating}
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Studio */}
-                                {Media?.studio && (
+                                {metadata?.studio && (
                                     <div style={{
                                         display: 'flex',
                                         alignItems: 'center',
@@ -231,21 +290,21 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                         color: 'var(--text-secondary)'
                                     }}>
                                         <Building2 size={14} />
-                                        <span>{Media.studio}</span>
+                                        <span>{metadata.studio}</span>
                                     </div>
                                 )}
 
                                 <ExternalMediaLinks
                                     tmdbId={externalIds.tmdbId}
                                     imdbId={externalIds.imdbId}
-                                    mediaType={type === 'episode' || type === 'show' ? 'tv' : 'movie'}
+                                    mediaType={mediaType === 'episode' || mediaType === 'track' ? 'tv' : 'movie'}
                                     className="mt-2"
                                 />
                             </div>
                         </div>
 
                         {/* Synopsis */}
-                        {Media?.summary && (
+                        {metadata?.summary && (
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <h4 style={{
                                     margin: '0 0 0.5rem 0',
@@ -263,13 +322,13 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                     color: 'var(--text-primary)',
                                     fontSize: '0.95rem'
                                 }}>
-                                    {Media.summary}
+                                    {metadata.summary}
                                 </p>
                             </div>
                         )}
 
                         {/* Genres */}
-                        {Genre && Genre.length > 0 && (
+                        {metadata?.genres && metadata.genres.length > 0 && (
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <h4 style={{
                                     margin: '0 0 0.5rem 0',
@@ -282,7 +341,7 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                     Genres
                                 </h4>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                    {Genre.map((genre, idx) => (
+                                    {metadata.genres.map((genre, idx) => (
                                         <span
                                             key={idx}
                                             style={{
@@ -301,7 +360,7 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                         )}
 
                         {/* Directors */}
-                        {Director && Director.length > 0 && (
+                        {metadata?.directors && metadata.directors.length > 0 && (
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <h4 style={{
                                     margin: '0 0 0.5rem 0',
@@ -311,16 +370,16 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                     letterSpacing: '0.05em',
                                     color: 'var(--text-secondary)'
                                 }}>
-                                    Director{Director.length > 1 ? 's' : ''}
+                                    Director{metadata.directors.length > 1 ? 's' : ''}
                                 </h4>
                                 <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                                    {Director.join(', ')}
+                                    {metadata.directors.join(', ')}
                                 </p>
                             </div>
                         )}
 
                         {/* Writers */}
-                        {Writer && Writer.length > 0 && (
+                        {metadata?.writers && metadata.writers.length > 0 && (
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <h4 style={{
                                     margin: '0 0 0.5rem 0',
@@ -330,16 +389,16 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                     letterSpacing: '0.05em',
                                     color: 'var(--text-secondary)'
                                 }}>
-                                    Writer{Writer.length > 1 ? 's' : ''}
+                                    Writer{metadata.writers.length > 1 ? 's' : ''}
                                 </h4>
                                 <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                                    {Writer.join(', ')}
+                                    {metadata.writers.join(', ')}
                                 </p>
                             </div>
                         )}
 
-                        {/* Cast - Text Only */}
-                        {Role && Role.length > 0 && (
+                        {/* Cast */}
+                        {metadata?.cast && metadata.cast.length > 0 && (
                             <div>
                                 <h4 style={{
                                     margin: '0 0 0.75rem 0',
@@ -360,7 +419,7 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                     gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
                                     gap: '0.5rem'
                                 }}>
-                                    {Role.slice(0, 12).map((actor, idx) => (
+                                    {metadata.cast.slice(0, 12).map((actor, idx) => (
                                         <div
                                             key={idx}
                                             style={{
@@ -377,7 +436,7 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                                 textOverflow: 'ellipsis',
                                                 color: 'var(--text-primary)'
                                             }}>
-                                                {actor.tag}
+                                                {actor.name}
                                             </div>
                                             {actor.role && (
                                                 <div style={{
@@ -394,14 +453,14 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({ session, integrationId,
                                         </div>
                                     ))}
                                 </div>
-                                {Role.length > 12 && (
+                                {metadata.cast.length > 12 && (
                                     <p style={{
                                         marginTop: '0.75rem',
                                         fontSize: '0.85rem',
                                         color: 'var(--text-secondary)',
                                         fontStyle: 'italic'
                                     }}>
-                                        +{Role.length - 12} more cast members
+                                        +{metadata.cast.length - 12} more cast members
                                     </p>
                                 )}
                             </div>

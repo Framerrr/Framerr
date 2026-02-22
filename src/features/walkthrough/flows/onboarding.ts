@@ -121,6 +121,7 @@ const onboardingSteps: WalkthroughStep[] = [
         placement: 'right',
         enterDelay: 500,
         modalProtection: true,
+        blockTarget: true,
         spotlightTransition: 'reset',
         condition: (ctx) => {
             if (ctx.role === 'admin') return false;
@@ -156,43 +157,76 @@ const onboardingSteps: WalkthroughStep[] = [
         mode: 'anchored',
         targetSelector: '[data-walkthrough="widget-integration-section"]',
         title: 'Connect an Integration',
-        message: 'Select an integration to power this widget. Head to Service Settings to add integrations that connect Framerr to your services.',
+        message: 'Compatible integrations will appear here. Click next to head to Service Settings to connect your first integration!',
         advanceOn: { type: 'button' },
         placement: 'right',
         enterDelay: 500,
         modalProtection: true,
+        blockTarget: true,
         spotlightTransition: 'reset',
         condition: (ctx) => ctx.role === 'admin',
     },
 
-    // Step 7: Navigate to Service Settings and spotlight Add Integration (admin only)
-    // Uses navigateTo to switch pages, then anchors to the Add Integration button.
-    // beforeEnter closes the config modal and saves before navigating.
+    // Step 7: Navigate to Service Settings and spotlight the integration grid (admin only)
+    // Shows the seeded integrations and gives context before asking them to add a new one
     {
-        id: 'admin-service-settings',
+        id: 'admin-integration-grid',
         mode: 'anchored',
         navigateTo: '#settings/integrations/services',
-        targetSelector: '[data-walkthrough="add-integration-button"]',
-        title: 'Add an Integration',
-        message: 'This is where you add integrations — connections to your services like Plex, Sonarr, Radarr, and more. Click here to add your first one!',
-        advanceOn: { type: 'action' },
+        targetSelector: '[data-walkthrough="integration-grid"]',
+        title: 'Your Integrations',
+        message: "We've added some example integrations for you. You can configure, edit, or remove these anytime.",
+        advanceOn: { type: 'button' },
         placement: 'bottom',
         enterDelay: 300,
         beforeEnter: 'close-modals-and-save',
+        blockTarget: true,
         spotlightTransition: 'reset',
         condition: (ctx) => ctx.role === 'admin',
     },
 
-    // ─── COMPLETION ──────────────────────────────────────────────────
+    // Step 8: Spotlight Add Integration button (admin only)
+    // Now that they've seen the grid, guide them to add their own
+    {
+        id: 'admin-service-settings',
+        mode: 'anchored',
+        targetSelector: '[data-walkthrough="add-integration-button"]',
+        title: 'Add an Integration',
+        message: "Ready to connect your own service? Click here to add a new one!",
+        advanceOn: { type: 'action' },
+        placement: 'bottom',
+        spotlightTransition: 'morph',
+        condition: (ctx) => ctx.role === 'admin',
+    },
+
+    // Step 8: Integration type dropdown (admin only)
+    // Spotlights the opened dropdown so user can pick a service type
+    {
+        id: 'admin-select-type',
+        mode: 'anchored',
+        targetSelector: '.integration-type-dropdown',
+        title: 'Select a Service',
+        message: "Choose one to get started. You can add as many as you need later.",
+        advanceOn: { type: 'custom-event', event: 'integration-type-selected' },
+        placement: 'left-start',
+        enterDelay: 300,
+        modalProtection: true,
+        condition: (ctx) => ctx.role === 'admin',
+        interaction: {
+            allow: ['.integration-type-dropdown'],
+        },
+    },
 
     // Final step: Congrats (centered)
-    // Shown for all roles — pressing Done triggers onFlowComplete (saves dashboard)
+    // Shared by all roles — modalProtection keeps the admin's integration modal open
     {
         id: 'complete',
         mode: 'centered',
         title: "You're All Set! 🎉",
-        message: "Your dashboard is ready to go. You can always enter edit mode to add more widgets and customize your layout. Have fun!",
+        message: "You're all set! Explore your dashboard, configure your integrations, and make Framerr your own. Have fun!",
         advanceOn: { type: 'button' },
+        modalProtection: true,
+        enterDelay: 500,
     },
 ];
 

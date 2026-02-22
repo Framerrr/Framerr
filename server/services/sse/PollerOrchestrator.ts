@@ -42,8 +42,11 @@ const POLLING_INTERVALS: Record<string, number> = {
     'default': 10000            // 10 seconds fallback
 };
 
-/** Maximum backoff interval: 5 minutes */
-const BACKOFF_MAX_MS = 5 * 60 * 1000;
+/** Maximum backoff interval: 3 minutes */
+const BACKOFF_MAX_MS = 3 * 60 * 1000;
+
+/** Fixed base interval for exponential backoff (standardized across all pollers) */
+const BACKOFF_BASE_MS = 15_000;
 
 /** Fast retry interval: 10 seconds for quick error detection */
 const FAST_RETRY_INTERVAL_MS = 10_000;
@@ -391,7 +394,9 @@ export class PollerOrchestrator {
 
         try {
             const data = await this.pollForTopic(topic, state.topicInfo);
-            if (data !== null) {
+            if (data === null || data === undefined) {
+                this.handleError(topic, 'Poll returned no data');
+            } else {
                 this.handleSuccess(topic, data);
             }
         } catch (error) {
@@ -571,16 +576,64 @@ export class PollerOrchestrator {
     }
 
     /**
+     * Config error patterns that should broadcast immediately without retries.
+     * These are errors caused by missing/invalid config, not transient failures.
+     */
+    private static CONFIG_ERROR_PATTERNS = [
+        'No URL configured',
+        'URL and API key required',
+        'URL and token required',
+        'No instance found',
+    ];
+
+    /**
+     * Auth error patterns that should broadcast immediately without retries.
+     * Bad credentials won't fix themselves — no point retrying for 30s.
+     */
+    private static AUTH_ERROR_PATTERNS = [
+        'Authentication failed',
+        'Request failed with status code 401',
+        'Request failed with status code 403',
+    ];
+
+    /**
      * Handle poll error - enter fast retry mode for quick error detection.
      * 
      * Strategy:
-     * 1. On first error: switch to 10s fast retry interval
-     * 2. After 3 fast retries (30s): broadcast _error and start exponential backoff
-     * 3. This ensures consistent ~30s error detection regardless of normal poll interval
+     * 1. Config errors: broadcast immediately, skip retries
+     * 2. On first error: switch to 10s fast retry interval
+     * 3. After 3 fast retries (30s): broadcast _error and start exponential backoff
+     * 4. This ensures consistent ~30s error detection regardless of normal poll interval
      */
     private handleError(topic: string, error: string): void {
         const state = this.activePollers.get(topic);
         if (!state) return;
+
+        // Config errors broadcast immediately — no retries, config won't fix itself
+        const isConfigError = PollerOrchestrator.CONFIG_ERROR_PATTERNS
+            .some(p => error.includes(p));
+        if (isConfigError) {
+            logger.debug(`[PollerOrchestrator] Config error: topic=${topic} error="${error}"`);
+            broadcastToTopic(topic, {
+                _error: true,
+                _message: error,
+                _configError: true,
+            });
+            return;
+        }
+
+        // Auth errors broadcast immediately — bad credentials won't fix themselves
+        const isAuthError = PollerOrchestrator.AUTH_ERROR_PATTERNS
+            .some(p => error.includes(p));
+        if (isAuthError) {
+            logger.debug(`[PollerOrchestrator] Auth error: topic=${topic} error="${error}"`);
+            broadcastToTopic(topic, {
+                _error: true,
+                _message: 'Authentication failed — check credentials in Settings',
+                _authError: true,
+            });
+            return;
+        }
 
         state.consecutiveErrors++;
         state.lastError = error;
@@ -595,7 +648,7 @@ export class PollerOrchestrator {
             const serviceName = `${type}${instanceId ? `:${instanceId.slice(0, 8)}` : ''}`;
             // Calculate backoff interval for informative logging
             const backoffMs = Math.min(
-                state.baseIntervalMs * Math.pow(2, state.consecutiveErrors - 2),
+                BACKOFF_BASE_MS * Math.pow(2, state.consecutiveErrors - 2),
                 BACKOFF_MAX_MS
             );
             const backoffSec = Math.round(backoffMs / 1000);
@@ -655,9 +708,11 @@ export class PollerOrchestrator {
 
         clearInterval(state.interval);
 
-        // Exponential backoff: base * 2^(errors-2), capped at 5 minutes
+        // Exponential backoff: fixed 15s base * 2^(errors-2), capped at 3 minutes
+        // Uses BACKOFF_BASE_MS instead of baseIntervalMs so all pollers share
+        // the same retry curve regardless of their normal polling speed.
         const backoffInterval = Math.min(
-            state.baseIntervalMs * Math.pow(2, state.consecutiveErrors - 2),
+            BACKOFF_BASE_MS * Math.pow(2, state.consecutiveErrors - 2),
             BACKOFF_MAX_MS
         );
 

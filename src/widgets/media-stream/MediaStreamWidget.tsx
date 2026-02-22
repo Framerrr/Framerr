@@ -15,7 +15,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Film, Play, Pause, Network, Info, ExternalLink, StopCircle } from 'lucide-react';
+import { Film, Play, Pause } from 'lucide-react';
 
 // Types
 import type { MediaSession, IntegrationType } from './adapters';
@@ -28,6 +28,7 @@ import { useMediaRowLayout } from './hooks/useMediaRowLayout';
 
 // Components
 import { SessionCard } from './components/SessionCard';
+import { StackedCard } from './components/StackedCard';
 
 // UI Primitives
 import { ConfirmStopModal } from './modals/ConfirmStopModal';
@@ -148,7 +149,7 @@ export const MediaStreamWidget: React.FC<MediaStreamWidgetProps> = ({
         integrationType === 'plex' ? 'Plex' : integrationType === 'jellyfin' ? 'Jellyfin' : 'Emby';
 
     // === Hooks ===
-    const { sessions, loading, error, isInitializing, machineId, lastUpdateTime, refreshSessions } = useMediaStream({
+    const { sessions, loading, error, isInitializing, machineId, serverUrl, lastUpdateTime, refreshSessions } = useMediaStream({
         integrationId,
         integrationType,
         isIntegrationBound,
@@ -333,68 +334,29 @@ export const MediaStreamWidget: React.FC<MediaStreamWidgetProps> = ({
             session={session}
             integrationId={integrationId!}
             machineId={machineId}
-            userIsAdmin={userIsAdmin}
+            serverUrl={serverUrl}
             lastUpdateTime={lastUpdateTime}
+            userIsAdmin={userIsAdmin}
             onShowPlaybackData={setShowPlaybackData}
             onShowMediaInfo={setShowMediaInfo}
-            onConfirmStop={setConfirmStop}
+            onConfirmStop={integrationType === 'plex' ? setConfirmStop : undefined}
         />
     );
 
-    // Helper to render stacked card
-    const renderStackedCard = (session: MediaSession) => {
-        const adapter = getAdapter(session.integrationType);
-        const displayTitle = session.grandparentTitle || session.title || 'Unknown';
-        const isPlaying = session.playerState === 'playing';
-        const baseOffset = session.viewOffset || 0;
-        const elapsed = isPlaying ? Date.now() - lastUpdateTime : 0;
-        const viewOffset = Math.min(baseOffset + elapsed, session.duration || 0);
-        const percent = session.duration > 0 ? Math.round((viewOffset / session.duration) * 100) : 0;
-
-        // Format time string
-        const playedMin = Math.floor(viewOffset / 60000);
-        const playedSec = Math.floor((viewOffset % 60000) / 1000);
-        const durationMs = session.duration || 0;
-        const durationMin = Math.floor(durationMs / 60000);
-        const durationSec = Math.floor((durationMs % 60000) / 1000);
-        const timeStr = `${playedMin}:${playedSec.toString().padStart(2, '0')} / ${durationMin}:${durationSec.toString().padStart(2, '0')}`;
-
-        // Prefer art (landscape) for stacked, fall back to thumb
-        const imageUrl = session.art
-            ? adapter.getImageUrl(session.art, integrationId!)
-            : session.thumb
-                ? adapter.getImageUrl(session.thumb, integrationId!)
-                : null;
-
-        // Episode/subtitle info
-        let subtitle = '';
-        if (session.type === 'episode' && session.parentIndex && session.index) {
-            subtitle = `S${session.parentIndex} · E${session.index}`;
-        } else if (session.type === 'movie') {
-            subtitle = 'Movie';
-        } else if (session.type === 'track') {
-            subtitle = 'Music';
-        }
-
-        return (
-            <StackedCard
-                key={session.sessionKey}
-                session={session}
-                displayTitle={displayTitle}
-                subtitle={subtitle}
-                imageUrl={imageUrl}
-                isPlaying={isPlaying}
-                percent={percent}
-                timeStr={timeStr}
-                userIsAdmin={userIsAdmin}
-                integrationId={integrationId!}
-                machineId={machineId}
-                onShowPlaybackData={setShowPlaybackData}
-                onShowMediaInfo={setShowMediaInfo}
-                onConfirmStop={setConfirmStop}
-            />
-        );
-    };
+    const renderStackedCard = (session: MediaSession) => (
+        <StackedCard
+            key={session.sessionKey}
+            session={session}
+            integrationId={integrationId!}
+            machineId={machineId}
+            serverUrl={serverUrl}
+            lastUpdateTime={lastUpdateTime}
+            userIsAdmin={userIsAdmin}
+            onShowPlaybackData={setShowPlaybackData}
+            onShowMediaInfo={setShowMediaInfo}
+            onConfirmStop={integrationType === 'plex' ? setConfirmStop : undefined}
+        />
+    );
 
     // Flatten all sessions for stacked mode
     const allSessions = rows.flat();
@@ -437,154 +399,26 @@ export const MediaStreamWidget: React.FC<MediaStreamWidgetProps> = ({
             {/* Playback Data Modal - Pass raw session for server-specific details */}
             {showPlaybackData && (
                 <PlaybackDataModal
-                    session={showPlaybackData._raw as Parameters<typeof PlaybackDataModal>[0]['session']}
+                    playbackInfo={showPlaybackData.playbackInfo}
                     onClose={() => setShowPlaybackData(null)}
                 />
             )}
 
-            {/* Media Info Modal - Pass raw session for server-specific details */}
+            {/* Media Info Modal - Fetches metadata from unified backend endpoint */}
             {showMediaInfo && (
                 <MediaInfoModal
-                    session={showMediaInfo._raw as Parameters<typeof MediaInfoModal>[0]['session']}
+                    itemId={showMediaInfo.ratingKey || ''}
                     integrationId={integrationId!}
+                    mediaType={showMediaInfo.type}
+                    episodeTitle={showMediaInfo.type === 'episode' ? showMediaInfo.title : undefined}
+                    seasonNumber={showMediaInfo.parentIndex}
+                    episodeNumber={showMediaInfo.index}
+                    initialTitle={showMediaInfo.grandparentTitle || showMediaInfo.title}
+                    initialThumb={showMediaInfo.thumb ? getAdapter(showMediaInfo.integrationType).getImageUrl(showMediaInfo.thumb, integrationId!) : undefined}
                     onClose={() => setShowMediaInfo(null)}
                 />
             )}
         </>
-    );
-};
-
-// ============================================================================
-// STACKED CARD COMPONENT
-// ============================================================================
-
-interface StackedCardProps {
-    session: MediaSession;
-    displayTitle: string;
-    subtitle: string;
-    imageUrl: string | null;
-    isPlaying: boolean;
-    percent: number;
-    timeStr: string;
-    userIsAdmin: boolean;
-    integrationId: string;
-    machineId: string | null;
-    onShowPlaybackData: (session: MediaSession) => void;
-    onShowMediaInfo: (session: MediaSession) => void;
-    onConfirmStop: (session: MediaSession) => void;
-}
-
-const StackedCard: React.FC<StackedCardProps> = ({
-    session,
-    displayTitle,
-    subtitle,
-    imageUrl,
-    isPlaying,
-    percent,
-    timeStr,
-    userIsAdmin,
-    integrationId,
-    machineId,
-    onShowPlaybackData,
-    onShowMediaInfo,
-    onConfirmStop,
-}) => {
-    const [isActive, setIsActive] = useState(false);
-    const adapter = getAdapter(session.integrationType);
-
-    const externalLinkTitle =
-        session.integrationType === 'plex'
-            ? 'Open in Plex'
-            : session.integrationType === 'jellyfin'
-                ? 'Open in Jellyfin'
-                : 'Open in Emby';
-
-    return (
-        <div
-            className="plex-stacked-card"
-            onMouseEnter={() => setIsActive(true)}
-            onMouseLeave={() => setIsActive(false)}
-            onClick={() => setIsActive(!isActive)}
-        >
-            {/* Image */}
-            {imageUrl ? (
-                <img src={imageUrl} alt={displayTitle} className="plex-stacked-card__image" />
-            ) : (
-                <div className="plex-stacked-card__placeholder">
-                    <Film size={32} className="text-theme-secondary" style={{ opacity: 0.3 }} />
-                </div>
-            )}
-
-            {/* Play/Pause status badge */}
-            <div className="plex-stacked-card__status">
-                {isPlaying ? (
-                    <Play size={10} style={{ color: 'var(--success)' }} />
-                ) : (
-                    <Pause size={10} style={{ color: 'var(--warning)' }} />
-                )}
-                <span>{session.userName}</span>
-            </div>
-
-            {/* Controls overlay */}
-            <div className={`plex-stacked-card__controls no-drag ${isActive ? 'plex-stacked-card__controls--active' : ''}`}>
-                <button
-                    onClick={(e) => { e.stopPropagation(); onShowPlaybackData(session); }}
-                    className="w-9 h-9 rounded-lg bg-theme-hover border border-theme flex items-center justify-center text-theme-primary hover:bg-theme-tertiary transition-colors"
-                    title="Playback Data"
-                >
-                    <Network size={18} />
-                </button>
-                <button
-                    onClick={(e) => { e.stopPropagation(); onShowMediaInfo(session); }}
-                    className="w-9 h-9 rounded-lg bg-theme-hover border border-theme flex items-center justify-center text-theme-primary hover:bg-theme-tertiary transition-colors"
-                    title="Media Info"
-                >
-                    <Info size={18} />
-                </button>
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        const link = adapter.getDeepLink(session, machineId || undefined);
-                        if (link) window.open(link, '_blank');
-                    }}
-                    className="w-9 h-9 rounded-lg bg-theme-hover border border-theme flex items-center justify-center text-theme-primary hover:bg-theme-tertiary transition-colors"
-                    title={externalLinkTitle}
-                >
-                    <ExternalLink size={18} />
-                </button>
-                {userIsAdmin && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onConfirmStop(session); }}
-                        className="w-9 h-9 rounded-lg border flex items-center justify-center transition-colors"
-                        style={{
-                            background: 'rgba(239, 68, 68, 0.2)',
-                            borderColor: 'var(--error)',
-                            color: 'var(--error)',
-                        }}
-                        title="Stop Playback"
-                    >
-                        <StopCircle size={18} />
-                    </button>
-                )}
-            </div>
-
-            {/* Bottom gradient with title */}
-            <div className={`plex-stacked-card__overlay ${isActive ? 'plex-stacked-card__overlay--hidden' : ''}`}>
-                <div className="plex-stacked-card__title">{displayTitle}</div>
-                <div className="plex-stacked-card__meta">
-                    <span className="plex-stacked-card__meta-left">
-                        {subtitle && <><span>{subtitle}</span><span>·</span></>}
-                        <span>{percent}%</span>
-                    </span>
-                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>{timeStr}</span>
-                </div>
-            </div>
-
-            {/* Progress bar */}
-            <div className="plex-stacked-card__progress">
-                <div className="plex-stacked-card__progress-fill" style={{ width: `${percent}%` }} />
-            </div>
-        </div>
     );
 };
 

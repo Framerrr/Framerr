@@ -211,6 +211,9 @@ router.post('/', requireAuth, requireAdmin, async (req: Request, res: Response) 
         const { onIntegrationCreated } = await import('../../../services/IntegrationManager');
         await onIntegrationCreated(instance);
 
+        // Broadcast to all users so widgets auto-bind to the new integration
+        invalidateSystemSettings('integrations');
+
         res.status(201).json({ integration: instance });
     } catch (error) {
         logger.error(`[Integrations] Failed to create: error="${(error as Error).message}"`);
@@ -260,11 +263,9 @@ router.put('/:id', requireAuth, requireAdmin, async (req: Request, res: Response
             previousConfig  // Pass previous config for transition detection
         });
 
-        // Broadcast invalidation for real-time updates on user notification settings
-        // If webhookConfig changed, users need to refresh their shared integrations
-        if (config?.webhookConfig) {
-            invalidateSystemSettings('integrations');
-        }
+        // Broadcast to all users so widgets react to any integration change
+        // (enable/disable, config, name — all affect widget rendering)
+        invalidateSystemSettings('integrations');
 
         // Notify metric history service of integration save (triggers re-probe)
         try {

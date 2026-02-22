@@ -44,29 +44,24 @@ export async function poll(instance: PluginInstance): Promise<EmbySession[]> {
     const apiKey = instance.config.apiKey as string;
 
     if (!url || !apiKey) {
-        return [];
+        throw new Error('URL and API key required');
     }
 
-    try {
-        const baseUrl = translateHostUrl(url).replace(/\/$/, '');
-        const response = await axios.get<EmbySession[]>(`${baseUrl}/Sessions`, {
-            headers: {
-                'X-Emby-Token': apiKey,
-                'Accept': 'application/json',
-            },
-            httpsAgent,
-            timeout: 10000,
-        });
+    const baseUrl = translateHostUrl(url).replace(/\/$/, '');
+    const response = await axios.get<EmbySession[]>(`${baseUrl}/Sessions`, {
+        headers: {
+            'X-Emby-Token': apiKey,
+            'Accept': 'application/json',
+        },
+        httpsAgent,
+        timeout: 10000,
+    });
 
-        // Filter to only sessions with active playback
-        const activeSessions = response.data.filter(
-            (session) => session.NowPlayingItem != null
-        );
+    // Filter to only sessions with active playback
+    const activeSessions = response.data.filter(
+        (session) => session.NowPlayingItem != null
+    );
 
-        logger.debug(`[Poller:emby] Found ${activeSessions.length} active sessions`);
-        return activeSessions;
-    } catch (error) {
-        logger.error(`[Poller:emby] Failed: error="${(error as Error).message}"`);
-        return [];
-    }
+    logger.debug(`[Poller:emby] Found ${activeSessions.length} active sessions`);
+    return activeSessions;
 }

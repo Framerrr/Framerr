@@ -31,9 +31,9 @@ export const userSettingsCategories: SidebarSettingsCategory[] = [
         icon: 'Puzzle',
         iconColor: 'purple',
         children: [
+            { id: 'services', label: 'Service Settings', icon: 'Wrench', adminOnly: true },
             { id: 'gallery', label: 'Widget Gallery', icon: 'Grid3x3' },
             { id: 'active', label: 'Active Widgets', icon: 'Layers' },
-            { id: 'services', label: 'Service Settings', icon: 'Wrench', adminOnly: true },
             { id: 'shared', label: 'Shared Widgets', icon: 'Share2', adminOnly: true },
             { id: 'linked', label: 'Linked Accounts', icon: 'Link' },
         ]

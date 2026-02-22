@@ -62,12 +62,12 @@ export function useIntegrationFallback({
     const hasAdminAccess = isAdmin(user);
 
     // Use React Query hook for real-time reactivity (role-aware)
-    // Also get isFetching to detect background refetches that may cause empty data temporarily
-    // LAYER 1 & 2: Get isError to detect query failures vs empty results
+    // React Query keeps previous data during background refetches, so accessibleInstances
+    // always has the last successful data (never empty during refetch).
+    // isError detects query failures where we should use cached results.
     const {
         data: allIntegrations = [],
         isLoading: loading,
-        isFetching,
         isError,
     } = useRoleAwareIntegrations();
 
@@ -107,20 +107,33 @@ export function useIntegrationFallback({
             };
         }
 
-        // LAYER 1 & 2: STABILITY GUARD - Protect against transient failures
-        // If we have a configuredId AND (refetching OR error OR empty data), use cached result
-        // This prevents widgets from showing "Not Configured" during:
-        // - SSE reconnection (isFetching)
-        // - Network errors (isError) 
-        // - Proxy timeouts that return empty data
-        const isTransientFailure = (isFetching || isError || accessibleInstances.length === 0);
-        if (configuredId && isTransientFailure && lastStableResultRef.current) {
-            logger.debug(`[useIntegrationFallback] ${widgetType}: Using cached result (transient=${isFetching ? 'refetch' : isError ? 'error' : 'empty'})`);
+        // STABILITY GUARD: Only protect against network errors
+        // React Query keeps previous data during background refetches, so isFetching is safe —
+        // accessibleInstances still has old data until refetch completes atomically.
+        // Empty data after a successful, non-error fetch is REAL (all integrations deleted).
+        // Only isError (network failure) should use cached result to prevent flash of wrong state.
+        if (configuredId && isError && lastStableResultRef.current) {
+            logger.debug(`[useIntegrationFallback] ${widgetType}: Using cached result (network error)`);
             return lastStableResultRef.current;
         }
 
-        // No configured ID - widget not configured
+        // No configured ID — auto-select first compatible integration if available
+        // Consistent with useMultiWidgetIntegration behavior for unconfigured slots.
+        // Persistence logic in useWidgetIntegration auto-saves this choice.
         if (!configuredId) {
+            const autoSelect = compatible[0];
+            if (autoSelect) {
+                logger.info(`[useIntegrationFallback] ${widgetType}: Auto-binding to ${autoSelect.id} (${autoSelect.displayName})`);
+                return {
+                    integrationId: autoSelect.id,
+                    isOriginal: false,
+                    isFallback: true,
+                    reason: 'accessible',
+                    loading: false,
+                    fallbackInstance: { id: autoSelect.id, name: autoSelect.displayName },
+                    compatibleInstances: compatible,
+                };
+            }
             return {
                 integrationId: null,
                 isOriginal: false,
@@ -171,12 +184,11 @@ export function useIntegrationFallback({
             loading: false,
             compatibleInstances: compatible,
         };
-    }, [loading, isFetching, isError, configuredId, accessibleInstances, compatibleTypes, widgetType]);
+    }, [loading, isError, configuredId, accessibleInstances, compatibleTypes, widgetType]);
 
-    // Cache stable results (when we have actual data, not loading/transient states)
-    // Only cache if we got a real result with integration data or a definitive "not configured" state
-    // LAYER 2: Don't cache during error states either
-    if (!loading && !isFetching && !isError && (result.reason === 'accessible' || accessibleInstances.length > 0)) {
+    // Cache stable results for use during network errors
+    // Any non-loading, non-error result is valid to cache (including 'not_configured' and 'no_access')
+    if (!loading && !isError) {
         lastStableResultRef.current = result;
     }
 

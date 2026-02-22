@@ -404,6 +404,68 @@ export async function getOrFetchLargeImage(
 }
 
 /**
+ * Get or fetch large image from Jellyfin/Emby server
+ * Uses native image resize endpoint. Same LRU eviction as Plex variant.
+ * 
+ * @param integrationId - Integration instance ID
+ * @param itemKey - Media item ID
+ * @param serverBaseUrl - Server base URL (already translated for Docker)
+ * @param serverType - 'jellyfin' or 'emby'
+ * @param apiKey - API key / auth token
+ * @returns Local file path if successful, null otherwise
+ */
+export async function getOrFetchLargeImageJellyfinEmby(
+    integrationId: string,
+    itemKey: string,
+    serverBaseUrl: string,
+    serverType: 'jellyfin' | 'emby',
+    apiKey: string
+): Promise<string | null> {
+    ensureCacheDir(integrationId);
+    const localPath = getLargeImagePath(integrationId, itemKey);
+
+    // If cached, update access time and return
+    if (fs.existsSync(localPath)) {
+        const now = new Date();
+        try { fs.utimesSync(localPath, now, now); } catch { /* ignore */ }
+        return localPath;
+    }
+
+    // Fetch from Jellyfin/Emby native image endpoint
+    try {
+        const imageUrl = serverType === 'jellyfin'
+            ? `${serverBaseUrl}/Items/${itemKey}/Images/Primary?fillWidth=${LARGE_IMAGE_SIZE.width}&fillHeight=${LARGE_IMAGE_SIZE.height}`
+            : `${serverBaseUrl}/Items/${itemKey}/Images/Primary?width=${LARGE_IMAGE_SIZE.width}&height=${LARGE_IMAGE_SIZE.height}&api_key=${apiKey}`;
+
+        const headers: Record<string, string> = serverType === 'jellyfin'
+            ? { 'Authorization': `MediaBrowser Token="${apiKey}"` }
+            : {};
+
+        const response = await axios.get(imageUrl, {
+            responseType: 'arraybuffer',
+            timeout: 15000,
+            headers
+        });
+
+        // Save to disk
+        fs.writeFileSync(localPath, response.data);
+        logger.debug(`[LibraryImageCache] Cached large image (${serverType}): integrationId=${integrationId}, itemKey=${itemKey}`);
+
+        // Enforce LRU limit
+        enforceLargeImageLimit(integrationId);
+
+        return localPath;
+    } catch (error) {
+        const axiosError = error as { response?: { status?: number }; message?: string };
+        const errorMsg = axiosError.response?.status
+            ? `HTTP ${axiosError.response.status}`
+            : axiosError.message || 'Unknown error';
+        logger.warn(`[LibraryImageCache] Failed to fetch large image (${serverType}): integrationId=${integrationId}, itemKey=${itemKey}, error="${errorMsg}"`);
+        return null;
+    }
+}
+
+/**
  * Enforce LRU limit on large images for an integration
  * Deletes oldest accessed files when count exceeds MAX_LARGE_IMAGES
  */

@@ -54,6 +54,10 @@ export interface UseIntegrationSSEResult {
     isConnected: boolean;
     /** Whether the service is unavailable (backend error broadcast received) */
     isUnavailable: boolean;
+    /** Whether the error is a config issue (missing URL/API key) vs service outage */
+    isConfigError: boolean;
+    /** Whether the error is an auth issue (401/403, bad credentials) */
+    isAuthError: boolean;
 }
 
 export function useIntegrationSSE<T>({
@@ -74,6 +78,8 @@ export function useIntegrationSSE<T>({
     const [loading, setLoading] = useState(true);
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [isUnavailable, setIsUnavailable] = useState(false);
+    const [isConfigError, setIsConfigError] = useState(false);
+    const [isAuthError, setIsAuthError] = useState(false);
 
     // Memoize the onData callback to prevent effect re-runs
     const onDataRef = useRef(onData);
@@ -120,8 +126,12 @@ export function useIntegrationSSE<T>({
             // Detect backend error broadcast (service unavailable after repeated poll failures)
             if (data && typeof data === 'object' && '_error' in data && (data as { _error?: boolean })._error === true) {
                 const errorMessage = (data as { _message?: string })._message || 'Service unavailable';
+                const configError = (data as { _configError?: boolean })._configError === true;
+                const authError = (data as { _authError?: boolean })._authError === true;
                 logger.debug(`[useIntegrationSSE] Backend error for ${topic}: ${errorMessage}`);
                 setIsUnavailable(true);
+                setIsConfigError(configError);
+                setIsAuthError(authError);
                 onErrorRef.current?.(new Error(errorMessage));
                 setLoading(false);
                 return;
@@ -129,6 +139,8 @@ export function useIntegrationSSE<T>({
 
             // Success - clear unavailable state and process data
             setIsUnavailable(false);
+            setIsConfigError(false);
+            setIsAuthError(false);
             onDataRef.current(data as T);
             setLoading(false);
         }).then(unsub => {
@@ -167,6 +179,8 @@ export function useIntegrationSSE<T>({
         isSubscribed,
         isConnected,
         isUnavailable,
+        isConfigError,
+        isAuthError,
     };
 }
 

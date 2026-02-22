@@ -103,10 +103,13 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["dumb-init", "node", "server/dist/server/index.js"]
 
+# Version from build arg (set by release workflow, defaults to 'dev' for local builds)
+ARG APP_VERSION=dev
+
 # Labels
 LABEL org.opencontainers.image.title="Framerr" \
     org.opencontainers.image.description="Modern homelab dashboard with iframe tabs - Organizr alternative" \
     org.opencontainers.image.authors="pickels23" \
     org.opencontainers.image.url="https://github.com/pickels23/framerr" \
     org.opencontainers.image.source="https://github.com/pickels23/framerr" \
-    org.opencontainers.image.version="1.0.0"
+    org.opencontainers.image.version="${APP_VERSION}"

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Star, Calendar, Clock, User, Check, XCircle, Film, Tv } from 'lucide-react';
 import { Modal } from '../../../shared/ui';
 import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
-import AuthImage from '../../../shared/ui/AuthImage';
 import { useAuth } from '../../../context/AuthContext';
 import { useNotifications } from '../../../context/NotificationContext';
 import { isAdmin } from '../../../utils/permissions';
@@ -301,15 +300,22 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                                     overflow: 'hidden',
                                     boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
                                 }}>
-                                    <AuthImage
-                                        src={localCacheSrc}
-                                        fallbackSrc={cdnFallbackSrc}
+                                    <img
+                                        src={localCacheSrc || cdnFallbackSrc || undefined}
                                         alt={title}
                                         style={{
                                             width: '100%',
                                             height: '100%',
                                             objectFit: 'cover',
                                             display: 'block'
+                                        }}
+                                        onError={(e) => {
+                                            const img = e.target as HTMLImageElement;
+                                            if (cdnFallbackSrc && img.src !== cdnFallbackSrc) {
+                                                img.src = cdnFallbackSrc;
+                                            } else {
+                                                img.style.display = 'none';
+                                            }
                                         }}
                                     />
                                 </div>

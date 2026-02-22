@@ -13,10 +13,12 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Modal, Select, Switch, IntegrationDropdown, CodeEditor } from '../../../shared/ui';
+import { Modal, Select, Switch, IntegrationDropdown, CodeEditor, Popover } from '../../../shared/ui';
 import { getWidgetMetadata, getWidgetIcon, getWidgetIconName, getWidgetConfigConstraints } from '../../../widgets/registry';
 import { useWidgetConfigUI } from '../../../shared/widgets';
 import { useRoleAwareIntegrations, useIntegrationSchemas } from '../../../api/hooks';
+import { useAuth } from '../../../context/AuthContext';
+import { isAdmin } from '../../../utils/permissions';
 import IconPicker from '../../../components/IconPicker';
 import { Input } from '../../../components/common/Input';
 import {
@@ -25,7 +27,9 @@ import {
     Sliders,
     Search,
     Loader,
-    MapPin
+    MapPin,
+    ExternalLink,
+    Info
 } from 'lucide-react';
 import type { WidgetConfigOption, SearchResult } from '../../../widgets/types';
 import { getMetricsForIntegration, METRIC_REGISTRY } from '../../../widgets/system-status/hooks/useMetricConfig';
@@ -67,6 +71,11 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
     onResize
 }) => {
     const [config, setConfig] = useState<Record<string, unknown>>({});
+    const [compatPopoverOpen, setCompatPopoverOpen] = useState(false);
+
+    // Admin check for conditional UI (e.g. Service Settings link)
+    const { user } = useAuth();
+    const userIsAdmin = isAdmin(user);
 
     // Search state: per-option-key search query, results, and loading
     const [searchQueries, setSearchQueries] = useState<Record<string, string>>({});
@@ -92,16 +101,17 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
     const availableIntegrations = useMemo((): IntegrationInstance[] => {
         if (compatibleTypes.length === 0) return [];
 
-        // Filter to only compatible types and transform to expected format
+        // Filter to only compatible types that are enabled, and transform to expected format
         return allIntegrations
             .filter(inst =>
+                inst.enabled !== false &&
                 compatibleTypes.some(type => type.toLowerCase() === inst.type.toLowerCase())
             )
             .map(i => ({
                 id: i.id,
                 type: i.type,
                 displayName: i.displayName || i.name || i.type,
-                enabled: i.enabled !== false
+                enabled: true
             }));
     }, [allIntegrations, compatibleTypes]);
 
@@ -583,14 +593,54 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
 
         // If NO integration types have instances, show empty state (same as single-integration)
         if (groupsWithInstances.length === 0) {
+            const compatNames = configUI.compatibleIntegrationTypes.map(t => schemas?.[t]?.name || t.charAt(0).toUpperCase() + t.slice(1));
             return (
                 <div className="flex flex-col items-center pb-4 border-b border-theme mb-2" data-walkthrough="widget-integration-section">
                     <div className="flex items-center gap-2 mb-3">
                         <Link2 size={16} className="text-theme-secondary" />
                         <span className="text-sm font-medium text-theme-secondary">Integration(s)</span>
                     </div>
-                    <div className="p-4 text-center text-theme-secondary bg-theme-tertiary rounded-lg w-full">
-                        No {configUI.compatibleIntegrationTypes.join(' or ')} integrations configured.
+                    <div className={`py-2 px-4 text-center bg-theme-tertiary rounded-lg w-full space-y-1${!userIsAdmin ? ' flex items-center justify-center min-h-[3rem]' : ''}`}>
+                        <span className="text-base text-theme-secondary block">
+                            No{' '}
+                            <Popover open={compatPopoverOpen} onOpenChange={setCompatPopoverOpen}>
+                                <Popover.Trigger asChild>
+                                    <button
+                                        type="button"
+                                        className="font-semibold text-accent hover:underline inline-flex items-center gap-1"
+                                        onClick={() => setCompatPopoverOpen(!compatPopoverOpen)}
+                                    >
+                                        compatible integrations
+                                        <Info size={12} />
+                                    </button>
+                                </Popover.Trigger>
+                                <Popover.Content side="top" align="center" className="p-3 max-w-52">
+                                    <span className="text-xs font-medium text-theme-secondary mb-2 block">This widget works with:</span>
+                                    <ul className="space-y-1">
+                                        {compatNames.map(name => (
+                                            <li key={name} className="text-xs text-theme-primary flex items-center gap-1.5">
+                                                <span className="w-1 h-1 rounded-full bg-accent flex-shrink-0" />
+                                                {name}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </Popover.Content>
+                            </Popover>
+                            {' '}configured.
+                        </span>
+                        {userIsAdmin && (
+                            <button
+                                type="button"
+                                className="text-xs text-accent hover:underline inline-flex items-center gap-1"
+                                onClick={() => {
+                                    onClose();
+                                    window.location.hash = '#settings/integrations/services';
+                                }}
+                            >
+                                Go to Service Settings
+                                <ExternalLink size={11} />
+                            </button>
+                        )}
                     </div>
                 </div>
             );
@@ -702,8 +752,50 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
                 {loading ? (
                     <div className="p-4 text-center text-theme-secondary">Loading integrations...</div>
                 ) : availableIntegrations.length === 0 ? (
-                    <div className="p-4 text-center text-theme-secondary bg-theme-tertiary rounded-lg">
-                        No {compatibleTypes.join(' or ')} integrations configured.
+                    <div className={`py-2 px-4 text-center bg-theme-tertiary rounded-lg w-full space-y-1${!userIsAdmin ? ' flex items-center justify-center min-h-[3rem]' : ''}`}>
+                        <span className="text-base text-theme-secondary block">
+                            No{' '}
+                            <Popover open={compatPopoverOpen} onOpenChange={setCompatPopoverOpen}>
+                                <Popover.Trigger asChild>
+                                    <button
+                                        type="button"
+                                        className="font-semibold text-accent hover:underline inline-flex items-center gap-1"
+                                        onClick={() => setCompatPopoverOpen(!compatPopoverOpen)}
+                                    >
+                                        compatible integrations
+                                        <Info size={12} />
+                                    </button>
+                                </Popover.Trigger>
+                                <Popover.Content side="top" align="center" className="p-3 max-w-52">
+                                    <span className="text-xs font-medium text-theme-secondary mb-2 block">This widget works with:</span>
+                                    <ul className="space-y-1">
+                                        {compatibleTypes.map(type => {
+                                            const name = schemas?.[type]?.name || type.charAt(0).toUpperCase() + type.slice(1);
+                                            return (
+                                                <li key={type} className="text-xs text-theme-primary flex items-center gap-1.5">
+                                                    <span className="w-1 h-1 rounded-full bg-accent flex-shrink-0" />
+                                                    {name}
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </Popover.Content>
+                            </Popover>
+                            {' '}configured.
+                        </span>
+                        {userIsAdmin && (
+                            <button
+                                type="button"
+                                className="text-xs text-accent hover:underline inline-flex items-center gap-1"
+                                onClick={() => {
+                                    onClose();
+                                    window.location.hash = '#settings/integrations/services';
+                                }}
+                            >
+                                Go to Service Settings
+                                <ExternalLink size={11} />
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <div className="w-full">

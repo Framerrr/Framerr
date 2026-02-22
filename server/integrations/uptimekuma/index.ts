@@ -6,7 +6,7 @@
  */
 
 import { IntegrationPlugin } from '../types';
-import { id, name, description, category, icon, configSchema } from './config';
+import { id, name, description, category, icon, configSchema, notificationEvents } from './config';
 import { UptimeKumaAdapter } from './adapter';
 import { testConnection } from './test';
 import * as poller from './poller';
@@ -18,6 +18,8 @@ export const plugin: IntegrationPlugin = {
     category,
     icon,
     configSchema,
+    notificationMode: 'local',
+    notificationEvents,
     adapter: new UptimeKumaAdapter(),
     testConnection,
     poller: {

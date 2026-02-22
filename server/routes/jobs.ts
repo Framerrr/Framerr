@@ -8,12 +8,12 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware/auth';
 import { requireAdmin } from '../middleware/auth';
-import { getJobStatuses, triggerJob } from '../services/jobScheduler';
+import { getJobStatuses, triggerJob, triggerJobAsync } from '../services/jobScheduler';
 import { getCacheStats as getTmdbCacheStats, flushAllCache as flushTmdbCache } from '../db/mediaCache';
 import { getCacheStats as getImageCacheStats, deleteAllCachedImages } from '../services/imageCache';
 import { clearAllSearchHistory, getSearchHistoryCount } from '../db/mediaSearchHistory';
 import { getLibraryCacheStats, getPerIntegrationLibraryStats, deleteAllLibraryImages } from '../services/libraryImageCache';
-import { deleteLibrarySyncData, startFullSync, getSyncStatus } from '../services/librarySyncService';
+import { deleteLibrarySyncData, startFullSync, getSyncStatus, getMediaServerIntegrationsWithSync } from '../services/librarySyncService';
 import { getMonitorDefaults, getMetricHistoryDefaults, updateSystemConfig } from '../db/systemConfig';
 import { getInstanceById } from '../db/integrationInstances';
 import * as metricHistoryDb from '../db/metricHistory';
@@ -45,10 +45,33 @@ router.get('/', requireAuth, requireAdmin, (_req: Request, res: Response): void 
  * POST /api/jobs/:id/run
  * 
  * Manually trigger a job to run now.
+ * For library-sync: uses async trigger and returns library count immediately.
+ * For other jobs: runs synchronously and returns when complete.
  */
 router.post('/:id/run', requireAuth, requireAdmin, async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
+
+        // Library sync: trigger async and return count immediately
+        if (id === 'library-sync') {
+            const mediaServers = getMediaServerIntegrationsWithSync();
+            const libraryCount = mediaServers.length;
+
+            if (libraryCount === 0) {
+                res.json({ success: true, message: 'No libraries with sync enabled', libraryCount: 0 });
+                return;
+            }
+
+            const started = triggerJobAsync(id);
+            if (started) {
+                res.json({ success: true, message: `Library sync started`, libraryCount });
+            } else {
+                res.status(400).json({ error: 'Library sync is already running' });
+            }
+            return;
+        }
+
+        // All other jobs: run synchronously
         const success = await triggerJob(id);
 
         if (success) {

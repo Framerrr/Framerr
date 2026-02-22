@@ -447,6 +447,13 @@ export function useDashboardHandlers({
     // Walkthrough: save dashboard and exit edit mode when flow completes
     useEffect(() => {
         const handler = async () => {
+            // Only run if user is on the dashboard — admin walkthrough ends on Service Settings
+            const hash = window.location.hash;
+            if (hash && hash !== '#' && hash !== '#/') {
+                logger.debug('[Walkthrough] Flow complete but not on dashboard — skipping save');
+                return;
+            }
+
             logger.info('[Walkthrough] Flow complete event received — saving dashboard and exiting edit mode');
             // Close any open config modal first
             setConfigModalWidgetId(null);

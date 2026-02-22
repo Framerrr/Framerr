@@ -3,7 +3,7 @@
  * 
  * Prevents sensitive fields (API keys, tokens, passwords) from being
  * sent in plaintext to the browser. Uses a sentinel value pattern:
- * - GET responses replace sensitive fields with "••••••••"
+ * - GET responses replace sensitive fields with "••••••••••••"
  * - PUT/POST merges sentinel values with existing DB values
  * 
  * Which fields are sensitive is determined by the plugin schema
@@ -13,7 +13,7 @@
 import { plugins } from '../../../integrations/registry';
 
 /** Fixed-length sentinel that replaces real values in API responses */
-export const REDACTED_SENTINEL = '••••••••';
+export const REDACTED_SENTINEL = '••••••••••••';
 
 /** Regex to detect any string composed entirely of bullet characters */
 const BULLET_ONLY_REGEX = /^•+$/;
@@ -67,9 +67,15 @@ export function mergeConfigWithExisting(
     const merged = { ...incoming };
     for (const key of sensitiveFields) {
         const value = merged[key];
-        if (typeof value === 'string' && BULLET_ONLY_REGEX.test(value)) {
-            merged[key] = existing[key]; // Keep the real DB value
+        // Field omitted from payload → keep existing DB value
+        if (value === undefined) {
+            merged[key] = existing[key];
+            // Sentinel (bullets) → user didn't touch the field → keep existing
+        } else if (typeof value === 'string' && BULLET_ONLY_REGEX.test(value)) {
+            merged[key] = existing[key];
         }
+        // Empty string → user intentionally cleared → let it through (clears the field)
+        // Any other value → new value from user → let it through
     }
     return merged;
 }

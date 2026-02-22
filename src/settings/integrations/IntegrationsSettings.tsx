@@ -24,8 +24,8 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ acti
     const { user } = useAuth();
     const hasAdminAccess = isAdmin(user);
 
-    // Default to 'gallery' if no sub-tab provided
-    const activeSubTab: SubTabId = (propSubTab as SubTabId) || 'gallery';
+    // Default to 'services' for admins (primary tab), 'gallery' for non-admins
+    const activeSubTab: SubTabId = (propSubTab as SubTabId) || (hasAdminAccess ? 'services' : 'gallery');
 
     // Simple conditional routing - each page handles its own content
     if (activeSubTab === 'gallery') return <WidgetGalleryPage />;

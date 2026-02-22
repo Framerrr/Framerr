@@ -6,6 +6,7 @@
  */
 
 import type { MediaSession, SessionAdapter } from './types';
+import { getJellyfinDeepLink } from '../../../shared/utils/mediaDeepLinks';
 
 // ============================================================================
 // JELLYFIN RAW TYPES
@@ -31,6 +32,17 @@ interface JellyfinRawSession {
     UserName?: string;
     DeviceName?: string;
     Client?: string;
+    RemoteEndPoint?: string;
+    TranscodingInfo?: {
+        IsVideoDirect?: boolean;
+        IsAudioDirect?: boolean;
+        VideoCodec?: string;
+        AudioCodec?: string;
+        Bitrate?: number;
+        CompletionPercentage?: number;
+        Width?: number;
+        Height?: number;
+    };
 }
 
 // ============================================================================
@@ -65,6 +77,7 @@ export const jellyfinAdapter: SessionAdapter = {
     normalize(raw: unknown, _integrationId: string): MediaSession {
         const session = raw as JellyfinRawSession;
         const item = session.NowPlayingItem;
+        const ti = session.TranscodingInfo;
 
         return {
             sessionKey: session.Id || '',
@@ -77,7 +90,6 @@ export const jellyfinAdapter: SessionAdapter = {
             ratingKey: item?.Id,
             duration: ticksToMs(item?.RunTimeTicks),
             viewOffset: ticksToMs(session.PlayState?.PositionTicks),
-            // Jellyfin image paths are relative to Items endpoint
             art: item?.BackdropImageTags?.[0]
                 ? `/Items/${item.Id}/Images/Backdrop`
                 : undefined,
@@ -88,6 +100,18 @@ export const jellyfinAdapter: SessionAdapter = {
                     : undefined,
             playerState: session.PlayState?.IsPaused ? 'paused' : 'playing',
             userName: session.UserName || 'Unknown',
+            playbackInfo: {
+                ipAddress: session.RemoteEndPoint,
+                // Jellyfin doesn't provide LAN/WAN — omit location
+                bandwidth: ti?.Bitrate ? Math.round(ti.Bitrate / 1000) : undefined,
+                videoDecision: ti ? (ti.IsVideoDirect ? 'directplay' : 'transcode') : 'directplay',
+                audioDecision: ti ? (ti.IsAudioDirect ? 'directplay' : 'transcode') : 'directplay',
+                videoCodec: ti?.VideoCodec,
+                audioCodec: ti?.AudioCodec,
+                device: session.DeviceName,
+                platform: session.Client,
+                application: session.Client,
+            },
             _raw: raw,
         };
     },
@@ -97,16 +121,13 @@ export const jellyfinAdapter: SessionAdapter = {
         return `/api/integrations/${integrationId}/proxy${path}`;
     },
 
-    getDeepLink(session: MediaSession): string {
+    getDeepLink(session: MediaSession, _machineId?: string, serverUrl?: string): string {
         const itemId = session.ratingKey;
-        if (!itemId) return '';
-        // Jellyfin web URL - server URL would need to be known
-        // For now, return a relative path that could be appended to server URL
-        return `#!/details?id=${itemId}`;
+        if (!itemId || !serverUrl) return '';
+        return getJellyfinDeepLink(itemId, serverUrl);
     },
 
     getStopEndpoint(integrationId: string): string {
-        // Jellyfin uses session-based stop command
-        return `/api/integrations/${integrationId}/proxy/Sessions`;
+        return `/api/integrations/${integrationId}/proxy/stop`;
     },
 };

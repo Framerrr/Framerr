@@ -6,6 +6,33 @@
  */
 
 // ============================================================================
+// PLAYBACK INFO (normalized for modals)
+// ============================================================================
+
+/**
+ * Normalized playback information used by the PlaybackDataModal.
+ * Each adapter maps server-specific fields into this common format.
+ * Fields that don't exist for a server type are left undefined and hidden in UI.
+ */
+export interface PlaybackInfo {
+    // Network
+    ipAddress?: string;
+    location?: 'lan' | 'wan'; // Plex only
+    bandwidth?: number; // kilobits per second
+
+    // Transcode
+    videoDecision?: 'directplay' | 'copy' | 'transcode';
+    audioDecision?: 'directplay' | 'copy' | 'transcode';
+    videoCodec?: string;
+    audioCodec?: string;
+
+    // Client
+    device?: string;
+    platform?: string;
+    application?: string;
+}
+
+// ============================================================================
 // NORMALIZED SESSION TYPE
 // ============================================================================
 
@@ -40,6 +67,9 @@ export interface MediaSession {
     // User info
     userName: string;
 
+    // Normalized playback data for PlaybackDataModal
+    playbackInfo?: PlaybackInfo;
+
     // Raw data for modals (server-specific details)
     _raw: unknown;
 }
@@ -66,8 +96,9 @@ export interface SessionAdapter {
      * Build deep link URL to open media in native app/web interface.
      * @param session - Normalized session
      * @param machineId - Server identifier (Plex only)
+     * @param serverUrl - Server web URL (Jellyfin/Emby only)
      */
-    getDeepLink(session: MediaSession, machineId?: string): string;
+    getDeepLink(session: MediaSession, machineId?: string, serverUrl?: string): string;
 
     /**
      * Get the API endpoint path for stopping playback.

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
-import AuthImage from '../../shared/ui/AuthImage';
 import { WidgetStateMessage, useWidgetIntegration, useIntegrationSSE } from '../../shared/widgets';
 import { useAuth } from '../../context/AuthContext';
 import { isAdmin } from '../../utils/permissions';
@@ -142,6 +141,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
     // Use unified access hook for widget + integration access
     const {
         effectiveIntegrationId,
+        effectiveDisplayName,
         status: accessStatus,
         loading: accessLoading,
     } = useWidgetIntegration('overseerr', configuredIntegrationId, widget.id);
@@ -384,6 +384,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
             <WidgetStateMessage
                 variant={isServiceUnavailable ? 'unavailable' : 'error'}
                 serviceName="Overseerr"
+                instanceName={isServiceUnavailable ? effectiveDisplayName : undefined}
                 message={isServiceUnavailable ? undefined : error}
             />
         );
@@ -496,11 +497,19 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                             >
                                 {/* Backdrop/Poster Image */}
                                 {(backdropUrl || localCacheSrc || cdnFallbackSrc) ? (
-                                    <AuthImage
-                                        src={backdropUrl || localCacheSrc}
-                                        fallbackSrc={backdropUrl ? localCacheSrc : cdnFallbackSrc}
+                                    <img
+                                        src={backdropUrl || localCacheSrc || cdnFallbackSrc || undefined}
                                         alt={title}
                                         className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            const img = e.target as HTMLImageElement;
+                                            const fallback = backdropUrl ? (localCacheSrc || cdnFallbackSrc) : cdnFallbackSrc;
+                                            if (fallback && img.src !== fallback) {
+                                                img.src = fallback;
+                                            } else {
+                                                img.style.display = 'none';
+                                            }
+                                        }}
                                     />
                                 ) : (
                                     <div className="w-full h-full bg-theme-tertiary flex items-center justify-center">
@@ -729,11 +738,18 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                         >
                             {/* Poster Image */}
                             {(localCacheSrc || cdnFallbackSrc) ? (
-                                <AuthImage
-                                    src={localCacheSrc}
-                                    fallbackSrc={cdnFallbackSrc}
+                                <img
+                                    src={localCacheSrc || cdnFallbackSrc || undefined}
                                     alt={title}
                                     className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        const img = e.target as HTMLImageElement;
+                                        if (cdnFallbackSrc && img.src !== cdnFallbackSrc) {
+                                            img.src = cdnFallbackSrc;
+                                        } else {
+                                            img.style.display = 'none';
+                                        }
+                                    }}
                                 />
                             ) : (
                                 <div className="w-full h-full bg-theme-tertiary flex items-center justify-center">

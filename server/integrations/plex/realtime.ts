@@ -240,6 +240,8 @@ class PlexRealtimeManager implements RealtimeManager {
                     ratingKey: session.ratingKey, // Needed for Open in Plex deep link
                     Player: session.Player,
                     Session: session.Session,
+                    TranscodeSession: session.TranscodeSession,
+                    Media: session.Media,
                     user: session.User
                 }));
 
