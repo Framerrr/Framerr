@@ -5,6 +5,7 @@ All notable changes to Framerr will be documented in this file.
 ## [0.1.6] - 2026-02-22
 
 ### Added
+- ARM64 (aarch64) Docker image support — Raspberry Pi, Apple Silicon, UGREEN NAS, and other ARM devices
 - Link Library for Link Widget — save links to reuse across widgets
 - User role management — admins can now promote and demote users (previously locked to role assigned at creation)
 - Media recommendations for Jellyfin and Emby (previously Plex-only)
