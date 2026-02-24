@@ -10,6 +10,7 @@
   <a href="https://framerrr.github.io/Framerr/"><img src="https://img.shields.io/badge/Docs-Wiki-blue" alt="Documentation"></a>
   <a href="https://hub.docker.com/r/pickels23/framerr"><img src="https://img.shields.io/docker/pulls/pickels23/framerr" alt="Docker Pulls"></a>
   <img src="https://img.shields.io/github/package-json/v/Framerrr/Framerr" alt="Version">
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Changelog-📋-blue" alt="Changelog"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Framerrr/Framerr" alt="License"></a>
   <a href="https://buymeacoffee.com/framerr"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-☕-yellow" alt="Buy Me a Coffee"></a>
 </p>
