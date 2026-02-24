@@ -3,6 +3,11 @@ name: "CodeQL Security Analysis"
 on:
   push:
     branches: [main, develop]
+    paths-ignore:
+      - '.github/**'
+      - '*.md'
+      - 'docs/**'
+      - 'LICENSE'
   pull_request:
     branches: [main, develop]
   schedule:
