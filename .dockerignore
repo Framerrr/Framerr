@@ -23,6 +23,7 @@ server/public/favicon
 
 # Documentation (DOCKER-IGNORE, but GIT-TRACKED)
 docs/
+docs-site/
 .agent/
 .olddocs/
 develop-server/
