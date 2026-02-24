@@ -7,6 +7,7 @@
 </p>
 
 <p align="center">
+  <a href="https://framerrr.github.io/Framerr/"><img src="https://img.shields.io/badge/Docs-Wiki-blue" alt="Documentation"></a>
   <a href="https://hub.docker.com/r/pickels23/framerr"><img src="https://img.shields.io/docker/pulls/pickels23/framerr" alt="Docker Pulls"></a>
   <img src="https://img.shields.io/github/package-json/v/Framerrr/Framerr" alt="Version">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/Framerrr/Framerr" alt="License"></a>
@@ -15,6 +16,9 @@
 
 > [!WARNING]
 > Framerr is in early development (`0.x.x`). Potentially breaking changes between releases.
+
+📖 **[Documentation](https://framerrr.github.io/Framerr/)** — setup guides, integration docs, and configuration reference.
+
 ---
 
 <p align="center">
