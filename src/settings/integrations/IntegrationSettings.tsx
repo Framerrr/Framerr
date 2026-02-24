@@ -40,6 +40,8 @@ interface SyncStatus {
     indexedItems: number;
     lastSyncCompleted: string | null;
     errorMessage: string | null;
+    phase?: 'fetching' | 'indexing';
+    statusMessage?: string;
 }
 
 
@@ -150,7 +152,9 @@ const IntegrationSettings: React.FC = () => {
                     syncStatus: 'syncing',
                     indexedItems: event.indexed,
                     totalItems: event.total,
-                    errorMessage: null
+                    errorMessage: null,
+                    phase: event.phase,
+                    statusMessage: event.statusMessage
                 } as SyncStatus
             }));
         });

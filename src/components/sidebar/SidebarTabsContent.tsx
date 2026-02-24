@@ -50,13 +50,18 @@ export function SidebarTabsContent() {
             {!isExpanded && <div className="my-3 h-px bg-gradient-to-r from-transparent via-border-theme to-transparent w-full" />}
 
             {/* Ungrouped tabs */}
-            {tabs.filter(tab => !tab.groupId).map(tab => {
+            {tabs.filter(tab => tab.enabled !== false && !tab.groupId).map(tab => {
                 const isTabActive = hash === tab.slug;
                 return (
                     <HighlightItem key={tab.id} value={`tab-${tab.id}`}>
                         <a
-                            href={`/#${tab.slug}`}
-                            onClick={(e: React.MouseEvent<HTMLAnchorElement>) => handleNavigation(e, `#${tab.slug}`)}
+                            href={tab.openInNewTab ? tab.url : `/#${tab.slug}`}
+                            target={tab.openInNewTab ? '_blank' : undefined}
+                            rel={tab.openInNewTab ? 'noopener noreferrer' : undefined}
+                            onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                                if (tab.openInNewTab) return; // let browser handle target=_blank
+                                handleNavigation(e, `#${tab.slug}`);
+                            }}
                             className="relative flex items-center py-3.5 pl-20 min-h-[48px] text-sm font-medium text-theme-secondary hover:text-theme-primary transition-colors rounded-xl group"
                         >
                             {/* Icon - absolutely positioned in 80px left zone */}
@@ -92,7 +97,7 @@ export function SidebarTabsContent() {
 
             {/* Grouped tabs */}
             {groups && groups.map((group) => {
-                const groupTabs = tabs.filter(tab => String(tab.groupId) === String(group.id));
+                const groupTabs = tabs.filter(tab => tab.enabled !== false && String(tab.groupId) === String(group.id));
                 if (groupTabs.length === 0) return null;
 
                 return (
@@ -128,8 +133,13 @@ export function SidebarTabsContent() {
                                                 return (
                                                     <HighlightItem key={tab.id} value={`tab-${tab.id}`}>
                                                         <a
-                                                            href={`/#${tab.slug}`}
-                                                            onClick={(e: React.MouseEvent<HTMLAnchorElement>) => handleNavigation(e, `#${tab.slug}`)}
+                                                            href={tab.openInNewTab ? tab.url : `/#${tab.slug}`}
+                                                            target={tab.openInNewTab ? '_blank' : undefined}
+                                                            rel={tab.openInNewTab ? 'noopener noreferrer' : undefined}
+                                                            onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                                                                if (tab.openInNewTab) return;
+                                                                handleNavigation(e, `#${tab.slug}`);
+                                                            }}
                                                             className="flex items-center py-3 px-4 pl-8 text-sm font-medium text-theme-tertiary hover:text-theme-primary transition-colors rounded-xl"
                                                         >
                                                             <span className={`mr-3 flex items-center justify-center ${isTabActive ? 'text-accent' : ''}`}>
@@ -152,8 +162,13 @@ export function SidebarTabsContent() {
                                 return (
                                     <HighlightItem key={tab.id} value={`tab-${tab.id}`}>
                                         <a
-                                            href={`/#${tab.slug}`}
-                                            onClick={(e: React.MouseEvent<HTMLAnchorElement>) => handleNavigation(e, `#${tab.slug}`)}
+                                            href={tab.openInNewTab ? tab.url : `/#${tab.slug}`}
+                                            target={tab.openInNewTab ? '_blank' : undefined}
+                                            rel={tab.openInNewTab ? 'noopener noreferrer' : undefined}
+                                            onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                                                if (tab.openInNewTab) return;
+                                                handleNavigation(e, `#${tab.slug}`);
+                                            }}
                                             className="relative flex items-center py-3.5 pl-20 min-h-[48px] text-theme-secondary hover:text-theme-primary transition-colors rounded-xl group"
                                         >
                                             {/* Icon - absolutely positioned in 80px left zone */}

@@ -14,6 +14,7 @@ export interface Tab {
     icon?: string;
     groupId?: string;
     enabled?: boolean;
+    openInNewTab?: boolean;
     order?: number;
 }
 
@@ -28,6 +29,7 @@ export interface CreateTabData {
     icon?: string;
     groupId?: string;
     enabled?: boolean;
+    openInNewTab?: boolean;
 }
 
 export interface UpdateTabData {
@@ -36,6 +38,7 @@ export interface UpdateTabData {
     icon?: string;
     groupId?: string;
     enabled?: boolean;
+    openInNewTab?: boolean;
 }
 
 // Endpoints

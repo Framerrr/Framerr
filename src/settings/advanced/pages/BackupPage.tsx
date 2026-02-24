@@ -52,7 +52,7 @@ export const BackupPage = (): React.JSX.Element => {
 
     return (
         <SettingsPage
-            title="Backup & Restore"
+            title="Backups"
             description="Create and manage full system backups"
         >
             {/* Stats Header */}

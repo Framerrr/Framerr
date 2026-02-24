@@ -16,10 +16,10 @@ import logger from '../utils/logger';
 import https from 'https';
 import http from 'http';
 import net from 'net';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // ============================================================================
 // Types
@@ -640,13 +640,13 @@ class ServicePoller {
         const timeoutSeconds = monitor.timeoutSeconds;
 
         try {
-            // Cross-platform ping command
+            // Cross-platform ping command (using execFile to prevent command injection)
             const isWindows = process.platform === 'win32';
-            const cmd = isWindows
-                ? `ping -n 1 -w ${timeoutSeconds * 1000} ${host}`
-                : `ping -c 1 -W ${timeoutSeconds} ${host}`;
+            const args = isWindows
+                ? ['-n', '1', '-w', String(timeoutSeconds * 1000), host]
+                : ['-c', '1', '-W', String(timeoutSeconds), host];
 
-            await execAsync(cmd);
+            await execFileAsync('ping', args);
             const elapsed = Date.now() - startTime;
 
             // Check for degraded

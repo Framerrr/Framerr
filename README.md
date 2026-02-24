@@ -63,7 +63,7 @@ services:
       - TZ=America/New_York
       - SECRET_ENCRYPTION_KEY=   # Run: openssl rand -hex 32
     volumes:
-      - ./config:/config
+      - /path/to/appdata/framerr:/config
     ports:
       - 3001:3001
     restart: unless-stopped
@@ -84,8 +84,8 @@ An Unraid template is available at [`docs/unraid/Framerr.xml`](docs/unraid/Frame
 |----------|---------|-------------|
 | `SECRET_ENCRYPTION_KEY` | — | **Required.** Encryption key for integration secrets. |
 | `PORT` | `3001` | Application port |
-| `PUID` | `99` | User ID for file permissions |
-| `PGID` | `100` | Group ID for file permissions |
+| `PUID` | `0` | User ID for file permissions |
+| `PGID` | `0` | Group ID for file permissions |
 | `TZ` | `UTC` | Timezone |
 | `DATA_DIR` | `/config` | Data directory |
 

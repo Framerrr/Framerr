@@ -36,7 +36,8 @@ import PlaybackDataModal from './modals/PlaybackDataModal';
 import MediaInfoModal from './modals/MediaInfoModal';
 
 // Common components
-import { WidgetStateMessage, useWidgetIntegration } from '../../shared/widgets';
+import { WidgetStateMessage } from '../../shared/widgets';
+import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
 
 // Context & Utils
 import { useAuth } from '../../context/AuthContext';

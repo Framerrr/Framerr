@@ -1,0 +1,70 @@
+---
+title: System Status
+description: CPU, RAM, disk, network, and temperature metrics from Glances, Unraid, or a custom API.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# System Status
+
+Displays real-time system metrics including CPU usage, memory, disk space, network throughput, temperature, and uptime. Supports multiple backends with customizable metric visibility and layout.
+
+## Supported Integrations
+
+| Integration | Metrics Available |
+|-------------|-------------------|
+| [Glances](/docs/integrations/glances) | CPU, RAM, disk, network, temperature, uptime |
+| [Unraid](/docs/integrations/unraid) | CPU, RAM, disk (array + pools), uptime |
+| [Custom System Status](/docs/integrations/custom-system-status) | Whatever your API provides |
+
+## Configuration Options
+
+<Tabs>
+<TabItem value="glances" label="Glances" default>
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Layout | Grid | **Grid** — metrics in a responsive grid. **Stacked** — metrics in a vertical list. |
+| Visible Metrics | All on | Toggle individual metrics: **CPU**, **Memory**, **Temp**, **Uptime**, **Disk**, **Net ↑**, **Net ↓** |
+| Metric Layout | — | Drag-and-drop reordering of metrics within the widget |
+
+- **Disk** shows aggregate usage as a single percentage bar
+- **Temperature** requires [`lm-sensors`](https://wiki.archlinux.org/title/Lm_sensors) installed on the host — without it, temperature will not be reported
+- **Network** shows real-time upload and download throughput
+
+</TabItem>
+<TabItem value="unraid" label="Unraid">
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Layout | Grid | **Grid** — metrics in a responsive grid. **Stacked** — metrics in a vertical list. |
+| Visible Metrics | All on | Toggle individual metrics: **CPU**, **Memory**, **Temp**, **Uptime**, **Disk** |
+| Disk Display | Collapsed | **Collapsed** — single aggregate bar. **Individual** — shows each disk separately with temperature and status. |
+| Disk Selection | All | Choose which disks to display (parity, data, cache). Only visible when Disk is enabled. |
+| Metric Layout | — | Drag-and-drop reordering of metrics within the widget |
+
+- **Network** metrics are not available — Unraid's API does not expose network I/O
+- In **Individual** disk mode, each disk card shows usage, temperature, and health status
+- **Array status** (healthy, syncing, etc.) is displayed when available
+
+</TabItem>
+<TabItem value="custom" label="Custom System Status">
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Layout | Grid | **Grid** — metrics in a responsive grid. **Stacked** — metrics in a vertical list. |
+| Visible Metrics | All on | Toggle individual metrics: **CPU**, **Memory**, **Temp**, **Uptime** |
+| Metric Layout | — | Drag-and-drop reordering of metrics within the widget |
+
+- Available metrics depend on what your API's `/status` endpoint returns
+- **Disk** and **Network** metrics are not part of the Custom System Status spec
+- See the [Custom System Status integration page](/docs/integrations/custom-system-status) for API requirements
+
+</TabItem>
+</Tabs>
+
+## Metric History
+
+When [Metric History](/docs/features/metric-history) is enabled for the bound integration, clicking **CPU**, **Memory**, or **Temperature** metric cards opens a graph popover showing historical data. The popover includes a time range selector (1h, 6h, 1d, 3d, up to 30d depending on retention) and automatically adapts between a simple line graph for recent data and a min/max band view for aggregated ranges.
+

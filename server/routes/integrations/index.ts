@@ -39,8 +39,8 @@ import { glancesProxyRouter } from './glances';
 import { customsystemstatusProxyRouter } from './customsystemstatus';
 import { uptimekumaProxyRouter } from './uptimekuma';
 import { proxyRouter as monitorProxyRouter } from './monitor';
-import { jellyfinProxyRouter } from './jellyfin';
-import { embyProxyRouter } from './emby';
+import { jellyfinProxyRouter, jellyfinAuthRouter } from './jellyfin';
+import { embyProxyRouter, embyAuthRouter } from './emby';
 import { tautulliProxyRouter } from './tautulli';
 import { sabnzbdProxyRouter } from './sabnzbd';
 
@@ -78,6 +78,10 @@ router.use('/', overseerrServersRouter);
 
 // Item metadata - unified endpoint for all integration types
 router.use('/', itemMetadataRouter);
+
+// Auth routes for credential-based setup (Jellyfin/Emby)
+router.use('/', jellyfinAuthRouter);
+router.use('/', embyAuthRouter);
 
 // Mount CRUD operations (includes /shared before /:id per route order)
 // NOTE: This must come AFTER proxy routes since it has /:id catch-all

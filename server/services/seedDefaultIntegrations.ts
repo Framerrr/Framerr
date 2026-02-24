@@ -19,7 +19,7 @@ const DEFAULT_INTEGRATIONS = [
     { type: 'plex', displayName: 'Plex' },
     { type: 'sonarr', displayName: 'Sonarr' },
     { type: 'radarr', displayName: 'Radarr' },
-    { type: 'overseerr', displayName: 'Overseerr' },
+    { type: 'overseerr', displayName: 'Seerr' },
     { type: 'monitor', displayName: 'Framerr Monitor' },
     { type: 'qbittorrent', displayName: 'qBittorrent' },
 ];

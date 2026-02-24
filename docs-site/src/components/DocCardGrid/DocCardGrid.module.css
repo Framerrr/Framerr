@@ -1,0 +1,137 @@
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 576px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.groupHeading {
+    grid-column: 1 / -1;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0;
+    margin-top: 0;
+    color: var(--ifm-font-color-base);
+}
+
+.groupHeadingSpaced {
+    margin-top: 1.5rem;
+}
+
+/* ============================================
+   CARD — Framerr WidgetCard gallery style
+   ============================================ */
+.card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.25rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--ifm-toc-border-color, #e2e8f0);
+    background: var(--ifm-background-surface-color, #f8fafc);
+    text-decoration: none !important;
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    cursor: pointer;
+}
+
+.card:hover {
+    border-color: var(--ifm-color-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    text-decoration: none !important;
+}
+
+[data-theme='dark'] .card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   ICON PILL — icon container for images & SVGs
+   ============================================ */
+.iconPill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    background: rgba(59, 130, 246, 0.08);
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    color: var(--ifm-color-primary);
+}
+
+.iconPill img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.iconPill svg {
+    width: 22px;
+    height: 22px;
+    stroke: var(--ifm-color-primary);
+}
+
+[data-theme='dark'] .iconPill {
+    background: rgba(96, 165, 250, 0.1);
+}
+
+[data-theme='dark'] .iconPill svg {
+    stroke: var(--ifm-color-primary-lighter, #93c5fd);
+}
+
+/* ============================================
+   TEXT CONTENT
+   ============================================ */
+.content {
+    flex: 1;
+    min-width: 0;
+}
+
+.title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--ifm-font-color-base);
+    margin: 0 0 0.25rem 0;
+    line-height: 1.3;
+}
+
+.card:hover .title {
+    color: var(--ifm-color-primary);
+}
+
+.description {
+    font-size: 0.8rem;
+    color: var(--ifm-font-color-secondary, #64748b);
+    margin: 0;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ============================================
+   ARROW INDICATOR
+   ============================================ */
+.arrow {
+    color: var(--ifm-font-color-secondary, #94a3b8);
+    font-size: 0.9rem;
+    flex-shrink: 0;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    align-self: center;
+}
+
+.card:hover .arrow {
+    opacity: 1;
+    transform: translateX(0);
+}

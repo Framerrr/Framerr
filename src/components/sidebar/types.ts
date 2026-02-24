@@ -3,9 +3,12 @@
 export interface Tab {
     id: string;
     name: string;
+    url: string;
     slug: string;
     icon?: string;
     groupId?: string;
+    enabled?: boolean;
+    openInNewTab?: boolean;
 }
 
 export interface Group {

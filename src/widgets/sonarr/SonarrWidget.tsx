@@ -9,7 +9,8 @@
 
 import React, { useState, useCallback, useRef } from 'react';
 import { CalendarDays, AlertTriangle, MonitorPlay } from 'lucide-react';
-import { WidgetStateMessage, useWidgetIntegration } from '../../shared/widgets';
+import { WidgetStateMessage } from '../../shared/widgets';
+import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
 import { useAuth } from '../../context/AuthContext';
 import { isAdmin } from '../../utils/permissions';
 import { useSonarrData } from './hooks/useSonarrData';

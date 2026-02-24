@@ -57,6 +57,19 @@ export type {
     SearchDropdownLoadingProps,
 } from './SearchDropdown';
 
+// ActionSelect - Popover selector with per-item actions, search, and add-new
+export { ActionSelect } from './ActionSelect';
+export type {
+    ActionSelectProps,
+    ActionSelectTriggerProps,
+    ActionSelectContentProps,
+    ActionSelectSearchProps,
+    ActionSelectAddInputProps,
+    ActionSelectItemsProps,
+    ActionSelectItemProps,
+    ActionSelectEmptyProps,
+} from './ActionSelect';
+
 // DropdownMenu - Action menus
 export { DropdownMenu } from './DropdownMenu';
 export type {

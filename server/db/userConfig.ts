@@ -50,6 +50,7 @@ interface UserTab {
     slug: string;
     groupId?: string;
     enabled: boolean;
+    openInNewTab?: boolean;
     order: number;
     createdAt: string;
 }
@@ -254,7 +255,7 @@ export async function getUserTabs(userId: string): Promise<UserTab[]> {
 /**
  * Add tab to user's config
  */
-export async function addUserTab(userId: string, tabData: { name: string; url: string; icon?: string; groupId?: string; enabled?: boolean }): Promise<UserTab> {
+export async function addUserTab(userId: string, tabData: { name: string; url: string; icon?: string; groupId?: string; enabled?: boolean; openInNewTab?: boolean }): Promise<UserTab> {
     const config = await getUserConfig(userId);
 
     const tab: UserTab = {
@@ -265,6 +266,7 @@ export async function addUserTab(userId: string, tabData: { name: string; url: s
         slug: generateSlug(tabData.name),
         ...(tabData.groupId ? { groupId: tabData.groupId } : {}),
         enabled: tabData.enabled !== false,
+        ...(tabData.openInNewTab ? { openInNewTab: true } : {}),
         order: config.tabs?.length || 0,
         createdAt: new Date().toISOString()
     };

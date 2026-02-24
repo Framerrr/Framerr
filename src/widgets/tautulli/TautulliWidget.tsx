@@ -1,6 +1,8 @@
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { BarChart3, Film, Tv, Music, Image, Play, Clock, Library, Users } from 'lucide-react';
-import { WidgetStateMessage, useWidgetIntegration, useIntegrationSSE } from '../../shared/widgets';
+import { WidgetStateMessage } from '../../shared/widgets';
+import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
+import { useIntegrationSSE } from '../../shared/widgets/hooks/useIntegrationSSE';
 import { SegmentedControl } from '../../shared/ui';
 import { useAuth } from '../../context/AuthContext';
 import { isAdmin } from '../../utils/permissions';

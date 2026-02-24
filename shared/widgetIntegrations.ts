@@ -87,7 +87,7 @@ export const INTEGRATION_DISPLAY_NAMES: Record<string, string> = {
     'plex': 'Plex',
     'sonarr': 'Sonarr',
     'radarr': 'Radarr',
-    'overseerr': 'Overseerr',
+    'overseerr': 'Seerr',
     'qbittorrent': 'qBittorrent',
     'systemstatus': 'System Status',
 };

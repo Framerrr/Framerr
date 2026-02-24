@@ -8,6 +8,7 @@ import NotificationCenter from '../notifications/NotificationCenter';
 import { triggerHaptic } from '../../utils/haptics';
 import { SidebarTabsContent } from './SidebarTabsContent';
 import { SidebarSettingsContent } from './SidebarSettingsContent';
+import { BetaBadge } from '../../shared/ui/BetaBadge';
 
 
 /**
@@ -294,9 +295,10 @@ export function DesktopSidebar() {
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.1 }}
-                                    className="gradient-text font-bold flex-1 min-w-0"
+                                    className="flex flex-col flex-1 min-w-0"
                                 >
-                                    {userSettings?.serverName || 'Dashboard'}
+                                    <span className="gradient-text font-bold">{userSettings?.serverName || 'Dashboard'}</span>
+                                    <BetaBadge />
                                 </motion.div>
                             )}
                         </AnimatePresence>

@@ -213,8 +213,8 @@
                     document.getElementById('fallback').style.display = 'block';
                 }
 
-            } else if (returnUrl) {
-                // No opener, but we have a return URL - redirect there
+            } else if (returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//')) {
+                // No opener, but we have a safe return URL (relative path only) - redirect there
                 console.log('[Framerr Auth] No opener, redirecting to:', returnUrl);
                 setTimeout(function () {
                     window.location.href = returnUrl;

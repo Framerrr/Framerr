@@ -1,0 +1,68 @@
+---
+title: Widgets
+description: All available widgets in Framerr and how to configure them.
+slug: /widgets
+---
+
+import DocCardGrid from '@site/src/components/DocCardGrid/DocCardGrid';
+import { Tv, Search, Calendar, MonitorPlay, Film, Popcorn, BarChart3, Download, Activity, Server, Clock, Cloud, Globe, Link, Code } from 'lucide-react';
+
+# Widgets
+
+Widgets are the building blocks of your Framerr dashboard. Each widget displays data from one or more [integrations](/docs/integrations), or provides standalone utility features.
+
+<DocCardGrid groups={[
+  {
+    label: '🎬 Media',
+    items: [
+      { title: 'Media Stream', description: 'Live view of what\'s currently playing across your media servers', icon: <Tv size={22} />, link: '/docs/widgets/media-stream' },
+      { title: 'Media Search', description: 'Search across your media libraries and request new content', icon: <Search size={22} />, link: '/docs/widgets/media-search' },
+      { title: 'Calendar', description: 'Upcoming TV episodes and movie releases from Sonarr and Radarr', icon: <Calendar size={22} />, link: '/docs/widgets/calendar' },
+    ],
+  },
+  {
+    label: '📚 Library Management',
+    items: [
+      { title: 'Sonarr Library', description: 'TV show library, missing episodes, and download queue', icon: <MonitorPlay size={22} />, link: '/docs/widgets/sonarr' },
+      { title: 'Radarr Library', description: 'Movie library, missing movies, and download queue', icon: <Film size={22} />, link: '/docs/widgets/radarr' },
+      { title: 'Seerr Requests', description: 'Pending and approved media requests from Seerr', icon: <Popcorn size={22} />, link: '/docs/widgets/overseerr' },
+      { title: 'Tautulli Stats', description: 'Plex watch history and top media statistics', icon: <BarChart3 size={22} />, link: '/docs/widgets/tautulli' },
+      { title: 'Downloads', description: 'Active downloads from qBittorrent and SABnzbd', icon: <Download size={22} />, link: '/docs/widgets/downloads' },
+    ],
+  },
+  {
+    label: '🖥️ System & Monitoring',
+    items: [
+      { title: 'System Status', description: 'CPU, RAM, disk, network, and GPU metrics', icon: <Activity size={22} />, link: '/docs/widgets/system-status' },
+      { title: 'Service Status', description: 'Uptime and response time monitoring for your services', icon: <Server size={22} />, link: '/docs/widgets/service-status' },
+    ],
+  },
+  {
+    label: '🧰 Utilities',
+    items: [
+      { title: 'Clock', description: 'Digital or analog clock with timezone support', icon: <Clock size={22} />, link: '/docs/widgets/clock' },
+      { title: 'Weather', description: 'Current conditions and forecast for your location', icon: <Cloud size={22} />, link: '/docs/widgets/weather' },
+      { title: 'iFrame', description: 'Embed any webpage directly in your dashboard', icon: <Globe size={22} />, link: '/docs/widgets/iframe' },
+      { title: 'Link Grid', description: 'Quick-access grid of bookmarks and shortcuts', icon: <Link size={22} />, link: '/docs/widgets/link-grid' },
+      { title: 'Custom HTML', description: 'Render custom HTML, CSS, and JavaScript', icon: <Code size={22} />, link: '/docs/widgets/custom-html' },
+    ],
+  },
+]} />
+
+---
+
+## Common Widget Settings
+
+Every widget includes these universal settings in its configuration modal:
+
+| Setting | Description |
+|---------|-------------|
+| **Toggle Header** | Show or hide the widget's title bar |
+| **Widget Name** | Custom display name for the widget |
+| **Flatten UI** | Remove glassmorphism effects for a flat appearance |
+
+## Integration Fallback
+
+Widgets that require an integration automatically bind to the first available one. If that integration is later **removed or disabled**, the widget falls back to the next available integration of the same type.
+
+Fallback only applies when an integration is removed or toggled off — if a bound integration is **temporarily unreachable** (e.g. the server is down), the widget stays bound and shows an error state instead of switching.

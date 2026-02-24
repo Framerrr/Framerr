@@ -189,7 +189,7 @@ function buildNotification(
     };
 
     // Use instance display name directly (defaults to integration type name if not customized)
-    const displayName = instanceName || 'Overseerr';
+    const displayName = instanceName || 'Seerr';
     const eventLabel = titleMap[eventKey] || 'Notification';
     const title = `${displayName}: ${eventLabel}`;
 

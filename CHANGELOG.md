@@ -2,6 +2,34 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.1.7] - 2026-02-24
+
+### Added
+- The wiki is live — docs site with integration guides, feature walkthroughs, and configuration reference
+- Jellyfin/Emby: Connect with username + password instead of manual API key
+- Library sync progress — real-time status messages during fetch phase
+- Tabs: "Open in new tab" toggle per tab
+- Global API rate limiting (300 req/min per user, stricter 10/min for auth)
+- Path sanitization on file upload and backup restore routes
+- Beta channel badge in sidebar for `:develop` Docker images
+
+### Changed
+- Overseerr/Jellyseerr renamed to "Seerr" in all user-facing labels
+- Default notification events now defined per-integration in schema plugins
+
+### Fixed
+- Jellyfin/Emby library sync now scans all library views — fixes movies not indexed in custom library types (#3)
+- Library sync progress count now matches final indexed total
+- Media Search Request modal server select blocked by dialog portal conflict (#7)
+- Templates: Category filter clear button was missing
+- Request modal server picker logic — no longer shows for single-instance setups
+- Calendar today highlight uses local timezone instead of UTC (#6)
+- Docker PUID/PGID defaults changed from 99/100 to 0/0 — works on all platforms out of the box
+- Tabs enable/disable — disabled tabs are now properly disabled
+- Weather auto-mode no longer re-prompts for location after 7 days
+
+---
+
 ## [0.1.6] - 2026-02-22
 
 ### Added

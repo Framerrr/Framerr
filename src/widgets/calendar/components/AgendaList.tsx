@@ -13,6 +13,7 @@ import EpisodeDetailModal from '../../sonarr/components/EpisodeDetailModal';
 import MovieDetailModal from '../../radarr/components/MovieDetailModal';
 import { getDisplayTitle, getEpisodeCode, getPosterUrl } from './EventPopover';
 import type { CalendarEvent, EventsMap, FilterType } from '../calendar.types';
+import { toLocalDateStr } from '../../../shared/utils/dateUtils';
 
 interface AgendaListProps {
     events: EventsMap;
@@ -126,7 +127,7 @@ const AgendaList: React.FC<AgendaListProps> = ({
         const container = scrollRef.current;
 
         // If target month is the current month, scroll to today (or next future item)
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = toLocalDateStr(new Date());
         const currentMonthStr = todayStr.substring(0, 7); // YYYY-MM
         if (scrollToMonth === currentMonthStr) {
             // Find today's group or the next future group
@@ -154,7 +155,7 @@ const AgendaList: React.FC<AgendaListProps> = ({
 
     // Build sorted, grouped, filtered list
     const groups: DateGroup[] = useMemo(() => {
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = toLocalDateStr(new Date());
         const dateKeys = Object.keys(events).sort();
         return dateKeys
             .map(dateStr => {
@@ -178,7 +179,7 @@ const AgendaList: React.FC<AgendaListProps> = ({
     // Scroll to today (or next future item)
     const scrollToToday = useCallback(() => {
         if (!scrollRef.current || groups.length === 0) return;
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = toLocalDateStr(new Date());
         // Find today's group or the next future group
         const targetGroup = groups.find(g => g.dateStr >= todayStr);
         if (!targetGroup) return;
@@ -197,7 +198,7 @@ const AgendaList: React.FC<AgendaListProps> = ({
     const prevShowPast = useRef(showPastEvents);
     useEffect(() => {
         if (!scrollRef.current || !hasData) return;
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = toLocalDateStr(new Date());
         const targetGroup = groups.find(g => g.dateStr >= todayStr);
         if (!targetGroup) return;
         const target = scrollRef.current.querySelector(

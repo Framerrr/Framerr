@@ -11,6 +11,7 @@ import {
     LucideIcon
 } from 'lucide-react';
 import { WidgetStateMessage } from '../../shared/widgets';
+import { Popover } from '../../shared/ui/Popover/Popover';
 import logger from '../../utils/logger';
 import type { WidgetProps } from '../types';
 import './styles.css';
@@ -60,7 +61,6 @@ const PREVIEW_WEATHER: WeatherData = {
 };
 
 const CACHE_KEY = 'framerr_weather_location';
-const CACHE_EXPIRY_DAYS = 7;
 
 const WeatherWidget = ({ widget, isEditMode = false, previewMode = false }: WeatherWidgetProps): React.JSX.Element | null => {
     // ===== Config values from widget.config =====
@@ -77,7 +77,6 @@ const WeatherWidget = ({ widget, isEditMode = false, previewMode = false }: Weat
     const [weather, setWeather] = React.useState<WeatherData | null>(previewMode ? PREVIEW_WEATHER : null);
     const [loading, setLoading] = React.useState<boolean>(!previewMode);
     const [error, setError] = React.useState<string | null>(null);
-    const [showRefreshConfirm, setShowRefreshConfirm] = React.useState<boolean>(false);
     const [refreshing, setRefreshing] = React.useState<boolean>(false);
 
     // WMO Weather interpretation codes (https://open-meteo.com/en/docs)
@@ -178,21 +177,14 @@ const WeatherWidget = ({ widget, isEditMode = false, previewMode = false }: Weat
             return;
         }
 
-        // Auto mode: try cached location first, then geolocation
-        const getCachedLocation = (): { latitude: number; longitude: number } | null => {
+        // Auto mode: try stored location first, then geolocation
+        // Location is stored permanently (no expiry) — use refresh button to update
+        const getStoredLocation = (): { latitude: number; longitude: number } | null => {
             try {
                 const cached = localStorage.getItem(CACHE_KEY);
                 if (!cached) return null;
 
                 const data = JSON.parse(cached);
-                const cacheAge = Date.now() - (data.timestamp || 0);
-                const maxAge = CACHE_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-
-                if (cacheAge > maxAge) {
-                    localStorage.removeItem(CACHE_KEY);
-                    return null;
-                }
-
                 return { latitude: data.latitude, longitude: data.longitude };
             } catch {
                 return null;
@@ -211,11 +203,11 @@ const WeatherWidget = ({ widget, isEditMode = false, previewMode = false }: Weat
             }
         };
 
-        // Try cached location first
-        const cachedLocation = getCachedLocation();
-        if (cachedLocation) {
-            logger.debug('Using cached location for weather');
-            fetchWeather(cachedLocation.latitude, cachedLocation.longitude);
+        // Try stored location first
+        const storedLocation = getStoredLocation();
+        if (storedLocation) {
+            logger.debug('Using stored location for weather');
+            fetchWeather(storedLocation.latitude, storedLocation.longitude);
             return;
         }
 
@@ -250,14 +242,14 @@ const WeatherWidget = ({ widget, isEditMode = false, previewMode = false }: Weat
     }, [previewMode, locationMode, configLat, configLon, configCityName]);
 
     // Handle refresh location request (auto mode only)
-    const handleRefreshLocation = (): void => {
+    const handleRefreshLocation = (closePopover?: () => void): void => {
         if (!navigator.geolocation) {
             setError('Geolocation not supported');
             return;
         }
 
         setRefreshing(true);
-        setShowRefreshConfirm(false);
+        closePopover?.();
 
         // Clear the cache
         try {
@@ -325,37 +317,35 @@ const WeatherWidget = ({ widget, isEditMode = false, previewMode = false }: Weat
         <div className="weather-widget">
             {/* Refresh button - edit mode only, auto mode only */}
             {isEditMode && locationMode === 'auto' && (
-                <button
-                    onClick={() => setShowRefreshConfirm(true)}
-                    className="weather-widget__refresh-btn"
-                    title="Refresh location"
-                    disabled={refreshing}
-                >
-                    <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-                </button>
-            )}
-
-            {/* Refresh confirmation dialog */}
-            {showRefreshConfirm && (
-                <div className="weather-widget__confirm-overlay">
-                    <div className="weather-widget__confirm-dialog">
-                        <p>Refresh location?</p>
+                <Popover>
+                    <Popover.Trigger asChild>
+                        <button
+                            className="weather-widget__refresh-btn edit-clickable"
+                            title="Refresh location"
+                            disabled={refreshing}
+                        >
+                            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+                        </button>
+                    </Popover.Trigger>
+                    <Popover.Content side="bottom" align="start" sideOffset={4} className="weather-widget__confirm-popover">
+                        <p className="weather-widget__confirm-text">Refresh location?</p>
                         <div className="weather-widget__confirm-buttons">
-                            <button
-                                onClick={() => setShowRefreshConfirm(false)}
-                                className="weather-widget__confirm-btn weather-widget__confirm-btn--cancel"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleRefreshLocation}
-                                className="weather-widget__confirm-btn weather-widget__confirm-btn--confirm"
-                            >
-                                Yes
-                            </button>
+                            <Popover.Close asChild>
+                                <button className="weather-widget__confirm-btn weather-widget__confirm-btn--cancel">
+                                    Cancel
+                                </button>
+                            </Popover.Close>
+                            <Popover.Close asChild>
+                                <button
+                                    onClick={() => handleRefreshLocation()}
+                                    className="weather-widget__confirm-btn weather-widget__confirm-btn--confirm"
+                                >
+                                    Yes
+                                </button>
+                            </Popover.Close>
                         </div>
-                    </div>
-                </div>
+                    </Popover.Content>
+                </Popover>
             )}
 
             <div className="weather-widget__content">

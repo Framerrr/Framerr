@@ -12,9 +12,12 @@
 
 import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { WidgetStateMessage, useMultiWidgetIntegration, useMultiIntegrationSSE, PartialErrorBadge, type ErroredInstance } from '../../shared/widgets';
+import { WidgetStateMessage, PartialErrorBadge, type ErroredInstance } from '../../shared/widgets';
+import { useMultiWidgetIntegration } from '../../shared/widgets/hooks/useMultiWidgetIntegration';
+import { useMultiIntegrationSSE } from '../../shared/widgets/hooks/useMultiIntegrationSSE';
 import { useRoleAwareIntegrations } from '../../api/hooks/useIntegrations';
 import logger from '../../utils/logger';
+import { toLocalDateStr } from '../../shared/utils/dateUtils';
 import { useAuth } from '../../context/AuthContext';
 import { useDashboardEdit } from '../../context/DashboardEditContext';
 import { isAdmin } from '../../utils/permissions';
@@ -152,8 +155,8 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
         const newEvents: EventsMap = {};
         // Date boundaries matching the backend poller window (30 past / 60 future)
         const now = Date.now();
-        const startBound = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        const endBound = new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const startBound = toLocalDateStr(new Date(now - 30 * 24 * 60 * 60 * 1000));
+        const endBound = toLocalDateStr(new Date(now + 60 * 24 * 60 * 60 * 1000));
         sonarrItems.forEach(item => {
             const date = item.airDate;
             if (date) {

@@ -216,6 +216,8 @@ export interface LibrarySyncProgressEvent {
     indexed: number;
     total: number;
     percent: number;
+    phase?: 'fetching' | 'indexing';
+    statusMessage?: string;
 }
 const librarySyncProgressCallbacks = new Set<(event: LibrarySyncProgressEvent) => void>();
 

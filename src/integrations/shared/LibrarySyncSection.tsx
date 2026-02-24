@@ -16,6 +16,8 @@ export interface SyncStatus {
     indexedItems: number;
     lastSyncCompleted: string | null;
     errorMessage: string | null;
+    phase?: 'fetching' | 'indexing';
+    statusMessage?: string;
 }
 
 interface LibrarySyncSectionProps {
@@ -109,21 +111,39 @@ export const LibrarySyncSection: React.FC<LibrarySyncSectionProps> = ({
                             <div className="mt-2 text-xs">
                                 {syncStatus.syncStatus === 'syncing' ? (
                                     <div className="space-y-1.5">
-                                        {/* Progress bar with gradient */}
+                                        {/* Progress bar */}
                                         <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
-                                            <div
-                                                className="h-full rounded-full transition-all duration-500"
-                                                style={{
-                                                    width: syncStatus.totalItems > 0
-                                                        ? `${Math.round((syncStatus.indexedItems / syncStatus.totalItems) * 100)}%`
-                                                        : '0%',
-                                                    background: 'linear-gradient(90deg, var(--info), var(--accent))'
-                                                }}
-                                            />
+                                            {syncStatus.phase === 'fetching' ? (
+                                                // Indeterminate pulsing bar during fetch phase
+                                                <div
+                                                    className="h-full rounded-full"
+                                                    style={{
+                                                        width: '40%',
+                                                        background: 'linear-gradient(90deg, var(--info), var(--accent))',
+                                                        animation: 'library-sync-pulse 1.5s ease-in-out infinite'
+                                                    }}
+                                                />
+                                            ) : (
+                                                // Determinate bar during indexing phase
+                                                <div
+                                                    className="h-full rounded-full transition-all duration-500"
+                                                    style={{
+                                                        width: syncStatus.totalItems > 0
+                                                            ? `${Math.round((syncStatus.indexedItems / syncStatus.totalItems) * 100)}%`
+                                                            : '0%',
+                                                        background: 'linear-gradient(90deg, var(--info), var(--accent))'
+                                                    }}
+                                                />
+                                            )}
                                         </div>
                                         <span className="text-accent flex items-center gap-1.5">
                                             <Loader size={12} className="animate-spin" />
-                                            Syncing... {syncStatus.indexedItems.toLocaleString()}/{syncStatus.totalItems.toLocaleString()} items
+                                            {syncStatus.statusMessage
+                                                ? syncStatus.statusMessage
+                                                : syncStatus.totalItems > 0
+                                                    ? `Syncing... ${syncStatus.indexedItems.toLocaleString()}/${syncStatus.totalItems.toLocaleString()} items`
+                                                    : 'Starting sync...'
+                                            }
                                         </span>
                                     </div>
                                 ) : syncStatus.syncStatus === 'completed' ? (

@@ -7,7 +7,7 @@
 
 import React, { ChangeEvent, FormEvent } from 'react';
 import { Save } from 'lucide-react';
-import { Checkbox, Modal, Select } from '@/shared/ui';
+import { Modal, Select, Switch } from '@/shared/ui';
 import IconPicker from '../../../components/IconPicker';
 import { Input } from '../../../components/common/Input';
 import { Button } from '../../../shared/ui';
@@ -34,7 +34,17 @@ export const TabFormModal: React.FC<TabFormModalProps> = ({
 }) => {
     return (
         <Modal open={open} onOpenChange={onOpenChange} size="md">
-            <Modal.Header title={mode === 'create' ? 'Add New Tab' : 'Edit Tab'} />
+            <Modal.Header
+                title={mode === 'create' ? 'Add New Tab' : 'Edit Tab'}
+                actions={mode === 'edit' ? (
+                    <Switch
+                        checked={formData.enabled}
+                        onCheckedChange={(checked) =>
+                            onFormChange({ ...formData, enabled: checked })
+                        }
+                    />
+                ) : undefined}
+            />
             <Modal.Body>
                 <form onSubmit={onSubmit} className="space-y-4" id="tab-form">
                     <Input
@@ -58,6 +68,23 @@ export const TabFormModal: React.FC<TabFormModalProps> = ({
                         required
                         placeholder="http://example.com"
                     />
+
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <label className="block font-medium text-theme-secondary text-sm">
+                                Open in new tab
+                            </label>
+                            <p className="text-xs text-theme-tertiary mt-0.5">
+                                Opens the URL directly in a new browser tab
+                            </p>
+                        </div>
+                        <Switch
+                            checked={formData.openInNewTab}
+                            onCheckedChange={(checked) =>
+                                onFormChange({ ...formData, openInNewTab: checked })
+                            }
+                        />
+                    </div>
 
                     <div>
                         <label className="block mb-2 font-medium text-theme-secondary text-sm">
@@ -92,19 +119,6 @@ export const TabFormModal: React.FC<TabFormModalProps> = ({
                         <p className="text-xs text-theme-tertiary mt-1">
                             Organize tabs into groups in the sidebar
                         </p>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <Checkbox
-                            id="enabled"
-                            checked={formData.enabled}
-                            onCheckedChange={(checked) =>
-                                onFormChange({ ...formData, enabled: checked === true })
-                            }
-                        />
-                        <label htmlFor="enabled" className="text-sm text-theme-secondary">
-                            Enabled (tab visible in sidebar)
-                        </label>
                     </div>
                 </form>
             </Modal.Body>

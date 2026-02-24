@@ -46,7 +46,7 @@ export const SYSTEM_ICONS: SystemIconEntry[] = [
     { name: 'bazarr', displayName: 'Bazarr', category: 'arr' },
     { name: 'readarr', displayName: 'Readarr', category: 'arr' },
     { name: 'whisparr', displayName: 'Whisparr', category: 'arr' },
-    { name: 'overseerr', displayName: 'Overseerr', category: 'arr' },
+    { name: 'overseerr', displayName: 'Seerr', category: 'arr' },
     { name: 'ombi', displayName: 'Ombi', category: 'arr' },
     { name: 'petio', displayName: 'Petio', category: 'arr' },
     { name: 'autobrr', displayName: 'Autobrr', category: 'arr' },

@@ -74,7 +74,7 @@ export const TabItem: React.FC<TabItemProps> = ({
                         <span className="font-medium text-theme-primary">{tab.name}</span>
                         <span className="text-xs text-theme-tertiary font-mono">/{tab.slug}</span>
                         {!tab.enabled && (
-                            <span className="text-xs px-2 py-0.5 bg-theme-tertiary text-theme-secondary rounded">
+                            <span className="text-xs px-2 py-0.5 bg-error/15 text-error rounded">
                                 Disabled
                             </span>
                         )}

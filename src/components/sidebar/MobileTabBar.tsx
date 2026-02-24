@@ -351,8 +351,16 @@ export function MobileTabBar() {
                                                     return (
                                                         <motion.a
                                                             key={tab.id}
-                                                            href={`/#${tab.slug}`}
-                                                            onClick={(e) => { handleNavigation(e, `#${tab.slug}`); if (!dashboardEdit?.editMode || !dashboardEdit?.hasUnsavedChanges) setIsMobileMenuOpen(false); }}
+                                                            href={tab.openInNewTab ? tab.url : `/#${tab.slug}`}
+                                                            target={tab.openInNewTab ? '_blank' : undefined}
+                                                            rel={tab.openInNewTab ? 'noopener noreferrer' : undefined}
+                                                            onClick={(e) => {
+                                                                if (tab.openInNewTab) {
+                                                                    setIsMobileMenuOpen(false);
+                                                                    return;
+                                                                }
+                                                                handleNavigation(e, `#${tab.slug}`); if (!dashboardEdit?.editMode || !dashboardEdit?.hasUnsavedChanges) setIsMobileMenuOpen(false);
+                                                            }}
                                                             className={`w-full flex items-center gap-3 py-3 px-4 rounded-xl transition-colors relative ${isActive ? 'text-accent' : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-tertiary'}`}
                                                             initial={{ opacity: 0 }}
                                                             animate={{

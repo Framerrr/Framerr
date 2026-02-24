@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
-import { WidgetStateMessage, useWidgetIntegration, useIntegrationSSE } from '../../shared/widgets';
+import { WidgetStateMessage } from '../../shared/widgets';
+import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
+import { useIntegrationSSE } from '../../shared/widgets/hooks/useIntegrationSSE';
 import { useAuth } from '../../context/AuthContext';
 import { isAdmin } from '../../utils/permissions';
 import { useOverseerrServerMapping, getMatchedIntegrationIds } from '../../api/hooks/useOverseerrServerMapping';
@@ -343,7 +345,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
         return (
             <WidgetStateMessage
                 variant="noAccess"
-                serviceName="Overseerr"
+                serviceName="Seerr"
             />
         );
     }
@@ -353,7 +355,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
         return (
             <WidgetStateMessage
                 variant="disabled"
-                serviceName="Overseerr"
+                serviceName="Seerr"
                 isAdmin={userIsAdmin}
             />
         );
@@ -364,7 +366,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
         return (
             <WidgetStateMessage
                 variant="notConfigured"
-                serviceName="Overseerr"
+                serviceName="Seerr"
                 isAdmin={userIsAdmin}
             />
         );
@@ -383,7 +385,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
         return (
             <WidgetStateMessage
                 variant={isServiceUnavailable ? 'unavailable' : 'error'}
-                serviceName="Overseerr"
+                serviceName="Seerr"
                 instanceName={isServiceUnavailable ? effectiveDisplayName : undefined}
                 message={isServiceUnavailable ? undefined : error}
             />
@@ -400,7 +402,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                 <div>
                     <div className="text-theme-primary font-medium mb-1">Link Your Account</div>
                     <div className="text-theme-secondary text-sm">
-                        Link your Overseerr account to see your requests.
+                        Link your Seerr account to see your requests.
                     </div>
                 </div>
                 <a

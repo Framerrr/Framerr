@@ -69,35 +69,19 @@
 }
 
 /* ============================================================================
- * Confirmation Dialog
+ * Confirmation Popover
  * ============================================================================ */
 
-.weather-widget__confirm-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 20;
-    backdrop-filter: blur(4px);
-    border-radius: inherit;
+.weather-widget__confirm-popover {
+    min-width: 140px;
 }
 
-.weather-widget__confirm-dialog {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px 20px;
-    text-align: center;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.weather-widget__confirm-dialog p {
-    margin: 0 0 12px;
+.weather-widget__confirm-text {
+    margin: 0 0 10px;
     color: var(--text-primary);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 500;
+    white-space: nowrap;
 }
 
 .weather-widget__confirm-buttons {
@@ -107,9 +91,9 @@
 }
 
 .weather-widget__confirm-btn {
-    padding: 6px 16px;
+    padding: 5px 14px;
     border-radius: 6px;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;

@@ -20,6 +20,7 @@ interface TabBody {
     icon?: string;
     groupId?: string;
     enabled?: boolean;
+    openInNewTab?: boolean;
 }
 
 interface ReorderBody {
@@ -32,6 +33,7 @@ interface TabUpdate {
     icon?: string;
     groupId?: string;
     enabled?: boolean;
+    openInNewTab?: boolean;
 }
 
 /**
@@ -102,14 +104,14 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 router.post('/', requireAuth, async (req: Request, res: Response) => {
     try {
         const authReq = req as AuthenticatedRequest;
-        const { name, url, icon, groupId, enabled } = req.body as TabBody;
+        const { name, url, icon, groupId, enabled, openInNewTab } = req.body as TabBody;
 
         if (!name || !url) {
             res.status(400).json({ error: 'Name and URL are required' });
             return;
         }
 
-        const tab = await addUserTab(authReq.user!.id, { name, url, icon, groupId, enabled });
+        const tab = await addUserTab(authReq.user!.id, { name, url, icon, groupId, enabled, openInNewTab });
         invalidateUserSettings(authReq.user!.id, 'tabs');
 
         res.status(201).json({ tab });
@@ -126,7 +128,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 router.put('/:id', requireAuth, async (req: Request, res: Response) => {
     try {
         const authReq = req as AuthenticatedRequest;
-        const { name, url, icon, groupId, enabled } = req.body as TabBody;
+        const { name, url, icon, groupId, enabled, openInNewTab } = req.body as TabBody;
 
         const updates: TabUpdate = {};
         if (name !== undefined) updates.name = name;
@@ -134,6 +136,7 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
         if (icon !== undefined) updates.icon = icon;
         if (groupId !== undefined) updates.groupId = groupId;
         if (enabled !== undefined) updates.enabled = enabled;
+        if (openInNewTab !== undefined) updates.openInNewTab = openInNewTab;
 
         const tab = await updateUserTab(authReq.user!.id, req.params.id, updates);
         invalidateUserSettings(authReq.user!.id, 'tabs');

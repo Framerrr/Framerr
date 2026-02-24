@@ -5,6 +5,8 @@ export interface Tab {
     slug: string;
     name: string;
     url: string;
+    enabled?: boolean;
+    openInNewTab?: boolean;
 }
 
 /**

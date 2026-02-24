@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, RefreshCw, AlertCircle, Filter } from 'lucide-react';
+import { Layout, RefreshCw, AlertCircle, Filter, X } from 'lucide-react';
 import { templatesApi } from '../../../api/endpoints';
 import TemplateCard, { Template } from './TemplateCard';
 import TemplatePreviewModal from './TemplatePreviewModal';
@@ -307,9 +307,19 @@ Your changes will be discarded.`,
                         </Select.Content>
                     </Select>
                     {selectedCategory && (
-                        <span className="text-xs text-theme-tertiary">
-                            {sortedTemplates.length} template{sortedTemplates.length !== 1 ? 's' : ''}
-                        </span>
+                        <>
+                            <button
+                                type="button"
+                                onClick={() => setSelectedCategory(null)}
+                                className="p-1 rounded-md text-theme-tertiary hover:text-theme-primary hover:bg-theme-hover transition-colors"
+                                title="Clear filter"
+                            >
+                                <X size={14} />
+                            </button>
+                            <span className="text-xs text-theme-tertiary">
+                                {sortedTemplates.length} template{sortedTemplates.length !== 1 ? 's' : ''}
+                            </span>
+                        </>
                     )}
                 </div>
             )}

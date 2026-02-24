@@ -87,8 +87,8 @@ VOLUME ["/config"]
 # Environment defaults
 ENV NODE_ENV=production \
     PORT=3001 \
-    PUID=99 \
-    PGID=100 \
+    PUID=0 \
+    PGID=0 \
     TZ=UTC \
     DATA_DIR=/config
 
@@ -103,8 +103,10 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["dumb-init", "node", "server/dist/server/index.js"]
 
-# Version from build arg (set by release workflow, defaults to 'dev' for local builds)
+# Version and channel from build args (set by release workflow, defaults for local builds)
 ARG APP_VERSION=dev
+ARG FRAMERR_CHANNEL=dev
+ENV FRAMERR_CHANNEL=${FRAMERR_CHANNEL}
 
 # Labels
 LABEL org.opencontainers.image.title="Framerr" \

@@ -201,6 +201,8 @@ export interface SelectContentProps {
     side?: 'top' | 'right' | 'bottom' | 'left';
     sideOffset?: number;
     align?: 'start' | 'center' | 'end';
+    /** Set to false to render inline instead of portaling to body. Required when Select is inside a Modal. */
+    portal?: boolean;
 }
 
 const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
@@ -211,6 +213,7 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
         side = 'bottom',
         sideOffset = 4,
         align = 'start',
+        portal = true,
         ...props
     }, ref) => {
         const contentRef = useRef<HTMLDivElement>(null);
@@ -218,24 +221,23 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
         // Prevent touch scroll from bleeding through to the page behind
         useOverlayScrollLock(true, contentRef);
 
-        return (
-            <RadixSelect.Portal>
-                <RadixSelect.Content
-                    ref={ref}
-                    position={position}
-                    side={side}
-                    sideOffset={sideOffset}
-                    align={align}
-                    asChild
-                    {...props}
-                >
-                    <motion.div
-                        ref={contentRef}
-                        variants={popIn}
-                        initial="hidden"
-                        animate="visible"
-                        exit="exit"
-                        className={`
+        const content = (
+            <RadixSelect.Content
+                ref={ref}
+                position={position}
+                side={side}
+                sideOffset={sideOffset}
+                align={align}
+                asChild
+                {...props}
+            >
+                <motion.div
+                    ref={contentRef}
+                    variants={popIn}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    className={`
               z-[150]
               min-w-[8rem]
               bg-theme-primary border border-theme rounded-xl
@@ -243,15 +245,22 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
               p-4
               ${className}
             `}
+                >
+                    <RadixSelect.Viewport
+                        className="max-h-[300px] overflow-y-auto"
+                        style={{ overscrollBehavior: 'contain' }}
                     >
-                        <RadixSelect.Viewport
-                            className="max-h-[300px] overflow-y-auto"
-                            style={{ overscrollBehavior: 'contain' }}
-                        >
-                            {children}
-                        </RadixSelect.Viewport>
-                    </motion.div>
-                </RadixSelect.Content>
+                        {children}
+                    </RadixSelect.Viewport>
+                </motion.div>
+            </RadixSelect.Content>
+        );
+
+        if (!portal) return content;
+
+        return (
+            <RadixSelect.Portal>
+                {content}
             </RadixSelect.Portal>
         );
     }

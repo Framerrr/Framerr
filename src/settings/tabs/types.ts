@@ -13,6 +13,7 @@ export interface Tab {
     icon?: string;
     groupId?: string;
     enabled?: boolean;
+    openInNewTab?: boolean;
 }
 
 /** A tab group for organizing tabs */
@@ -29,6 +30,7 @@ export interface TabFormData {
     icon: string;
     groupId: string;
     enabled: boolean;
+    openInNewTab: boolean;
 }
 
 /** Form data for creating/editing tab groups */

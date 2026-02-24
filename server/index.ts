@@ -13,6 +13,7 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import fs from 'fs';
+import { safePath } from './utils/pathSanitize';
 import { createServer } from 'http';
 import { initializeIntegrationManager, shutdownIntegrationManager } from './services/IntegrationManager';
 
@@ -24,7 +25,7 @@ import { hashPassword } from './auth/password';
 import { validateSession, createUserSession } from './auth/session';
 import { validateProxyWhitelist } from './middleware/proxyWhitelist';
 import { csrfProtection } from './middleware/csrfProtection';
-import { authRateLimit } from './middleware/rateLimit';
+import { authRateLimit, standardRateLimit } from './middleware/rateLimit';
 import { isInitialized, getDb } from './database/db';
 import { checkMigrationStatus, runMigrations, setVersion, MigrationStatus, MigrationResult } from './database/migrator';
 
@@ -110,8 +111,10 @@ app.use(cors({
 // CSRF protection (requires X-Framerr-Client header on POST/PUT/DELETE)
 app.use(csrfProtection());
 
-// Rate limiting for auth endpoints only (brute force protection)
-// Proxy/API endpoints are protected by authentication instead
+// Global rate limiting for all API endpoints (300 req/min per user)
+app.use('/api', standardRateLimit);
+
+// Stricter rate limiting for auth endpoints (10 attempts/min per IP, brute force protection)
 app.use('/api/auth/login', authRateLimit);
 app.use('/api/auth/plex-login', authRateLimit);
 
@@ -222,7 +225,7 @@ app.use('/favicon', cors(), async (req: Request, res: Response) => {
             systemConfig.favicon?.htmlSnippet;
 
         if (customEnabled) {
-            const customFile = path.join(customFaviconPath, req.path);
+            const customFile = safePath(customFaviconPath, req.path);
             if (fs.existsSync(customFile)) {
                 // Short cache to allow relatively quick updates
                 res.setHeader('Cache-Control', 'public, max-age=300');
@@ -232,7 +235,7 @@ app.use('/favicon', cors(), async (req: Request, res: Response) => {
         }
 
         // Default Framerr favicon (always available as fallback)
-        const defaultFile = path.join(defaultFaviconPath, req.path);
+        const defaultFile = safePath(defaultFaviconPath, req.path);
         if (fs.existsSync(defaultFile)) {
             res.setHeader('Cache-Control', 'public, max-age=300');
             return res.sendFile(defaultFile);
@@ -242,7 +245,7 @@ app.use('/favicon', cors(), async (req: Request, res: Response) => {
     } catch (error) {
         // On config error, fallback to default
         logger.error(`[Favicon] Route error: error="${(error as Error).message}"`);
-        const defaultFile = path.join(defaultFaviconPath, req.path);
+        const defaultFile = safePath(defaultFaviconPath, req.path);
         if (fs.existsSync(defaultFile)) {
             return res.sendFile(defaultFile);
         }
@@ -266,6 +269,7 @@ app.get('/api/health', (req: Request, res: Response) => {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         version,
+        channel: process.env.FRAMERR_CHANNEL || 'dev',
         environment: NODE_ENV
     };
 

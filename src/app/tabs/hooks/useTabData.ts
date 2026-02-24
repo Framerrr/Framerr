@@ -122,7 +122,7 @@ export function useTabData(singleTabSlug?: string): UseTabDataReturn {
             }
 
             const data = await response.json() as TabsApiResponse;
-            const fetchedTabs = data.tabs || [];
+            const fetchedTabs = (data.tabs || []).filter(t => t.enabled !== false);
             setTabs(fetchedTabs);
             setError(null);
         } catch (err) {

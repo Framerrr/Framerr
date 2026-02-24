@@ -1,0 +1,81 @@
+---
+title: Integrations
+description: All supported integrations in Framerr and their capabilities.
+slug: /integrations
+---
+
+import DocCardGrid from '@site/src/components/DocCardGrid/DocCardGrid';
+import { Activity } from 'lucide-react';
+import useBaseUrl from '@docusaurus/useBaseUrl';
+
+# Integrations
+
+Framerr connects to your self-hosted services to display real-time data on your dashboard. Each integration provides one or more **widgets** that visualize data from that service. 
+
+export const cdnIcon = (name, alt) => (
+  <img src={`https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/${name}.png`} width="24" height="24" alt={alt} style={{ borderRadius: '4px' }} />
+);
+
+<DocCardGrid groups={[
+  {
+    label: '🎬 Media Servers',
+    items: [
+      { title: 'Plex', description: 'Stream activity, library stats, and media search', icon: cdnIcon('plex', 'Plex'), link: '/docs/integrations/plex' },
+      { title: 'Jellyfin', description: 'Stream activity, library stats, and media search', icon: cdnIcon('jellyfin', 'Jellyfin'), link: '/docs/integrations/jellyfin' },
+      { title: 'Emby', description: 'Stream activity, library stats, and media search', icon: cdnIcon('emby', 'Emby'), link: '/docs/integrations/emby' },
+    ],
+  },
+  {
+    label: '📚 Media Management',
+    items: [
+      { title: 'Sonarr', description: 'TV show library, missing episodes, queue, and calendar', icon: cdnIcon('sonarr', 'Sonarr'), link: '/docs/integrations/sonarr' },
+      { title: 'Radarr', description: 'Movie library, missing movies, queue, and calendar', icon: cdnIcon('radarr', 'Radarr'), link: '/docs/integrations/radarr' },
+      { title: 'Seerr', description: 'Media requests and search across Overseerr/Jellyseerr', icon: cdnIcon('overseerr', 'Seerr'), link: '/docs/integrations/overseerr' },
+      { title: 'Tautulli', description: 'Plex watch history and streaming statistics', icon: cdnIcon('tautulli', 'Tautulli'), link: '/docs/integrations/tautulli' },
+    ],
+  },
+  {
+    label: '⬇️ Downloads',
+    items: [
+      { title: 'qBittorrent', description: 'Torrent download progress, speeds, and queue', icon: cdnIcon('qbittorrent', 'qBittorrent'), link: '/docs/integrations/qbittorrent' },
+      { title: 'SABnzbd', description: 'Usenet download progress, speeds, and queue', icon: cdnIcon('sabnzbd', 'SABnzbd'), link: '/docs/integrations/sabnzbd' },
+    ],
+  },
+  {
+    label: '🖥️ System Monitoring',
+    items: [
+      { title: 'Glances', description: 'CPU, RAM, disk, and network via Glances API', icon: cdnIcon('glances', 'Glances'), link: '/docs/integrations/glances' },
+      { title: 'Unraid', description: 'Unraid server health, CPU, RAM, disk, and Docker', icon: cdnIcon('unraid', 'Unraid'), link: '/docs/integrations/unraid' },
+      { title: 'Uptime Kuma', description: 'Monitor uptime and response times for your services', icon: cdnIcon('uptime-kuma', 'Uptime Kuma'), link: '/docs/integrations/uptime-kuma' },
+      { title: 'Framerr Monitor', description: 'Built-in service monitoring — no external tools needed', icon: <img src={require('@site/static/img/framerr-logo.png').default} width="24" height="24" alt="Framerr Monitor" style={{ borderRadius: '4px' }} />, link: '/docs/integrations/framerr-monitor' },
+      { title: 'Custom System Status', description: 'Bring your own API for custom system metrics', icon: <Activity size={22} />, link: '/docs/integrations/custom-system-status' },
+    ],
+  },
+]} />
+
+---
+
+## Adding an Integration
+
+1. Navigate to **Settings → Integrations → Service Settings**
+2. Click **Add Integration**
+3. Select the service you want to connect
+4. Fill in the required fields (URL, API key, etc.)
+5. Click **Test Connection** to verify
+6. Save the integration
+
+## Multiple Instances
+
+You can add multiple instances of the same integration type. For example, two Sonarr instances (one for TV, one for anime) — each gets its own connection and can be assigned to different widgets.
+
+:::tip Instance Names
+You can rename any integration instance from its settings page. Custom names appear in widget configuration dropdowns and notification messages — useful when running multiples of the same type (e.g., "Sonarr - Anime" vs "Sonarr - TV").
+:::
+
+## How Data Flows
+
+```
+Your Service (e.g., Plex) → Framerr Server (proxy) → Dashboard Widget
+```
+
+All API requests from widgets are proxied through the Framerr server. Your API keys and tokens are **never exposed to the browser** — they're stored encrypted on the server and used server-side only.

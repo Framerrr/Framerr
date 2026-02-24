@@ -11,7 +11,7 @@ import type { WidgetPlugin } from '../types';
 
 export const plugin: WidgetPlugin = {
     id: 'overseerr',
-    name: 'Overseerr',
+    name: 'Seerr',
     description: 'Media requests and discovery',
     category: 'media',
     icon: Popcorn,

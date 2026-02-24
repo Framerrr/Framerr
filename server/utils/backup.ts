@@ -15,6 +15,7 @@ import { getDb } from '../database/db';
 import logger from './logger';
 import { broadcast } from '../services/sseStreamService';
 import { decryptConfigsInDb, encryptConfigsInDb } from './encryption';
+import { safePath } from './pathSanitize';
 
 // Environment paths
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
@@ -177,18 +178,19 @@ export function listBackups(): BackupInfo[] {
  * Get the full path to a backup file (with security validation)
  */
 export function getBackupFilePath(filename: string): string | null {
-    // Security: prevent path traversal
-    if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
-        logger.warn(`[Backup] Invalid filename (path traversal): file="${filename}"`);
-        return null;
-    }
-
+    // Security: validate filename and prevent path traversal
     if (!filename.endsWith('.zip')) {
         logger.warn(`[Backup] Invalid filename (not zip): file="${filename}"`);
         return null;
     }
 
-    const filePath = path.join(BACKUPS_DIR, filename);
+    let filePath: string;
+    try {
+        filePath = safePath(BACKUPS_DIR, filename);
+    } catch {
+        logger.warn(`[Backup] Invalid filename (path traversal): file="${filename}"`);
+        return null;
+    }
 
     // Verify file exists
     if (!fs.existsSync(filePath)) {

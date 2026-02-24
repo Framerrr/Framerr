@@ -315,6 +315,19 @@
     display: none !important;
 }
 
+/* Sidebar must be fully opaque in solid-ui mode — no see-through */
+.solid-ui .sidebar-shadow.glass-card,
+.solid-ui .sidebar-shadow-bottom.glass-card {
+    background: var(--bg-secondary) !important;
+}
+
+/* Sidebar must stay opaque even in flatten-ui mode — it's structural UI, not a widget */
+.flatten-ui .sidebar-shadow.glass-card,
+.flatten-ui .sidebar-shadow-bottom.glass-card {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-light) !important;
+}
+
 /* Legacy alias — existing flatten-ui still works until Phase 3 rename */
 .flatten-ui .glass-card,
 .flatten-ui .glass-subtle {

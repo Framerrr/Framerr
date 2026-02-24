@@ -13,7 +13,9 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { CheckCircle2, Download } from 'lucide-react';
-import { WidgetStateMessage, useWidgetIntegration, useIntegrationSSE } from '../../shared/widgets';
+import { WidgetStateMessage } from '../../shared/widgets';
+import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
+import { useIntegrationSSE } from '../../shared/widgets/hooks/useIntegrationSSE';
 import { useAuth } from '../../context/AuthContext';
 import { isAdmin } from '../../utils/permissions';
 import StatsBar from './StatsBar';

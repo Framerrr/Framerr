@@ -33,7 +33,7 @@ export const SYSTEM_ICONS: SystemIconConfig[] = [
     {
         id: 'system-overseerr',
         filename: 'overseerr.png',
-        name: 'Overseerr',
+        name: 'Seerr',
         mimeType: 'image/png'
     },
     {

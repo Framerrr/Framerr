@@ -308,7 +308,19 @@ async function runPlexSync(
 
         // Count total items first
         let totalItems = 0;
-        for (const section of mediaSections) {
+        for (let si = 0; si < mediaSections.length; si++) {
+            const section = mediaSections[si];
+
+            // Broadcast fetch phase progress
+            broadcast('library_sync_progress', {
+                integrationId,
+                indexed: 0,
+                total: 0,
+                percent: 0,
+                phase: 'fetching',
+                statusMessage: `Fetching library '${section.title}'...`
+            });
+
             const countResult = await adapter.execute(toPluginInstance(instance), {
                 method: 'GET',
                 path: `/library/sections/${section.key}/all`,
@@ -317,11 +329,34 @@ async function runPlexSync(
 
             if (countResult.success && countResult.data) {
                 const container = (countResult.data as { MediaContainer?: { totalSize?: number } }).MediaContainer;
-                totalItems += container?.totalSize || 0;
+                const sectionCount = container?.totalSize || 0;
+                totalItems += sectionCount;
+
+                // Broadcast discovered items count
+                if (sectionCount > 0) {
+                    broadcast('library_sync_progress', {
+                        integrationId,
+                        indexed: 0,
+                        total: totalItems,
+                        percent: 0,
+                        phase: 'fetching',
+                        statusMessage: `Found ${totalItems.toLocaleString()} items (${si + 1}/${mediaSections.length} libraries)`
+                    });
+                }
             }
         }
 
         updateSyncStatus(integrationId, { totalItems, indexedItems: 0 });
+
+        // Broadcast transition to indexing phase
+        broadcast('library_sync_progress', {
+            integrationId,
+            indexed: 0,
+            total: totalItems,
+            percent: 0,
+            phase: 'indexing',
+            statusMessage: `Syncing ${totalItems.toLocaleString()} items...`
+        });
 
         // Clear existing items for this integration
         const db = getDb();
@@ -369,7 +404,8 @@ async function runPlexSync(
                             integrationId,
                             indexed: indexedItems,
                             total: totalItems,
-                            percent: Math.round((indexedItems / totalItems) * 100)
+                            percent: Math.round((indexedItems / totalItems) * 100),
+                            phase: 'indexing'
                         });
                         lastBroadcastTime = now;
                     }
@@ -534,11 +570,13 @@ async function runJellyfinSync(
             throw new Error('Failed to fetch library views');
         }
 
-        const views = ((viewsResult.data as { Items?: JellyfinView[] }).Items || [])
-            .filter(v => ['movies', 'tvshows'].includes(v.CollectionType || ''));
+        const allViews = (viewsResult.data as { Items?: JellyfinView[] }).Items || [];
 
-        if (views.length === 0) {
-            logger.warn(`[LibrarySync] No movie/show libraries found: integrationId=${integrationId}`);
+        // Log all views for diagnostics
+        logger.info(`[LibrarySync] Jellyfin views found: count=${allViews.length}, views=[${allViews.map(v => `"${v.Name}" (${v.CollectionType || 'none'})`).join(', ')}]`);
+
+        if (allViews.length === 0) {
+            logger.warn(`[LibrarySync] No libraries found: integrationId=${integrationId}`);
             updateSyncStatus(integrationId, {
                 syncStatus: 'completed',
                 lastSyncCompleted: new Date().toISOString(),
@@ -549,37 +587,21 @@ async function runJellyfinSync(
             return;
         }
 
-        // Count total items first
-        let totalItems = 0;
-        for (const view of views) {
-            const countResult = await adapter.execute(toPluginInstance(instance), {
-                method: 'GET',
-                path: `/Users/${userId}/Items`,
-                query: { parentId: view.Id, recursive: 'true', includeItemTypes: 'Movie,Series', limit: '0' }
+        // Fetch items from ALL views and collect only Movie/Series items
+        // No CollectionType filtering — we scan every view and let the item type filter do the work
+        const allItems: { item: JellyfinMediaItem; viewId: string }[] = [];
+        for (let vi = 0; vi < allViews.length; vi++) {
+            const view = allViews[vi];
+
+            // Broadcast fetch phase progress
+            broadcast('library_sync_progress', {
+                integrationId,
+                indexed: 0,
+                total: 0,
+                percent: 0,
+                phase: 'fetching',
+                statusMessage: `Fetching library '${view.Name}'...`
             });
-
-            if (countResult.success && countResult.data) {
-                totalItems += (countResult.data as { TotalRecordCount?: number }).TotalRecordCount || 0;
-            }
-        }
-
-        updateSyncStatus(integrationId, { totalItems, indexedItems: 0 });
-
-        // Clear existing items for this integration
-        const db = getDb();
-        db.prepare(`DELETE FROM media_library WHERE integration_instance_id = ?`).run(integrationId);
-
-        // Fetch and index items from each view
-        let indexedItems = 0;
-        let lastBroadcastTime = 0;
-        const BROADCAST_INTERVAL = 25;
-        const MIN_BROADCAST_MS = 100;
-
-        for (const view of views) {
-            if (syncState.cancelled) {
-                logger.info(`[LibrarySync] Sync cancelled: integrationId=${integrationId}`);
-                break;
-            }
 
             const result = await adapter.execute(toPluginInstance(instance), {
                 method: 'GET',
@@ -593,29 +615,76 @@ async function runJellyfinSync(
             }
 
             const items = (result.data as { Items?: JellyfinMediaItem[] }).Items || [];
-
-            // Index each item
+            // Keep only Movie or Series (safety net — API should already filter via includeItemTypes)
+            let viewKept = 0;
             for (const item of items) {
-                if (syncState.cancelled) break;
-                // Filter to Movie or Series only
-                if (!['Movie', 'Series'].includes(item.Type)) continue;
+                if (['Movie', 'Series'].includes(item.Type)) {
+                    allItems.push({ item, viewId: view.Id });
+                    viewKept++;
+                }
+            }
+            logger.info(`[LibrarySync] View "${view.Name}" (${view.CollectionType || 'none'}): returned=${items.length}, kept=${viewKept} (Movie/Series)`);
 
-                await indexJellyfinItem(integrationId, instance, view.Id, item, 'jellyfin');
-                indexedItems++;
+            // Broadcast discovered items count
+            if (viewKept > 0) {
+                broadcast('library_sync_progress', {
+                    integrationId,
+                    indexed: 0,
+                    total: allItems.length,
+                    percent: 0,
+                    phase: 'fetching',
+                    statusMessage: `Found ${allItems.length.toLocaleString()} items (${vi + 1}/${allViews.length} libraries)`
+                });
+            }
+        }
 
-                // Broadcast progress
-                if (indexedItems % BROADCAST_INTERVAL === 0) {
-                    const now = Date.now();
-                    if (now - lastBroadcastTime >= MIN_BROADCAST_MS) {
-                        updateSyncStatus(integrationId, { indexedItems });
-                        broadcast('library_sync_progress', {
-                            integrationId,
-                            indexed: indexedItems,
-                            total: totalItems,
-                            percent: Math.round((indexedItems / totalItems) * 100)
-                        });
-                        lastBroadcastTime = now;
-                    }
+        // Total is the actual filtered count — what we show matches what we index
+        const totalItems = allItems.length;
+        logger.info(`[LibrarySync] Jellyfin sync collected: totalItems=${totalItems} (across ${allViews.length} views)`);
+        updateSyncStatus(integrationId, { totalItems, indexedItems: 0 });
+
+        // Broadcast transition to indexing phase
+        broadcast('library_sync_progress', {
+            integrationId,
+            indexed: 0,
+            total: totalItems,
+            percent: 0,
+            phase: 'indexing',
+            statusMessage: `Syncing ${totalItems.toLocaleString()} items...`
+        });
+
+        // Clear existing items for this integration
+        const db = getDb();
+        db.prepare(`DELETE FROM media_library WHERE integration_instance_id = ?`).run(integrationId);
+
+        // Index all collected items
+        let indexedItems = 0;
+        let lastBroadcastTime = 0;
+        const BROADCAST_INTERVAL = 25;
+        const MIN_BROADCAST_MS = 100;
+
+        for (const { item, viewId } of allItems) {
+            if (syncState.cancelled) {
+                logger.info(`[LibrarySync] Sync cancelled: integrationId=${integrationId}`);
+                break;
+            }
+
+            await indexJellyfinItem(integrationId, instance, viewId, item, 'jellyfin');
+            indexedItems++;
+
+            // Broadcast progress
+            if (indexedItems % BROADCAST_INTERVAL === 0) {
+                const now = Date.now();
+                if (now - lastBroadcastTime >= MIN_BROADCAST_MS) {
+                    updateSyncStatus(integrationId, { indexedItems });
+                    broadcast('library_sync_progress', {
+                        integrationId,
+                        indexed: indexedItems,
+                        total: totalItems,
+                        percent: Math.round((indexedItems / totalItems) * 100),
+                        phase: 'indexing'
+                    });
+                    lastBroadcastTime = now;
                 }
             }
         }
@@ -676,11 +745,13 @@ async function runEmbySync(
             throw new Error('Failed to fetch library views');
         }
 
-        const views = ((viewsResult.data as { Items?: JellyfinView[] }).Items || [])
-            .filter(v => ['movies', 'tvshows'].includes(v.CollectionType || ''));
+        const allViews = (viewsResult.data as { Items?: JellyfinView[] }).Items || [];
 
-        if (views.length === 0) {
-            logger.warn(`[LibrarySync] No movie/show libraries found: integrationId=${integrationId}`);
+        // Log all views for diagnostics
+        logger.info(`[LibrarySync] Emby views found: count=${allViews.length}, views=[${allViews.map(v => `"${v.Name}" (${v.CollectionType || 'none'})`).join(', ')}]`);
+
+        if (allViews.length === 0) {
+            logger.warn(`[LibrarySync] No libraries found: integrationId=${integrationId}`);
             updateSyncStatus(integrationId, {
                 syncStatus: 'completed',
                 lastSyncCompleted: new Date().toISOString(),
@@ -691,37 +762,21 @@ async function runEmbySync(
             return;
         }
 
-        // Count total items first
-        let totalItems = 0;
-        for (const view of views) {
-            const countResult = await adapter.execute(toPluginInstance(instance), {
-                method: 'GET',
-                path: `/Users/${userId}/Items`,
-                query: { parentId: view.Id, recursive: 'true', includeItemTypes: 'Movie,Series', limit: '0' }
+        // Fetch items from ALL views and collect only Movie/Series items
+        // No CollectionType filtering — we scan every view and let the item type filter do the work
+        const allItems: { item: EmbyMediaItem; viewId: string }[] = [];
+        for (let vi = 0; vi < allViews.length; vi++) {
+            const view = allViews[vi];
+
+            // Broadcast fetch phase progress
+            broadcast('library_sync_progress', {
+                integrationId,
+                indexed: 0,
+                total: 0,
+                percent: 0,
+                phase: 'fetching',
+                statusMessage: `Fetching library '${view.Name}'...`
             });
-
-            if (countResult.success && countResult.data) {
-                totalItems += (countResult.data as { TotalRecordCount?: number }).TotalRecordCount || 0;
-            }
-        }
-
-        updateSyncStatus(integrationId, { totalItems, indexedItems: 0 });
-
-        // Clear existing items for this integration
-        const db = getDb();
-        db.prepare(`DELETE FROM media_library WHERE integration_instance_id = ?`).run(integrationId);
-
-        // Fetch and index items from each view
-        let indexedItems = 0;
-        let lastBroadcastTime = 0;
-        const BROADCAST_INTERVAL = 25;
-        const MIN_BROADCAST_MS = 100;
-
-        for (const view of views) {
-            if (syncState.cancelled) {
-                logger.info(`[LibrarySync] Sync cancelled: integrationId=${integrationId}`);
-                break;
-            }
 
             const result = await adapter.execute(toPluginInstance(instance), {
                 method: 'GET',
@@ -735,29 +790,76 @@ async function runEmbySync(
             }
 
             const items = (result.data as { Items?: EmbyMediaItem[] }).Items || [];
-
-            // Index each item
+            // Keep only Movie or Series (safety net — API should already filter via includeItemTypes)
+            let viewKept = 0;
             for (const item of items) {
-                if (syncState.cancelled) break;
-                // Filter to Movie or Series only
-                if (!['Movie', 'Series'].includes(item.Type)) continue;
+                if (['Movie', 'Series'].includes(item.Type)) {
+                    allItems.push({ item, viewId: view.Id });
+                    viewKept++;
+                }
+            }
+            logger.info(`[LibrarySync] View "${view.Name}" (${view.CollectionType || 'none'}): returned=${items.length}, kept=${viewKept} (Movie/Series)`);
 
-                await indexJellyfinItem(integrationId, instance, view.Id, item, 'emby');
-                indexedItems++;
+            // Broadcast discovered items count
+            if (viewKept > 0) {
+                broadcast('library_sync_progress', {
+                    integrationId,
+                    indexed: 0,
+                    total: allItems.length,
+                    percent: 0,
+                    phase: 'fetching',
+                    statusMessage: `Found ${allItems.length.toLocaleString()} items (${vi + 1}/${allViews.length} libraries)`
+                });
+            }
+        }
 
-                // Broadcast progress
-                if (indexedItems % BROADCAST_INTERVAL === 0) {
-                    const now = Date.now();
-                    if (now - lastBroadcastTime >= MIN_BROADCAST_MS) {
-                        updateSyncStatus(integrationId, { indexedItems });
-                        broadcast('library_sync_progress', {
-                            integrationId,
-                            indexed: indexedItems,
-                            total: totalItems,
-                            percent: Math.round((indexedItems / totalItems) * 100)
-                        });
-                        lastBroadcastTime = now;
-                    }
+        // Total is the actual filtered count — what we show matches what we index
+        const totalItems = allItems.length;
+        logger.info(`[LibrarySync] Emby sync collected: totalItems=${totalItems} (across ${allViews.length} views)`);
+        updateSyncStatus(integrationId, { totalItems, indexedItems: 0 });
+
+        // Broadcast transition to indexing phase
+        broadcast('library_sync_progress', {
+            integrationId,
+            indexed: 0,
+            total: totalItems,
+            percent: 0,
+            phase: 'indexing',
+            statusMessage: `Syncing ${totalItems.toLocaleString()} items...`
+        });
+
+        // Clear existing items for this integration
+        const db = getDb();
+        db.prepare(`DELETE FROM media_library WHERE integration_instance_id = ?`).run(integrationId);
+
+        // Index all collected items
+        let indexedItems = 0;
+        let lastBroadcastTime = 0;
+        const BROADCAST_INTERVAL = 25;
+        const MIN_BROADCAST_MS = 100;
+
+        for (const { item, viewId } of allItems) {
+            if (syncState.cancelled) {
+                logger.info(`[LibrarySync] Sync cancelled: integrationId=${integrationId}`);
+                break;
+            }
+
+            await indexJellyfinItem(integrationId, instance, viewId, item, 'emby');
+            indexedItems++;
+
+            // Broadcast progress
+            if (indexedItems % BROADCAST_INTERVAL === 0) {
+                const now = Date.now();
+                if (now - lastBroadcastTime >= MIN_BROADCAST_MS) {
+                    updateSyncStatus(integrationId, { indexedItems });
+                    broadcast('library_sync_progress', {
+                        integrationId,
+                        indexed: indexedItems,
+                        total: totalItems,
+                        percent: Math.round((indexedItems / totalItems) * 100),
+                        phase: 'indexing'
+                    });
+                    lastBroadcastTime = now;
                 }
             }
         }

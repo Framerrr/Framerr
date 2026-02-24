@@ -53,7 +53,6 @@ interface UseOverseerrRequestReturn {
     // Server data
     servers: OverseerrServers | null;
     fetchServers: () => Promise<OverseerrServers | null>;
-    has4K: boolean;
     serversLoading: boolean;
 
     // TV details
@@ -90,10 +89,7 @@ export function useOverseerrRequest({
     const [requestState, setRequestState] = useState<RequestButtonState>('idle');
     const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // ── Computed ──
-    const has4K = servers
-        ? servers.radarr.some(s => s.is4k) || servers.sonarr.some(s => s.is4k)
-        : false;
+
 
     // ── Fetch Servers ──
     const fetchServers = useCallback(async (): Promise<OverseerrServers | null> => {
@@ -270,7 +266,6 @@ export function useOverseerrRequest({
     return {
         servers,
         fetchServers,
-        has4K,
         serversLoading,
         tvSeasons,
         fetchTvDetails,
@@ -296,9 +291,8 @@ export function needsModal(
     // TV always needs modal (season picker)
     if (item.mediaType === 'tv') return true;
 
-    // Movie with 4K available needs modal (server picker)
-    const has4KRadarr = servers.radarr.some(s => s.is4k);
-    if (has4KRadarr && servers.radarr.length > 1) return true;
+    // Movie with multiple Radarr instances needs modal (server picker)
+    if (servers.radarr.length > 1) return true;
 
     return false;
 }

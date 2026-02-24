@@ -10,6 +10,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-reac
 import { WidgetStateMessage } from '../../../shared/widgets';
 import EventPopover from './EventPopover';
 import type { CalendarEvent, EventsMap, FilterType } from '../calendar.types';
+import { toLocalDateStr } from '../../../shared/utils/dateUtils';
 
 interface MonthGridProps {
     events: EventsMap;
@@ -46,7 +47,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({
     const endOfMonth = new Date(year, month + 1, 0);
     const daysInMonth = endOfMonth.getDate();
     const startDay = startOfMonth.getDay(); // 0 = Sunday
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = toLocalDateStr(new Date());
 
     /** Filter events by type */
     const filterEvents = (dayEvents: CalendarEvent[]): CalendarEvent[] => {
@@ -114,7 +115,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({
                 {/* Day cells */}
                 {Array.from({ length: daysInMonth }).map((_, i) => {
                     const day = i + 1;
-                    const dateStr = new Date(year, month, day).toISOString().split('T')[0];
+                    const dateStr = toLocalDateStr(new Date(year, month, day));
                     const dayEvents = events[dateStr] || [];
                     const filtered = filterEvents(dayEvents);
                     const isToday = dateStr === todayStr;

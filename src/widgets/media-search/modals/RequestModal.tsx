@@ -50,7 +50,6 @@ export const RequestModal: React.FC<RequestModalProps> = ({
     const {
         servers,
         fetchServers,
-        has4K,
         serversLoading,
         tvSeasons,
         fetchTvDetails,
@@ -73,7 +72,6 @@ export const RequestModal: React.FC<RequestModalProps> = ({
 
     // Determine what controls are needed
     const isTv = item.mediaType === 'tv';
-    const showServerPicker = has4K;
     const showSeasonPicker = isTv;
 
     // ── Fetch data on mount ──
@@ -96,6 +94,7 @@ export const RequestModal: React.FC<RequestModalProps> = ({
     const applicableServers: OverseerrServer[] = servers
         ? (isTv ? servers.sonarr : servers.radarr)
         : [];
+    const showServerPicker = applicableServers.length > 1;
 
     // ── Season options for MultiSelectDropdown ──
     const seasonOptions = tvSeasons.map(s => ({
@@ -349,7 +348,7 @@ export const RequestModal: React.FC<RequestModalProps> = ({
                                 <Select.Trigger>
                                     <Select.Value placeholder="Select server..." />
                                 </Select.Trigger>
-                                <Select.Content>
+                                <Select.Content portal={false}>
                                     {applicableServers.map(server => (
                                         <Select.Item key={server.id} value={String(server.id)}>
                                             {server.name}{server.is4k ? ' (4K)' : ''}

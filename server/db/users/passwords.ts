@@ -4,6 +4,7 @@
  * Password reset, force-change-on-login, and local password flag management.
  */
 
+import crypto from 'crypto';
 import logger from '../../utils/logger';
 import { getDb } from '../../database/db';
 import { getUserById } from './crud';
@@ -23,7 +24,7 @@ export async function resetUserPassword(userId: string): Promise<{ success: bool
             throw new Error('User not found');
         }
 
-        const tempPassword = 'temp' + Math.random().toString(36).substr(2, 8);
+        const tempPassword = 'temp' + crypto.randomBytes(6).toString('hex');
         const passwordHash = await hashPassword(tempPassword);
 
         getDb().prepare(`

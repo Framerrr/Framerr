@@ -1,9 +1,22 @@
 #!/bin/sh
 set -e
 
-# Get PUID/PGID from environment (default to Unraid standard: 99/100)
-PUID=${PUID:-99}
-PGID=${PGID:-100}
+# Get PUID/PGID from environment (default to root)
+PUID=${PUID:-0}
+PGID=${PGID:-0}
+
+# Short-circuit: if running as root with default PUID/PGID (0/0),
+# skip all user management and just run directly (like Homarr)
+if [ "$PUID" -eq 0 ] && [ "$PGID" -eq 0 ]; then
+    echo ""
+    echo "  Framerr - Starting Container (as root)"
+    echo "  TZ:   ${TZ:-UTC}"
+    echo ""
+    mkdir -p /config /config/upload/temp /config/upload/profile-pictures /config/upload/custom-icons
+    echo "Starting Framerr"
+    echo ""
+    exec "$@"
+fi
 
 # Detect if running as root (needed for user setup and su-exec)
 IS_ROOT=0

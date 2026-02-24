@@ -22,6 +22,7 @@ const DEFAULT_FORM_DATA: TabFormData = {
     icon: 'Server',
     groupId: '',
     enabled: true,
+    openInNewTab: false,
 };
 
 interface UseTabSettingsReturn {
@@ -103,6 +104,7 @@ export function useTabSettings(): UseTabSettingsReturn {
             icon: tab.icon || 'Server',
             groupId: tab.groupId || '',
             enabled: tab.enabled !== false,
+            openInNewTab: tab.openInNewTab || false,
         });
         setShowModal(true);
     }, []);
