@@ -11,7 +11,7 @@ It's good practice to [create a backup](../configuration/backups) before updatin
 :::
 
 :::warning Early Development
-Framerr is in early development (`0.x.x`). Updates may include breaking changes. Always back up before updating, and check the [changelog](https://github.com/Framerrr/Framerr/releases) for any migration notes.
+Framerr is in early development (`0.x.x`). Updates may include breaking changes. Always back up before updating, and check the [changelog](https://github.com/Framerrr/Framerr/blob/main/CHANGELOG.md) for any migration notes.
 :::
 
 ## Docker Compose (Recommended)
@@ -71,3 +71,7 @@ Downgrading is **not supported** if the newer version included database migratio
 
 If you need to downgrade, restore from a [backup](../configuration/backups) taken before the upgrade.
 :::
+
+## Changelog
+
+See the [full changelog](https://github.com/Framerrr/Framerr/blob/main/CHANGELOG.md) for a detailed list of what changed in each version.
