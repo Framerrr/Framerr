@@ -4,6 +4,11 @@ on:
   push:
     branches: [develop]
     tags: ['v*']
+    paths-ignore:
+      - '.github/**'
+      - '*.md'
+      - 'docs/**'
+      - 'LICENSE'
 
 jobs:
   build:
@@ -35,8 +40,12 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          build-args: APP_VERSION=${{ steps.version.outputs.version }}
-          tags: pickels23/framerr:develop
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.version }}
+            FRAMERR_CHANNEL=beta
+          tags: |
+            pickels23/framerr:develop
+            pickels23/framerr:${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -47,7 +56,9 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          build-args: APP_VERSION=${{ steps.version.outputs.version }}
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.version }}
+            FRAMERR_CHANNEL=stable
           tags: |
             pickels23/framerr:latest
             pickels23/framerr:${{ steps.version.outputs.version }}
