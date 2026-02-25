@@ -587,11 +587,15 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
                                         onError={(e) => {
                                             // Hide broken image, show placeholder sibling
                                             e.currentTarget.style.display = 'none';
-                                            (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
+                                            const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
+                                            if (placeholder) placeholder.style.display = '';
                                         }}
                                     />
                                 ) : null}
-                                <div className={`media-search-poster-placeholder${item.posterUrl ? ' hidden' : ''}`}>
+                                <div
+                                    className="media-search-poster-placeholder"
+                                    style={item.posterUrl ? { display: 'none' } : undefined}
+                                >
                                     {item.mediaType === 'movie' ? (
                                         <Film size={14} />
                                     ) : (

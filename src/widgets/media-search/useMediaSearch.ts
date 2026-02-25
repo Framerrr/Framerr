@@ -383,11 +383,24 @@ export function useMediaSearch({
                         page: '1',
                     });
 
-                    const response = await widgetFetch(
-                        `/api/integrations/${instanceId}/proxy/search?${params}`,
-                        'media-search',
-                        { signal: abortController.signal }
-                    );
+                    const fetchOnce = async (): Promise<Response> =>
+                        widgetFetch(
+                            `/api/integrations/${instanceId}/proxy/search?${params}`,
+                            'media-search',
+                            { signal: abortController.signal }
+                        );
+
+                    let response = await fetchOnce();
+
+                    // Retry once on 429 (Too Many Requests) with backoff
+                    if (response.status === 429) {
+                        const retryAfter = parseInt(response.headers.get('Retry-After') || '2', 10);
+                        const delayMs = Math.min(retryAfter, 10) * 1000; // Cap at 10s
+                        logger.debug(`[useMediaSearch] Overseerr 429 — retrying in ${delayMs}ms`);
+                        await new Promise(r => setTimeout(r, delayMs));
+                        if (abortController.signal.aborted) return;
+                        response = await fetchOnce();
+                    }
 
                     if (!response.ok) {
                         const errorBody = await response.json().catch(() => ({})) as { error?: string };
