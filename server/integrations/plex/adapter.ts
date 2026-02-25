@@ -1,21 +1,16 @@
-import { PluginAdapter, PluginInstance, ProxyRequest, ProxyResult } from '../types';
-import axios, { AxiosRequestConfig } from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
-import { translateHostUrl } from '../../utils/urlHelper';
-import logger from '../../utils/logger';
+import { BaseAdapter } from '../BaseAdapter';
+import { PluginInstance, TestResult } from '../types';
+import { extractAdapterErrorMessage } from '../errors';
 
 // ============================================================================
 // PLEX ADAPTER
 // ============================================================================
 
-export class PlexAdapter implements PluginAdapter {
+export class PlexAdapter extends BaseAdapter {
+    readonly testEndpoint = '/status/sessions';
+
     validateConfig(instance: PluginInstance): boolean {
         return !!(instance.config.url && instance.config.token);
-    }
-
-    getBaseUrl(instance: PluginInstance): string {
-        const url = instance.config.url as string;
-        return translateHostUrl(url);
     }
 
     getAuthHeaders(instance: PluginInstance): Record<string, string> {
@@ -25,36 +20,30 @@ export class PlexAdapter implements PluginAdapter {
         };
     }
 
-    async execute(instance: PluginInstance, request: ProxyRequest): Promise<ProxyResult> {
-        if (!this.validateConfig(instance)) {
-            return { success: false, error: 'Invalid integration configuration', status: 400 };
-        }
-
-        const baseUrl = this.getBaseUrl(instance);
-        const headers = this.getAuthHeaders(instance);
-        const url = `${baseUrl}${request.path}`;
-
-        const config: AxiosRequestConfig = {
-            method: request.method,
-            url,
-            headers,
-            params: request.query,
-            data: request.body,
-            httpsAgent,
-            timeout: 15000,
+    /**
+     * Override testConnection to extract version from response headers.
+     * Plex returns version in `x-plex-version` header, not in the JSON body.
+     */
+    async testConnection(config: Record<string, unknown>): Promise<TestResult> {
+        const tempInstance: PluginInstance = {
+            id: 'test',
+            type: 'plex',
+            name: 'Test',
+            config,
         };
 
         try {
-            logger.debug(`[Adapter:plex] Request: method=${request.method} path=${request.path}`);
-            const response = await axios(config);
-            return { success: true, data: response.data };
+            const response = await this.get(tempInstance, this.testEndpoint, { timeout: 5000 });
+            const version = response.headers?.['x-plex-version'] || undefined;
+            return {
+                success: true,
+                message: 'Connection successful',
+                version,
+            };
         } catch (error) {
-            const axiosError = error as { response?: { status: number; data?: unknown }; message: string };
-            logger.error(`[Adapter:plex] Failed: error="${axiosError.message}" status=${axiosError.response?.status}`);
             return {
                 success: false,
-                error: axiosError.message,
-                status: axiosError.response?.status || 500,
+                error: extractAdapterErrorMessage(error),
             };
         }
     }

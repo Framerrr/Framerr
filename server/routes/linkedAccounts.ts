@@ -15,7 +15,10 @@ import { hashPassword } from '../auth/password';
 import { getSystemConfig } from '../db/systemConfig';
 import { checkPlexLibraryAccess } from '../utils/plexLibraryAccess';
 import logger from '../utils/logger';
-import axios from 'axios';
+import axios from 'axios'; // Kept for plex.tv external API call (Tier 2)
+import { OverseerrAdapter } from '../integrations/overseerr/adapter';
+import { AdapterError } from '../integrations/errors';
+import { toPluginInstance } from '../integrations/utils';
 
 const router = Router();
 
@@ -302,21 +305,16 @@ router.post('/overseerr', requireAuth, async (req: Request, res: Response) => {
             return;
         }
 
-        const overseerrUrl = instance.config.url as string;
-        const baseUrl = overseerrUrl.replace(/\/$/, '');
-
         // Authenticate against Overseerr's local auth endpoint
         try {
-            const authResponse = await axios.post<OverseerrAuthResponse>(
-                `${baseUrl}/api/v1/auth/local`,
+            const adapter = new OverseerrAdapter();
+            const pluginInstance = toPluginInstance(instance);
+            const authResponse = await adapter.post(pluginInstance, '/api/v1/auth/local',
                 { email: username, password },
-                {
-                    headers: { 'Content-Type': 'application/json' },
-                    timeout: 10000
-                }
+                { timeout: 10000 }
             );
 
-            const overseerrUser = authResponse.data;
+            const overseerrUser = authResponse.data as OverseerrAuthResponse;
 
             // Check if this Overseerr account is already linked to another user
             const existingLink = findUserByExternalId('overseerr', overseerrUser.id.toString());
@@ -350,14 +348,12 @@ router.post('/overseerr', requireAuth, async (req: Request, res: Response) => {
                 }
             });
         } catch (authError) {
-            const err = authError as { response?: { status: number; data?: { message?: string } } };
-
-            if (err.response?.status === 401 || err.response?.status === 403) {
+            if (authError instanceof AdapterError && authError.code === 'AUTH_FAILED') {
                 res.status(401).json({ error: 'Invalid username or password' });
                 return;
             }
 
-            logger.error(`[LinkedAccounts] Overseerr auth error: error="${(authError as Error).message}" status=${err.response?.status}`);
+            logger.error(`[LinkedAccounts] Overseerr auth error: error="${(authError as Error).message}"`);
             res.status(500).json({ error: 'Failed to verify Overseerr credentials' });
         }
     } catch (error) {

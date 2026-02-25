@@ -9,14 +9,15 @@
  */
 
 import { Router, Request, Response } from 'express';
-import axios from 'axios';
 import { requireAuth } from '../../../middleware/auth';
 import * as integrationInstancesDb from '../../../db/integrationInstances';
 import { userHasIntegrationAccess } from '../../../db/integrationShares';
 import logger from '../../../utils/logger';
-import { httpsAgent } from '../../../utils/httpsAgent';
+import { getPlugin } from '../../../integrations/registry';
+import { toPluginInstance } from '../../../integrations/utils';
 
 const router = Router();
+const adapter = getPlugin('overseerr')!.adapter;
 
 interface OverseerrServer {
     id: number;
@@ -69,10 +70,9 @@ router.get('/:id/servers', requireAuth, async (req: Request, res: Response): Pro
         }
     }
 
-    const url = instance.config.url as string;
-    const apiKey = instance.config.apiKey as string;
+    const pluginInstance = toPluginInstance(instance);
 
-    if (!url || !apiKey) {
+    if (!pluginInstance.config.url || !pluginInstance.config.apiKey) {
         res.status(400).json({ error: 'Invalid Overseerr configuration' });
         return;
     }
@@ -81,16 +81,12 @@ router.get('/:id/servers', requireAuth, async (req: Request, res: Response): Pro
         // Fetch Radarr and Sonarr servers from Overseerr
         // Use /settings/ endpoints (not /service/) to get API keys for matching
         const [radarrResponse, sonarrResponse] = await Promise.all([
-            axios.get(`${url}/api/v1/settings/radarr`, {
-                headers: { 'X-Api-Key': apiKey },
-                httpsAgent,
-                timeout: 10000
+            adapter.get!(pluginInstance, '/api/v1/settings/radarr', {
+                timeout: 10000,
             }).catch(() => ({ data: [] })),
-            axios.get(`${url}/api/v1/settings/sonarr`, {
-                headers: { 'X-Api-Key': apiKey },
-                httpsAgent,
-                timeout: 10000
-            }).catch(() => ({ data: [] }))
+            adapter.get!(pluginInstance, '/api/v1/settings/sonarr', {
+                timeout: 10000,
+            }).catch(() => ({ data: [] })),
         ]);
 
         const radarrServers: OverseerrServer[] = radarrResponse.data || [];

@@ -1,15 +1,16 @@
 /**
  * Tautulli Integration Plugin
  *
- * Self-contained integration for Tautulli (Plex monitoring & statistics).
+ * Self-contained integration for Tautulli media monitoring.
  * Implements the IntegrationPlugin interface for auto-discovery.
  */
 
 import { IntegrationPlugin } from '../types';
 import { id, name, description, category, icon, configSchema } from './config';
 import { TautulliAdapter } from './adapter';
-import { testConnection } from './test';
 import * as poller from './poller';
+
+const adapter = new TautulliAdapter();
 
 export const plugin: IntegrationPlugin = {
     id,
@@ -18,8 +19,8 @@ export const plugin: IntegrationPlugin = {
     category,
     icon,
     configSchema,
-    adapter: new TautulliAdapter(),
-    testConnection,
+    adapter,
+    testConnection: adapter.testConnection.bind(adapter),
     poller: {
         intervalMs: poller.intervalMs,
         poll: poller.poll,

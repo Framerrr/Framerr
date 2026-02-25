@@ -12,8 +12,7 @@ import { RealtimeManager, PluginInstance, RealtimeConfig } from '../types';
 import { translateHostUrl } from '../../utils/urlHelper';
 import logger from '../../utils/logger';
 import WebSocket from 'ws';
-import axios from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
+import { getPlugin } from '../registry';
 
 // ============================================================================
 // PLEX TYPES
@@ -208,15 +207,20 @@ class PlexRealtimeManager implements RealtimeManager {
      */
     private async fetchSessions(): Promise<void> {
         try {
-            // URL already translated in constructor — no double translation
-            const response = await axios.get(`${this.url}/status/sessions`, {
-                headers: {
-                    'X-Plex-Token': this.token,
-                    'Accept': 'application/json'
-                },
-                httpsAgent,
-                timeout: 10000
-            });
+            // Use adapter for consistent auth/error handling
+            const adapter = getPlugin('plex')?.adapter;
+            if (!adapter?.get) {
+                logger.error('[Plex] Adapter not available for session fetch');
+                return;
+            }
+
+            // Create a temporary instance — URL already translated in constructor
+            const instance: PluginInstance = {
+                id: 'realtime', type: 'plex', name: 'Plex',
+                config: { url: this.url, token: this.token }
+            };
+
+            const response = await adapter.get(instance, '/status/sessions', { timeout: 10000 });
 
             // Parse sessions
             const sessions = Array.isArray(response.data)

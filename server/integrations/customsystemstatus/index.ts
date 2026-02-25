@@ -8,8 +8,9 @@
 import { IntegrationPlugin } from '../types';
 import { id, name, description, category, icon, configSchema } from './config';
 import { CustomSystemStatusAdapter } from './adapter';
-import { testConnection } from './test';
 import * as poller from './poller';
+
+const adapter = new CustomSystemStatusAdapter();
 
 export const plugin: IntegrationPlugin = {
     id,
@@ -18,8 +19,8 @@ export const plugin: IntegrationPlugin = {
     category,
     icon,
     configSchema,
-    adapter: new CustomSystemStatusAdapter(),
-    testConnection,
+    adapter,
+    testConnection: adapter.testConnection.bind(adapter),
     poller: {
         intervalMs: poller.intervalMs,
         poll: poller.poll,

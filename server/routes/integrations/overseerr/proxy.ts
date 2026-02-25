@@ -13,16 +13,17 @@
  */
 
 import { Router, Request, Response } from 'express';
-import axios from 'axios';
 import logger from '../../../utils/logger';
-import { httpsAgent } from '../../../utils/httpsAgent';
 import * as integrationInstancesDb from '../../../db/integrationInstances';
 import { requireAuth } from '../../../middleware/auth';
 import { userHasIntegrationAccess } from '../../../db/integrationShares';
 import { getLinkedAccount } from '../../../db/linkedAccounts';
-import { translateHostUrl } from '../../../utils/urlHelper';
+import { getPlugin } from '../../../integrations/registry';
+import { toPluginInstance } from '../../../integrations/utils';
+import { PluginInstance } from '../../../integrations/types';
 
 const router = Router();
+const adapter = getPlugin('overseerr')!.adapter;
 
 // ============================================================================
 // Simple In-Memory Cache (60s TTL)
@@ -76,21 +77,20 @@ function isRateLimited(userId: string): boolean {
 // Shared Helpers
 // ============================================================================
 
-interface InstanceResult {
-    baseUrl: string;
-    apiKey: string;
+interface OverseerrSession {
+    instance: PluginInstance;
 }
 
 /**
- * Validate instance access and return config or send error response.
+ * Validate instance access and return PluginInstance or send error response.
  */
 async function validateInstance(
     req: Request,
     res: Response,
     id: string
-): Promise<InstanceResult | null> {
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'overseerr') {
+): Promise<OverseerrSession | null> {
+    const dbInstance = integrationInstancesDb.getInstanceById(id);
+    if (!dbInstance || dbInstance.type !== 'overseerr') {
         res.status(404).json({ error: 'Overseerr integration not found' });
         return null;
     }
@@ -104,15 +104,14 @@ async function validateInstance(
         }
     }
 
-    const url = instance.config.url as string;
-    const apiKey = instance.config.apiKey as string;
+    const instance = toPluginInstance(dbInstance);
 
-    if (!url || !apiKey) {
+    if (!instance.config.url || !instance.config.apiKey) {
         res.status(400).json({ error: 'Invalid Overseerr configuration' });
         return null;
     }
 
-    return { baseUrl: translateHostUrl(url), apiKey };
+    return { instance };
 }
 
 // ============================================================================
@@ -124,21 +123,19 @@ async function validateInstance(
  */
 router.get('/:id/proxy/requests', requireAuth, async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    const result = await validateInstance(req, res, id);
-    if (!result) return;
-
-    const { baseUrl, apiKey } = result;
+    const session = await validateInstance(req, res, id);
+    if (!session) return;
 
     try {
         // Check seeAllRequests config toggle
-        const instance = integrationInstancesDb.getInstanceById(id);
-        const rawSeeAll = instance?.config?.seeAllRequests;
+        const dbInstance = integrationInstancesDb.getInstanceById(id);
+        const rawSeeAll = dbInstance?.config?.seeAllRequests;
         const seeAllRequests = rawSeeAll === undefined ? true : !!rawSeeAll; // undefined=true (backward compat), ''=false (checkbox off)
         const userId = (req.user as { id?: string })?.id;
         const isAdmin = req.user!.group === 'admin';
 
-        // Build request headers
-        const headers: Record<string, string> = { 'X-Api-Key': apiKey };
+        // Extra headers for user scoping (adapter auto-adds X-Api-Key)
+        const extraHeaders: Record<string, string> = {};
 
         // When seeAllRequests is OFF, scope the API call to the linked user
         // Framerr admins always bypass filtering
@@ -157,15 +154,14 @@ router.get('/:id/proxy/requests', requireAuth, async (req: Request, res: Respons
 
             if (!hasManageRequests) {
                 // Scope to this user's requests via X-Api-User header
-                headers['X-Api-User'] = linkedAccount.externalId;
+                extraHeaders['X-Api-User'] = linkedAccount.externalId;
             }
         }
 
         // Get requests from Overseerr
-        const response = await axios.get(`${baseUrl}/api/v1/request`, {
-            headers,
-            httpsAgent,
-            timeout: 10000
+        const response = await adapter.get!(session.instance, '/api/v1/request', {
+            timeout: 10000,
+            headers: extraHeaders,
         });
 
         const requests = response.data.results || [];
@@ -176,13 +172,10 @@ router.get('/:id/proxy/requests', requireAuth, async (req: Request, res: Respons
                 if (request.media?.tmdbId) {
                     try {
                         const mediaType = request.media.mediaType === 'tv' ? 'tv' : 'movie';
-                        const tmdbResponse = await axios.get(
-                            `${baseUrl}/api/v1/${mediaType}/${request.media.tmdbId}`,
-                            {
-                                headers: { 'X-Api-Key': apiKey },
-                                httpsAgent,
-                                timeout: 5000
-                            }
+                        const tmdbResponse = await adapter.get!(
+                            session.instance,
+                            `/api/v1/${mediaType}/${request.media.tmdbId}`,
+                            { timeout: 5000 }
                         );
                         return {
                             ...request,
@@ -208,17 +201,13 @@ router.get('/:id/proxy/requests', requireAuth, async (req: Request, res: Respons
  */
 router.get('/:id/proxy/request/:requestId/details', requireAuth, async (req: Request, res: Response): Promise<void> => {
     const { id, requestId } = req.params;
-    const result = await validateInstance(req, res, id);
-    if (!result) return;
-
-    const { baseUrl, apiKey } = result;
+    const session = await validateInstance(req, res, id);
+    if (!session) return;
 
     try {
         // Fetch request details
-        const requestResponse = await axios.get(`${baseUrl}/api/v1/request/${requestId}`, {
-            headers: { 'X-Api-Key': apiKey },
-            httpsAgent,
-            timeout: 10000
+        const requestResponse = await adapter.get!(session.instance, `/api/v1/request/${requestId}`, {
+            timeout: 10000,
         });
 
         const requestData = requestResponse.data;
@@ -228,13 +217,10 @@ router.get('/:id/proxy/request/:requestId/details', requireAuth, async (req: Req
         if (requestData.media?.tmdbId) {
             try {
                 const mediaType = requestData.type === 'tv' ? 'tv' : 'movie';
-                const tmdbResponse = await axios.get(
-                    `${baseUrl}/api/v1/${mediaType}/${requestData.media.tmdbId}`,
-                    {
-                        headers: { 'X-Api-Key': apiKey },
-                        httpsAgent,
-                        timeout: 10000
-                    }
+                const tmdbResponse = await adapter.get!(
+                    session.instance,
+                    `/api/v1/${mediaType}/${requestData.media.tmdbId}`,
+                    { timeout: 10000 }
                 );
 
                 const tmdb = tmdbResponse.data;
@@ -276,13 +262,10 @@ router.get('/:id/proxy/request/:requestId/details', requireAuth, async (req: Req
                 const tvCacheKey = `tv:${id}:${requestData.media.tmdbId}`;
                 let tvDetails = getCached(tvCacheKey) as any;
                 if (!tvDetails) {
-                    const tvRes = await axios.get(
-                        `${baseUrl}/api/v1/tv/${requestData.media.tmdbId}`,
-                        {
-                            headers: { 'X-Api-Key': apiKey },
-                            httpsAgent,
-                            timeout: 10000,
-                        }
+                    const tvRes = await adapter.get!(
+                        session.instance,
+                        `/api/v1/tv/${requestData.media.tmdbId}`,
+                        { timeout: 10000 }
                     );
                     tvDetails = tvRes.data;
                     setCache(tvCacheKey, tvDetails);
@@ -366,10 +349,8 @@ router.get('/:id/proxy/search', requireAuth, async (req: Request, res: Response)
         return;
     }
 
-    const result = await validateInstance(req, res, id);
-    if (!result) return;
-
-    const { baseUrl, apiKey } = result;
+    const session = await validateInstance(req, res, id);
+    if (!session) return;
 
     // Check cache
     const cacheKey = `search:${id}:${query}:${page}`;
@@ -380,12 +361,10 @@ router.get('/:id/proxy/search', requireAuth, async (req: Request, res: Response)
     }
 
     try {
-        // Build URL with explicit encoding — Overseerr is strict about
-        // reserved characters and rejects queries with unencoded spaces
-        const searchUrl = `${baseUrl}/api/v1/search?query=${encodeURIComponent(query)}&page=${encodeURIComponent(String(page))}`;
-        const response = await axios.get(searchUrl, {
-            headers: { 'X-Api-Key': apiKey },
-            httpsAgent,
+        // Search endpoint — need explicit encoding for Overseerr's strict
+        // reserved character handling. Use params for proper encoding.
+        const response = await adapter.get!(session.instance, '/api/v1/search', {
+            params: { query, page: String(page) },
             timeout: 15000,
         });
 
@@ -408,9 +387,7 @@ router.get('/:id/proxy/search', requireAuth, async (req: Request, res: Response)
                 let tvDetails = getCached(tvCacheKey) as any;
                 if (!tvDetails) {
                     try {
-                        const tvRes = await axios.get(`${baseUrl}/api/v1/tv/${item.id}`, {
-                            headers: { 'X-Api-Key': apiKey },
-                            httpsAgent,
+                        const tvRes = await adapter.get!(session.instance, `/api/v1/tv/${item.id}`, {
                             timeout: 10000,
                         });
                         tvDetails = tvRes.data;
@@ -453,10 +430,8 @@ router.get('/:id/proxy/search', requireAuth, async (req: Request, res: Response)
         setCache(cacheKey, data);
         res.json(data);
     } catch (error) {
-        const axiosErr = error as any;
-        const status = axiosErr?.response?.status;
-        const detail = axiosErr?.response?.data?.message || axiosErr?.message || 'Unknown';
-        logger.error(`[Overseerr Proxy] Search error: status=${status} detail="${detail}" query="${query}"`);
+        const errMsg = (error as Error).message || 'Unknown';
+        logger.error(`[Overseerr Proxy] Search error: detail="${errMsg}" query="${query}"`);
         res.status(500).json({ error: 'Failed to search Overseerr' });
     }
 });
@@ -470,13 +445,11 @@ router.post('/:id/proxy/request', requireAuth, async (req: Request, res: Respons
     const userId = req.user!.id;
     const isAdmin = req.user!.group === 'admin';
 
-    const result = await validateInstance(req, res, id);
-    if (!result) return;
+    const session = await validateInstance(req, res, id);
+    if (!session) return;
 
-    const { baseUrl, apiKey } = result;
-
-    // Build headers — include X-Api-User for non-admin users with linked accounts
-    const headers: Record<string, string> = { 'X-Api-Key': apiKey, 'Content-Type': 'application/json' };
+    // Build extra headers — X-Api-Key is auto-added by adapter
+    const extraHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
 
     if (!isAdmin) {
         const overseerrLink = getLinkedAccount(userId, 'overseerr');
@@ -484,14 +457,13 @@ router.post('/:id/proxy/request', requireAuth, async (req: Request, res: Respons
             res.status(403).json({ error: 'You must link your Overseerr account to make requests.' });
             return;
         }
-        headers['X-Api-User'] = overseerrLink.externalId;
+        extraHeaders['X-Api-User'] = overseerrLink.externalId;
     }
 
     try {
-        const response = await axios.post(`${baseUrl}/api/v1/request`, req.body, {
-            headers,
-            httpsAgent,
+        const response = await adapter.post!(session.instance, '/api/v1/request', req.body, {
             timeout: 15000,
+            headers: extraHeaders,
         });
 
         // Invalidate caches so follow-up fetches get fresh status
@@ -506,12 +478,12 @@ router.post('/:id/proxy/request', requireAuth, async (req: Request, res: Respons
 
         res.json(response.data);
     } catch (error) {
-        const axiosErr = error as { response?: { status: number; data?: { message?: string } }; message: string };
-        const status = axiosErr.response?.status || 500;
-        const message = axiosErr.response?.data?.message || axiosErr.message;
+        const adapterErr = error as { context?: { status?: number }; message: string };
+        const status = adapterErr.context?.status || 500;
+        const message = adapterErr.message;
 
         logger.error(`[Overseerr Proxy] Request error: status=${status} error="${message}"`);
-        res.status(status).json({ error: message });
+        res.status(status === 403 ? 403 : 500).json({ error: message });
     }
 });
 
@@ -522,10 +494,8 @@ router.post('/:id/proxy/request', requireAuth, async (req: Request, res: Respons
 router.get('/:id/proxy/tv/:tmdbId', requireAuth, async (req: Request, res: Response): Promise<void> => {
     const { id, tmdbId } = req.params;
 
-    const result = await validateInstance(req, res, id);
-    if (!result) return;
-
-    const { baseUrl, apiKey } = result;
+    const session = await validateInstance(req, res, id);
+    if (!session) return;
 
     const cacheKey = `tv:${id}:${tmdbId}`;
     const cached = getCached(cacheKey);
@@ -535,9 +505,7 @@ router.get('/:id/proxy/tv/:tmdbId', requireAuth, async (req: Request, res: Respo
     }
 
     try {
-        const response = await axios.get(`${baseUrl}/api/v1/tv/${tmdbId}`, {
-            headers: { 'X-Api-Key': apiKey },
-            httpsAgent,
+        const response = await adapter.get!(session.instance, `/api/v1/tv/${tmdbId}`, {
             timeout: 15000,
         });
 
@@ -557,10 +525,8 @@ router.get('/:id/proxy/user/quota', requireAuth, async (req: Request, res: Respo
     const { id } = req.params;
     const userId = req.user!.id;
 
-    const result = await validateInstance(req, res, id);
-    if (!result) return;
-
-    const { baseUrl, apiKey } = result;
+    const session = await validateInstance(req, res, id);
+    if (!session) return;
 
     const overseerrLink = getLinkedAccount(userId, 'overseerr');
     if (!overseerrLink) {
@@ -576,13 +542,10 @@ router.get('/:id/proxy/user/quota', requireAuth, async (req: Request, res: Respo
     }
 
     try {
-        const response = await axios.get(
-            `${baseUrl}/api/v1/user/${overseerrLink.externalId}/quota`,
-            {
-                headers: { 'X-Api-Key': apiKey },
-                httpsAgent,
-                timeout: 10000,
-            }
+        const response = await adapter.get!(
+            session.instance,
+            `/api/v1/user/${overseerrLink.externalId}/quota`,
+            { timeout: 10000 }
         );
 
         setCache(cacheKey, response.data);
@@ -602,8 +565,8 @@ router.get('/:id/proxy/user/permissions', requireAuth, async (req: Request, res:
     const userId = req.user!.id;
     const isAdmin = req.user!.group === 'admin';
 
-    const result = await validateInstance(req, res, id);
-    if (!result) return;
+    const session = await validateInstance(req, res, id);
+    if (!session) return;
 
     // Framerr admins get full permissions
     if (isAdmin) {
@@ -625,16 +588,11 @@ router.get('/:id/proxy/user/permissions', requireAuth, async (req: Request, res:
     }
 
     // Fallback: fetch live from Overseerr if no cached permissions
-    const { baseUrl, apiKey } = result;
-
     try {
-        const response = await axios.get(
-            `${baseUrl}/api/v1/user/${overseerrLink.externalId}`,
-            {
-                headers: { 'X-Api-Key': apiKey },
-                httpsAgent,
-                timeout: 10000,
-            }
+        const response = await adapter.get!(
+            session.instance,
+            `/api/v1/user/${overseerrLink.externalId}`,
+            { timeout: 10000 }
         );
 
         res.json({ permissions: response.data.permissions, isAdmin: false });
@@ -651,10 +609,8 @@ router.get('/:id/proxy/user/permissions', requireAuth, async (req: Request, res:
 router.get('/:id/proxy/servers', requireAuth, async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
-    const result = await validateInstance(req, res, id);
-    if (!result) return;
-
-    const { baseUrl, apiKey } = result;
+    const session = await validateInstance(req, res, id);
+    if (!session) return;
 
     const cacheKey = `servers:${id}`;
     const cached = getCached(cacheKey);
@@ -666,14 +622,10 @@ router.get('/:id/proxy/servers', requireAuth, async (req: Request, res: Response
     try {
         // Fetch both Radarr and Sonarr settings in parallel
         const [radarrRes, sonarrRes] = await Promise.all([
-            axios.get(`${baseUrl}/api/v1/settings/radarr`, {
-                headers: { 'X-Api-Key': apiKey },
-                httpsAgent,
+            adapter.get!(session.instance, '/api/v1/settings/radarr', {
                 timeout: 10000,
             }).catch(() => ({ data: [] })),
-            axios.get(`${baseUrl}/api/v1/settings/sonarr`, {
-                headers: { 'X-Api-Key': apiKey },
-                httpsAgent,
+            adapter.get!(session.instance, '/api/v1/settings/sonarr', {
                 timeout: 10000,
             }).catch(() => ({ data: [] })),
         ]);

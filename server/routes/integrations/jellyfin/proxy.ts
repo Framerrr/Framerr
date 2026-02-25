@@ -4,17 +4,19 @@
  * Handles proxying requests to Jellyfin server:
  * - /Items/:itemId/Images/* - Proxy item images
  * - /Sessions - Get active sessions (for direct access)
+ * 
+ * All HTTP requests flow through the adapter for centralized auth + reauth.
  */
 
-import { Router, Request, Response } from 'express';
-import axios from 'axios';
+import { Router, Request, Response, NextFunction } from 'express';
 import logger from '../../../utils/logger';
-import { httpsAgent } from '../../../utils/httpsAgent';
-import { translateHostUrl } from '../../../utils/urlHelper';
 import * as integrationInstancesDb from '../../../db/integrationInstances';
 import { requireAuth } from '../../../middleware/auth';
+import { getPlugin } from '../../../integrations/registry';
+import { toPluginInstance } from '../../../integrations/utils';
 
 const router = Router();
+const adapter = getPlugin('jellyfin')!.adapter;
 
 /**
  * GET /:id/proxy/* - Wildcard route for Jellyfin API paths
@@ -25,22 +27,14 @@ const router = Router();
  * - /Items/:itemId/Images/Thumb
  * - /Sessions
  */
-router.get('/:id/proxy/*', requireAuth, async (req: Request, res: Response, next): Promise<void> => {
+router.get('/:id/proxy/*', requireAuth, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { id } = req.params;
     const path = '/' + (req.params[0] || '');
 
     // Check if this is a Jellyfin integration - if not, pass to next router
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'jellyfin') {
+    const dbInstance = integrationInstancesDb.getInstanceById(id);
+    if (!dbInstance || dbInstance.type !== 'jellyfin') {
         next();
-        return;
-    }
-
-    const url = instance.config.url as string;
-    const apiKey = instance.config.apiKey as string;
-
-    if (!url || !apiKey) {
-        res.status(400).json({ error: 'Invalid Jellyfin configuration' });
         return;
     }
 
@@ -53,15 +47,17 @@ router.get('/:id/proxy/*', requireAuth, async (req: Request, res: Response, next
         return;
     }
 
-    try {
-        const translatedUrl = translateHostUrl(url);
-        // Jellyfin uses api_key query param
-        const imageUrl = `${translatedUrl}${path}?api_key=${apiKey}`;
+    const instance = toPluginInstance(dbInstance);
 
-        const response = await axios.get(imageUrl, {
+    if (!instance.config.url || !instance.config.apiKey) {
+        res.status(400).json({ error: 'Invalid Jellyfin configuration' });
+        return;
+    }
+
+    try {
+        const response = await adapter.get!(instance, path, {
             responseType: 'arraybuffer',
-            httpsAgent,
-            timeout: 15000
+            timeout: 15000,
         });
 
         const contentType = response.headers['content-type'] || 'image/jpeg';
@@ -94,51 +90,46 @@ router.post('/:id/proxy/stop', requireAuth, async (req: Request, res: Response):
         return;
     }
 
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'jellyfin') {
+    const dbInstance = integrationInstancesDb.getInstanceById(id);
+    if (!dbInstance || dbInstance.type !== 'jellyfin') {
         res.status(404).json({ error: 'Jellyfin integration not found' });
         return;
     }
 
-    const url = instance.config.url as string;
+    const instance = toPluginInstance(dbInstance);
     const apiKey = instance.config.apiKey as string;
 
-    if (!url || !apiKey) {
+    if (!instance.config.url || !apiKey) {
         res.status(400).json({ error: 'Invalid Jellyfin configuration' });
         return;
     }
 
     try {
-        const translatedUrl = translateHostUrl(url);
-        const stopUrl = `${translatedUrl}/Sessions/${sessionKey}/Playing/Stop`;
+        const stopPath = `/Sessions/${sessionKey}/Playing/Stop`;
         // Full MediaBrowser header gives Jellyfin a session context to route the command.
         // Without Client/Device/DeviceId, Jellyfin accepts the request but can't dispatch it.
-        const headers = {
+        const stopHeaders = {
             'Authorization': `MediaBrowser Client="Framerr", Device="Server", DeviceId="framerr-server", Version="0.1.5", Token="${apiKey}"`
         };
 
-        logger.info(`[Jellyfin Proxy] Sending stop command: url="${stopUrl}"`);
+        logger.info(`[Jellyfin Proxy] Sending stop command: sessionId=${sessionKey}`);
 
         // Jellyfin's stop is a client command via WebSocket — the first attempt
         // is often ignored by clients. Send twice with a delay for reliability.
-        const resp1 = await axios.post(stopUrl, {}, { headers, httpsAgent, timeout: 10000 });
-        logger.info(`[Jellyfin Proxy] Stop attempt 1: status=${resp1.status}, data=${JSON.stringify(resp1.data ?? 'empty')}`);
+        await adapter.post!(instance, stopPath, {}, { headers: stopHeaders, timeout: 10000 });
 
         // Wait 750ms then send again
         await new Promise(resolve => setTimeout(resolve, 750));
         try {
-            const resp2 = await axios.post(stopUrl, {}, { headers, httpsAgent, timeout: 10000 });
-            logger.info(`[Jellyfin Proxy] Stop attempt 2: status=${resp2.status}, data=${JSON.stringify(resp2.data ?? 'empty')}`);
-        } catch (retryErr) {
-            const axErr = retryErr as { response?: { status?: number; data?: unknown }; message?: string };
-            logger.info(`[Jellyfin Proxy] Stop attempt 2 failed (expected if session ended): status=${axErr.response?.status}, data=${JSON.stringify(axErr.response?.data ?? 'none')}, message="${axErr.message}"`);
+            await adapter.post!(instance, stopPath, {}, { headers: stopHeaders, timeout: 10000 });
+        } catch {
+            // Second attempt may fail if session already ended — that's fine
         }
 
         logger.info(`[Jellyfin Proxy] Session termination request sent: sessionId=${sessionKey}`);
         res.json({ success: true });
     } catch (error) {
-        const axErr = error as { response?: { status?: number; data?: unknown }; message?: string };
-        logger.error(`[Jellyfin Proxy] Stop session failed: sessionId=${sessionKey}, status=${axErr.response?.status}, data=${JSON.stringify(axErr.response?.data ?? 'none')}, error="${axErr.message}"`);
+        logger.error(`[Jellyfin Proxy] Stop session failed: sessionId=${sessionKey}, error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Failed to stop playback' });
     }
 });

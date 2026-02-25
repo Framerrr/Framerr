@@ -14,21 +14,23 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import axios from 'axios';
 import logger from '../../../utils/logger';
-import { httpsAgent } from '../../../utils/httpsAgent';
 import * as integrationInstancesDb from '../../../db/integrationInstances';
 import { requireAuth } from '../../../middleware/auth';
 import { userHasIntegrationAccess } from '../../../db/integrationShares';
 import { triggerTopicPoll } from '../../../services/sse/PollerOrchestrator';
+import { getPlugin } from '../../../integrations/registry';
+import { toPluginInstance } from '../../../integrations/utils';
+import { PluginInstance } from '../../../integrations/types';
 
 const router = Router();
+const adapter = getPlugin('radarr')!.adapter;
 
 // ============================================================================
 // SHARED HELPERS
 // ============================================================================
 
 interface RadarrSession {
-    url: string;
-    apiKey: string;
+    instance: PluginInstance;
     instanceId: string;
 }
 
@@ -46,8 +48,8 @@ async function withRadarrSession(
     const isAdmin = req.user!.group === 'admin';
 
     // Type-mismatch: let Express try the next matching router
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'radarr') {
+    const dbInstance = integrationInstancesDb.getInstanceById(id);
+    if (!dbInstance || dbInstance.type !== 'radarr') {
         next();
         return null;
     }
@@ -65,20 +67,14 @@ async function withRadarrSession(
         }
     }
 
-    const url = (instance.config.url as string)?.replace(/\/$/, '');
-    const apiKey = instance.config.apiKey as string;
+    const instance = toPluginInstance(dbInstance);
 
-    if (!url || !apiKey) {
+    if (!instance.config.url || !instance.config.apiKey) {
         res.status(400).json({ error: 'Invalid Radarr configuration' });
         return null;
     }
 
-    return { url, apiKey, instanceId: id };
-}
-
-/** Standard headers for Radarr API requests */
-function radarrHeaders(apiKey: string): Record<string, string> {
-    return { 'X-Api-Key': apiKey };
+    return { instance, instanceId: id };
 }
 
 // ============================================================================
@@ -95,14 +91,13 @@ router.get('/:id/proxy/calendar', requireAuth, async (req: Request, res: Respons
     const { start, end } = req.query;
 
     try {
-        const queryParams = new URLSearchParams();
-        if (start) queryParams.set('start', start as string);
-        if (end) queryParams.set('end', end as string);
+        const params: Record<string, unknown> = {};
+        if (start) params.start = start;
+        if (end) params.end = end;
 
-        const response = await axios.get(`${session.url}/api/v3/calendar?${queryParams}`, {
-            headers: radarrHeaders(session.apiKey),
-            httpsAgent,
-            timeout: 10000
+        const response = await adapter.get!(session.instance, '/api/v3/calendar', {
+            params,
+            timeout: 10000,
         });
 
         res.json(response.data);
@@ -124,16 +119,14 @@ router.get('/:id/proxy/missing', requireAuth, async (req: Request, res: Response
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 25, 100);
 
     try {
-        const response = await axios.get(`${session.url}/api/v3/wanted/missing`, {
+        const response = await adapter.get!(session.instance, '/api/v3/wanted/missing', {
             params: {
                 page,
                 pageSize,
                 sortKey: 'date',
                 sortDirection: 'descending',
             },
-            headers: radarrHeaders(session.apiKey),
-            httpsAgent,
-            timeout: 15000
+            timeout: 15000,
         });
 
         // Filter out unreleased movies — "missing" should only show titles
@@ -171,7 +164,7 @@ router.get('/:id/proxy/cutoff', requireAuth, async (req: Request, res: Response,
     const pageSize = Math.min(parseInt(req.query.pageSize as string) || 25, 100);
 
     try {
-        const response = await axios.get(`${session.url}/api/v3/wanted/cutoff`, {
+        const response = await adapter.get!(session.instance, '/api/v3/wanted/cutoff', {
             params: {
                 page,
                 pageSize,
@@ -179,9 +172,7 @@ router.get('/:id/proxy/cutoff', requireAuth, async (req: Request, res: Response,
                 sortDirection: 'descending',
                 includeMovie: true,
             },
-            headers: radarrHeaders(session.apiKey),
-            httpsAgent,
-            timeout: 15000
+            timeout: 15000,
         });
 
         res.json(response.data);
@@ -207,11 +198,9 @@ router.get('/:id/proxy/release', requireAuth, async (req: Request, res: Response
     }
 
     try {
-        const response = await axios.get(`${session.url}/api/v3/release`, {
+        const response = await adapter.get!(session.instance, '/api/v3/release', {
             params: { movieId },
-            headers: radarrHeaders(session.apiKey),
-            httpsAgent,
-            timeout: 60000 // Release search can take a long time (indexer queries)
+            timeout: 60000, // Release search can take a long time (indexer queries)
         });
 
         res.json(response.data);
@@ -243,13 +232,8 @@ router.post('/:id/proxy/release', requireAuth, async (req: Request, res: Respons
         const body: Record<string, unknown> = { guid, indexerId };
         if (shouldOverride) body.shouldOverride = true;
 
-        await axios.post(`${session.url}/api/v3/release`, body, {
-            headers: {
-                ...radarrHeaders(session.apiKey),
-                'Content-Type': 'application/json',
-            },
-            httpsAgent,
-            timeout: 15000
+        await adapter.post!(session.instance, '/api/v3/release', body, {
+            timeout: 15000,
         });
 
         logger.info(`[Radarr Proxy] Release grabbed: guid="${guid}" indexerId=${indexerId} override=${!!shouldOverride}`);
@@ -293,13 +277,8 @@ router.post('/:id/proxy/command', requireAuth, async (req: Request, res: Respons
         const body: Record<string, unknown> = { name };
         if (movieIds) body.movieIds = movieIds;
 
-        await axios.post(`${session.url}/api/v3/command`, body, {
-            headers: {
-                ...radarrHeaders(session.apiKey),
-                'Content-Type': 'application/json',
-            },
-            httpsAgent,
-            timeout: 15000
+        await adapter.post!(session.instance, '/api/v3/command', body, {
+            timeout: 15000,
         });
 
         logger.info(`[Radarr Proxy] Command triggered: name="${name}" movieIds=${JSON.stringify(movieIds)}`);
@@ -332,27 +311,31 @@ router.get('/:id/proxy/image', requireAuth, async (req: Request, res: Response, 
     }
 
     try {
-        // Radarr provides image URLs as relative paths like /MediaCover/123/poster.jpg
-        // OR external URLs like https://image.tmdb.org/t/p/original/xxx.jpg
         const isExternal = imgPath.startsWith('http');
-        const imageUrl = isExternal
-            ? imgPath
-            : `${session.url}${imgPath.startsWith('/') ? '' : '/'}${imgPath}`;
 
-        // Only send Radarr API key for local Radarr URLs, not external CDNs
-        const headers: Record<string, string> = isExternal ? {} : radarrHeaders(session.apiKey);
+        if (isExternal) {
+            // External CDN URLs — no auth headers, plain axios fetch
+            const response = await axios.get(imgPath, {
+                timeout: 10000,
+                responseType: 'arraybuffer',
+            });
 
-        const response = await axios.get(imageUrl, {
-            headers,
-            httpsAgent,
-            timeout: 10000,
-            responseType: 'arraybuffer',
-        });
+            const contentType = response.headers['content-type'] || 'image/jpeg';
+            res.set('Content-Type', contentType);
+            res.set('Cache-Control', 'public, max-age=14400'); // 4 hours
+            res.send(response.data);
+        } else {
+            // Local Radarr URLs — use adapter for auth
+            const response = await adapter.get!(session.instance, imgPath, {
+                timeout: 10000,
+                responseType: 'arraybuffer',
+            });
 
-        const contentType = response.headers['content-type'] || 'image/jpeg';
-        res.set('Content-Type', contentType);
-        res.set('Cache-Control', 'public, max-age=14400'); // 4 hours
-        res.send(response.data);
+            const contentType = response.headers['content-type'] || 'image/jpeg';
+            res.set('Content-Type', contentType);
+            res.set('Cache-Control', 'public, max-age=14400'); // 4 hours
+            res.send(response.data);
+        }
     } catch (error) {
         logger.error(`[Radarr Proxy] Image error: path="${imgPath}" error="${(error as Error).message}"`);
         res.status(502).json({ error: 'Failed to fetch image' });

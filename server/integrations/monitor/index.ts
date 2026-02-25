@@ -10,8 +10,9 @@
 import { IntegrationPlugin } from '../types';
 import { id, name, description, category, icon, configSchema, notificationEvents } from './config';
 import { MonitorAdapter } from './adapter';
-import { testConnection } from './test';
 import * as poller from './poller';
+
+const adapter = new MonitorAdapter();
 
 export const plugin: IntegrationPlugin = {
     id,
@@ -22,8 +23,8 @@ export const plugin: IntegrationPlugin = {
     configSchema,
     notificationMode: 'local',
     notificationEvents,
-    adapter: new MonitorAdapter(),
-    testConnection,
+    adapter,
+    testConnection: adapter.testConnection.bind(adapter),
     poller: {
         intervalMs: poller.intervalMs,
         poll: poller.poll,

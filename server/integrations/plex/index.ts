@@ -8,9 +8,10 @@
 import { IntegrationPlugin } from '../types';
 import { id, name, description, category, icon, configSchema, connectionFields } from './config';
 import { PlexAdapter } from './adapter';
-import { testConnection } from './test';
 import * as poller from './poller';
 import { realtime } from './realtime';
+
+const adapter = new PlexAdapter();
 
 export const plugin: IntegrationPlugin = {
     id,
@@ -20,8 +21,8 @@ export const plugin: IntegrationPlugin = {
     icon,
     configSchema,
     connectionFields,
-    adapter: new PlexAdapter(),
-    testConnection,
+    adapter,
+    testConnection: adapter.testConnection.bind(adapter),
     poller: {
         intervalMs: poller.intervalMs,
         poll: poller.poll,

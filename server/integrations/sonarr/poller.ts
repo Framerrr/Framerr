@@ -1,6 +1,4 @@
-import { PluginInstance } from '../types';
-import axios from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
+import { PluginInstance, PluginAdapter } from '../types';
 
 // ============================================================================
 // SONARR POLLER
@@ -37,18 +35,9 @@ export interface SonarrQueueItem {
  * Poll Sonarr queue for a specific instance.
  * Returns the current download queue with progress information.
  */
-export async function poll(instance: PluginInstance): Promise<SonarrQueueItem[]> {
-    if (!instance.config.url || !instance.config.apiKey) {
-        throw new Error('URL and API key required');
-    }
-
-    const url = (instance.config.url as string).replace(/\/$/, '');
-    const apiKey = instance.config.apiKey as string;
-
-    const response = await axios.get(`${url}/api/v3/queue`, {
+export async function poll(instance: PluginInstance, adapter: PluginAdapter): Promise<SonarrQueueItem[]> {
+    const response = await adapter.get!(instance, '/api/v3/queue', {
         params: { includeSeries: true, includeEpisode: true, pageSize: 500 },
-        headers: { 'X-Api-Key': apiKey },
-        httpsAgent,
         timeout: 10000,
     });
 
@@ -120,23 +109,14 @@ export interface CalendarEpisode {
  * Poll Sonarr calendar for a specific instance.
  * Returns episodes for 90-day window (30 days past, 60 days future).
  */
-export async function pollCalendar(instance: PluginInstance): Promise<CalendarEpisode[]> {
-    if (!instance.config.url || !instance.config.apiKey) {
-        throw new Error('URL and API key required');
-    }
-
-    const url = (instance.config.url as string).replace(/\/$/, '');
-    const apiKey = instance.config.apiKey as string;
-
+export async function pollCalendar(instance: PluginInstance, adapter: PluginAdapter): Promise<CalendarEpisode[]> {
     // Calendar window: 30 days past → 60 days future
     const now = Date.now();
     const startDate = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const endDate = new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    const response = await axios.get(`${url}/api/v3/calendar`, {
+    const response = await adapter.get!(instance, '/api/v3/calendar', {
         params: { start: startDate, end: endDate, includeSeries: true },
-        headers: { 'X-Api-Key': apiKey },
-        httpsAgent,
         timeout: 10000,
     });
 
@@ -186,24 +166,16 @@ export interface MissingCounts {
  * Poll Sonarr for aggregated missing + cutoff-unmet counts.
  * Uses pageSize=1 since we only need the totalRecords count from the response.
  */
-export async function pollMissing(instance: PluginInstance): Promise<MissingCounts> {
-    if (!instance.config.url || !instance.config.apiKey) {
-        throw new Error('URL and API key required');
-    }
-
-    const url = (instance.config.url as string).replace(/\/$/, '');
-    const apiKey = instance.config.apiKey as string;
-    const headers = { 'X-Api-Key': apiKey };
-
+export async function pollMissing(instance: PluginInstance, adapter: PluginAdapter): Promise<MissingCounts> {
     // Fetch both counts in parallel — pageSize=1 to minimize data transfer
     const [missingRes, cutoffRes] = await Promise.all([
-        axios.get(`${url}/api/v3/wanted/missing`, {
+        adapter.get!(instance, '/api/v3/wanted/missing', {
             params: { pageSize: 1, sortKey: 'airDateUtc', sortDirection: 'descending' },
-            headers, httpsAgent, timeout: 10000,
+            timeout: 10000,
         }),
-        axios.get(`${url}/api/v3/wanted/cutoff`, {
+        adapter.get!(instance, '/api/v3/wanted/cutoff', {
             params: { pageSize: 1, sortKey: 'airDateUtc', sortDirection: 'descending' },
-            headers, httpsAgent, timeout: 10000,
+            timeout: 10000,
         }),
     ]);
 

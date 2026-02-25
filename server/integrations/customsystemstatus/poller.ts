@@ -4,9 +4,7 @@
  * Polls user's custom monitoring API for real-time widget updates.
  */
 
-import { PluginInstance } from '../types';
-import axios from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
+import { PluginInstance, PluginAdapter } from '../types';
 
 // ============================================================================
 // CUSTOM SYSTEM STATUS POLLER
@@ -26,22 +24,10 @@ export interface CustomSystemData {
 /**
  * Poll custom system status API.
  */
-export async function poll(instance: PluginInstance): Promise<CustomSystemData> {
-    if (!instance.config.url) {
-        throw new Error('No URL configured');
-    }
-
-    const url = (instance.config.url as string).replace(/\/$/, '');
-    const token = instance.config.token as string | undefined;
-
-    const headers: Record<string, string> = { 'Accept': 'application/json' };
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-
+export async function poll(instance: PluginInstance, adapter: PluginAdapter): Promise<CustomSystemData> {
     // The custom API should return the status data at /status endpoint
     // Errors propagate to orchestrator
-    const response = await axios.get(`${url}/status`, { headers, httpsAgent, timeout: 10000 });
+    const response = await adapter.get!(instance, '/status', { timeout: 20000 });
     const data = response.data;
 
     // Normalize the response

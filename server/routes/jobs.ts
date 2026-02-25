@@ -13,7 +13,7 @@ import { getCacheStats as getTmdbCacheStats, flushAllCache as flushTmdbCache } f
 import { getCacheStats as getImageCacheStats, deleteAllCachedImages } from '../services/imageCache';
 import { clearAllSearchHistory, getSearchHistoryCount } from '../db/mediaSearchHistory';
 import { getLibraryCacheStats, getPerIntegrationLibraryStats, deleteAllLibraryImages } from '../services/libraryImageCache';
-import { deleteLibrarySyncData, startFullSync, getSyncStatus, getMediaServerIntegrationsWithSync } from '../services/librarySyncService';
+import { deleteLibrarySyncData, startFullSync, getSyncStatus, getMediaServerIntegrationsWithSync } from '../services/librarySync';
 import { getMonitorDefaults, getMetricHistoryDefaults, updateSystemConfig } from '../db/systemConfig';
 import { getInstanceById } from '../db/integrationInstances';
 import * as metricHistoryDb from '../db/metricHistory';

@@ -1,79 +1,57 @@
-import { PluginAdapter, PluginInstance, ProxyRequest, ProxyResult } from '../types';
-import axios, { AxiosRequestConfig } from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
-import { translateHostUrl } from '../../utils/urlHelper';
-import logger from '../../utils/logger';
+/**
+ * Tautulli Integration - Adapter
+ *
+ * Extends BaseAdapter with query-param authentication (apikey in URL params).
+ * Tautulli's API uses GET requests to /api/v2 with apikey and cmd query params.
+ */
+
+import { BaseAdapter } from '../BaseAdapter';
+import { PluginInstance, TestResult } from '../types';
+import { HttpOpts } from '../httpTypes';
+import { AxiosResponse } from 'axios';
+import { extractAdapterErrorMessage } from '../errors';
 
 // ============================================================================
 // TAUTULLI ADAPTER
 // ============================================================================
 
-/**
- * Tautulli uses query-param auth (?apikey=) instead of headers.
- * All API calls go to /api/v2 with cmd as a query param.
- */
-export class TautulliAdapter implements PluginAdapter {
+export class TautulliAdapter extends BaseAdapter {
+    readonly testEndpoint = '/api/v2';
+
+    getAuthHeaders(_instance: PluginInstance): Record<string, string> {
+        return { 'Accept': 'application/json' };
+    }
+
     validateConfig(instance: PluginInstance): boolean {
         return !!(instance.config.url && instance.config.apiKey);
     }
 
-    getBaseUrl(instance: PluginInstance): string {
-        const url = instance.config.url as string;
-        return translateHostUrl(url.replace(/\/$/, ''));
-    }
-
-    getAuthHeaders(): Record<string, string> {
-        // Tautulli uses query-param auth, not headers
-        return {};
-    }
-
-    async execute(instance: PluginInstance, request: ProxyRequest): Promise<ProxyResult> {
-        if (!this.validateConfig(instance)) {
-            return { success: false, error: 'Invalid integration configuration', status: 400 };
-        }
-
-        const baseUrl = this.getBaseUrl(instance);
+    /** Override get() to inject apikey as query param (Tautulli auth pattern) */
+    async get(instance: PluginInstance, path: string, opts?: HttpOpts): Promise<AxiosResponse> {
         const apiKey = instance.config.apiKey as string;
+        return super.get(instance, path, {
+            ...opts,
+            params: { apikey: apiKey, ...opts?.params },
+        });
+    }
 
-        // Tautulli API: /api/v2?apikey=KEY&cmd=COMMAND&other_params
-        // The request.path is used as the cmd value
-        const cmd = request.path.replace(/^\//, '');
-
-        const config: AxiosRequestConfig = {
-            method: 'GET', // Tautulli API is read-only GET
-            url: `${baseUrl}/api/v2`,
-            params: {
-                apikey: apiKey,
-                cmd,
-                ...request.query,
-            },
-            httpsAgent,
-            timeout: 15000,
-        };
-
+    /** Override: Tautulli test needs cmd=get_tautulli_info param */
+    async testConnection(config: Record<string, unknown>): Promise<TestResult> {
+        const tempInstance: PluginInstance = { id: 'test', type: 'test', name: 'Test', config };
         try {
-            logger.debug(`[Adapter:tautulli] Request: cmd=${cmd}`);
-            const response = await axios(config);
-
-            // Tautulli wraps everything in { response: { result: "success", data: {...} } }
-            const tautulliResponse = response.data?.response;
-            if (tautulliResponse?.result === 'success') {
-                return { success: true, data: tautulliResponse.data };
-            }
-
-            return {
-                success: false,
-                error: tautulliResponse?.message || 'Tautulli returned an error',
-                status: 400,
-            };
+            const response = await this.get(tempInstance, this.testEndpoint, {
+                params: { cmd: 'get_tautulli_info' },
+                timeout: 5000,
+            });
+            const { version } = this.parseTestResponse(response.data);
+            return { success: true, message: 'Connection successful', version };
         } catch (error) {
-            const axiosError = error as { response?: { status: number; data?: unknown }; message: string };
-            logger.error(`[Adapter:tautulli] Failed: error="${axiosError.message}" status=${axiosError.response?.status}`);
-            return {
-                success: false,
-                error: axiosError.message,
-                status: axiosError.response?.status || 500,
-            };
+            return { success: false, error: extractAdapterErrorMessage(error) };
         }
+    }
+
+    protected parseTestResponse(data: unknown): { version?: string } {
+        const obj = data as { response?: { data?: { tautulli_version?: string } } };
+        return { version: obj?.response?.data?.tautulli_version };
     }
 }

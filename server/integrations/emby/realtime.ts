@@ -9,8 +9,7 @@ import { RealtimeManager, PluginInstance, RealtimeConfig } from '../types';
 import { translateHostUrl } from '../../utils/urlHelper';
 import logger from '../../utils/logger';
 import WebSocket from 'ws';
-import axios from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
+import { getPlugin } from '../registry';
 import { EmbySession } from './poller';
 
 // ============================================================================
@@ -20,6 +19,7 @@ import { EmbySession } from './poller';
 class EmbyRealtimeManager implements RealtimeManager {
     private ws: WebSocket | null = null;
     private connected = false;
+    private instance: PluginInstance;
     private url: string;
     private apiKey: string;
     private userId: string;
@@ -40,6 +40,7 @@ class EmbyRealtimeManager implements RealtimeManager {
     constructor(instance: PluginInstance, onUpdate: (data: unknown) => void) {
         const config = instance.config as Record<string, unknown>;
 
+        this.instance = instance;
         this.url = translateHostUrl((config.url as string) || '').replace(/\/$/, '');
         this.apiKey = (config.apiKey as string) || '';
         this.userId = (config.userId as string) || '';
@@ -161,17 +162,16 @@ class EmbyRealtimeManager implements RealtimeManager {
      */
     private async fetchSessions(): Promise<void> {
         try {
-            const response = await axios.get<EmbySession[]>(`${this.url}/Sessions`, {
-                headers: {
-                    'X-Emby-Token': this.apiKey,
-                    'Accept': 'application/json',
-                },
-                httpsAgent,
-                timeout: 10000,
-            });
+            const plugin = getPlugin('emby');
+            if (!plugin) {
+                logger.error('[Emby] Plugin not found for session fetch');
+                return;
+            }
+
+            const response = await plugin.adapter.get!(this.instance, '/Sessions');
 
             // Filter to sessions with active playback
-            const activeSessions = response.data.filter(
+            const activeSessions = (response.data as EmbySession[]).filter(
                 (session) => session.NowPlayingItem != null
             );
 

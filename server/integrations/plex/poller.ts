@@ -4,9 +4,7 @@
  * Polls active Plex sessions for real-time widget updates.
  */
 
-import { PluginInstance } from '../types';
-import axios from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
+import { PluginInstance, PluginAdapter } from '../types';
 
 // ============================================================================
 // PLEX POLLER
@@ -38,22 +36,12 @@ export interface PlexSession {
 /**
  * Poll Plex for active sessions.
  */
-export async function poll(instance: PluginInstance): Promise<PlexSession[]> {
-    if (!instance.config.url || !instance.config.token) {
-        throw new Error('URL and token required');
+export async function poll(instance: PluginInstance, adapter?: PluginAdapter): Promise<PlexSession[]> {
+    if (!adapter?.get) {
+        throw new Error('Adapter required for Plex polling');
     }
 
-    const url = (instance.config.url as string).replace(/\/$/, '');
-    const token = instance.config.token as string;
-
-    const response = await axios.get(`${url}/status/sessions`, {
-        headers: {
-            'X-Plex-Token': token,
-            'Accept': 'application/json'
-        },
-        httpsAgent,
-        timeout: 10000
-    });
+    const response = await adapter.get(instance, '/status/sessions', { timeout: 10000 });
 
     // Parse sessions
     const sessions = Array.isArray(response.data)

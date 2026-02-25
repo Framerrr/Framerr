@@ -15,10 +15,7 @@
  * Schema reference: docs/private/features/UNRAIDAPI.MD
  */
 
-import { PluginInstance } from '../types';
-import axios from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
-import { translateHostUrl } from '../../utils/urlHelper';
+import { PluginInstance, PluginAdapter } from '../types';
 import logger from '../../utils/logger';
 
 // ============================================================================
@@ -236,28 +233,8 @@ function formatUptime(uptimeValue: unknown): string | null {
 // POLL FUNCTION
 // ============================================================================
 
-export async function poll(instance: PluginInstance): Promise<UnraidData> {
-    const url = instance.config.url as string;
-    const apiKey = instance.config.apiKey as string;
-
-    if (!url || !apiKey) {
-        throw new Error('URL and API key required');
-    }
-
-    const translatedUrl = translateHostUrl(url);
-
-    const response = await axios.post(
-        `${translatedUrl}/graphql`,
-        { query: SYSTEM_QUERY },
-        {
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-            },
-            httpsAgent,
-            timeout: 10000,
-        }
-    );
+export async function poll(instance: PluginInstance, adapter: PluginAdapter): Promise<UnraidData> {
+    const response = await adapter.post!(instance, '/graphql', { query: SYSTEM_QUERY }, { timeout: 10000 });
 
     // GraphQL-level errors (200 status but contain errors) — throw so orchestrator handles
     if (response.data?.errors?.length) {

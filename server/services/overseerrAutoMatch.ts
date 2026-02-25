@@ -11,7 +11,6 @@
  * - Manual Plex link: single user
  */
 
-import axios from 'axios';
 import { getInstancesByType } from '../db/integrationInstances';
 import {
     getLinkedAccount,
@@ -20,8 +19,8 @@ import {
     getUsersLinkedToService,
     updateLinkedAccountMetadata,
 } from '../db/linkedAccounts';
-import { translateHostUrl } from '../utils/urlHelper';
-import { httpsAgent } from '../utils/httpsAgent';
+import { getPlugin } from '../integrations/registry';
+import type { PluginInstance } from '../integrations/types';
 import logger from '../utils/logger';
 
 // Overseerr user shape (subset of what the API returns)
@@ -45,25 +44,23 @@ interface OverseerrUserResponse {
  * Handles pagination to get the full list.
  */
 async function fetchOverseerrUsers(
-    baseUrl: string,
-    apiKey: string
+    instance: PluginInstance
 ): Promise<OverseerrUser[]> {
+    const plugin = getPlugin('overseerr');
+    if (!plugin) throw new Error('Overseerr plugin not found');
+
     const allUsers: OverseerrUser[] = [];
     let page = 1;
     let totalPages = 1;
 
     while (page <= totalPages) {
-        const response = await axios.get<OverseerrUserResponse>(
-            `${baseUrl}/api/v1/user?take=50&skip=${(page - 1) * 50}`,
-            {
-                headers: { 'X-Api-Key': apiKey },
-                httpsAgent,
-                timeout: 15000,
-            }
-        );
+        const response = await plugin.adapter.get!(instance, `/api/v1/user?take=50&skip=${(page - 1) * 50}`, {
+            timeout: 15000,
+        });
 
-        allUsers.push(...response.data.results);
-        totalPages = response.data.pageInfo.pages;
+        const data = response.data as OverseerrUserResponse;
+        allUsers.push(...data.results);
+        totalPages = data.pageInfo.pages;
         page++;
     }
 
@@ -99,17 +96,21 @@ export async function tryAutoMatchSingleUser(userId: string): Promise<void> {
         const existingLink = getLinkedAccount(userId, 'overseerr');
 
         for (const instance of overseerrInstances) {
-            const baseUrl = translateHostUrl(instance.config.url as string);
-            const apiKey = instance.config.apiKey as string;
+            const pluginInstance: PluginInstance = {
+                id: instance.id,
+                type: instance.type,
+                name: instance.displayName,
+                config: instance.config,
+            };
 
             try {
                 if (existingLink) {
                     // Already linked — just refresh permissions
-                    await refreshOverseerrPermissions(userId, existingLink.externalId, baseUrl, apiKey);
+                    await refreshOverseerrPermissions(userId, existingLink.externalId, pluginInstance);
                     logger.info(`[OverseerrAutoMatch] Refreshed permissions for user=${userId} overseerrId=${existingLink.externalId}`);
                 } else {
                     // Not linked — try to find matching Overseerr user
-                    const overseerrUsers = await fetchOverseerrUsers(baseUrl, apiKey);
+                    const overseerrUsers = await fetchOverseerrUsers(pluginInstance);
                     const match = overseerrUsers.find(
                         u => u.plexUsername?.toLowerCase() === plexUsername.toLowerCase()
                     );
@@ -172,12 +173,16 @@ export async function tryAutoMatchAllUsers(): Promise<void> {
         let skipped = 0;
 
         for (const instance of overseerrInstances) {
-            const baseUrl = translateHostUrl(instance.config.url as string);
-            const apiKey = instance.config.apiKey as string;
+            const pluginInstance: PluginInstance = {
+                id: instance.id,
+                type: instance.type,
+                name: instance.displayName,
+                config: instance.config,
+            };
 
             try {
                 // Fetch all Overseerr users once for this instance
-                const overseerrUsers = await fetchOverseerrUsers(baseUrl, apiKey);
+                const overseerrUsers = await fetchOverseerrUsers(pluginInstance);
                 logger.info(`[OverseerrAutoMatch] Fetched ${overseerrUsers.length} Overseerr users from instance=${instance.id}`);
 
                 // Build lookup map (lowercase plexUsername → OverseerrUser)
@@ -243,24 +248,22 @@ export async function tryAutoMatchAllUsers(): Promise<void> {
 async function refreshOverseerrPermissions(
     userId: string,
     overseerrUserId: string,
-    baseUrl: string,
-    apiKey: string
+    instance: PluginInstance
 ): Promise<void> {
-    const response = await axios.get<OverseerrUser>(
-        `${baseUrl}/api/v1/user/${overseerrUserId}`,
-        {
-            headers: { 'X-Api-Key': apiKey },
-            httpsAgent,
-            timeout: 10000,
-        }
-    );
+    const plugin = getPlugin('overseerr');
+    if (!plugin) throw new Error('Overseerr plugin not found');
 
+    const response = await plugin.adapter.get!(instance, `/api/v1/user/${overseerrUserId}`, {
+        timeout: 10000,
+    });
+
+    const userData = response.data as OverseerrUser;
     const existingLink = getLinkedAccount(userId, 'overseerr');
     if (existingLink) {
         const currentMetadata = existingLink.metadata || {};
         updateLinkedAccountMetadata(userId, 'overseerr', {
             ...currentMetadata,
-            permissions: response.data.permissions,
+            permissions: userData.permissions,
         });
     }
 }

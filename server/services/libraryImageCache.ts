@@ -13,9 +13,11 @@
 
 import fs from 'fs';
 import path from 'path';
-import axios from 'axios';
+import axios from 'axios'; // Kept for cacheLibraryImage (Tier 2 — receives pre-built URLs)
 import logger from '../utils/logger';
 import { Semaphore } from '../utils/semaphore';
+import { BaseAdapter } from '../integrations/BaseAdapter';
+import { PluginInstance } from '../integrations/types';
 
 // Use DATA_DIR from environment or default to server/data
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '../data');
@@ -346,18 +348,18 @@ export function isLargeImageCached(integrationId: string, itemKey: string): bool
  * Get or fetch large image from Plex transcode endpoint
  * Uses LRU eviction when cache exceeds MAX_LARGE_IMAGES
  * 
+ * @param adapter - Plex adapter instance
+ * @param instance - Plugin instance with Plex config
  * @param integrationId - Integration instance ID
  * @param itemKey - Media item key (ratingKey)
- * @param plexBaseUrl - Plex server base URL
- * @param plexToken - Plex auth token
  * @param originalThumbPath - Original thumb path (e.g., /library/metadata/123/thumb/456)
  * @returns Local file path if successful, null otherwise
  */
 export async function getOrFetchLargeImage(
+    adapter: BaseAdapter,
+    instance: PluginInstance,
     integrationId: string,
     itemKey: string,
-    plexBaseUrl: string,
-    plexToken: string,
     originalThumbPath: string
 ): Promise<string | null> {
     ensureCacheDir(integrationId);
@@ -378,9 +380,14 @@ export async function getOrFetchLargeImage(
     // Fetch from Plex transcode
     try {
         const encodedThumb = encodeURIComponent(originalThumbPath);
-        const transcodeUrl = `${plexBaseUrl}/photo/:/transcode?width=${LARGE_IMAGE_SIZE.width}&height=${LARGE_IMAGE_SIZE.height}&minSize=1&upscale=1&url=${encodedThumb}&X-Plex-Token=${plexToken}`;
-
-        const response = await axios.get(transcodeUrl, {
+        const response = await adapter.get(instance, '/photo/:/transcode', {
+            params: {
+                width: LARGE_IMAGE_SIZE.width,
+                height: LARGE_IMAGE_SIZE.height,
+                minSize: 1,
+                upscale: 1,
+                url: encodedThumb,
+            },
             responseType: 'arraybuffer',
             timeout: 15000
         });
@@ -394,11 +401,7 @@ export async function getOrFetchLargeImage(
 
         return localPath;
     } catch (error) {
-        const axiosError = error as { response?: { status?: number }; message?: string };
-        const errorMsg = axiosError.response?.status
-            ? `HTTP ${axiosError.response.status}`
-            : axiosError.message || 'Unknown error';
-        logger.warn(`[LibraryImageCache] Failed to fetch large image: integrationId=${integrationId}, itemKey=${itemKey}, error="${errorMsg}"`);
+        logger.warn(`[LibraryImageCache] Failed to fetch large image: integrationId=${integrationId}, itemKey=${itemKey}, error="${(error as Error).message}"`);
         return null;
     }
 }
@@ -407,19 +410,17 @@ export async function getOrFetchLargeImage(
  * Get or fetch large image from Jellyfin/Emby server
  * Uses native image resize endpoint. Same LRU eviction as Plex variant.
  * 
+ * @param adapter - Jellyfin or Emby adapter instance
+ * @param instance - Plugin instance with server config
  * @param integrationId - Integration instance ID
  * @param itemKey - Media item ID
- * @param serverBaseUrl - Server base URL (already translated for Docker)
- * @param serverType - 'jellyfin' or 'emby'
- * @param apiKey - API key / auth token
  * @returns Local file path if successful, null otherwise
  */
 export async function getOrFetchLargeImageJellyfinEmby(
+    adapter: BaseAdapter,
+    instance: PluginInstance,
     integrationId: string,
-    itemKey: string,
-    serverBaseUrl: string,
-    serverType: 'jellyfin' | 'emby',
-    apiKey: string
+    itemKey: string
 ): Promise<string | null> {
     ensureCacheDir(integrationId);
     const localPath = getLargeImagePath(integrationId, itemKey);
@@ -433,34 +434,25 @@ export async function getOrFetchLargeImageJellyfinEmby(
 
     // Fetch from Jellyfin/Emby native image endpoint
     try {
-        const imageUrl = serverType === 'jellyfin'
-            ? `${serverBaseUrl}/Items/${itemKey}/Images/Primary?fillWidth=${LARGE_IMAGE_SIZE.width}&fillHeight=${LARGE_IMAGE_SIZE.height}`
-            : `${serverBaseUrl}/Items/${itemKey}/Images/Primary?width=${LARGE_IMAGE_SIZE.width}&height=${LARGE_IMAGE_SIZE.height}&api_key=${apiKey}`;
-
-        const headers: Record<string, string> = serverType === 'jellyfin'
-            ? { 'Authorization': `MediaBrowser Token="${apiKey}"` }
-            : {};
-
-        const response = await axios.get(imageUrl, {
+        const response = await adapter.get(instance, `/Items/${itemKey}/Images/Primary`, {
+            params: {
+                fillWidth: LARGE_IMAGE_SIZE.width,
+                fillHeight: LARGE_IMAGE_SIZE.height,
+            },
             responseType: 'arraybuffer',
             timeout: 15000,
-            headers
         });
 
         // Save to disk
         fs.writeFileSync(localPath, response.data);
-        logger.debug(`[LibraryImageCache] Cached large image (${serverType}): integrationId=${integrationId}, itemKey=${itemKey}`);
+        logger.debug(`[LibraryImageCache] Cached large image (${instance.type}): integrationId=${integrationId}, itemKey=${itemKey}`);
 
         // Enforce LRU limit
         enforceLargeImageLimit(integrationId);
 
         return localPath;
     } catch (error) {
-        const axiosError = error as { response?: { status?: number }; message?: string };
-        const errorMsg = axiosError.response?.status
-            ? `HTTP ${axiosError.response.status}`
-            : axiosError.message || 'Unknown error';
-        logger.warn(`[LibraryImageCache] Failed to fetch large image (${serverType}): integrationId=${integrationId}, itemKey=${itemKey}, error="${errorMsg}"`);
+        logger.warn(`[LibraryImageCache] Failed to fetch large image (${instance.type}): integrationId=${integrationId}, itemKey=${itemKey}, error="${(error as Error).message}"`);
         return null;
     }
 }

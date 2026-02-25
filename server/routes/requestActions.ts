@@ -6,13 +6,16 @@
  */
 
 import { Router, Request, Response } from 'express';
-import axios from 'axios';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import { getNotificationById, deleteNotification } from '../db/notifications';
 import * as integrationInstancesDb from '../db/integrationInstances';
 import logger from '../utils/logger';
+import { getPlugin } from '../integrations/registry';
+import { toPluginInstance } from '../integrations/utils';
+import { AdapterError } from '../integrations/errors';
 
 const router = Router();
+const adapter = getPlugin('overseerr')!.adapter;
 
 interface AuthenticatedUser {
     id: string;
@@ -33,11 +36,7 @@ interface Notification {
     metadata?: NotificationMetadata;
 }
 
-interface OverseerrConfig {
-    enabled?: boolean;
-    url?: string;
-    apiKey?: string;
-}
+
 
 /**
  * POST /api/request-actions/overseerr/:action/:notificationId
@@ -75,15 +74,16 @@ router.post('/overseerr/:action/:notificationId', requireAuth, requireAdmin, asy
             return;
         }
 
-        // Get Overseerr integration config from integration_instances
+        // Get Overseerr integration instance
         const instance = integrationInstancesDb.getFirstEnabledByType('overseerr');
-        const overseerrConfig: OverseerrConfig | null = instance ? {
-            enabled: instance.enabled,
-            url: instance.config.url as string,
-            apiKey: instance.config.apiKey as string
-        } : null;
+        if (!instance) {
+            res.status(400).json({ error: 'Overseerr integration not configured' });
+            return;
+        }
 
-        if (!overseerrConfig?.enabled || !overseerrConfig?.url || !overseerrConfig?.apiKey) {
+        const pluginInstance = toPluginInstance(instance);
+
+        if (!pluginInstance.config.url || !pluginInstance.config.apiKey) {
             res.status(400).json({ error: 'Overseerr integration not configured' });
             return;
         }
@@ -91,18 +91,12 @@ router.post('/overseerr/:action/:notificationId', requireAuth, requireAdmin, asy
         // Map action to Overseerr status
         const overseerrStatus = action === 'approve' ? 'approve' : 'decline';
 
-        // Call Overseerr API
-        const apiUrl = `${overseerrConfig.url.replace(/\/$/, '')}/api/v1/request/${requestId}/${overseerrStatus}`;
-
+        // Call Overseerr API via adapter
         logger.info(`[RequestActions] Calling Overseerr: action=${action} requestId=${requestId}`);
 
         try {
-            await axios.post(apiUrl, {}, {
-                headers: {
-                    'X-Api-Key': overseerrConfig.apiKey,
-                    'Content-Type': 'application/json'
-                },
-                timeout: 10000
+            await adapter.post!(pluginInstance, `/api/v1/request/${requestId}/${overseerrStatus}`, {}, {
+                timeout: 10000,
             });
 
             // Success - delete the notification
@@ -119,9 +113,9 @@ router.post('/overseerr/:action/:notificationId', requireAuth, requireAdmin, asy
 
         } catch (apiError) {
             // Handle Overseerr API errors
-            const axiosError = apiError as { response?: { status?: number; data?: { message?: string } }; message?: string };
-            const status = axiosError.response?.status;
-            const errorMessage = axiosError.response?.data?.message || axiosError.message;
+            const adapterErr = apiError as AdapterError;
+            const status = (adapterErr.context?.status as number) || 0;
+            const errorMessage = adapterErr.message;
 
             logger.warn(`[RequestActions] Overseerr API error: action=${action} requestId=${requestId} status=${status} error="${errorMessage}"`);
 
@@ -153,75 +147,4 @@ router.post('/overseerr/:action/:notificationId', requireAuth, requireAdmin, asy
     }
 });
 
-/**
- * POST /api/request-actions/overseerr/direct
- * Approve or decline an Overseerr request directly (from widget modal)
- * This endpoint doesn't require a notification - just the request details
- */
-router.post('/overseerr/direct', requireAuth, requireAdmin, async (req: Request, res: Response) => {
-    const { url, apiKey, requestId, action } = req.body;
-
-    // Validate required fields
-    if (!url || !apiKey || !requestId || !action) {
-        res.status(400).json({ error: 'Missing required fields: url, apiKey, requestId, action' });
-        return;
-    }
-
-    // Validate action
-    if (!['approve', 'decline'].includes(action)) {
-        res.status(400).json({ error: 'Invalid action. Must be "approve" or "decline"' });
-        return;
-    }
-
-    try {
-        // Call Overseerr API
-        const overseerrAction = action === 'approve' ? 'approve' : 'decline';
-        const apiUrl = `${url.replace(/\/$/, '')}/api/v1/request/${requestId}/${overseerrAction}`;
-
-        logger.info(`[RequestActions] Calling Overseerr (direct): action=${action} requestId=${requestId}`);
-
-        await axios.post(apiUrl, {}, {
-            headers: {
-                'X-Api-Key': apiKey,
-                'Content-Type': 'application/json'
-            },
-            timeout: 10000
-        });
-
-        logger.info(`[RequestActions] Direct success: action=${action} requestId=${requestId}`);
-
-        res.json({
-            success: true,
-            action,
-            requestId,
-            message: `Request ${action}d successfully`
-        });
-
-    } catch (apiError) {
-        const axiosError = apiError as { response?: { status?: number; data?: { message?: string } }; message?: string };
-        const status = axiosError.response?.status;
-        const errorMessage = axiosError.response?.data?.message || axiosError.message;
-
-        logger.warn(`[RequestActions] Overseerr API error (direct): action=${action} requestId=${requestId} status=${status} error="${errorMessage}"`);
-
-        // If 404 or conflict, the request may already be handled
-        if (status === 404 || status === 400 || status === 409) {
-            res.json({
-                success: true,
-                alreadyHandled: true,
-                action,
-                requestId,
-                message: 'Request was already handled'
-            });
-            return;
-        }
-
-        res.status(502).json({
-            success: false,
-            error: `Overseerr error: ${errorMessage}`
-        });
-    }
-});
-
 export default router;
-

@@ -22,7 +22,10 @@ import {
     getLargeImagePath,
     isLargeImageCached
 } from '../../services/libraryImageCache';
-import { translateHostUrl } from '../../utils/urlHelper';
+import { PlexAdapter } from '../../integrations/plex/adapter';
+import { JellyfinAdapter } from '../../integrations/jellyfin/adapter';
+import { EmbyAdapter } from '../../integrations/emby/adapter';
+import { toPluginInstance } from '../../integrations/utils';
 
 const router = Router();
 
@@ -126,25 +129,32 @@ router.get('/library/:integrationId/:filename', async (req: Request, res: Respon
             }
 
             let filePath: string | null = null;
-            const baseUrl = translateHostUrl(instance.config.url as string);
+            const pluginInstance = toPluginInstance(instance);
 
             if (instance.type === 'plex') {
-                const plexToken = instance.config.token as string;
+                const adapter = new PlexAdapter();
                 filePath = await getOrFetchLargeImage(
+                    adapter,
+                    pluginInstance,
                     integrationId,
                     itemKey,
-                    baseUrl,
-                    plexToken,
                     row.thumb
                 );
-            } else if (instance.type === 'jellyfin' || instance.type === 'emby') {
-                const apiKey = instance.config.apiKey as string;
+            } else if (instance.type === 'jellyfin') {
+                const adapter = new JellyfinAdapter();
                 filePath = await getOrFetchLargeImageJellyfinEmby(
+                    adapter,
+                    pluginInstance,
                     integrationId,
-                    itemKey,
-                    baseUrl,
-                    instance.type,
-                    apiKey
+                    itemKey
+                );
+            } else if (instance.type === 'emby') {
+                const adapter = new EmbyAdapter();
+                filePath = await getOrFetchLargeImageJellyfinEmby(
+                    adapter,
+                    pluginInstance,
+                    integrationId,
+                    itemKey
                 );
             } else {
                 res.status(400).json({ error: `Unsupported integration type: ${instance.type}` });

@@ -16,7 +16,7 @@ import { getFirstEnabledByType, IntegrationInstance } from '../db/integrationIns
 import servicePoller from './servicePoller';
 import { initializeBackupScheduler, shutdownBackupScheduler } from './backupScheduler';
 import { startCleanupJob, stopCleanupJob } from './mediaCacheCleanup';
-import { deleteLibrarySyncData, startLibrarySyncJob, stopLibrarySyncJob } from './librarySyncService';
+import { deleteLibrarySyncData, startLibrarySyncJob, stopLibrarySyncJob } from './librarySync';
 import { metricHistoryService } from './MetricHistoryService';
 import { getPlugin } from '../integrations/registry';
 
@@ -170,7 +170,7 @@ export async function onIntegrationCreated(instance: IntegrationInstance): Promi
         if (config?.librarySyncEnabled ?? true) {
             logger.info(`[IntegrationManager] Starting library sync for new ${instance.type} integration: ${instance.id}`);
             // Import dynamically to avoid circular dependency
-            const { startFullSync } = await import('./librarySyncService');
+            const { startFullSync } = await import('./librarySync');
             startFullSync(instance.id).catch(err =>
                 logger.error(`[IntegrationManager] Failed to start library sync: ${err.message}`)
             );
@@ -225,11 +225,17 @@ export async function onIntegrationUpdated(
 
             logger.info(`[IntegrationManager] Library sync transition check: wasEnabled=${wasEnabled} isEnabled=${isEnabled}`);
 
+            // Also detect needsReauth transition (re-authenticated with fresh credentials)
+            const wasNeedsReauth = (prevConfig as Record<string, unknown>)?.needsReauth === true;
+            const isNeedsReauth = (config as Record<string, unknown>)?.needsReauth === true;
+            const reauthResolved = wasNeedsReauth && !isNeedsReauth;
+
             // Only act on TRANSITIONS, not current state
-            if (isEnabled && !wasEnabled) {
-                // TRANSITION: OFF → ON - Start sync
-                logger.info(`[IntegrationManager] Library sync ENABLED for: ${instance.id} (transition: OFF → ON)`);
-                const { startFullSync } = await import('./librarySyncService');
+            if (isEnabled && !wasEnabled || (isEnabled && reauthResolved)) {
+                // TRANSITION: OFF → ON  OR  reauth resolved → Start sync
+                const reason = reauthResolved ? 'reauth resolved' : 'OFF → ON';
+                logger.info(`[IntegrationManager] Library sync ENABLED for: ${instance.id} (transition: ${reason})`);
+                const { startFullSync } = await import('./librarySync');
                 startFullSync(instance.id).catch(err =>
                     logger.error(`[IntegrationManager] Failed to start library sync: ${err.message}`)
                 );

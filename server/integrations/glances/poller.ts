@@ -9,9 +9,7 @@
  * instead of broadcasting sentinel defaults that cause UI flashing.
  */
 
-import { PluginInstance } from '../types';
-import axios from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
+import { PluginInstance, PluginAdapter } from '../types';
 import logger from '../../utils/logger';
 
 // ============================================================================
@@ -20,6 +18,18 @@ import logger from '../../utils/logger';
 
 /** Polling interval in milliseconds */
 export const intervalMs = 5000;
+
+/** Per-disk information extracted from Glances filesystem data */
+export interface GlancesDiskInfo {
+    id: string;
+    name: string;
+    type: 'parity' | 'data' | 'cache';
+    temp: number | null;
+    status: 'ok' | 'disabled' | 'invalid' | 'missing' | 'new' | 'wrong' | 'not-present';
+    fsSize: number | null;
+    fsFree: number | null;
+    usagePercent: number | null;
+}
 
 /** Glances data shape for SSE */
 export interface GlancesData {
@@ -30,6 +40,7 @@ export interface GlancesData {
     diskUsage: number | null;
     networkUp: number | null;
     networkDown: number | null;
+    disks: GlancesDiskInfo[];
 }
 
 /**
@@ -43,29 +54,17 @@ const instanceCache = new Map<string, GlancesData>();
 /**
  * Poll Glances for system status.
  */
-export async function poll(instance: PluginInstance): Promise<GlancesData> {
-    if (!instance.config.url) {
-        throw new Error('No URL configured');
-    }
-
-    const url = (instance.config.url as string).replace(/\/$/, '');
-    const password = instance.config.password as string | undefined;
-
+export async function poll(instance: PluginInstance, adapter: PluginAdapter): Promise<GlancesData> {
     // Get cached values to use as fallback for failed endpoints
     const cached = instanceCache.get(instance.id);
 
-    const headers: Record<string, string> = { 'Accept': 'application/json' };
-    if (password) {
-        headers['X-Auth'] = password;
-    }
-
     // Fetch all endpoints in parallel
     const [quicklookRes, sensorsRes, uptimeRes, fsRes, networkRes] = await Promise.allSettled([
-        axios.get(`${url}/api/4/quicklook`, { headers, httpsAgent, timeout: 10000 }),
-        axios.get(`${url}/api/4/sensors`, { headers, httpsAgent, timeout: 10000 }),
-        axios.get(`${url}/api/4/uptime`, { headers, httpsAgent, timeout: 10000 }),
-        axios.get(`${url}/api/4/fs`, { headers, httpsAgent, timeout: 10000 }),
-        axios.get(`${url}/api/4/network`, { headers, httpsAgent, timeout: 10000 }),
+        adapter.get!(instance, '/api/4/quicklook', { timeout: 10000 }),
+        adapter.get!(instance, '/api/4/sensors', { timeout: 10000 }),
+        adapter.get!(instance, '/api/4/uptime', { timeout: 10000 }),
+        adapter.get!(instance, '/api/4/fs', { timeout: 10000 }),
+        adapter.get!(instance, '/api/4/network', { timeout: 10000 }),
     ]);
 
     // Start with cached values (if available) so failed endpoints retain
@@ -75,6 +74,7 @@ export async function poll(instance: PluginInstance): Promise<GlancesData> {
     let uptime = cached?.uptime ?? null;
     let temperature: number | null = cached?.temperature ?? null;
     let diskUsage: number | null = cached?.diskUsage ?? null;
+    let disks: GlancesDiskInfo[] = cached?.disks ?? [];
     let networkUp: number | null = cached?.networkUp ?? null;
     let networkDown: number | null = cached?.networkDown ?? null;
 
@@ -94,11 +94,31 @@ export async function poll(instance: PluginInstance): Promise<GlancesData> {
     if (sensorsRes.status === 'fulfilled') {
         const sensors = sensorsRes.value.data;
         if (Array.isArray(sensors)) {
-            const cpuSensor = sensors.find((s: { label?: string; type?: string }) =>
-                s.label?.toLowerCase().includes('cpu') ||
-                s.label?.toLowerCase().includes('core') ||
-                s.type === 'temperature_core'
+            // Priority-based CPU temperature sensor selection.
+            // Different platforms use different labels — try most specific first,
+            // then fall back to generic patterns.
+            const tempSensors = sensors.filter(
+                (s: { type?: string }) => s.type === 'temperature_core'
             );
+
+            // Priority 1: AMD CPU sensors (Tctl = control temp, Tccd = die temp, k10temp)
+            // Priority 2: Intel CPU sensors (Package id = package temp, coretemp)
+            // Priority 3: Generic CPU label
+            // Priority 4: First temperature_core sensor (fallback)
+            const priorities: Array<(s: { label?: string }) => boolean> = [
+                (s) => /^(tctl|tccd|k10temp)/i.test(s.label || ''),
+                (s) => /^(package\s*id|coretemp)/i.test(s.label || ''),
+                (s) => /cpu/i.test(s.label || ''),
+            ];
+
+            let cpuSensor: { value?: number } | undefined;
+            for (const matcher of priorities) {
+                cpuSensor = tempSensors.find(matcher);
+                if (cpuSensor) break;
+            }
+            // Fallback: first temperature_core sensor
+            if (!cpuSensor) cpuSensor = tempSensors[0];
+
             if (cpuSensor && typeof cpuSensor.value === 'number') {
                 temperature = Math.round(cpuSensor.value);
             }
@@ -147,20 +167,83 @@ export async function poll(instance: PluginInstance): Promise<GlancesData> {
 
     // ================================================================
     // Disk Usage (from fs — filesystem info)
-    // Uses the root "/" mount or the largest filesystem as primary
+    // Filters out noise (Docker overlays, squashfs, tmpfs, tiny mounts)
+    // and deduplicates by device_name. Populates per-disk array +
+    // aggregate diskUsage as weighted average.
     // ================================================================
     if (fsRes.status === 'fulfilled') {
         const fsList = fsRes.value.data;
         if (Array.isArray(fsList) && fsList.length > 0) {
-            // Prefer root mount, fallback to the largest filesystem
-            const rootFs = fsList.find((fs: { mnt_point?: string }) => fs.mnt_point === '/');
-            const targetFs = rootFs || fsList.reduce((largest: { size?: number }, fs: { size?: number }) =>
-                (fs.size || 0) > (largest.size || 0) ? fs : largest
-                , fsList[0]);
+            const MIN_SIZE = 1_000_000_000; // 1 GB — skip tiny boot/squashfs partitions
 
-            if (targetFs && typeof targetFs.percent === 'number') {
-                diskUsage = Math.round(targetFs.percent);
+            // Step 1: Filter out virtual/noise filesystems
+            const realFs = fsList.filter((fs: {
+                fs_type?: string;
+                mnt_point?: string;
+                device_name?: string;
+                size?: number;
+            }) => {
+                const fsType = (fs.fs_type || '').toLowerCase();
+                const mount = fs.mnt_point || '';
+                const size = fs.size || 0;
+
+                // Exclude virtual filesystem types
+                if (/^(squashfs|tmpfs|devtmpfs|overlay|devpts|sysfs|proc|cgroup)$/.test(fsType)) return false;
+                // Exclude Docker internal mounts
+                if (mount.includes('/docker/btrfs/subvolumes/')) return false;
+                // Exclude system pseudo-mounts
+                if (/^\/(proc|sys|dev|run)/.test(mount)) return false;
+                if (/^\/(etc\/(resolv|hostname|hosts))/.test(mount)) return false;
+                // Exclude tiny partitions
+                if (size < MIN_SIZE) return false;
+
+                return true;
+            });
+
+            // Step 2: Deduplicate by device_name — keep the shortest mount path
+            // (e.g. /dev/nvme0n1p1 → keep "/" over "/rootfs/mnt/cache/system/docker/btrfs")
+            const byDevice = new Map<string, typeof realFs[0]>();
+            for (const fs of realFs) {
+                const dev = fs.device_name || fs.mnt_point || '';
+                const existing = byDevice.get(dev);
+                if (!existing || (fs.mnt_point || '').length < (existing.mnt_point || '').length) {
+                    byDevice.set(dev, fs);
+                }
             }
+
+            // Step 3: Map to DiskInfo format and sort by mount path
+            const filtered = Array.from(byDevice.values()).sort(
+                (a, b) => (a.mnt_point || '').localeCompare(b.mnt_point || '')
+            );
+
+            disks = filtered.map((fs, idx) => {
+                const mount = (fs.mnt_point || '') as string;
+                // Derive a clean display name from mount point
+                const displayName = mount === '/'
+                    ? 'Root'
+                    : mount.replace(/^\/rootfs/, '').split('/').filter(Boolean).pop() || `disk${idx}`;
+
+                return {
+                    id: `fs-${idx}`,
+                    name: displayName.charAt(0).toUpperCase() + displayName.slice(1),
+                    type: 'data' as const,
+                    temp: null,
+                    status: 'ok' as const,
+                    fsSize: fs.size || null,
+                    fsFree: fs.free || null,
+                    usagePercent: typeof fs.percent === 'number' ? Math.round(fs.percent) : null,
+                };
+            });
+
+            // Step 4: Compute aggregate diskUsage as weighted average
+            let totalSize = 0, totalUsed = 0;
+            for (const d of disks) {
+                if (d.fsSize && d.fsFree) {
+                    totalSize += d.fsSize;
+                    totalUsed += (d.fsSize - d.fsFree);
+                }
+            }
+            diskUsage = totalSize > 0 ? Math.round((totalUsed / totalSize) * 100) : null;
         }
     }
 
@@ -195,7 +278,7 @@ export async function poll(instance: PluginInstance): Promise<GlancesData> {
         throw new Error('All Glances endpoints unreachable');
     }
 
-    const result: GlancesData = { cpu, memory, temperature, uptime, diskUsage, networkUp, networkDown };
+    const result: GlancesData = { cpu, memory, temperature, uptime, diskUsage, networkUp, networkDown, disks };
 
     // Only cache when we have at least some real data (not all defaults)
     const hasRealData = !allFailed;

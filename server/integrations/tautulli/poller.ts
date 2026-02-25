@@ -1,7 +1,4 @@
-import { PluginInstance } from '../types';
-import axios from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
-import { translateHostUrl } from '../../utils/urlHelper';
+import { PluginInstance, PluginAdapter } from '../types';
 
 // ============================================================================
 // TAUTULLI POLLER
@@ -72,21 +69,17 @@ export interface TautulliRecentItem {
 }
 
 // ============================================================================
-// HELPER — call Tautulli API
+// HELPER — call Tautulli API via adapter
 // ============================================================================
 
 async function callTautulli(
     instance: PluginInstance,
+    adapter: PluginAdapter,
     cmd: string,
     params: Record<string, unknown> = {}
 ): Promise<unknown> {
-    const url = (instance.config.url as string).replace(/\/$/, '');
-    const apiKey = instance.config.apiKey as string;
-    const baseUrl = translateHostUrl(url);
-
-    const response = await axios.get(`${baseUrl}/api/v2`, {
-        params: { apikey: apiKey, cmd, ...params },
-        httpsAgent,
+    const response = await adapter.get!(instance, '/api/v2', {
+        params: { cmd, ...params },
         timeout: 15000,
     });
 
@@ -105,12 +98,8 @@ async function callTautulli(
  * Poll Tautulli for library statistics.
  * Returns lean library data for SSE delivery.
  */
-export async function poll(instance: PluginInstance): Promise<TautulliLibrary[]> {
-    if (!instance.config.url || !instance.config.apiKey) {
-        throw new Error('URL and API key required');
-    }
-
-    const data = await callTautulli(instance, 'get_libraries_table', {
+export async function poll(instance: PluginInstance, adapter: PluginAdapter): Promise<TautulliLibrary[]> {
+    const data = await callTautulli(instance, adapter, 'get_libraries_table', {
         length: 50,
         order_column: 'section_name',
         order_dir: 'asc',
@@ -152,12 +141,8 @@ export const statsIntervalMs = 300000; // 5 minutes
  * Poll Tautulli for home stats (top movies, TV, users, etc.).
  * Trims response to only fields the frontend needs.
  */
-export async function pollStats(instance: PluginInstance): Promise<TautulliStatCategory[]> {
-    if (!instance.config.url || !instance.config.apiKey) {
-        throw new Error('URL and API key required');
-    }
-
-    const data = await callTautulli(instance, 'get_home_stats', {
+export async function pollStats(instance: PluginInstance, adapter: PluginAdapter): Promise<TautulliStatCategory[]> {
+    const data = await callTautulli(instance, adapter, 'get_home_stats', {
         stats_count: 20,
         time_range: 30,
         stats_type: 'plays',
@@ -195,12 +180,8 @@ export const recentIntervalMs = 300000; // 5 minutes
 /**
  * Poll Tautulli for recently added items.
  */
-export async function pollRecent(instance: PluginInstance): Promise<TautulliRecentItem[]> {
-    if (!instance.config.url || !instance.config.apiKey) {
-        throw new Error('URL and API key required');
-    }
-
-    const data = await callTautulli(instance, 'get_recently_added', {
+export async function pollRecent(instance: PluginInstance, adapter: PluginAdapter): Promise<TautulliRecentItem[]> {
+    const data = await callTautulli(instance, adapter, 'get_recently_added', {
         count: 20,
     });
 

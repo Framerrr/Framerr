@@ -1,64 +1,67 @@
-import { PluginAdapter, PluginInstance, ProxyRequest, ProxyResult } from '../types';
-import axios, { AxiosRequestConfig } from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
-import { translateHostUrl } from '../../utils/urlHelper';
-import logger from '../../utils/logger';
+/**
+ * Uptime Kuma Integration - Adapter
+ *
+ * Extends BaseAdapter with Basic Auth (empty username, API key as password).
+ * Uses /metrics endpoint which returns Prometheus text format.
+ * Overrides testConnection() for Prometheus text parsing and HTML auth detection.
+ */
+
+import { BaseAdapter } from '../BaseAdapter';
+import { PluginInstance, TestResult } from '../types';
+import { extractAdapterErrorMessage } from '../errors';
 
 // ============================================================================
 // UPTIME KUMA ADAPTER
-// Uses HTTP Basic Auth with empty username, API key as password (Organizr pattern)
 // ============================================================================
 
-export class UptimeKumaAdapter implements PluginAdapter {
-    validateConfig(instance: PluginInstance): boolean {
-        return !!(instance.config.url && instance.config.apiKey);
-    }
-
-    getBaseUrl(instance: PluginInstance): string {
-        const url = instance.config.url as string;
-        return translateHostUrl(url);
-    }
+export class UptimeKumaAdapter extends BaseAdapter {
+    readonly testEndpoint = '/metrics';
 
     getAuthHeaders(instance: PluginInstance): Record<string, string> {
         const apiKey = instance.config.apiKey as string;
-        // Uptime Kuma uses Basic auth with empty username, API key as password
         return {
-            'Accept': 'application/json',
+            'Accept': 'text/plain',
             'Authorization': `Basic ${Buffer.from(':' + apiKey).toString('base64')}`,
         };
     }
 
-    async execute(instance: PluginInstance, request: ProxyRequest): Promise<ProxyResult> {
-        if (!this.validateConfig(instance)) {
-            return { success: false, error: 'Invalid integration configuration', status: 400 };
-        }
+    validateConfig(instance: PluginInstance): boolean {
+        return !!(instance.config.url && instance.config.apiKey);
+    }
 
-        const baseUrl = this.getBaseUrl(instance);
-        const headers = this.getAuthHeaders(instance);
-        const url = `${baseUrl}${request.path}`;
-
-        const config: AxiosRequestConfig = {
-            method: request.method,
-            url,
-            headers,
-            params: request.query,
-            data: request.body,
-            httpsAgent,
-            timeout: 15000,
-        };
-
+    /**
+     * Override: Uptime Kuma test parses Prometheus text to count monitors.
+     * Also detects HTML responses indicating authentication failure.
+     */
+    async testConnection(config: Record<string, unknown>): Promise<TestResult> {
+        const tempInstance: PluginInstance = { id: 'test', type: 'test', name: 'Test', config };
         try {
-            logger.debug(`[Adapter:uptimekuma] Request: method=${request.method} path=${request.path}`);
-            const response = await axios(config);
-            return { success: true, data: response.data };
-        } catch (error) {
-            const axiosError = error as { response?: { status: number; data?: unknown }; message: string };
-            logger.error(`[Adapter:uptimekuma] Failed: error="${axiosError.message}" status=${axiosError.response?.status}`);
+            const response = await this.get(tempInstance, '/metrics', { timeout: 10000 });
+            const metricsText = response.data as string;
+
+            // Check for HTML (auth failed — Uptime Kuma redirects to login page)
+            if (typeof metricsText === 'string' && (metricsText.startsWith('<!DOCTYPE') || metricsText.startsWith('<html'))) {
+                return { success: false, error: 'Authentication failed — invalid API key' };
+            }
+
+            // Count unique monitors from Prometheus metrics
+            const monitorNames = new Set<string>();
+            if (typeof metricsText === 'string') {
+                const lines = metricsText.split('\n');
+                for (const line of lines) {
+                    const match = line.match(/monitor_status\{[^}]*monitor_name="([^"]*)"[^}]*\}/);
+                    if (match) {
+                        monitorNames.add(match[1]);
+                    }
+                }
+            }
+
             return {
-                success: false,
-                error: axiosError.message,
-                status: axiosError.response?.status || 500,
+                success: true,
+                message: `Connected to Uptime Kuma (${monitorNames.size} monitors)`,
             };
+        } catch (error) {
+            return { success: false, error: extractAdapterErrorMessage(error) };
         }
     }
 }

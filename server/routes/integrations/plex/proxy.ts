@@ -5,19 +5,21 @@
  * - /sessions - Get active sessions
  * - /image - Proxy Plex images
  * - /terminate - Terminate session (admin only)
- * - /proxy - Generic Plex API proxy
+ * - /machineId - Get server machine identifier
+ * - /* wildcard - Proxy Plex image paths
  */
 
-import { Router, Request, Response } from 'express';
-import axios from 'axios';
+import { Router, Request, Response, NextFunction } from 'express';
 import logger from '../../../utils/logger';
-import { httpsAgent } from '../../../utils/httpsAgent';
-import { translateHostUrl } from '../../../utils/urlHelper';
 import * as integrationInstancesDb from '../../../db/integrationInstances';
 import { requireAuth } from '../../../middleware/auth';
 import { userHasIntegrationAccess } from '../../../db/integrationShares';
+import { getPlugin } from '../../../integrations/registry';
+import { toPluginInstance } from '../../../integrations/utils';
+import { PluginInstance } from '../../../integrations/types';
 
 const router = Router();
+const adapter = getPlugin('plex')!.adapter;
 
 /**
  * Extract local IP URL from plex.direct URL
@@ -77,87 +79,114 @@ function validatePlexPath(path: string): { valid: boolean; error?: string } {
     return { valid: false, error: 'Path not allowed' };
 }
 
+// ============================================================================
+// SHARED HELPERS
+// ============================================================================
+
+interface PlexSession {
+    instance: PluginInstance;
+    instanceId: string;
+}
+
 /**
- * GET /:id/proxy/sessions - Get active Plex sessions
+ * Validates integration access and returns Plex connection details.
+ * Sends appropriate error responses and returns null if access is denied.
  */
-router.get('/:id/proxy/sessions', requireAuth, async (req: Request, res: Response): Promise<void> => {
+async function withPlexSession(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+    opts: { adminOnly?: boolean } = {}
+): Promise<PlexSession | null> {
     const { id } = req.params;
     const isAdmin = req.user!.group === 'admin';
 
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'plex') {
-        res.status(404).json({ error: 'Plex integration not found' });
-        return;
+    // Type-mismatch: let Express try the next matching router
+    const dbInstance = integrationInstancesDb.getInstanceById(id);
+    if (!dbInstance || dbInstance.type !== 'plex') {
+        next();
+        return null;
+    }
+
+    if (opts.adminOnly && !isAdmin) {
+        res.status(403).json({ error: 'Admin access required' });
+        return null;
     }
 
     if (!isAdmin) {
         const hasAccess = await userHasIntegrationAccess('plex', req.user!.id, req.user!.group);
         if (!hasAccess) {
             res.status(403).json({ error: 'Access denied' });
-            return;
+            return null;
         }
     }
 
-    const url = instance.config.url as string;
-    const token = instance.config.token as string;
+    const instance = toPluginInstance(dbInstance);
 
-    if (!url || !token) {
+    if (!instance.config.url || !instance.config.token) {
         res.status(400).json({ error: 'Invalid Plex configuration' });
-        return;
+        return null;
     }
 
+    return { instance, instanceId: id };
+}
+
+// ============================================================================
+// READ ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /:id/proxy/sessions - Get active Plex sessions
+ */
+router.get('/:id/proxy/sessions', requireAuth, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const session = await withPlexSession(req, res, next);
+    if (!session) return;
+
     try {
-        const translatedUrl = translateHostUrl(url);
-        const response = await axios.get(`${translatedUrl}/status/sessions`, {
-            headers: {
-                'X-Plex-Token': token,
-                'Accept': 'application/json'
-            },
-            httpsAgent,
-            timeout: 10000
+        const response = await adapter.get!(session.instance, '/status/sessions', {
+            timeout: 10000,
         });
 
         const sessions = Array.isArray(response.data)
             ? response.data
             : response.data?.MediaContainer?.Metadata || [];
 
-        const formattedSessions = sessions.map((session: Record<string, unknown>) => ({
-            sessionKey: session.sessionKey || session.key,
-            type: session.type,
-            title: session.title,
-            grandparentTitle: session.grandparentTitle,
-            parentIndex: session.parentIndex,
-            index: session.index,
-            year: session.year,
-            thumb: session.thumb,
-            art: session.art,
-            grandparentThumb: session.grandparentThumb,
-            grandparentArt: session.grandparentArt,
-            parentThumb: session.parentThumb,
-            ratingKey: session.ratingKey,
-            grandparentRatingKey: session.grandparentRatingKey,
-            parentRatingKey: session.parentRatingKey,
-            duration: session.duration,
-            viewOffset: session.viewOffset,
+        const formattedSessions = sessions.map((s: Record<string, unknown>) => ({
+            sessionKey: s.sessionKey || s.key,
+            type: s.type,
+            title: s.title,
+            grandparentTitle: s.grandparentTitle,
+            parentIndex: s.parentIndex,
+            index: s.index,
+            year: s.year,
+            thumb: s.thumb,
+            art: s.art,
+            grandparentThumb: s.grandparentThumb,
+            grandparentArt: s.grandparentArt,
+            parentThumb: s.parentThumb,
+            ratingKey: s.ratingKey,
+            grandparentRatingKey: s.grandparentRatingKey,
+            parentRatingKey: s.parentRatingKey,
+            duration: s.duration,
+            viewOffset: s.viewOffset,
             // Include full Media object with additional metadata
             Media: {
-                ...(session.Media || {}),
-                // These fields come directly from the session, not nested in Media
-                year: session.year,
-                rating: session.rating,
-                contentRating: session.contentRating,
-                studio: session.studio,
-                summary: session.summary,
-                tagline: session.tagline,
+                ...(s.Media || {}),
+                year: s.year,
+                rating: s.rating,
+                contentRating: s.contentRating,
+                studio: s.studio,
+                summary: s.summary,
+                tagline: s.tagline,
             },
-            Player: session.Player,
-            Session: session.Session,
-            TranscodeSession: session.TranscodeSession,
-            Role: session.Role || [],
-            Genre: Array.isArray(session.Genre) ? session.Genre.map((g: { tag?: string }) => g.tag) : [],
-            Director: Array.isArray(session.Director) ? session.Director.map((d: { tag?: string }) => d.tag) : [],
-            Writer: Array.isArray(session.Writer) ? session.Writer.map((w: { tag?: string }) => w.tag) : [],
-            user: { title: (session.User as { title?: string })?.title || 'Unknown' }
+            Player: s.Player,
+            Session: s.Session,
+            TranscodeSession: s.TranscodeSession,
+            Role: s.Role || [],
+            Genre: Array.isArray(s.Genre) ? s.Genre.map((g: { tag?: string }) => g.tag) : [],
+            Director: Array.isArray(s.Director) ? s.Director.map((d: { tag?: string }) => d.tag) : [],
+            Writer: Array.isArray(s.Writer) ? s.Writer.map((w: { tag?: string }) => w.tag) : [],
+            user: { title: (s.User as { title?: string })?.title || 'Unknown' }
         }));
 
         const activeSessions = formattedSessions.filter(
@@ -174,15 +203,9 @@ router.get('/:id/proxy/sessions', requireAuth, async (req: Request, res: Respons
 /**
  * GET /:id/proxy/image - Proxy Plex images
  */
-router.get('/:id/proxy/image', requireAuth, async (req: Request, res: Response, next): Promise<void> => {
-    const { id } = req.params;
-
-    // Check if this is a Plex integration FIRST — if not, pass to next router
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'plex') {
-        next();
-        return;
-    }
+router.get('/:id/proxy/image', requireAuth, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const session = await withPlexSession(req, res, next);
+    if (!session) return;
 
     const { path: imagePath } = req.query;
 
@@ -197,22 +220,10 @@ router.get('/:id/proxy/image', requireAuth, async (req: Request, res: Response, 
         return;
     }
 
-    const url = instance.config.url as string;
-    const token = instance.config.token as string;
-
-    if (!url || !token) {
-        res.status(400).json({ error: 'Invalid Plex configuration' });
-        return;
-    }
-
     try {
-        const translatedUrl = translateHostUrl(url);
-        const imageUrl = `${translatedUrl}${imagePath}?X-Plex-Token=${token}`;
-
-        const response = await axios.get(imageUrl, {
+        const response = await adapter.get!(session.instance, imagePath, {
             responseType: 'arraybuffer',
-            httpsAgent,
-            timeout: 15000
+            timeout: 15000,
         });
 
         const contentType = response.headers['content-type'] || 'image/jpeg';
@@ -226,15 +237,38 @@ router.get('/:id/proxy/image', requireAuth, async (req: Request, res: Response, 
 });
 
 /**
+ * GET /:id/proxy/machineId - Get Plex server machine identifier
+ */
+router.get('/:id/proxy/machineId', requireAuth, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const session = await withPlexSession(req, res, next);
+    if (!session) return;
+
+    try {
+        const response = await adapter.get!(session.instance, '/', {
+            headers: { 'Accept': 'application/xml' },
+            timeout: 10000,
+        });
+
+        // Return raw XML for machine ID extraction
+        res.set('Content-Type', 'application/xml');
+        res.send(response.data);
+    } catch (error) {
+        logger.error(`[Plex Proxy] MachineId error: error="${(error as Error).message}"`);
+        res.status(500).json({ error: 'Failed to fetch Plex info' });
+    }
+});
+
+// ============================================================================
+// ACTION ENDPOINTS (admin-only)
+// ============================================================================
+
+/**
  * POST /:id/proxy/terminate - Terminate a Plex session (ADMIN ONLY)
  */
-router.post('/:id/proxy/terminate', requireAuth, async (req: Request, res: Response): Promise<void> => {
-    if (req.user!.group !== 'admin') {
-        res.status(403).json({ error: 'Admin access required to terminate sessions' });
-        return;
-    }
+router.post('/:id/proxy/terminate', requireAuth, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const session = await withPlexSession(req, res, next, { adminOnly: true });
+    if (!session) return;
 
-    const { id } = req.params;
     const { sessionKey } = req.body;
 
     if (!sessionKey) {
@@ -242,22 +276,7 @@ router.post('/:id/proxy/terminate', requireAuth, async (req: Request, res: Respo
         return;
     }
 
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'plex') {
-        res.status(404).json({ error: 'Plex integration not found' });
-        return;
-    }
-
-    const url = instance.config.url as string;
-    const token = instance.config.token as string;
-
-    if (!url || !token) {
-        res.status(400).json({ error: 'Invalid Plex configuration' });
-        return;
-    }
-
     try {
-        const translatedUrl = translateHostUrl(url);
         const { transcodeSessionKey, clientIdentifier, sessionId, reason } = req.body;
         // URL-encode the reason message for Plex API
         const terminateReason = encodeURIComponent(reason || 'The server owner has ended this stream');
@@ -268,13 +287,9 @@ router.post('/:id/proxy/terminate', requireAuth, async (req: Request, res: Respo
         if (clientIdentifier) {
             logger.info(`[Plex Proxy] Trying player stop: clientIdentifier=${clientIdentifier}`);
             try {
-                await axios.get(`${translatedUrl}/player/playback/stop`, {
-                    headers: {
-                        'X-Plex-Token': token,
-                        'X-Plex-Target-Client-Identifier': clientIdentifier
-                    },
-                    httpsAgent,
-                    timeout: 10000
+                await adapter.get!(session.instance, '/player/playback/stop', {
+                    headers: { 'X-Plex-Target-Client-Identifier': clientIdentifier },
+                    timeout: 10000,
                 });
                 logger.info(`[Plex Proxy] Player stopped: clientIdentifier=${clientIdentifier}`);
                 res.json({ success: true });
@@ -288,10 +303,8 @@ router.post('/:id/proxy/terminate', requireAuth, async (req: Request, res: Respo
         if (transcodeSessionKey) {
             logger.info(`[Plex Proxy] Trying transcode termination: transcodeSessionKey=${transcodeSessionKey}`);
             try {
-                await axios.delete(`${translatedUrl}/transcode/sessions/${transcodeSessionKey}`, {
-                    headers: { 'X-Plex-Token': token },
-                    httpsAgent,
-                    timeout: 10000
+                await adapter.request!(session.instance, 'DELETE', `/transcode/sessions/${transcodeSessionKey}`, undefined, {
+                    timeout: 10000,
                 });
                 logger.info(`[Plex Proxy] Transcode session terminated: transcodeSessionKey=${transcodeSessionKey}`);
                 res.json({ success: true });
@@ -304,14 +317,12 @@ router.post('/:id/proxy/terminate', requireAuth, async (req: Request, res: Respo
         // Try 3: Session termination via status endpoint on relay URL
         // Use sessionId (string) if available, fall back to sessionKey (number)
         const terminateId = sessionId || sessionKey;
-        const terminateUrl = `${translatedUrl}/status/sessions/terminate?sessionId=${terminateId}&reason=${terminateReason}`;
         logger.info(`[Plex Proxy] Trying session termination via relay: terminateId=${terminateId}`);
 
         try {
-            await axios.get(terminateUrl, {
-                headers: { 'X-Plex-Token': token },
-                httpsAgent,
-                timeout: 10000
+            await adapter.get!(session.instance, '/status/sessions/terminate', {
+                params: { sessionId: terminateId, reason: terminateReason },
+                timeout: 10000,
             });
             logger.info(`[Plex Proxy] Session terminated via relay: terminateId=${terminateId}`);
             res.json({ success: true });
@@ -321,15 +332,19 @@ router.post('/:id/proxy/terminate', requireAuth, async (req: Request, res: Respo
         }
 
         // Try 4: Session termination via local IP (plex.direct may not support this endpoint)
-        const localUrl = extractLocalUrlFromPlexDirect(url);
+        const originalUrl = session.instance.config.url as string;
+        const localUrl = extractLocalUrlFromPlexDirect(originalUrl);
         if (localUrl) {
-            const localTerminateUrl = `${localUrl}/status/sessions/terminate?sessionId=${terminateId}&reason=${terminateReason}`;
+            // Create a temporary instance with the local URL for adapter routing
+            const localInstance: PluginInstance = {
+                ...session.instance,
+                config: { ...session.instance.config, url: localUrl },
+            };
             logger.info(`[Plex Proxy] Trying session termination via local IP: ${localUrl}`);
 
-            await axios.get(localTerminateUrl, {
-                headers: { 'X-Plex-Token': token },
-                httpsAgent,
-                timeout: 10000
+            await adapter.get!(localInstance, '/status/sessions/terminate', {
+                params: { sessionId: terminateId, reason: terminateReason },
+                timeout: 10000,
             });
 
             logger.info(`[Plex Proxy] Session terminated via local IP: sessionKey=${sessionKey}`);
@@ -345,56 +360,20 @@ router.post('/:id/proxy/terminate', requireAuth, async (req: Request, res: Respo
     }
 });
 
-/**
- * GET /:id/proxy/machineId - Get Plex server machine identifier
- */
-router.get('/:id/proxy/machineId', requireAuth, async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
-
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'plex') {
-        res.status(404).json({ error: 'Plex integration not found' });
-        return;
-    }
-
-    const url = instance.config.url as string;
-    const token = instance.config.token as string;
-
-    if (!url || !token) {
-        res.status(400).json({ error: 'Invalid Plex configuration' });
-        return;
-    }
-
-    try {
-        const translatedUrl = translateHostUrl(url);
-        const response = await axios.get(`${translatedUrl}/`, {
-            headers: {
-                'X-Plex-Token': token,
-                'Accept': 'application/xml'
-            },
-            httpsAgent,
-            timeout: 10000
-        });
-
-        // Return raw XML for machine ID extraction
-        res.set('Content-Type', 'application/xml');
-        res.send(response.data);
-    } catch (error) {
-        logger.error(`[Plex Proxy] MachineId error: error="${(error as Error).message}"`);
-        res.status(500).json({ error: 'Failed to fetch Plex info' });
-    }
-});
+// ============================================================================
+// IMAGE PROXY (wildcard)
+// ============================================================================
 
 /**
  * GET /:id/proxy/* - Wildcard route for Plex image paths (art, thumb, etc.)
  */
-router.get('/:id/proxy/*', requireAuth, async (req: Request, res: Response, next): Promise<void> => {
+router.get('/:id/proxy/*', requireAuth, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { id } = req.params;
     const path = '/' + (req.params[0] || '');
 
     // FIRST check if this is a Plex integration - if not, pass to next router
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'plex') {
+    const dbInstance = integrationInstancesDb.getInstanceById(id);
+    if (!dbInstance || dbInstance.type !== 'plex') {
         // Not a Plex integration - let the next router handle it
         next();
         return;
@@ -410,22 +389,17 @@ router.get('/:id/proxy/*', requireAuth, async (req: Request, res: Response, next
         return;
     }
 
-    const url = instance.config.url as string;
-    const token = instance.config.token as string;
+    const instance = toPluginInstance(dbInstance);
 
-    if (!url || !token) {
+    if (!instance.config.url || !instance.config.token) {
         res.status(400).json({ error: 'Invalid Plex configuration' });
         return;
     }
 
     try {
-        const translatedUrl = translateHostUrl(url);
-        const imageUrl = `${translatedUrl}${path}?X-Plex-Token=${token}`;
-
-        const response = await axios.get(imageUrl, {
+        const response = await adapter.get!(instance, path, {
             responseType: 'arraybuffer',
-            httpsAgent,
-            timeout: 15000
+            timeout: 15000,
         });
 
         const contentType = response.headers['content-type'] || 'image/jpeg';

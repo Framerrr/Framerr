@@ -4,17 +4,19 @@
  * Handles proxying requests to Emby server:
  * - /Items/:itemId/Images/* - Proxy item images
  * - /Sessions - Get active sessions (for direct access)
+ * 
+ * All HTTP requests flow through the adapter for centralized auth + reauth.
  */
 
-import { Router, Request, Response } from 'express';
-import axios from 'axios';
+import { Router, Request, Response, NextFunction } from 'express';
 import logger from '../../../utils/logger';
-import { httpsAgent } from '../../../utils/httpsAgent';
-import { translateHostUrl } from '../../../utils/urlHelper';
 import * as integrationInstancesDb from '../../../db/integrationInstances';
 import { requireAuth } from '../../../middleware/auth';
+import { getPlugin } from '../../../integrations/registry';
+import { toPluginInstance } from '../../../integrations/utils';
 
 const router = Router();
+const adapter = getPlugin('emby')!.adapter;
 
 /**
  * GET /:id/proxy/* - Wildcard route for Emby API paths
@@ -25,22 +27,14 @@ const router = Router();
  * - /Items/:itemId/Images/Thumb
  * - /Sessions
  */
-router.get('/:id/proxy/*', requireAuth, async (req: Request, res: Response, next): Promise<void> => {
+router.get('/:id/proxy/*', requireAuth, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const { id } = req.params;
     const path = '/' + (req.params[0] || '');
 
     // Check if this is an Emby integration - if not, pass to next router
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'emby') {
+    const dbInstance = integrationInstancesDb.getInstanceById(id);
+    if (!dbInstance || dbInstance.type !== 'emby') {
         next();
-        return;
-    }
-
-    const url = instance.config.url as string;
-    const apiKey = instance.config.apiKey as string;
-
-    if (!url || !apiKey) {
-        res.status(400).json({ error: 'Invalid Emby configuration' });
         return;
     }
 
@@ -53,15 +47,17 @@ router.get('/:id/proxy/*', requireAuth, async (req: Request, res: Response, next
         return;
     }
 
-    try {
-        const translatedUrl = translateHostUrl(url);
-        // Emby uses api_key query param (same as Jellyfin)
-        const imageUrl = `${translatedUrl}${path}?api_key=${apiKey}`;
+    const instance = toPluginInstance(dbInstance);
 
-        const response = await axios.get(imageUrl, {
+    if (!instance.config.url || !instance.config.apiKey) {
+        res.status(400).json({ error: 'Invalid Emby configuration' });
+        return;
+    }
+
+    try {
+        const response = await adapter.get!(instance, path, {
             responseType: 'arraybuffer',
-            httpsAgent,
-            timeout: 15000
+            timeout: 15000,
         });
 
         const contentType = response.headers['content-type'] || 'image/jpeg';
@@ -94,37 +90,38 @@ router.post('/:id/proxy/stop', requireAuth, async (req: Request, res: Response):
         return;
     }
 
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'emby') {
+    const dbInstance = integrationInstancesDb.getInstanceById(id);
+    if (!dbInstance || dbInstance.type !== 'emby') {
         res.status(404).json({ error: 'Emby integration not found' });
         return;
     }
 
-    const url = instance.config.url as string;
+    const instance = toPluginInstance(dbInstance);
     const apiKey = instance.config.apiKey as string;
 
-    if (!url || !apiKey) {
+    if (!instance.config.url || !apiKey) {
         res.status(400).json({ error: 'Invalid Emby configuration' });
         return;
     }
 
     try {
-        const translatedUrl = translateHostUrl(url);
-        const stopUrl = `${translatedUrl}/Sessions/${sessionKey}/Playing/Stop`;
+        const stopPath = `/Sessions/${sessionKey}/Playing/Stop`;
         // Full MediaBrowser header gives Emby a session context to route the command
-        const headers = {
+        const stopHeaders = {
             'Authorization': `MediaBrowser Client="Framerr", Device="Server", DeviceId="framerr-server", Version="0.1.5", Token="${apiKey}"`
         };
 
         // Emby's stop is a client command — send twice with delay for reliability
         // (same pattern as Jellyfin, first attempt is often ignored by clients)
-        await axios.post(stopUrl, {}, { headers, httpsAgent, timeout: 10000 });
+        await adapter.post!(instance, stopPath, {}, { headers: stopHeaders, timeout: 10000 });
 
         // Wait 750ms then send again
         await new Promise(resolve => setTimeout(resolve, 750));
-        await axios.post(stopUrl, {}, { headers, httpsAgent, timeout: 10000 }).catch(() => {
+        try {
+            await adapter.post!(instance, stopPath, {}, { headers: stopHeaders, timeout: 10000 });
+        } catch {
             // Second attempt may fail if session already ended — that's fine
-        });
+        }
 
         logger.info(`[Emby Proxy] Session termination request sent: sessionId=${sessionKey}`);
         res.json({ success: true });
