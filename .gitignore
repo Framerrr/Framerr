@@ -28,6 +28,7 @@ server/data/*.json
 server/data/*.db
 server/data/*.db-shm
 server/data/*.db-wal
+server/data/cache/
 !server/data/.gitkeep
 
 # Database files (global protection)

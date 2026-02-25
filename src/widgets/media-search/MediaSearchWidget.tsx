@@ -136,6 +136,7 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
         query,
         results,
         isSearching,
+        syncStatuses,
         allSyncing,
         anySyncing,
         hasNoSyncedLibrary,
@@ -159,9 +160,18 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
         hideOverseerrAvailable,
     });
 
-    // Recommendations hook — scoped to widget's bound integrations
+    // Recommendations hook — only show recs from integrations that have completed sync
+    const syncedIntegrationIds = useMemo(() => {
+        if (previewMode) return [];
+        return configuredIntegrations.filter(id => {
+            const status = syncStatuses[id];
+            // Include if: sync completed with items, or no status yet (legacy/non-library)
+            return !status || (status.syncStatus !== 'syncing' && status.indexedItems > 0);
+        });
+    }, [previewMode, configuredIntegrations, syncStatuses]);
+
     const { items: recommendationItems, source: recommendationSource, isLoading: isRecsLoading } = useRecommendations(
-        previewMode ? [] : configuredIntegrations
+        syncedIntegrationIds
     );
 
     // Show integration type badge on recommendation cards when 2+ different types are bound
@@ -285,9 +295,15 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
 
         const unsubscribe = onSettingsInvalidate((event) => {
             if (event.entity === 'media-search-sync') {
-                // Sync state changed - refetch sync statuses and clear stale results
+                // Sync state changed - refetch sync statuses
                 refetchSyncStatuses();
-                clearResults();
+                // If user has a query, re-search to show fresh results.
+                // Otherwise just clear stale results.
+                if (query.trim()) {
+                    search(query);
+                } else {
+                    clearResults();
+                }
             }
         });
 
@@ -568,16 +584,20 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
                                         src={item.posterUrl}
                                         alt={item.title}
                                         className="media-search-poster"
+                                        onError={(e) => {
+                                            // Hide broken image, show placeholder sibling
+                                            e.currentTarget.style.display = 'none';
+                                            (e.currentTarget.nextElementSibling as HTMLElement)?.classList.remove('hidden');
+                                        }}
                                     />
-                                ) : (
-                                    <div className="media-search-poster-placeholder">
-                                        {item.mediaType === 'movie' ? (
-                                            <Film size={14} />
-                                        ) : (
-                                            <Tv size={14} />
-                                        )}
-                                    </div>
-                                )}
+                                ) : null}
+                                <div className={`media-search-poster-placeholder${item.posterUrl ? ' hidden' : ''}`}>
+                                    {item.mediaType === 'movie' ? (
+                                        <Film size={14} />
+                                    ) : (
+                                        <Tv size={14} />
+                                    )}
+                                </div>
 
                                 {/* Info */}
                                 <div className="media-search-info">

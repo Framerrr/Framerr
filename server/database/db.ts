@@ -46,7 +46,9 @@ try {
     logger.debug('[DB] WAL mode enabled, foreign keys enforced');
 
 } catch (error) {
-    logger.error(`[DB] Failed to initialize database: ${(error as Error).message}`);
+    logger.error(`[DB] FATAL: Cannot open database at ${DB_PATH}`);
+    logger.error(`[DB] Error: ${(error as Error).message}`);
+    logger.error(`[DB] Check that the data directory is writable by PUID/PGID (${process.env.PUID || '0'}/${process.env.PGID || '0'})`);
     throw error;
 }
 

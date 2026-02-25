@@ -389,7 +389,10 @@ export function useMediaSearch({
                         { signal: abortController.signal }
                     );
 
-                    if (!response.ok) throw new Error(`Overseerr search failed for ${instanceId}`);
+                    if (!response.ok) {
+                        const errorBody = await response.json().catch(() => ({})) as { error?: string };
+                        throw new Error(`HTTP ${response.status}: ${errorBody.error || response.statusText}`);
+                    }
 
                     const data = await response.json() as {
                         results: OverseerrMediaResult[];

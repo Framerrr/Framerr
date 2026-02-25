@@ -1,97 +1,38 @@
 #!/bin/sh
 set -e
 
-# Get PUID/PGID from environment (default to root)
+# PUID/PGID: control host file ownership. Default to root.
 PUID=${PUID:-0}
 PGID=${PGID:-0}
 
-# Short-circuit: if running as root with default PUID/PGID (0/0),
-# skip all user management and just run directly (like Homarr)
-if [ "$PUID" -eq 0 ] && [ "$PGID" -eq 0 ]; then
-    echo ""
-    echo "  Framerr - Starting Container (as root)"
-    echo "  TZ:   ${TZ:-UTC}"
-    echo ""
-    mkdir -p /config /config/upload/temp /config/upload/profile-pictures /config/upload/custom-icons
-    echo "Starting Framerr"
-    echo ""
-    exec "$@"
-fi
-
-# Detect if running as root (needed for user setup and su-exec)
-IS_ROOT=0
-[ "$(id -u)" -eq 0 ] && IS_ROOT=1
-
-# Helper: run a command as PUID:PGID (via su-exec if root, directly if not)
-RUN_AS() {
-    if [ "$IS_ROOT" -eq 1 ]; then
-        su-exec "$PUID:$PGID" "$@"
-    else
-        "$@"
-    fi
-}
-
 echo ""
-echo "  Framerr - Starting Container"
+echo "  Framerr"
 echo "  PUID: $PUID"
 echo "  PGID: $PGID"
 echo "  TZ:   ${TZ:-UTC}"
 echo ""
 
-# Only handle user/group creation and chown when running as root.
-# If the container was started with Docker's user: field, we skip all
-# of this since Docker already set the user.
-if [ "$IS_ROOT" -eq 1 ]; then
+# Ensure data directories exist
+mkdir -p /config /config/upload/temp /config/upload/profile-pictures /config/upload/custom-icons
 
-    # Clean up Dockerfile's default framerr user/group (UID/GID 10000)
-    # so we can recreate with the requested PUID/PGID
-    deluser framerr 2>/dev/null || true
-    delgroup framerr 2>/dev/null || true
-
-    # --- Handle GID ---
-    if getent group "$PGID" >/dev/null 2>&1; then
-        TARGET_GROUP=$(getent group "$PGID" | cut -d: -f1)
-        echo "GID $PGID already in use by group '$TARGET_GROUP', will run with numeric IDs"
-    else
-        addgroup -g "$PGID" framerr
-        TARGET_GROUP="framerr"
-    fi
-
-    # --- Handle UID ---
-    if getent passwd "$PUID" >/dev/null 2>&1; then
-        EXISTING_USER=$(getent passwd "$PUID" | cut -d: -f1)
-        echo "UID $PUID already in use by user '$EXISTING_USER', will run with numeric IDs"
-    else
-        adduser -D -u "$PUID" -G "$TARGET_GROUP" framerr
-    fi
-
-    # --- Ensure directories and ownership ---
-    mkdir -p /config
-    mkdir -p /config/upload/temp
-    mkdir -p /config/upload/profile-pictures
-    mkdir -p /config/upload/custom-icons
-
-    echo "Setting ownership on /config..."
-    chown -R "$PUID:$PGID" /config
-
-    # Migrate old custom icons if they exist
-    if [ -d "/config/custom-icons" ] && [ "$(ls -A /config/custom-icons 2>/dev/null)" ]; then
-        echo "Migrating custom icons to new location..."
-        cp -r /config/custom-icons/* /config/upload/custom-icons/ 2>/dev/null || true
-        echo "Custom icons migrated successfully"
-    fi
-
-else
-    echo "Not running as root; skipping user/group setup and chown."
-    mkdir -p /config /config/upload/temp /config/upload/profile-pictures /config/upload/custom-icons
+# Migrate old custom icons if they exist
+if [ -d "/config/custom-icons" ] && [ "$(ls -A /config/custom-icons 2>/dev/null)" ]; then
+    echo "Migrating custom icons to new location..."
+    cp -r /config/custom-icons/* /config/upload/custom-icons/ 2>/dev/null || true
+    echo "Custom icons migrated"
 fi
 
+# Fix ownership (skip if running as root with default 0:0)
+if [ "$PUID" != "0" ] || [ "$PGID" != "0" ]; then
+    echo "Setting ownership on /config..."
+    chown -R "$PUID:$PGID" /config 2>/dev/null || echo "Warning: Could not chown /config; continuing anyway"
+fi
 
-# --- Start the app ---
-echo "Starting Framerr (UID:$PUID, GID:$PGID)"
-echo ""
-if [ "$IS_ROOT" -eq 1 ]; then
+# Drop privileges if non-root PUID requested and we ARE root
+if [ "$(id -u)" = "0" ] && [ "$PUID" != "0" ]; then
+    echo "Starting Framerr (UID:$PUID, GID:$PGID)"
     exec su-exec "$PUID:$PGID" "$@"
 else
+    echo "Starting Framerr"
     exec "$@"
 fi

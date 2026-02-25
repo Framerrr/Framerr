@@ -361,10 +361,11 @@ router.get('/:id/proxy/search', requireAuth, async (req: Request, res: Response)
     }
 
     try {
-        // Search endpoint — need explicit encoding for Overseerr's strict
-        // reserved character handling. Use params for proper encoding.
-        const response = await adapter.get!(session.instance, '/api/v1/search', {
-            params: { query, page: String(page) },
+        // Search endpoint — Overseerr requires %20 for spaces (rejects +).
+        // Build URL with explicit encodeURIComponent instead of relying on
+        // axios params serialization which may encode spaces as +.
+        const searchPath = `/api/v1/search?query=${encodeURIComponent(query)}&page=${encodeURIComponent(String(page))}`;
+        const response = await adapter.get!(session.instance, searchPath, {
             timeout: 15000,
         });
 

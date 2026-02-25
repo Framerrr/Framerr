@@ -379,14 +379,15 @@ export async function getOrFetchLargeImage(
 
     // Fetch from Plex transcode
     try {
-        const encodedThumb = encodeURIComponent(originalThumbPath);
+        // Pass raw thumb path — axios auto-encodes params, so manual
+        // encodeURIComponent would cause double-encoding (%2F → %252F)
         const response = await adapter.get(instance, '/photo/:/transcode', {
             params: {
                 width: LARGE_IMAGE_SIZE.width,
                 height: LARGE_IMAGE_SIZE.height,
                 minSize: 1,
                 upscale: 1,
-                url: encodedThumb,
+                url: originalThumbPath,
             },
             responseType: 'arraybuffer',
             timeout: 15000

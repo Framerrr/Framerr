@@ -591,6 +591,24 @@ async function postRestoreProcessing(): Promise<void> {
         });
 
         purgeTransaction();
+
+        // Step 3: Clean up cached image files (orphaned after DB purge)
+        // These directories contain images from the previous system that are no longer referenced
+        const cacheDirsToClean = [
+            path.join(DATA_DIR, 'cache', 'library'),  // Library sync thumbnails
+            path.join(DATA_DIR, 'cache', 'images'),    // TMDB poster cache
+        ];
+        for (const dir of cacheDirsToClean) {
+            try {
+                if (fs.existsSync(dir)) {
+                    fs.rmSync(dir, { recursive: true });
+                    logger.info(`[Restore] Deleted cache directory: ${dir}`);
+                }
+            } catch (error) {
+                logger.warn(`[Restore] Failed to delete cache directory: dir="${dir}" error="${(error as Error).message}"`);
+            }
+        }
+
         logger.info('[Restore] Post-restore processing complete');
     } finally {
         restoredDb.close();
