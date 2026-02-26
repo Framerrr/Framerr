@@ -91,8 +91,8 @@ function createApiClient(): AxiosInstance {
             if (error.response?.status === 401) {
                 const requestUrl = error.config?.url || '';
                 const isAuthEndpoint = AUTH_ENDPOINTS.some(ep => requestUrl.includes(ep));
-                const isLoginPage = window.location.hash.includes('login');
-                const isSetupPage = window.location.hash.includes('setup');
+                const isLoginPage = window.location.pathname.includes('login');
+                const isSetupPage = window.location.pathname.includes('setup');
 
                 // Show session expired only for unexpected 401s
                 if (!isAuthEndpoint && !isLoginPage && !isSetupPage && !isLoggingOut && !hasShownSessionExpiredToast) {

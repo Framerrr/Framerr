@@ -21,12 +21,10 @@ if (!rootElement) {
 }
 
 ReactDOM.createRoot(rootElement).render(
-    <React.StrictMode>
-        <BrowserRouter>
-            <SelectProvider>
-                <App />
-            </SelectProvider>
-        </BrowserRouter>
-    </React.StrictMode>,
+    <BrowserRouter>
+        <SelectProvider>
+            <App />
+        </SelectProvider>
+    </BrowserRouter>,
 );
 

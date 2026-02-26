@@ -82,6 +82,7 @@ export interface CalendarMovie {
     images?: { coverType: string; url?: string; remoteUrl?: string }[];
     hasFile?: boolean;
     status?: string; // 'released', 'announced', 'inCinemas'
+    runtime?: number;
 }
 
 /**
@@ -115,6 +116,7 @@ export async function pollCalendar(instance: PluginInstance, adapter: PluginAdap
         images: item.images as { coverType: string; url?: string; remoteUrl?: string }[] | undefined,
         hasFile: item.hasFile as boolean | undefined,
         status: item.status as string | undefined,
+        runtime: item.runtime as number | undefined,
     }));
 }
 

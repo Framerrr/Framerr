@@ -110,7 +110,7 @@ export const RequestModal: React.FC<RequestModalProps> = ({
 
     // ── Validation ── (only count non-disabled seasons as actual selections)
     const isValid = (() => {
-        if (showServerPicker && !selectedServerId) return false;
+        if (showServerPicker && selectedServerId == null) return false;
         if (showSeasonPicker) {
             const newSelections = selectedSeasons.filter(s => !allRequestedSeasons.includes(s));
             if (newSelections.length === 0) return false;

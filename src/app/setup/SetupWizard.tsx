@@ -43,7 +43,7 @@ interface RippleState {
     color: string;
 }
 
-const STEPS = ['welcome', 'choice', 'theme', 'account', 'customize', 'auth', 'complete'] as const;
+const STEPS = ['welcome', 'choice', 'account', 'theme', 'customize', 'auth', 'complete'] as const;
 type StepName = typeof STEPS[number];
 
 // Animation variants for step transitions
@@ -141,7 +141,7 @@ const SetupWizard: React.FC = () => {
         goNext();
     }, [goNext]);
 
-    // Create admin account (Step 3)
+    // Create admin account (Step 2 — point of no return, user created in DB)
     const createAccount = useCallback(async (): Promise<boolean> => {
         setLoading(true);
         setError(null);
@@ -178,7 +178,7 @@ const SetupWizard: React.FC = () => {
         }
     }, [data.username, data.password, data.displayName, login]);
 
-    // Save customization settings (Step 4)
+    // Save customization settings (Step 4 — freely revisitable)
     const saveCustomization = useCallback(async (): Promise<boolean> => {
         setLoading(true);
         setError(null);
@@ -215,7 +215,7 @@ const SetupWizard: React.FC = () => {
         }
     }, [data.appName, data.theme, data.flattenUI]);
 
-    // Save auth settings (Step 5)
+    // Save auth settings (Step 5 — freely revisitable)
     const saveAuthSettings = useCallback(async (): Promise<boolean> => {
         if (!data.plexSSOEnabled) {
             return true; // Nothing to save

@@ -214,10 +214,10 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
             return; // Don't process other redirects when setup is needed
         }
 
-        // Setup complete: redirect away from /setup to /login
-        if (currentPath === '/setup') {
-            navigate('/login', { replace: true });
-        }
+        // NOTE: Redirecting AWAY from /setup is handled by Setup.tsx itself,
+        // not here. Having it here caused a race condition where needsSetup=false
+        // (default) would briefly redirect /setup → /login before the async check
+        // confirmed needsSetup=true, causing a redirect cycle and double animation.
 
         // Force-change password redirect
         if (requirePasswordChange && user && currentPath !== '/change-password') {

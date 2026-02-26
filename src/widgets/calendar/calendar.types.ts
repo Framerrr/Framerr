@@ -28,12 +28,14 @@ export interface CalendarEvent {
     seasonNumber?: number;
     episodeNumber?: number;
     airDate?: string;
+    airDateUtc?: string;
     physicalRelease?: string;
     digitalRelease?: string;
     inCinemas?: string;
     overview?: string;
     instanceId?: string;
     instanceName?: string;
+    runtime?: number;
 }
 
 export interface EventsMap {

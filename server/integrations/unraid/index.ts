@@ -28,6 +28,9 @@ export const plugin: IntegrationPlugin = {
     metrics: [
         { key: 'cpu', recordable: true },
         { key: 'memory', recordable: true },
-        { key: 'arrayUsage', recordable: false },
+        { key: 'temperature', recordable: true },
+        { key: 'uptime', recordable: false },
+        { key: 'diskUsage', recordable: false },
+        // networkUp/networkDown: not available via Unraid GraphQL API
     ],
 };

@@ -103,6 +103,7 @@ export interface CalendarEpisode {
     airDateUtc?: string;
     overview?: string;
     hasFile?: boolean;
+    runtime?: number;
 }
 
 /**
@@ -145,6 +146,7 @@ export async function pollCalendar(instance: PluginInstance, adapter: PluginAdap
             airDateUtc: item.airDateUtc as string,
             overview: item.overview as string,
             hasFile: item.hasFile as boolean | undefined,
+            runtime: item.runtime as number | undefined,
         };
     });
 }

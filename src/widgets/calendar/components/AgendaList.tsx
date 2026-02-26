@@ -15,6 +15,17 @@ import { getDisplayTitle, getEpisodeCode, getPosterUrl } from './EventPopover';
 import type { CalendarEvent, EventsMap, FilterType } from '../calendar.types';
 import { toLocalDateStr } from '../../../shared/utils/dateUtils';
 
+/** Get localized air time string from a UTC timestamp */
+function getAirTime(event: CalendarEvent): string | null {
+    const raw = event.type === 'sonarr'
+        ? (event.airDateUtc || event.airDate)
+        : (event.digitalRelease || event.physicalRelease || event.inCinemas);
+    if (!raw || !raw.includes('T')) return null;
+    return new Date(raw).toLocaleTimeString(undefined, {
+        hour: 'numeric', minute: '2-digit',
+    });
+}
+
 interface AgendaListProps {
     events: EventsMap;
     filter: FilterType;
@@ -292,6 +303,14 @@ const AgendaList: React.FC<AgendaListProps> = ({
                                         {!isTV && releaseType && (
                                             <div className="cal-agenda-card-meta">{releaseType}</div>
                                         )}
+                                        {isTV && (() => {
+                                            const airTime = getAirTime(ev);
+                                            return airTime ? (
+                                                <div className="cal-agenda-card-meta text-theme-tertiary" style={{ fontSize: '0.7rem' }}>
+                                                    Airs: {airTime}
+                                                </div>
+                                            ) : null;
+                                        })()}
                                     </div>
 
                                     {/* Type badge — top right */}
