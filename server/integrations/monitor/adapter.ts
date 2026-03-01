@@ -1,48 +1,43 @@
-import { PluginAdapter, PluginInstance, ProxyRequest, ProxyResult } from '../types';
-import logger from '../../utils/logger';
-
-// ============================================================================
-// MONITOR ADAPTER (First-party Framerr Monitoring - Local DB)
-// ============================================================================
-
 /**
- * MonitorAdapter handles Framerr's built-in service monitoring.
- * Unlike other adapters that proxy to external services, this adapter
- * signals that the request should be handled locally via the service_monitors table.
- * 
- * The actual database query is performed by secureProxy.ts when it sees
- * the `_localQuery` flag in the response.
+ * Monitor Integration - Adapter
+ *
+ * Extends BaseAdapter for interface compliance.
+ * Monitor is unique — it reads local system stats from the database,
+ * not from an external service. No HTTP calls are made.
  */
-export class MonitorAdapter implements PluginAdapter {
+
+import { BaseAdapter } from '../BaseAdapter';
+import { PluginInstance, TestResult } from '../types';
+
+// ============================================================================
+// MONITOR ADAPTER
+// ============================================================================
+
+export class MonitorAdapter extends BaseAdapter {
+    readonly testEndpoint = '/';
+
+    getAuthHeaders(_instance: PluginInstance): Record<string, string> {
+        return {};
+    }
+
     validateConfig(_instance: PluginInstance): boolean {
-        // No external config required - monitors stored in local DB
+        // No external config required — monitors stored in local DB
         return true;
     }
 
     getBaseUrl(_instance: PluginInstance): string {
-        // Local adapter - no external URL
+        // Local adapter — no external URL
         return '';
     }
 
-    getAuthHeaders(_instance: PluginInstance): Record<string, string> {
-        // No external auth required
-        return {};
-    }
-
-    async execute(instance: PluginInstance, request: ProxyRequest): Promise<ProxyResult> {
-        // Route to internal service monitor endpoints based on path
-        // The secureProxy will handle this specially for 'monitor' type
-        logger.debug(`[Adapter:monitor] Request for instance ${instance.id}`, { path: request.path });
-
-        // Return metadata to let the proxy know this is a local DB query
+    /**
+     * Test connection for Framerr's built-in monitoring.
+     * Always succeeds — this is a local database integration.
+     */
+    async testConnection(_config: Record<string, unknown>): Promise<TestResult> {
         return {
             success: true,
-            data: {
-                _localQuery: true,
-                integrationInstanceId: instance.id,
-                path: request.path,
-                method: request.method,
-            },
+            message: 'Framerr Monitor is ready. Configure monitors in the Service Status widget.',
         };
     }
 }

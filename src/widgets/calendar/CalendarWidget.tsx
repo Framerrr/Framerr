@@ -158,17 +158,25 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
         const startBound = toLocalDateStr(new Date(now - 30 * 24 * 60 * 60 * 1000));
         const endBound = toLocalDateStr(new Date(now + 60 * 24 * 60 * 60 * 1000));
         sonarrItems.forEach(item => {
-            const date = item.airDate;
-            if (date) {
-                const dateStr = date.split('T')[0];
+            // Prefer airDateUtc (real UTC timestamp) for timezone-correct local grouping.
+            // Fall back to airDate (date-only string) if airDateUtc is missing.
+            const raw = item.airDateUtc || item.airDate;
+            if (raw) {
+                // Date-only strings (no 'T') are parsed as UTC midnight by JS,
+                // which can shift the day. Append T00:00:00 to treat as local instead.
+                const dateStr = raw.includes('T')
+                    ? toLocalDateStr(new Date(raw))
+                    : raw; // airDate is already YYYY-MM-DD, use as-is
                 if (!newEvents[dateStr]) newEvents[dateStr] = [];
                 newEvents[dateStr].push({ ...item, type: 'sonarr' });
             }
         });
         radarrItems.forEach(item => {
-            const date = item.physicalRelease || item.digitalRelease || item.inCinemas;
-            if (date) {
-                const dateStr = date.split('T')[0];
+            const raw = item.physicalRelease || item.digitalRelease || item.inCinemas;
+            if (raw) {
+                const dateStr = raw.includes('T')
+                    ? toLocalDateStr(new Date(raw))
+                    : raw;
                 // Skip entries whose plotted date falls outside the calendar window
                 // (Radarr returns movies if ANY date overlaps the window)
                 if (dateStr < startBound || dateStr > endBound) return;

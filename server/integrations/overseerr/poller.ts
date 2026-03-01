@@ -6,15 +6,13 @@
  * Triggers surgical library cache refresh when media becomes available.
  */
 
-import { PluginInstance } from '../types';
-import axios from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
+import { PluginInstance, PluginAdapter } from '../types';
 import { enrichRequests, type RawOverseerrRequest } from '../../services/tmdbEnrichment';
 import {
     isTmdbIdInLibrary,
     getMediaServerIntegrationsWithSync,
     indexRecentlyAddedForTmdbIds
-} from '../../services/librarySyncService';
+} from '../../services/librarySync';
 import logger from '../../utils/logger';
 
 // ============================================================================
@@ -63,19 +61,10 @@ export interface OverseerrData {
  * Enriches results with cached TMDB metadata.
  * Triggers surgical library cache refresh for newly available media.
  */
-export async function poll(instance: PluginInstance): Promise<OverseerrData> {
-    if (!instance.config.url || !instance.config.apiKey) {
-        throw new Error('URL and API key required');
-    }
-
-    const url = (instance.config.url as string).replace(/\/$/, '');
-    const apiKey = instance.config.apiKey as string;
-
+export async function poll(instance: PluginInstance, adapter: PluginAdapter): Promise<OverseerrData> {
     // Fetch raw requests from Overseerr (errors propagate to PollerOrchestrator)
-    const response = await axios.get(`${url}/api/v1/request`, {
+    const response = await adapter.get!(instance, '/api/v1/request', {
         params: { take: 50, filter: 'all', sort: 'added' },
-        headers: { 'X-Api-Key': apiKey },
-        httpsAgent,
         timeout: 15000
     });
 
@@ -99,7 +88,8 @@ export async function poll(instance: PluginInstance): Promise<OverseerrData> {
     );
 
     // Enrich with cached TMDB data (titles, posters, etc.)
-    const enrichedResults = await enrichRequests(rawRequests, { url, apiKey });
+    // Note: enrichRequests uses the adapter internally for TMDB proxy calls
+    const enrichedResults = await enrichRequests(rawRequests, instance);
 
     // Surgical library cache refresh (fire-and-forget, doesn't block SSE response)
     triggerSurgicalRefresh(enrichedResults).catch(err => {

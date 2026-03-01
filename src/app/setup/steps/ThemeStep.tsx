@@ -1,13 +1,12 @@
 import React, { useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, ArrowLeft, Check } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import type { WizardData } from '../SetupWizard';
 
 interface ThemeStepProps {
     data: WizardData;
     updateData: (updates: Partial<WizardData>) => void;
     goNext: () => void;
-    goBack: () => void;
     skip: () => void;
     triggerRipple: (x: number, y: number, color: string) => void;
 }
@@ -27,7 +26,6 @@ const ThemeStep: React.FC<ThemeStepProps> = ({
     data,
     updateData,
     goNext,
-    goBack,
     skip,
     triggerRipple
 }) => {
@@ -126,16 +124,7 @@ const ThemeStep: React.FC<ThemeStepProps> = ({
             </motion.div>
 
             {/* Navigation */}
-            <div className="flex justify-between">
-                <motion.button
-                    onClick={goBack}
-                    className="px-4 py-2 text-theme-secondary hover:text-theme-primary flex items-center gap-2 transition-colors"
-                    whileHover={{ x: -4 }}
-                >
-                    <ArrowLeft size={18} />
-                    Back
-                </motion.button>
-
+            <div className="flex justify-end">
                 <div className="flex gap-3">
                     <motion.button
                         onClick={skip}

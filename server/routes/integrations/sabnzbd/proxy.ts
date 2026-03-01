@@ -13,24 +13,24 @@
  */
 
 import { Router, Request, Response } from 'express';
-import axios from 'axios';
 import logger from '../../../utils/logger';
-import { httpsAgent } from '../../../utils/httpsAgent';
 import * as integrationInstancesDb from '../../../db/integrationInstances';
 import { requireAuth } from '../../../middleware/auth';
 import { userHasIntegrationAccess } from '../../../db/integrationShares';
-import { translateHostUrl } from '../../../utils/urlHelper';
+import { getPlugin } from '../../../integrations/registry';
+import { toPluginInstance } from '../../../integrations/utils';
+import { PluginInstance } from '../../../integrations/types';
 import { triggerTopicPoll } from '../../../services/sse/PollerOrchestrator';
 
 const router = Router();
+const adapter = getPlugin('sabnzbd')!.adapter;
 
 // ============================================================================
 // SHARED HELPERS
 // ============================================================================
 
 interface SabSession {
-    url: string;
-    apiKey: string;
+    instance: PluginInstance;
     instanceId: string;
 }
 
@@ -51,8 +51,8 @@ async function withSabSession(
         return null;
     }
 
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'sabnzbd') {
+    const dbInstance = integrationInstancesDb.getInstanceById(id);
+    if (!dbInstance || dbInstance.type !== 'sabnzbd') {
         res.status(404).json({ error: 'SABnzbd integration not found' });
         return null;
     }
@@ -65,33 +65,28 @@ async function withSabSession(
         }
     }
 
-    const url = instance.config.url as string;
-    const apiKey = instance.config.apiKey as string;
+    const instance = toPluginInstance(dbInstance);
 
-    if (!url || !apiKey) {
+    if (!instance.config.url || !instance.config.apiKey) {
         res.status(400).json({ error: 'Invalid SABnzbd configuration' });
         return null;
     }
 
-    return { url: translateHostUrl(url.replace(/\/$/, '')), apiKey, instanceId: id };
+    return { instance, instanceId: id };
 }
 
 /**
- * Make a SABnzbd API request.
+ * Make a SABnzbd API request via the adapter.
  * All SABnzbd requests go to /api with mode as a query param.
+ * The adapter automatically injects apikey + output=json.
  */
 async function sabRequest(
-    session: SabSession,
+    instance: PluginInstance,
     params: Record<string, string | number>,
     timeout = 10000
 ) {
-    return axios.get(`${session.url}/api`, {
-        params: {
-            ...params,
-            apikey: session.apiKey,
-            output: 'json',
-        },
-        httpsAgent,
+    return adapter.get!(instance, '/api', {
+        params,
         timeout,
     });
 }
@@ -108,7 +103,7 @@ router.get('/:id/proxy/sab/queue', requireAuth, async (req: Request, res: Respon
     if (!session) return;
 
     try {
-        const response = await sabRequest(session, { mode: 'queue' });
+        const response = await sabRequest(session.instance, { mode: 'queue' });
         res.json(response.data);
     } catch (error) {
         logger.error(`[SABnzbd Proxy] Queue error: error="${(error as Error).message}"`);
@@ -126,7 +121,7 @@ router.get('/:id/proxy/sab/history', requireAuth, async (req: Request, res: Resp
     const limit = req.query.limit || '20';
 
     try {
-        const response = await sabRequest(session, { mode: 'history', limit: Number(limit) });
+        const response = await sabRequest(session.instance, { mode: 'history', limit: Number(limit) });
         res.json(response.data);
     } catch (error) {
         logger.error(`[SABnzbd Proxy] History error: error="${(error as Error).message}"`);
@@ -145,7 +140,7 @@ router.get('/:id/proxy/sab/files/:nzoId', requireAuth, async (req: Request, res:
     const { nzoId } = req.params;
 
     try {
-        const response = await sabRequest(session, {
+        const response = await sabRequest(session.instance, {
             mode: 'get_files',
             value: nzoId,
         });
@@ -165,7 +160,7 @@ router.get('/:id/proxy/sab/servers', requireAuth, async (req: Request, res: Resp
     if (!session) return;
 
     try {
-        const response = await sabRequest(session, { mode: 'server_stats' });
+        const response = await sabRequest(session.instance, { mode: 'server_stats' });
         res.json(response.data);
     } catch (error) {
         logger.error(`[SABnzbd Proxy] Servers error: error="${(error as Error).message}"`);
@@ -185,8 +180,8 @@ router.get('/:id/proxy/sab/general/:nzoId', requireAuth, async (req: Request, re
 
     try {
         const [filesRes, serversRes] = await Promise.all([
-            sabRequest(session, { mode: 'get_files', value: nzoId }),
-            sabRequest(session, { mode: 'server_stats' }),
+            sabRequest(session.instance, { mode: 'get_files', value: nzoId }),
+            sabRequest(session.instance, { mode: 'server_stats' }),
         ]);
 
         res.json({
@@ -216,10 +211,10 @@ router.post('/:id/proxy/sab/pause', requireAuth, async (req: Request, res: Respo
     try {
         if (nzoId) {
             // Pause specific item
-            await sabRequest(session, { mode: 'queue', name: 'pause', value: nzoId });
+            await sabRequest(session.instance, { mode: 'queue', name: 'pause', value: nzoId });
         } else {
             // Pause all (global)
-            await sabRequest(session, { mode: 'pause' });
+            await sabRequest(session.instance, { mode: 'pause' });
         }
 
         logger.info(`[SABnzbd Proxy] Pause OK: ${nzoId || 'all'}`);
@@ -244,10 +239,10 @@ router.post('/:id/proxy/sab/resume', requireAuth, async (req: Request, res: Resp
     try {
         if (nzoId) {
             // Resume specific item
-            await sabRequest(session, { mode: 'queue', name: 'resume', value: nzoId });
+            await sabRequest(session.instance, { mode: 'queue', name: 'resume', value: nzoId });
         } else {
             // Resume all (global)
-            await sabRequest(session, { mode: 'resume' });
+            await sabRequest(session.instance, { mode: 'resume' });
         }
 
         logger.info(`[SABnzbd Proxy] Resume OK: ${nzoId || 'all'}`);
@@ -283,7 +278,7 @@ router.post('/:id/proxy/sab/delete', requireAuth, async (req: Request, res: Resp
             params.del_files = 1;
         }
 
-        await sabRequest(session, params);
+        await sabRequest(session.instance, params);
         logger.info(`[SABnzbd Proxy] Delete OK: nzoId=${nzoId} deleteFiles=${deleteFiles}`);
         res.json({ success: true });
         triggerTopicPoll(`sabnzbd:${session.instanceId}`).catch(() => { });
@@ -309,7 +304,7 @@ router.post('/:id/proxy/sab/priority', requireAuth, async (req: Request, res: Re
     }
 
     try {
-        await sabRequest(session, {
+        await sabRequest(session.instance, {
             mode: 'queue',
             name: 'priority',
             value: nzoId,

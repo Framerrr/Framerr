@@ -8,13 +8,16 @@
  */
 
 import { Router, Request, Response } from 'express';
-import axios from 'axios';
 import logger from '../../../utils/logger';
-import { httpsAgent } from '../../../utils/httpsAgent';
-import { translateHostUrl } from '../../../utils/urlHelper';
 import * as integrationInstancesDb from '../../../db/integrationInstances';
 import { requireAuth } from '../../../middleware/auth';
 import { userHasIntegrationAccess } from '../../../db/integrationShares';
+import { PluginInstance } from '../../../integrations/types';
+import { BaseAdapter } from '../../../integrations/BaseAdapter';
+import { PlexAdapter } from '../../../integrations/plex/adapter';
+import { JellyfinAdapter } from '../../../integrations/jellyfin/adapter';
+import { EmbyAdapter } from '../../../integrations/emby/adapter';
+import { toPluginInstance } from '../../../integrations/utils';
 
 const router = Router();
 
@@ -43,17 +46,11 @@ interface NormalizedMetadata {
 // ============================================================================
 
 async function fetchPlexMetadata(
-    url: string,
-    token: string,
+    adapter: BaseAdapter,
+    instance: PluginInstance,
     itemId: string
 ): Promise<NormalizedMetadata> {
-    const translatedUrl = translateHostUrl(url);
-    const response = await axios.get(`${translatedUrl}/library/metadata/${itemId}`, {
-        headers: {
-            'X-Plex-Token': token,
-            'Accept': 'application/json'
-        },
-        httpsAgent,
+    const response = await adapter.get(instance, `/library/metadata/${itemId}`, {
         timeout: 10000
     });
 
@@ -85,21 +82,15 @@ async function fetchPlexMetadata(
 // ============================================================================
 
 async function fetchJellyfinMetadata(
-    url: string,
-    apiKey: string,
-    userId: string,
+    adapter: BaseAdapter,
+    instance: PluginInstance,
     itemId: string
 ): Promise<NormalizedMetadata> {
-    const translatedUrl = translateHostUrl(url);
-    const response = await axios.get(`${translatedUrl}/Users/${userId}/Items/${itemId}`, {
-        headers: {
-            'Authorization': `MediaBrowser Token="${apiKey}"`,
-            'Accept': 'application/json',
-        },
+    const userId = instance.config.userId as string;
+    const response = await adapter.get(instance, `/Users/${userId}/Items/${itemId}`, {
         params: {
             Fields: 'Overview,Genres,Studios,People',
         },
-        httpsAgent,
         timeout: 10000
     });
 
@@ -165,28 +156,22 @@ router.get('/:id/item-metadata/:itemId', requireAuth, async (req: Request, res: 
 
     try {
         let metadata: NormalizedMetadata;
+        const pluginInstance = toPluginInstance(instance);
 
         switch (instance.type) {
             case 'plex': {
-                const url = instance.config.url as string;
-                const token = instance.config.token as string;
-                if (!url || !token) {
-                    res.status(400).json({ error: 'Invalid Plex configuration' });
-                    return;
-                }
-                metadata = await fetchPlexMetadata(url, token, itemId);
+                const adapter = new PlexAdapter();
+                metadata = await fetchPlexMetadata(adapter, pluginInstance, itemId);
                 break;
             }
-            case 'jellyfin':
+            case 'jellyfin': {
+                const adapter = new JellyfinAdapter();
+                metadata = await fetchJellyfinMetadata(adapter, pluginInstance, itemId);
+                break;
+            }
             case 'emby': {
-                const url = instance.config.url as string;
-                const apiKey = instance.config.apiKey as string;
-                const userId = instance.config.userId as string;
-                if (!url || !apiKey || !userId) {
-                    res.status(400).json({ error: `Invalid ${instance.type} configuration (url, apiKey, userId required)` });
-                    return;
-                }
-                metadata = await fetchJellyfinMetadata(url, apiKey, userId, itemId);
+                const adapter = new EmbyAdapter();
+                metadata = await fetchJellyfinMetadata(adapter, pluginInstance, itemId);
                 break;
             }
             default:

@@ -2,6 +2,35 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.1.8] - 2026-03-01
+
+### Added
+- Glances multi-disk support — disk selection UI works for any integration providing disk data, not just Unraid
+- Library sync retry with exponential backoff on timeout/network errors
+- Library sync partial failure reporting — shows which specific library view failed and why
+- Calendar air time display on TV show popovers and agenda cards
+
+### Fixed
+- Glances temperature showing NVMe sensor instead of CPU
+- Library sync timeout on large libraries. Libraries are now indexed and synced per page, with timeout per page
+- Library sync stale error message persisting after successful sync
+- System Status config dropping newly toggled metrics not in saved order
+- System Status drag-drop re-ordering not persisting
+- System Status disk bar height and label text shrinking on narrow cards
+- Sidebar not applying solid-ui mode on startup
+- Calendar timezone grouping bug for non-UTC users
+- Link Grid icon sizing — scales relative to circle diameter instead of fixed sizes
+- Overseerr request button disabled when selecting first server (ID=0)
+- Overseerr 429 rate limit — auto-retry with backoff
+- Setup wizard softlock — account creation now comes before theme selection
+- Setup wizard double animation from auth redirect race condition
+
+### Changed
+- Startup logs now show user count for easier troubleshooting
+- Better error messages on database initialization failure
+
+---
+
 ## [0.1.7] - 2026-02-24
 
 ### Added

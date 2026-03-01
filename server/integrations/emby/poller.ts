@@ -1,7 +1,4 @@
-import axios from 'axios';
-import { PluginInstance } from '../types';
-import { httpsAgent } from '../../utils/httpsAgent';
-import { translateHostUrl } from '../../utils/urlHelper';
+import { PluginInstance, PluginAdapter } from '../types';
 import logger from '../../utils/logger';
 
 // ============================================================================
@@ -39,26 +36,15 @@ export interface EmbySession {
 
 export const intervalMs = 30000; // 30 seconds
 
-export async function poll(instance: PluginInstance): Promise<EmbySession[]> {
-    const url = instance.config.url as string;
-    const apiKey = instance.config.apiKey as string;
-
-    if (!url || !apiKey) {
-        throw new Error('URL and API key required');
+export async function poll(instance: PluginInstance, _adapter?: PluginAdapter): Promise<EmbySession[]> {
+    if (!_adapter) {
+        throw new Error('Adapter required for Emby poller');
     }
 
-    const baseUrl = translateHostUrl(url).replace(/\/$/, '');
-    const response = await axios.get<EmbySession[]>(`${baseUrl}/Sessions`, {
-        headers: {
-            'X-Emby-Token': apiKey,
-            'Accept': 'application/json',
-        },
-        httpsAgent,
-        timeout: 10000,
-    });
+    const response = await _adapter.get!(instance, '/Sessions');
 
     // Filter to only sessions with active playback
-    const activeSessions = response.data.filter(
+    const activeSessions = (response.data as EmbySession[]).filter(
         (session) => session.NowPlayingItem != null
     );
 

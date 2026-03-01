@@ -4,18 +4,12 @@
  * Fetches media details from Overseerr's TMDB proxy endpoints and caches them.
  */
 
-import axios from 'axios';
 import logger from '../utils/logger';
-import { httpsAgent } from '../utils/httpsAgent';
+import { getPlugin } from '../integrations/registry';
+import type { PluginInstance } from '../integrations/types';
 import * as mediaCache from '../db/mediaCache';
 import * as imageCache from './imageCache';
 import type { MediaCacheEntry } from '../db/mediaCache';
-
-/** Overseerr config for API calls */
-export interface OverseerrConfig {
-    url: string;
-    apiKey: string;
-}
 
 /** Raw request from Overseerr API (before enrichment) */
 export interface RawOverseerrRequest {
@@ -96,18 +90,21 @@ interface TmdbTvResponse {
 export async function fetchAndCacheMedia(
     tmdbId: number,
     mediaType: 'movie' | 'tv',
-    config: OverseerrConfig
+    instance: PluginInstance
 ): Promise<MediaCacheEntry | null> {
     try {
-        const url = config.url.replace(/\/$/, '');
-        const endpoint = mediaType === 'movie'
-            ? `${url}/api/v1/movie/${tmdbId}`
-            : `${url}/api/v1/tv/${tmdbId}`;
+        const plugin = getPlugin('overseerr');
+        if (!plugin) {
+            logger.warn('[TMDBEnrichment] Overseerr plugin not found');
+            return null;
+        }
 
-        const response = await axios.get(endpoint, {
-            headers: { 'X-Api-Key': config.apiKey },
-            httpsAgent,
-            timeout: 10000
+        const path = mediaType === 'movie'
+            ? `/api/v1/movie/${tmdbId}`
+            : `/api/v1/tv/${tmdbId}`;
+
+        const response = await plugin.adapter.get!(instance, path, {
+            timeout: 10000,
         });
 
         const data = response.data;
@@ -161,7 +158,7 @@ export async function fetchAndCacheMedia(
 export async function getOrFetchMedia(
     tmdbId: number,
     mediaType: 'movie' | 'tv',
-    config: OverseerrConfig
+    instance: PluginInstance
 ): Promise<MediaCacheEntry | null> {
     // Try cache first
     const cached = mediaCache.getCachedMedia(tmdbId, mediaType);
@@ -170,7 +167,7 @@ export async function getOrFetchMedia(
     }
 
     // Fetch and cache
-    return fetchAndCacheMedia(tmdbId, mediaType, config);
+    return fetchAndCacheMedia(tmdbId, mediaType, instance);
 }
 
 /**
@@ -179,7 +176,7 @@ export async function getOrFetchMedia(
  */
 export async function enrichRequests(
     requests: RawOverseerrRequest[],
-    config: OverseerrConfig
+    instance: PluginInstance
 ): Promise<EnrichedRequest[]> {
     // Collect unique tmdbIds by type
     const movieIds = new Set<number>();
@@ -211,7 +208,7 @@ export async function enrichRequests(
         const batch = missingMovieIds.slice(i, i + maxConcurrent);
         for (const id of batch) {
             fetchPromises.push(
-                fetchAndCacheMedia(id, 'movie', config).then(entry => {
+                fetchAndCacheMedia(id, 'movie', instance).then(entry => {
                     if (entry) cachedMovies.set(id, entry);
                 })
             );
@@ -222,7 +219,7 @@ export async function enrichRequests(
         const batch = missingTvIds.slice(i, i + maxConcurrent);
         for (const id of batch) {
             fetchPromises.push(
-                fetchAndCacheMedia(id, 'tv', config).then(entry => {
+                fetchAndCacheMedia(id, 'tv', instance).then(entry => {
                     if (entry) cachedTv.set(id, entry);
                 })
             );

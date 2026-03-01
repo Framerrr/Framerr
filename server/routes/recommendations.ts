@@ -9,14 +9,17 @@
  */
 
 import { Router, Request, Response } from 'express';
-import axios from 'axios';
 import { requireAuth } from '../middleware/auth';
 import { getDb } from '../database/db';
 import { getPlexTokenForUser } from '../db/linkedAccounts';
 import { getInstanceById } from '../db/integrationInstances';
 import { getLocalLibraryImageUrl } from '../services/libraryImageCache';
-import { translateHostUrl } from '../utils/urlHelper';
-import { httpsAgent } from '../utils/httpsAgent';
+import { BaseAdapter } from '../integrations/BaseAdapter';
+import { PlexAdapter } from '../integrations/plex/adapter';
+import { JellyfinAdapter } from '../integrations/jellyfin/adapter';
+import { EmbyAdapter } from '../integrations/emby/adapter';
+import { PluginInstance } from '../integrations/types';
+import { toPluginInstance } from '../integrations/utils';
 import logger from '../utils/logger';
 
 const router = Router();
@@ -60,21 +63,22 @@ interface PlexHub {
 
 /**
  * Fetch personalized recommendations from Plex /hubs using user's stored token.
+ * NOTE: Uses the user's Plex token (from linked accounts), NOT the admin instance token.
+ * The user token is passed via opts.headers to override the adapter's default auth.
  */
 async function fetchPlexHubs(
-    serverUrl: string,
+    adapter: BaseAdapter,
+    instance: PluginInstance,
     userToken: string,
     integrationId: string,
     limit: number
 ): Promise<RecommendationItem[] | null> {
     try {
-        const url = `${serverUrl}/hubs`;
-        const response = await axios.get(url, {
+        const response = await adapter.get(instance, '/hubs', {
             headers: {
                 'X-Plex-Token': userToken,
                 'Accept': 'application/json',
             },
-            httpsAgent,
             timeout: 8000,
         });
 
@@ -112,8 +116,7 @@ async function fetchPlexHubs(
 
         return allItems.slice(0, limit);
     } catch (error) {
-        const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-        logger.warn(`[Recommendations] Plex /hubs failed: integrationId=${integrationId} status=${status} error="${(error as Error).message}"`);
+        logger.warn(`[Recommendations] Plex /hubs failed: integrationId=${integrationId} error="${(error as Error).message}"`);
         return null;
     }
 }
@@ -135,24 +138,19 @@ interface JellyfinSuggestionItem {
  * Both Jellyfin and Emby share the same API shape for this endpoint.
  */
 async function fetchMediaServerSuggestions(
-    serverUrl: string,
-    apiKey: string,
-    userId: string,
+    adapter: BaseAdapter,
+    instance: PluginInstance,
     integrationId: string,
     integrationType: 'jellyfin' | 'emby',
     limit: number
 ): Promise<RecommendationItem[] | null> {
     try {
-        const url = `${serverUrl}/Users/${userId}/Suggestions`;
-        const response = await axios.get(url, {
+        const userId = instance.config.userId as string;
+        const response = await adapter.get(instance, `/Users/${userId}/Suggestions`, {
             params: {
                 Limit: limit,
                 Type: 'Movie,Series',
             },
-            headers: integrationType === 'jellyfin'
-                ? { 'Authorization': `MediaBrowser Token="${apiKey}"` }
-                : { 'X-Emby-Token': apiKey },
-            httpsAgent,
             timeout: 8000,
         });
 
@@ -179,8 +177,7 @@ async function fetchMediaServerSuggestions(
 
         return results.slice(0, limit);
     } catch (error) {
-        const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-        logger.warn(`[Recommendations] ${integrationType} suggestions failed: integrationId=${integrationId} status=${status} error="${(error as Error).message}"`);
+        logger.warn(`[Recommendations] ${integrationType} suggestions failed: integrationId=${integrationId} error="${(error as Error).message}"`);
         return null;
     }
 }
@@ -337,13 +334,11 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
                 }
 
                 const config = instance.config as Record<string, unknown>;
-                const serverUrl = translateHostUrl(
-                    (config.url as string || '').replace(/\/$/, '')
-                );
                 const integrationType = instance.type as 'plex' | 'jellyfin' | 'emby';
 
-                if (!serverUrl) return { items: [] as RecommendationItem[], isPersonalized: false };
+                if (!config.url) return { items: [] as RecommendationItem[], isPersonalized: false };
 
+                const pluginInstance = toPluginInstance(instance);
                 let items: RecommendationItem[] | null = null;
 
                 // Try type-specific suggestion API
@@ -351,17 +346,26 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
                     case 'plex': {
                         const plexToken = getPlexTokenForUser(userId);
                         if (plexToken) {
-                            items = await fetchPlexHubs(serverUrl, plexToken, integrationId, perIntegrationLimit);
+                            const adapter = new PlexAdapter();
+                            items = await fetchPlexHubs(adapter, pluginInstance, plexToken, integrationId, perIntegrationLimit);
                         }
                         break;
                     }
-                    case 'jellyfin':
-                    case 'emby': {
-                        const apiKey = config.apiKey as string;
-                        const mediaUserId = config.userId as string;
-                        if (apiKey && mediaUserId) {
+                    case 'jellyfin': {
+                        const adapter = new JellyfinAdapter();
+                        if (config.apiKey && config.userId) {
                             items = await fetchMediaServerSuggestions(
-                                serverUrl, apiKey, mediaUserId,
+                                adapter, pluginInstance,
+                                integrationId, integrationType, perIntegrationLimit
+                            );
+                        }
+                        break;
+                    }
+                    case 'emby': {
+                        const adapter = new EmbyAdapter();
+                        if (config.apiKey && config.userId) {
+                            items = await fetchMediaServerSuggestions(
+                                adapter, pluginInstance,
                                 integrationId, integrationType, perIntegrationLimit
                             );
                         }

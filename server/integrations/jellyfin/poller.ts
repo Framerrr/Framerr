@@ -1,7 +1,4 @@
-import axios from 'axios';
-import { PluginInstance } from '../types';
-import { httpsAgent } from '../../utils/httpsAgent';
-import { translateHostUrl } from '../../utils/urlHelper';
+import { PluginInstance, PluginAdapter } from '../types';
 import logger from '../../utils/logger';
 
 // ============================================================================
@@ -39,26 +36,15 @@ export interface JellyfinSession {
 
 export const intervalMs = 30000; // 30 seconds
 
-export async function poll(instance: PluginInstance): Promise<JellyfinSession[]> {
-    const url = instance.config.url as string;
-    const apiKey = instance.config.apiKey as string;
-
-    if (!url || !apiKey) {
-        throw new Error('URL and API key required');
+export async function poll(instance: PluginInstance, _adapter?: PluginAdapter): Promise<JellyfinSession[]> {
+    if (!_adapter) {
+        throw new Error('Adapter required for Jellyfin poller');
     }
 
-    const baseUrl = translateHostUrl(url).replace(/\/$/, '');
-    const response = await axios.get<JellyfinSession[]>(`${baseUrl}/Sessions`, {
-        headers: {
-            'Authorization': `MediaBrowser Token="${apiKey}"`,
-            'Accept': 'application/json',
-        },
-        httpsAgent,
-        timeout: 10000,
-    });
+    const response = await _adapter.get!(instance, '/Sessions');
 
     // Filter to only sessions with active playback
-    const activeSessions = response.data.filter(
+    const activeSessions = (response.data as JellyfinSession[]).filter(
         (session) => session.NowPlayingItem != null
     );
 

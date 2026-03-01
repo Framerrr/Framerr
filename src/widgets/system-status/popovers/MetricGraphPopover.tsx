@@ -138,6 +138,7 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
     const [loading, setLoading] = useState<boolean>(false);
     const [dataSource, setDataSource] = useState<string>('');
 
+
     // Metric display configuration
     const config: MetricConfig = useMemo(
         () => METRIC_CONFIGS[metric] || { ...DEFAULT_METRIC_CONFIG, label: metric },

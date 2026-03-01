@@ -471,6 +471,49 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
                             </div>
                         )}
 
+                        {/* Air time range (e.g., 9:00 PM – 9:48 PM) */}
+                        {airDateRaw && airDateRaw.includes('T') && (() => {
+                            const startDate = new Date(airDateRaw);
+                            const timeFmt: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
+                            const startTime = startDate.toLocaleTimeString(undefined, timeFmt);
+                            const runtime = (episode as any).runtime || (episode as any).series?.runtime;
+                            if (!runtime) {
+                                return (
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                        padding: '0.5rem 0.75rem',
+                                        background: 'var(--bg-hover)',
+                                        borderRadius: '6px',
+                                        fontSize: '0.85rem',
+                                        color: 'var(--text-secondary)',
+                                    }}>
+                                        <Calendar size={14} style={{ color: 'var(--text-tertiary)' }} />
+                                        <span>Airs at <strong style={{ color: 'var(--text-primary)' }}>{startTime}</strong></span>
+                                    </div>
+                                );
+                            }
+                            const endDate = new Date(startDate.getTime() + runtime * 60 * 1000);
+                            const endTime = endDate.toLocaleTimeString(undefined, timeFmt);
+                            return (
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                    padding: '0.5rem 0.75rem',
+                                    background: 'var(--bg-hover)',
+                                    borderRadius: '6px',
+                                    fontSize: '0.85rem',
+                                    color: 'var(--text-secondary)',
+                                }}>
+                                    <Calendar size={14} style={{ color: 'var(--text-tertiary)' }} />
+                                    <span>
+                                        <strong style={{ color: 'var(--text-primary)' }}>{startTime}</strong>
+                                        {' – '}
+                                        <strong style={{ color: 'var(--text-primary)' }}>{endTime}</strong>
+                                        <span style={{ marginLeft: '0.35rem', fontSize: '0.8rem' }}>({runtime} min)</span>
+                                    </span>
+                                </div>
+                            );
+                        })()}
+
                         {/* Upcoming mode: also upcoming for same series */}
                         {episodeStatus !== 'missing' && otherUpcoming.length > 0 && (
                             <div className="snr-modal-also-upcoming">

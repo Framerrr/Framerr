@@ -7,15 +7,15 @@
  */
 
 import { Router, Request, Response } from 'express';
-import axios from 'axios';
 import logger from '../../../utils/logger';
-import { httpsAgent } from '../../../utils/httpsAgent';
-import { translateHostUrl } from '../../../utils/urlHelper';
 import * as integrationInstancesDb from '../../../db/integrationInstances';
 import { requireAuth } from '../../../middleware/auth';
 import { userHasIntegrationAccess } from '../../../db/integrationShares';
+import { getPlugin } from '../../../integrations/registry';
+import { toPluginInstance } from '../../../integrations/utils';
 
 const router = Router();
+const adapter = getPlugin('customsystemstatus')!.adapter;
 
 /**
  * GET /:id/proxy/status - Get custom system status
@@ -24,9 +24,9 @@ router.get('/:id/proxy/status', requireAuth, async (req: Request, res: Response,
     const { id } = req.params;
     const isAdmin = req.user!.group === 'admin';
 
-    const instance = integrationInstancesDb.getInstanceById(id);
+    const dbInstance = integrationInstancesDb.getInstanceById(id);
     // If instance not found or wrong type, let next router handle it
-    if (!instance || instance.type !== 'customsystemstatus') {
+    if (!dbInstance || dbInstance.type !== 'customsystemstatus') {
         return next();
     }
 
@@ -38,24 +38,15 @@ router.get('/:id/proxy/status', requireAuth, async (req: Request, res: Response,
         }
     }
 
-    const url = instance.config.url as string;
-    const token = instance.config.token as string | undefined;
+    const instance = toPluginInstance(dbInstance);
 
-    if (!url) {
+    if (!instance.config.url) {
         res.status(400).json({ error: 'Invalid Custom System Status configuration' });
         return;
     }
 
     try {
-        const translatedUrl = translateHostUrl(url);
-        const headers: Record<string, string> = {};
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        const response = await axios.get(`${translatedUrl}/status`, {
-            headers,
-            httpsAgent,
+        const response = await adapter.get!(instance, '/status', {
             timeout: 10000
         });
 
@@ -73,9 +64,9 @@ router.get('/:id/proxy/history', requireAuth, async (req: Request, res: Response
     const { id } = req.params;
     const isAdmin = req.user!.group === 'admin';
 
-    const instance = integrationInstancesDb.getInstanceById(id);
+    const dbInstance = integrationInstancesDb.getInstanceById(id);
     // If instance not found or wrong type, let next router handle it
-    if (!instance || instance.type !== 'customsystemstatus') {
+    if (!dbInstance || dbInstance.type !== 'customsystemstatus') {
         return next();
     }
 
@@ -87,24 +78,15 @@ router.get('/:id/proxy/history', requireAuth, async (req: Request, res: Response
         }
     }
 
-    const url = instance.config.url as string;
-    const token = instance.config.token as string | undefined;
+    const instance = toPluginInstance(dbInstance);
 
-    if (!url) {
+    if (!instance.config.url) {
         res.status(400).json({ error: 'Invalid Custom System Status configuration' });
         return;
     }
 
     try {
-        const translatedUrl = translateHostUrl(url);
-        const headers: Record<string, string> = {};
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        const response = await axios.get(`${translatedUrl}/history`, {
-            headers,
-            httpsAgent,
+        const response = await adapter.get!(instance, '/history', {
             timeout: 10000
         });
 

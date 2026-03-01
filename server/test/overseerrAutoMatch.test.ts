@@ -31,10 +31,14 @@ vi.mock('../db/linkedAccounts', () => ({
     updateLinkedAccountMetadata: (...args: unknown[]) => mockUpdateLinkedAccountMetadata(...args),
 }));
 
-// Mock axios
-const mockAxiosGet = vi.fn();
-vi.mock('axios', () => ({
-    default: { get: (...args: unknown[]) => mockAxiosGet(...args) },
+// Mock integration registry (getPlugin returns adapter with mock get)
+const mockAdapterGet = vi.fn();
+vi.mock('../integrations/registry', () => ({
+    getPlugin: () => ({
+        adapter: {
+            get: (...args: unknown[]) => mockAdapterGet(...args),
+        },
+    }),
 }));
 
 // Mock logger
@@ -45,16 +49,6 @@ vi.mock('../utils/logger', () => ({
         error: vi.fn(),
         debug: vi.fn(),
     },
-}));
-
-// Mock urlHelper
-vi.mock('../utils/urlHelper', () => ({
-    translateHostUrl: (url: string) => url,
-}));
-
-// Mock httpsAgent
-vi.mock('../utils/httpsAgent', () => ({
-    httpsAgent: undefined,
 }));
 
 // ============================================================================
@@ -91,7 +85,7 @@ describe('tryAutoMatchSingleUser', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockGetInstancesByType.mockReturnValue([MOCK_OVERSEERR_INSTANCE]);
-        mockAxiosGet.mockResolvedValue({
+        mockAdapterGet.mockResolvedValue({
             data: {
                 pageInfo: { pages: 1, pageSize: 50, results: 3, page: 1 },
                 results: MOCK_OVERSEERR_USERS,
@@ -136,7 +130,7 @@ describe('tryAutoMatchSingleUser', () => {
         await tryAutoMatchSingleUser('user-1');
 
         expect(mockLinkAccount).not.toHaveBeenCalled();
-        expect(mockAxiosGet).not.toHaveBeenCalled();
+        expect(mockAdapterGet).not.toHaveBeenCalled();
     });
 
     it('should skip when no matching Overseerr user exists', async () => {
@@ -158,7 +152,7 @@ describe('tryAutoMatchSingleUser', () => {
         });
 
         // Mock the single-user permissions fetch
-        mockAxiosGet.mockResolvedValue({
+        mockAdapterGet.mockResolvedValue({
             data: { id: 1, permissions: 0x4000 | 2 },
         });
 
@@ -182,7 +176,7 @@ describe('tryAutoMatchSingleUser', () => {
         await tryAutoMatchSingleUser('user-1');
 
         expect(mockLinkAccount).not.toHaveBeenCalled();
-        expect(mockAxiosGet).not.toHaveBeenCalled();
+        expect(mockAdapterGet).not.toHaveBeenCalled();
     });
 
     it('should handle API errors gracefully', async () => {
@@ -190,7 +184,7 @@ describe('tryAutoMatchSingleUser', () => {
             if (service === 'plex') return { externalUsername: 'alex_plex', externalId: '12345' };
             return null;
         });
-        mockAxiosGet.mockRejectedValue(new Error('Connection refused'));
+        mockAdapterGet.mockRejectedValue(new Error('Connection refused'));
 
         // Should NOT throw
         await expect(tryAutoMatchSingleUser('user-1')).resolves.not.toThrow();
@@ -203,7 +197,7 @@ describe('tryAutoMatchAllUsers', () => {
         vi.clearAllMocks();
         mockGetInstancesByType.mockReturnValue([MOCK_OVERSEERR_INSTANCE]);
         mockGetUsersLinkedToService.mockReturnValue([]);
-        mockAxiosGet.mockResolvedValue({
+        mockAdapterGet.mockResolvedValue({
             data: {
                 pageInfo: { pages: 1, pageSize: 50, results: 3, page: 1 },
                 results: MOCK_OVERSEERR_USERS,
@@ -255,7 +249,7 @@ describe('tryAutoMatchAllUsers', () => {
 
         await tryAutoMatchAllUsers();
 
-        expect(mockAxiosGet).not.toHaveBeenCalled();
+        expect(mockAdapterGet).not.toHaveBeenCalled();
         expect(mockLinkAccount).not.toHaveBeenCalled();
     });
 
@@ -264,7 +258,7 @@ describe('tryAutoMatchAllUsers', () => {
 
         await tryAutoMatchAllUsers();
 
-        expect(mockAxiosGet).not.toHaveBeenCalled();
+        expect(mockAdapterGet).not.toHaveBeenCalled();
         expect(mockLinkAccount).not.toHaveBeenCalled();
     });
 
@@ -272,7 +266,7 @@ describe('tryAutoMatchAllUsers', () => {
         mockGetPlexLinkedUsers.mockReturnValue([
             { userId: 'user-1', plexUsername: 'alex_plex' },
         ]);
-        mockAxiosGet.mockRejectedValue(new Error('Overseerr offline'));
+        mockAdapterGet.mockRejectedValue(new Error('Overseerr offline'));
 
         await expect(tryAutoMatchAllUsers()).resolves.not.toThrow();
         expect(mockLinkAccount).not.toHaveBeenCalled();

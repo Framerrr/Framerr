@@ -8,10 +8,7 @@
  * Includes status change detection for notifications (Phase 3).
  */
 
-import { PluginInstance } from '../types';
-import axios from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
-import { translateHostUrl } from '../../utils/urlHelper';
+import { PluginInstance, PluginAdapter } from '../types';
 import { notificationBatcher } from '../../services/NotificationBatcher';
 import { userWantsEvent } from '../../services/webhookUserResolver';
 import * as integrationInstancesDb from '../../db/integrationInstances';
@@ -50,24 +47,8 @@ export interface UptimeKumaMonitor {
  * Poll Uptime Kuma for monitor status.
  * Uses the /metrics endpoint with Basic auth (same as proxy route).
  */
-export async function poll(instance: PluginInstance): Promise<UptimeKumaMonitor[]> {
-    if (!instance.config.url || !instance.config.apiKey) {
-        throw new Error('URL and API key required');
-    }
-
-    const url = (instance.config.url as string).replace(/\/$/, '');
-    const apiKey = instance.config.apiKey as string;
-    const translatedUrl = translateHostUrl(url);
-
-    // Use Basic auth: empty username, apiKey as password (same as proxy route)
-    const authHeader = `Basic ${Buffer.from(':' + apiKey).toString('base64')}`;
-
-    const response = await axios.get(`${translatedUrl}/metrics`, {
-        headers: { 'Authorization': authHeader },
-        httpsAgent,
-        timeout: 10000
-    });
-
+export async function poll(instance: PluginInstance, adapter: PluginAdapter): Promise<UptimeKumaMonitor[]> {
+    const response = await adapter.get!(instance, '/metrics', { timeout: 10000 });
     const metricsText = response.data as string;
 
     // Check if we got HTML (auth failed)

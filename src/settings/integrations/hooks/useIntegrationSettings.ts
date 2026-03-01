@@ -147,7 +147,12 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
     // Sync activeModal to ref for async callbacks in usePlexOAuth
     useEffect(() => {
         activeModalRef.current = activeModal;
-    }, [activeModal]);
+        // Refetch integration data when opening an existing instance modal
+        // This ensures backend-set flags (e.g., needsReauth) are picked up without page refresh
+        if (activeModal && !activeModal.startsWith('new-')) {
+            refetchIntegrations();
+        }
+    }, [activeModal]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Derived loading state
     const loading = queryLoading && !initialized;

@@ -64,7 +64,7 @@ export interface PluginInstance {
 
 export interface PollerConfig {
     intervalMs: number;
-    poll: (instance: PluginInstance) => Promise<unknown>;
+    poll: (instance: PluginInstance, adapter: PluginAdapter) => Promise<unknown>;
 
     /**
      * Subtypes for additional data endpoints (calendar, etc.)
@@ -74,7 +74,7 @@ export interface PollerConfig {
     subtypes?: {
         [key: string]: {
             intervalMs: number;
-            poll: (instance: PluginInstance) => Promise<unknown>;
+            poll: (instance: PluginInstance, adapter: PluginAdapter) => Promise<unknown>;
         };
     };
 }
@@ -88,6 +88,8 @@ export interface ProxyRequest {
     method: 'GET' | 'POST' | 'PUT' | 'DELETE';
     query?: Record<string, string>;
     body?: unknown;
+    /** Per-request timeout in ms (default: adapter's 15000ms) */
+    timeout?: number;
 }
 
 export interface ProxyResult {
@@ -102,6 +104,11 @@ export interface PluginAdapter {
     getBaseUrl(instance: PluginInstance): string;
     getAuthHeaders(instance: PluginInstance): Record<string, string>;
     execute(instance: PluginInstance, request: ProxyRequest): Promise<ProxyResult>;
+    // HTTP methods — optional until all adapters extend BaseAdapter (Phase 1-6)
+    get?(instance: PluginInstance, path: string, opts?: import('./httpTypes').HttpOpts): Promise<import('axios').AxiosResponse>;
+    post?(instance: PluginInstance, path: string, body?: unknown, opts?: import('./httpTypes').HttpOpts): Promise<import('axios').AxiosResponse>;
+    request?(instance: PluginInstance, method: string, path: string, body?: unknown, opts?: import('./httpTypes').HttpOpts): Promise<import('axios').AxiosResponse>;
+    testConnection?(config: Record<string, unknown>): Promise<TestResult>;
 }
 
 // ============================================================================

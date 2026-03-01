@@ -6,7 +6,7 @@
  * stored in the local database, not fetched from external APIs.
  */
 
-import { PluginInstance } from '../types';
+import { PluginInstance, PluginAdapter } from '../types';
 import * as serviceMonitorsDb from '../../db/serviceMonitors';
 
 // ============================================================================
@@ -36,7 +36,7 @@ export interface MonitorData {
  * Poll monitors for this integration instance.
  * Reads from local database - no external API calls.
  */
-export async function poll(instance: PluginInstance): Promise<MonitorData[]> {
+export async function poll(instance: PluginInstance, _adapter?: PluginAdapter): Promise<MonitorData[]> {
     // The instance ID is the integration instance ID
     const instanceId = instance.id;
 

@@ -22,8 +22,6 @@ import { plugins } from '../integrations/registry';
 import type { MetricDefinition } from '../integrations/types';
 import { registerJob, unregisterJob } from './jobScheduler';
 import logger from '../utils/logger';
-import axios from 'axios';
-import { httpsAgent } from '../utils/httpsAgent';
 
 // ============================================================================
 // CONSTANTS
@@ -542,7 +540,7 @@ class MetricHistoryService {
                 config: instance.config,
             };
 
-            const data = await plugin.poller.poll(pluginInstance);
+            const data = await plugin.poller.poll(pluginInstance, plugin.adapter);
             if (data && typeof data === 'object') {
                 this.onSSEData(integrationId, type, data as Record<string, unknown>);
             }
@@ -706,25 +704,15 @@ class MetricHistoryService {
 
             // Try to probe the external history endpoint
             try {
-                const baseUrl = plugin.adapter.getBaseUrl({
+                const pluginInstance = {
                     id: instance.id,
                     type: instance.type,
                     name: instance.displayName,
                     config: instance.config,
-                });
+                };
 
-                const headers = plugin.adapter.getAuthHeaders({
-                    id: instance.id,
-                    type: instance.type,
-                    name: instance.displayName,
-                    config: instance.config,
-                });
-
-                const url = `${baseUrl}${metric.historyProbe.path}`;
-                const response = await axios.get(url, {
-                    headers,
+                const response = await plugin.adapter.get!(pluginInstance, metric.historyProbe.path, {
                     params: metric.historyProbe.params,
-                    httpsAgent,
                     timeout: 10000,
                 });
 
@@ -843,19 +831,12 @@ class MetricHistoryService {
         }
 
         try {
-            const baseUrl = plugin.adapter.getBaseUrl({
+            const pluginInstance = {
                 id: instance.id,
                 type: instance.type,
                 name: instance.displayName,
                 config: instance.config,
-            });
-
-            const headers = plugin.adapter.getAuthHeaders({
-                id: instance.id,
-                type: instance.type,
-                name: instance.displayName,
-                config: instance.config,
-            });
+            };
 
             // Find the metric's historyProbe config for the endpoint path
             const recordableMetrics = getRecordableMetrics(instance.type);
@@ -864,11 +845,8 @@ class MetricHistoryService {
                 return { data: [], availableRange: '0d', resolution: 'raw', source: 'external' };
             }
 
-            const url = `${baseUrl}${metric.historyProbe.path}`;
-            const response = await axios.get(url, {
-                headers,
+            const response = await plugin.adapter.get!(pluginInstance, metric.historyProbe.path, {
                 params: { ...metric.historyProbe.params, range },
-                httpsAgent,
                 timeout: 15000,
             });
 

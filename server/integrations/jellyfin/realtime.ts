@@ -9,8 +9,7 @@ import { RealtimeManager, PluginInstance, RealtimeConfig } from '../types';
 import { translateHostUrl } from '../../utils/urlHelper';
 import logger from '../../utils/logger';
 import WebSocket from 'ws';
-import axios from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
+import { getPlugin } from '../registry';
 import { JellyfinSession } from './poller';
 
 // ============================================================================
@@ -20,6 +19,7 @@ import { JellyfinSession } from './poller';
 class JellyfinRealtimeManager implements RealtimeManager {
     private ws: WebSocket | null = null;
     private connected = false;
+    private instance: PluginInstance;
     private url: string;
     private apiKey: string;
     private userId: string;
@@ -40,6 +40,7 @@ class JellyfinRealtimeManager implements RealtimeManager {
     constructor(instance: PluginInstance, onUpdate: (data: unknown) => void) {
         const config = instance.config as Record<string, unknown>;
 
+        this.instance = instance;
         this.url = translateHostUrl((config.url as string) || '').replace(/\/$/, '');
         this.apiKey = (config.apiKey as string) || '';
         this.userId = (config.userId as string) || '';
@@ -159,17 +160,16 @@ class JellyfinRealtimeManager implements RealtimeManager {
      */
     private async fetchSessions(): Promise<void> {
         try {
-            const response = await axios.get<JellyfinSession[]>(`${this.url}/Sessions`, {
-                headers: {
-                    'Authorization': `MediaBrowser Token="${this.apiKey}"`,
-                    'Accept': 'application/json',
-                },
-                httpsAgent,
-                timeout: 10000,
-            });
+            const plugin = getPlugin('jellyfin');
+            if (!plugin) {
+                logger.error('[Jellyfin] Plugin not found for session fetch');
+                return;
+            }
+
+            const response = await plugin.adapter.get!(this.instance, '/Sessions');
 
             // Filter to sessions with active playback
-            const activeSessions = response.data.filter(
+            const activeSessions = (response.data as JellyfinSession[]).filter(
                 (session) => session.NowPlayingItem != null
             );
 

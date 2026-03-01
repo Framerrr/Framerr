@@ -8,10 +8,7 @@
  * - GET /api?mode=history&output=json&apikey=KEY&limit=20 → Completed/failed
  */
 
-import { PluginInstance } from '../types';
-import axios from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
-import { translateHostUrl } from '../../utils/urlHelper';
+import { PluginInstance, PluginAdapter } from '../types';
 
 // ============================================================================
 // SABNZBD POLLER
@@ -95,24 +92,14 @@ export interface SABnzbdData {
 /**
  * Poll SABnzbd for queue and history data.
  */
-export async function poll(instance: PluginInstance): Promise<SABnzbdData> {
-    if (!instance.config.url || !instance.config.apiKey) {
-        throw new Error('URL and API key required');
-    }
-
-    const url = translateHostUrl((instance.config.url as string).replace(/\/$/, ''));
-    const apiKey = instance.config.apiKey as string;
-
-    // Fetch queue and history in parallel — errors propagate to orchestrator
+export async function poll(instance: PluginInstance, adapter: PluginAdapter): Promise<SABnzbdData> {
     const [queueRes, historyRes] = await Promise.all([
-        axios.get<SABnzbdQueueResponse>(`${url}/api`, {
-            params: { mode: 'queue', output: 'json', apikey: apiKey },
-            httpsAgent,
+        adapter.get!(instance, '/api', {
+            params: { mode: 'queue' },
             timeout: 10000,
         }),
-        axios.get<SABnzbdHistoryResponse>(`${url}/api`, {
-            params: { mode: 'history', output: 'json', apikey: apiKey, limit: 20 },
-            httpsAgent,
+        adapter.get!(instance, '/api', {
+            params: { mode: 'history', limit: 20 },
             timeout: 10000,
         }),
     ]);

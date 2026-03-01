@@ -1,17 +1,16 @@
 /**
  * Unraid Integration Plugin
  *
- * Self-contained integration for Unraid server monitoring.
+ * Self-contained integration for Unraid server monitoring via GraphQL API.
  * Implements the IntegrationPlugin interface for auto-discovery.
- *
- * Requires Unraid 7.2+ (built-in GraphQL API) or the Unraid Connect plugin.
  */
 
 import { IntegrationPlugin } from '../types';
 import { id, name, description, category, icon, configSchema } from './config';
 import { UnraidAdapter } from './adapter';
-import { testConnection } from './test';
 import * as poller from './poller';
+
+const adapter = new UnraidAdapter();
 
 export const plugin: IntegrationPlugin = {
     id,
@@ -20,8 +19,8 @@ export const plugin: IntegrationPlugin = {
     category,
     icon,
     configSchema,
-    adapter: new UnraidAdapter(),
-    testConnection,
+    adapter,
+    testConnection: adapter.testConnection.bind(adapter),
     poller: {
         intervalMs: poller.intervalMs,
         poll: poller.poll,
@@ -29,7 +28,9 @@ export const plugin: IntegrationPlugin = {
     metrics: [
         { key: 'cpu', recordable: true },
         { key: 'memory', recordable: true },
-        { key: 'diskUsage', recordable: false },
+        { key: 'temperature', recordable: true },
         { key: 'uptime', recordable: false },
+        { key: 'diskUsage', recordable: false },
+        // networkUp/networkDown: not available via Unraid GraphQL API
     ],
 };

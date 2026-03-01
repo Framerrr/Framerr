@@ -386,7 +386,7 @@ export function useMetricConfig({ widgetId, config, widgetH, showHeader, integra
         // Only needed when there's no saved diskMetricOrder (first-time initialization)
         // When hasSavedDiskLayout, the order already contains disk-{id} keys
         const diskCollapsed = config?.diskCollapsed !== 'individual'; // default collapsed
-        if (!diskCollapsed && !hasSavedDiskLayout && integrationType === 'unraid' && statusData?.disks?.length) {
+        if (!diskCollapsed && !hasSavedDiskLayout && statusData?.disks?.length) {
             const diskSelection = config?.diskSelection as string[] | undefined;
             const selectedDisks = statusData.disks.filter((d) =>
                 !diskSelection || diskSelection.length === 0 || diskSelection.includes(d.id)
@@ -413,7 +413,7 @@ export function useMetricConfig({ widgetId, config, widgetH, showHeader, integra
         }
 
         // When using saved disk layout, resolve disk-{id} keys to MetricDef entries
-        if (!diskCollapsed && hasSavedDiskLayout && integrationType === 'unraid' && statusData?.disks?.length) {
+        if (!diskCollapsed && hasSavedDiskLayout && statusData?.disks?.length) {
             const diskDef = METRIC_REGISTRY.find(m => m.key === 'diskUsage');
             if (diskDef) {
                 // Replace any disk-{id} keys that passed the filter with proper MetricDef entries

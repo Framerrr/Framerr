@@ -1,73 +1,51 @@
-import { PluginAdapter, PluginInstance, ProxyRequest, ProxyResult } from '../types';
-import axios, { AxiosRequestConfig } from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
-import { translateHostUrl } from '../../utils/urlHelper';
-import logger from '../../utils/logger';
-
-// ============================================================================
-// SABNZBD ADAPTER (API Key Query Param Auth)
-// ============================================================================
-
 /**
- * SABnzbd uses a simple API key passed as a query parameter.
- * No session management needed — much simpler than qBittorrent.
- * 
- * All requests go to: {url}/api?apikey={key}&mode={mode}&output=json
+ * SABnzbd Integration - Adapter
+ *
+ * Extends BaseAdapter with query-param authentication (apikey + output=json in URL params).
+ * SABnzbd's API uses GET requests to /api with apikey, mode, and output query params.
  */
-export class SABnzbdAdapter implements PluginAdapter {
+
+import { BaseAdapter } from '../BaseAdapter';
+import { PluginInstance, TestResult } from '../types';
+import { HttpOpts } from '../httpTypes';
+import { AxiosResponse } from 'axios';
+import { extractAdapterErrorMessage } from '../errors';
+
+// ============================================================================
+// SABNZBD ADAPTER
+// ============================================================================
+
+export class SABnzbdAdapter extends BaseAdapter {
+    readonly testEndpoint = '/api';
+
+    getAuthHeaders(_instance: PluginInstance): Record<string, string> {
+        return { 'Accept': 'application/json' };
+    }
+
     validateConfig(instance: PluginInstance): boolean {
         return !!(instance.config.url && instance.config.apiKey);
     }
 
-    getBaseUrl(instance: PluginInstance): string {
-        const url = instance.config.url as string;
-        return translateHostUrl(url);
-    }
-
-    getAuthHeaders(_instance: PluginInstance): Record<string, string> {
-        // SABnzbd uses query param auth, not headers
-        return {};
-    }
-
-    async execute(instance: PluginInstance, request: ProxyRequest): Promise<ProxyResult> {
-        if (!this.validateConfig(instance)) {
-            return { success: false, error: 'Invalid integration configuration', status: 400 };
-        }
-
-        const baseUrl = this.getBaseUrl(instance);
+    /** Override get() to inject apikey + output=json as query params */
+    async get(instance: PluginInstance, path: string, opts?: HttpOpts): Promise<AxiosResponse> {
         const apiKey = instance.config.apiKey as string;
+        return super.get(instance, path, {
+            ...opts,
+            params: { apikey: apiKey, output: 'json', ...opts?.params },
+        });
+    }
 
-        // SABnzbd API always goes through /api with query params
-        // Inject apikey and output=json into every request
-        const query = {
-            ...request.query,
-            apikey: apiKey,
-            output: 'json',
-        };
-
-        const url = `${baseUrl}${request.path}`;
-
-        const config: AxiosRequestConfig = {
-            method: request.method,
-            url,
-            params: query,
-            data: request.body,
-            httpsAgent,
-            timeout: 15000,
-        };
-
+    /** SABnzbd test needs mode=version param */
+    async testConnection(config: Record<string, unknown>): Promise<TestResult> {
+        const tempInstance: PluginInstance = { id: 'test', type: 'test', name: 'Test', config };
         try {
-            logger.debug(`[Adapter:sabnzbd] Request: method=${request.method} path=${request.path}`);
-            const response = await axios(config);
-            return { success: true, data: response.data };
+            const response = await this.get(tempInstance, this.testEndpoint, {
+                params: { mode: 'version' },
+                timeout: 5000,
+            });
+            return { success: true, message: 'Connection successful', version: response.data?.version };
         } catch (error) {
-            const axiosError = error as { response?: { status: number; data?: unknown }; message: string };
-            logger.error(`[Adapter:sabnzbd] Failed: error="${axiosError.message}" status=${axiosError.response?.status}`);
-            return {
-                success: false,
-                error: axiosError.message,
-                status: axiosError.response?.status || 500,
-            };
+            return { success: false, error: extractAdapterErrorMessage(error) };
         }
     }
 }

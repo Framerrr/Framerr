@@ -19,13 +19,7 @@ FROM node:20-alpine
 # Install runtime dependencies
 RUN apk add --no-cache \
     dumb-init \
-    su-exec \
-    shadow
-
-# Create app user (will be remapped by entrypoint)
-# Use GID/UID 10000 to avoid conflicts with Alpine's existing users
-RUN addgroup -g 10000 framerr && \
-    adduser -D -u 10000 -G framerr framerr
+    su-exec
 
 WORKDIR /app
 
@@ -78,8 +72,7 @@ COPY docker-entrypoint.sh /
 RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
 
 # Create config directory
-RUN mkdir -p /config && \
-    chown -R framerr:framerr /config /app
+RUN mkdir -p /config
 
 # Volumes
 VOLUME ["/config"]

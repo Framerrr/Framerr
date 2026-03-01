@@ -30,7 +30,7 @@ export type {
 } from './system';
 
 export { plexApi } from './plex';
-export type { PlexSSOStatusResponse, PlexPinResponse, PlexTokenResponse, PlexServer, PlexTestResponse } from './plex';
+export type { PlexSSOStatusResponse, PlexPinResponse, PlexTokenResponse, PlexServer } from './plex';
 
 export { themeApi } from './theme';
 export type { DefaultThemeResponse, ThemePreset, ThemeResponse } from './theme';

@@ -526,6 +526,13 @@ app.use((err: ServerError, req: Request, res: Response, next: NextFunction) => {
             }
         }
 
+        // Log if no users exist (setup wizard will be triggered)
+        const { listUsers } = await import('./db/users');
+        const users = await listUsers();
+        if (users.length === 0) {
+            logger.debug('[Startup] No users found, initializing setup wizard');
+        }
+
         // Load system config BEFORE starting server
         const systemConfig = await getSystemConfig();
         app.set('systemConfig', systemConfig);

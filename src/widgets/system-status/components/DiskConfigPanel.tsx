@@ -5,7 +5,7 @@
  * 1. Disk Display mode buttons (Collapsed / Individual)
  * 2. Disk Selection dropdown populated from live SSE data
  *
- * Returns null for non-Unraid integrations, hiding both sections entirely
+ * Returns null for integrations that don't provide disk data, hiding both sections entirely
  * (including labels) since this is rendered as a component-type option.
  *
  * Receives config/updateConfig from the WidgetConfigModal component-type option.
@@ -24,7 +24,7 @@ interface DiskConfigPanelProps {
 const DiskConfigPanel: React.FC<DiskConfigPanelProps> = ({ config, updateConfig }) => {
     const integrationId = config.integrationId as string | undefined;
     const integrationType = integrationId?.split('-')[0] || '';
-    const isUnraid = integrationType === 'unraid' && !!integrationId;
+    const hasDiskIntegration = !!integrationId;
 
     const [diskList, setDiskList] = useState<{ id: string; name: string }[]>([]);
     const diskListRef = useRef(diskList);
@@ -46,9 +46,9 @@ const DiskConfigPanel: React.FC<DiskConfigPanelProps> = ({ config, updateConfig 
 
     // Subscribe to SSE to get available disks
     useIntegrationSSE<StatusData>({
-        integrationType: isUnraid ? integrationType : '',
-        integrationId: isUnraid ? integrationId : undefined,
-        enabled: isUnraid,
+        integrationType: hasDiskIntegration ? integrationType : '',
+        integrationId: hasDiskIntegration ? integrationId : undefined,
+        enabled: hasDiskIntegration,
         onData: handleData,
     });
 
@@ -61,8 +61,8 @@ const DiskConfigPanel: React.FC<DiskConfigPanelProps> = ({ config, updateConfig 
         }
     }, [diskList, config._diskList, updateConfig]);
 
-    // Don't render for non-Unraid integrations
-    if (!isUnraid) {
+    // Don't render if no disk data available from any integration
+    if (!hasDiskIntegration || diskList.length === 0) {
         return null;
     }
 

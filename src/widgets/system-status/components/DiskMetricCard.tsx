@@ -263,17 +263,12 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
     const unhealthyDisks = disks.filter((d) => d.status !== 'ok');
     const aggregateTooltip = buildAggregateTooltip(disks, isInline);
 
-    // In inline mode, anchor from the whole card (small card, needs centered popover).
-    // In expanded mode, anchor from the bar (card stretches tall, popover stays near bar).
-    const triggerOnCard = isInline;
 
     const cardProps = {
         ref: triggerRef,
         className: `metric-card metric-card--disk metric-card--disk-aggregate ${spanClass}`,
         role: 'button' as const,
         tabIndex: 0,
-        onClick: () => setPopoverOpen(!popoverOpen),
-        onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') setPopoverOpen(!popoverOpen); },
     };
 
     // Compute aggregate byte totals for bar labels
@@ -327,9 +322,7 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
                     {aggregateUsage}%
                 </span>
             </div>
-            {triggerOnCard ? progressBar : (
-                <Popover.Trigger asChild>{progressBar}</Popover.Trigger>
-            )}
+            {progressBar}
         </div>
     );
 
@@ -339,13 +332,9 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
             onOpenChange={setPopoverOpen}
             closeOnScroll={false}
         >
-            {triggerOnCard ? (
-                <Popover.Trigger asChild>
-                    <div {...cardProps}>{cardContent}</div>
-                </Popover.Trigger>
-            ) : (
+            <Popover.Trigger asChild>
                 <div {...cardProps}>{cardContent}</div>
-            )}
+            </Popover.Trigger>
             <Popover.Content
                 side="bottom"
                 align="center"

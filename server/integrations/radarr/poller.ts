@@ -1,6 +1,4 @@
-import { PluginInstance } from '../types';
-import axios from 'axios';
-import { httpsAgent } from '../../utils/httpsAgent';
+import { PluginInstance, PluginAdapter } from '../types';
 
 // ============================================================================
 // RADARR POLLER
@@ -31,18 +29,9 @@ export interface RadarrQueueItem {
  * Poll Radarr queue for a specific instance.
  * Returns the current download queue with progress information.
  */
-export async function poll(instance: PluginInstance): Promise<RadarrQueueItem[]> {
-    if (!instance.config.url || !instance.config.apiKey) {
-        throw new Error('URL and API key required');
-    }
-
-    const url = (instance.config.url as string).replace(/\/$/, '');
-    const apiKey = instance.config.apiKey as string;
-
-    const response = await axios.get(`${url}/api/v3/queue`, {
+export async function poll(instance: PluginInstance, adapter: PluginAdapter): Promise<RadarrQueueItem[]> {
+    const response = await adapter.get!(instance, '/api/v3/queue', {
         params: { includeMovie: true, pageSize: 500 },
-        headers: { 'X-Api-Key': apiKey },
-        httpsAgent,
         timeout: 10000,
     });
 
@@ -93,29 +82,21 @@ export interface CalendarMovie {
     images?: { coverType: string; url?: string; remoteUrl?: string }[];
     hasFile?: boolean;
     status?: string; // 'released', 'announced', 'inCinemas'
+    runtime?: number;
 }
 
 /**
  * Poll Radarr calendar for a specific instance.
  * Returns movies for 90-day window (30 days past, 60 days future).
  */
-export async function pollCalendar(instance: PluginInstance): Promise<CalendarMovie[]> {
-    if (!instance.config.url || !instance.config.apiKey) {
-        throw new Error('URL and API key required');
-    }
-
-    const url = (instance.config.url as string).replace(/\/$/, '');
-    const apiKey = instance.config.apiKey as string;
-
+export async function pollCalendar(instance: PluginInstance, adapter: PluginAdapter): Promise<CalendarMovie[]> {
     // Calendar window: 30 days past → 60 days future
     const now = Date.now();
     const startDate = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const endDate = new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    const response = await axios.get(`${url}/api/v3/calendar`, {
+    const response = await adapter.get!(instance, '/api/v3/calendar', {
         params: { start: startDate, end: endDate, unmonitored: false },
-        headers: { 'X-Api-Key': apiKey },
-        httpsAgent,
         timeout: 10000,
     });
 
@@ -135,6 +116,7 @@ export async function pollCalendar(instance: PluginInstance): Promise<CalendarMo
         images: item.images as { coverType: string; url?: string; remoteUrl?: string }[] | undefined,
         hasFile: item.hasFile as boolean | undefined,
         status: item.status as string | undefined,
+        runtime: item.runtime as number | undefined,
     }));
 }
 
@@ -155,25 +137,17 @@ export interface MissingCounts {
  * Poll Radarr for aggregated missing + cutoff-unmet counts.
  * Uses pageSize=1 since we only need the totalRecords count from the response.
  */
-export async function pollMissing(instance: PluginInstance): Promise<MissingCounts> {
-    if (!instance.config.url || !instance.config.apiKey) {
-        throw new Error('URL and API key required');
-    }
-
-    const url = (instance.config.url as string).replace(/\/$/, '');
-    const apiKey = instance.config.apiKey as string;
-    const headers = { 'X-Api-Key': apiKey };
-
+export async function pollMissing(instance: PluginInstance, adapter: PluginAdapter): Promise<MissingCounts> {
     // Fetch both counts in parallel — pageSize=1 to minimize data transfer
     // Radarr uses sortKey=date (not airDateUtc like Sonarr)
     const [missingRes, cutoffRes] = await Promise.all([
-        axios.get(`${url}/api/v3/wanted/missing`, {
+        adapter.get!(instance, '/api/v3/wanted/missing', {
             params: { pageSize: 1, sortKey: 'date', sortDirection: 'descending' },
-            headers, httpsAgent, timeout: 10000,
+            timeout: 10000,
         }),
-        axios.get(`${url}/api/v3/wanted/cutoff`, {
+        adapter.get!(instance, '/api/v3/wanted/cutoff', {
             params: { pageSize: 1, sortKey: 'date', sortDirection: 'descending' },
-            headers, httpsAgent, timeout: 10000,
+            timeout: 10000,
         }),
     ]);
 

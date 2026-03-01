@@ -125,7 +125,15 @@ export const LinkItem: React.FC<LinkItemProps> = ({
     const classes = `${baseClasses} ${shapeClasses} ${stateClasses}`;
 
     // Icon rendering - scale with cell size
-    const iconSize = Math.max(16, Math.min(32, cellSize * 0.3));
+    // Icon-only circles get largest icons, rectangles get a nice bump, icon+text circles get minimal bump
+    const isIconOnly = link.style?.showIcon !== false && link.style?.showText === false;
+    const iconScale = isCircle
+        ? (isIconOnly ? 0.5 : 0.45)   // Circle: icon-only = largest, icon+text = icon dominates
+        : 0.42;                         // Rectangle: slightly larger
+    const iconMax = isCircle
+        ? (isIconOnly ? 40 : 36)
+        : 36;
+    const iconSize = Math.max(16, Math.min(iconMax, cellSize * iconScale));
 
     const renderIcon = (): React.ReactNode => {
         if (isLoading) return <Loader size={iconSize} className="text-accent animate-spin" />;
@@ -137,15 +145,15 @@ export const LinkItem: React.FC<LinkItemProps> = ({
         return null;
     };
 
-    // Text rendering - scale with cell size
-    const fontSize = cellSize < 60 ? 'text-xs' : cellSize < 80 ? 'text-sm' : 'text-sm';
+    // Text rendering - scale with cell size (circles always use smaller text to give icon more weight)
+    const fontSize = isCircle ? 'text-xs' : (cellSize < 60 ? 'text-xs' : 'text-sm');
 
     const renderText = (): React.ReactNode => {
         if (isSuccess && !isCircle) return <span className={`${fontSize} font-medium text-success`}>Success</span>;
         if (isError && !isCircle) return <span className={`${fontSize} font-medium text-error`}>Failed</span>;
         if (link.style?.showText !== false) {
             return (
-                <span className={`${fontSize} font-medium text-theme-primary ${isCircle ? 'mt-1' : ''}`}>
+                <span className={`${fontSize} font-medium text-theme-primary ${isCircle ? 'mt-1 text-center' : ''}`}>
                     {link.title}
                 </span>
             );

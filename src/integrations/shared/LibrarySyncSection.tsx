@@ -147,10 +147,17 @@ export const LibrarySyncSection: React.FC<LibrarySyncSectionProps> = ({
                                         </span>
                                     </div>
                                 ) : syncStatus.syncStatus === 'completed' ? (
-                                    <span className="text-success flex items-center gap-1.5">
-                                        <CheckCircle2 size={12} />
-                                        Sync complete • {syncStatus.indexedItems.toLocaleString()} items indexed
-                                    </span>
+                                    syncStatus.errorMessage ? (
+                                        <span className="text-warning flex items-center gap-1.5">
+                                            <AlertCircle size={12} />
+                                            {syncStatus.indexedItems.toLocaleString()} items indexed • {syncStatus.errorMessage}
+                                        </span>
+                                    ) : (
+                                        <span className="text-success flex items-center gap-1.5">
+                                            <CheckCircle2 size={12} />
+                                            Sync complete • {syncStatus.indexedItems.toLocaleString()} items indexed
+                                        </span>
+                                    )
                                 ) : syncStatus.syncStatus === 'error' ? (
                                     <span className="text-error flex items-center gap-1.5">
                                         <AlertCircle size={12} />

@@ -11,6 +11,7 @@ import { subscriptions } from './subscriptions';
 import { broadcastToTopic, broadcastToTopicFiltered } from './transport';
 import type { SubscriberFilterFn } from './transport';
 import { getPlugin } from '../../integrations/registry';
+import { toPluginInstance } from '../../integrations/utils';
 import * as integrationInstancesDb from '../../db/integrationInstances';
 import { metricHistoryService } from '../MetricHistoryService';
 import logger from '../../utils/logger';
@@ -442,20 +443,15 @@ export class PollerOrchestrator {
             throw new Error(`No instance found for type=${type}`);
         }
 
-        const pluginInstance = {
-            id: instance.id,
-            type: instance.type,
-            name: instance.displayName,
-            config: instance.config
-        };
+        const pluginInstance = toPluginInstance(instance);
 
         // Handle subtype-specific polling (e.g., calendar)
         if (subtype && plugin.poller.subtypes?.[subtype]) {
-            return await plugin.poller.subtypes[subtype].poll(pluginInstance);
+            return await plugin.poller.subtypes[subtype].poll(pluginInstance, plugin.adapter);
         }
 
         // Default: use main poller
-        return await plugin.poller.poll(pluginInstance);
+        return await plugin.poller.poll(pluginInstance, plugin.adapter);
     }
 
     /**

@@ -25,15 +25,24 @@ function getDisplayTitle(event: CalendarEvent): string {
         : (event.title || 'Unknown Movie');
 }
 
-/** Get the release/air date for an event */
+/** Get the release/air date (and time if available) for an event */
 function getEventDate(event: CalendarEvent): string {
     const raw = event.type === 'sonarr'
-        ? event.airDate
+        ? (event.airDateUtc || event.airDate)
         : (event.digitalRelease || event.physicalRelease || event.inCinemas);
     if (!raw) return '';
-    return new Date(raw).toLocaleDateString(undefined, {
+    const d = new Date(raw.includes('T') ? raw : raw + 'T00:00:00');
+    const datePart = d.toLocaleDateString(undefined, {
         weekday: 'short', month: 'short', day: 'numeric',
     });
+    // Show air time only for TV shows with a real timestamp (not date-only)
+    if (event.type === 'sonarr' && raw.includes('T')) {
+        const timePart = d.toLocaleTimeString(undefined, {
+            hour: 'numeric', minute: '2-digit',
+        });
+        return `${datePart} · ${timePart}`;
+    }
+    return datePart;
 }
 
 /** Build poster proxy URL if available */

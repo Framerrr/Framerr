@@ -14,7 +14,7 @@ import {
     startFullSync,
     getSyncStatus,
     cancelSync
-} from '../services/librarySyncService';
+} from '../services/librarySync';
 import { getLocalLibraryImageUrl } from '../services/libraryImageCache';
 import { getInstanceById } from '../db/integrationInstances';
 
@@ -473,9 +473,8 @@ router.get('/web-urls', requireAuth, (req: Request, res: Response) => {
 // EXTERNAL IDs (TMDB / IMDB)
 // ============================================================================
 
-import axios from 'axios';
-import { httpsAgent } from '../utils/httpsAgent';
-import { translateHostUrl } from '../utils/urlHelper';
+import { getPlugin } from '../integrations/registry';
+import { toPluginInstance } from '../integrations/utils';
 
 /** In-memory cache for external ID lookups (avoids repeated Overseerr calls) */
 const externalIdCache = new Map<string, { tmdbId: number | null; imdbId: string | null; expiresAt: number }>();
@@ -552,17 +551,13 @@ router.get('/external-ids', requireAuth, async (req: Request, res: Response) => 
 
                     if (overseerrInstance) {
                         try {
-                            const config = overseerrInstance.config as Record<string, unknown>;
-                            const url = translateHostUrl((config.url as string).replace(/\/$/, ''));
-                            const apiKey = config.apiKey as string;
+                            const pluginInstance = toPluginInstance(overseerrInstance);
+                            const overseerrAdapter = getPlugin('overseerr')!.adapter;
 
-                            const tmdbResponse = await axios.get(
-                                `${url}/api/v1/${apiMediaType}/${parsedTmdbId}`,
-                                {
-                                    headers: { 'X-Api-Key': apiKey },
-                                    httpsAgent,
-                                    timeout: 10000,
-                                }
+                            const tmdbResponse = await overseerrAdapter.get!(
+                                pluginInstance,
+                                `/api/v1/${apiMediaType}/${parsedTmdbId}`,
+                                { timeout: 10000 }
                             );
 
                             const externalIds = tmdbResponse.data?.externalIds;

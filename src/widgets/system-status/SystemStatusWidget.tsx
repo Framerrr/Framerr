@@ -377,9 +377,9 @@ const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({
                         );
 
                         if (metric.key === 'diskUsage') {
-                            if (diskCollapsed || integrationType !== 'unraid') {
-                                // Collapsed aggregate card (or non-unraid fallback)
-                                if (integrationType === 'unraid' && selectedDisks.length > 0) {
+                            if (diskCollapsed || selectedDisks.length === 0) {
+                                // Collapsed aggregate card (or no disk data: fall through to standard MetricCard)
+                                if (selectedDisks.length > 0) {
                                     return (
                                         <DiskMetricCard
                                             key="disk-aggregate"
@@ -390,7 +390,7 @@ const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({
                                         />
                                     );
                                 }
-                                // Non-unraid or no disks: fall through to standard MetricCard
+                                // No disks: fall through to standard MetricCard
                             } else {
                                 // Individual mode: skip the diskUsage metric slot,
                                 // individual disk-{id} metrics handle rendering

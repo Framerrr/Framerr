@@ -565,7 +565,7 @@
 }
 
 /* ============================================================================
- * BOTH MODE — 70/30 SPLIT (calendar : agenda)
+ * BOTH MODE — 65/35 SPLIT (calendar : agenda)
  * ============================================================================ */
 
 .cal-split {
@@ -576,7 +576,7 @@
 }
 
 .cal-split-calendar {
-    flex: 7;
+    flex: 65;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -584,7 +584,7 @@
 }
 
 .cal-split-agenda {
-    flex: 3;
+    flex: 35;
     min-width: 0;
     display: flex;
     flex-direction: column;

@@ -3,18 +3,20 @@
  * 
  * Handles Uptime Kuma API proxying:
  * - /monitors - Get monitor statuses
+ * - /uptimekuma/monitors-preview - Preview monitors from form credentials (admin)
  */
 
 import { Router, Request, Response } from 'express';
-import axios from 'axios';
 import logger from '../../../utils/logger';
-import { httpsAgent } from '../../../utils/httpsAgent';
-import { translateHostUrl } from '../../../utils/urlHelper';
 import * as integrationInstancesDb from '../../../db/integrationInstances';
 import { requireAuth } from '../../../middleware/auth';
 import { userHasIntegrationAccess } from '../../../db/integrationShares';
+import { getPlugin } from '../../../integrations/registry';
+import { toPluginInstance } from '../../../integrations/utils';
+import { PluginInstance } from '../../../integrations/types';
 
 const router = Router();
+const adapter = getPlugin('uptimekuma')!.adapter;
 
 /**
  * GET /:id/proxy/monitors - Get Uptime Kuma monitor statuses
@@ -23,8 +25,8 @@ router.get('/:id/proxy/monitors', requireAuth, async (req: Request, res: Respons
     const { id } = req.params;
     const isAdmin = req.user!.group === 'admin';
 
-    const instance = integrationInstancesDb.getInstanceById(id);
-    if (!instance || instance.type !== 'uptimekuma') {
+    const dbInstance = integrationInstancesDb.getInstanceById(id);
+    if (!dbInstance || dbInstance.type !== 'uptimekuma') {
         res.status(404).json({ error: 'Uptime Kuma integration not found' });
         return;
     }
@@ -37,23 +39,15 @@ router.get('/:id/proxy/monitors', requireAuth, async (req: Request, res: Respons
         }
     }
 
-    const url = instance.config.url as string;
-    const apiKey = instance.config.apiKey as string;
+    const instance = toPluginInstance(dbInstance);
 
-    if (!url || !apiKey) {
+    if (!instance.config.url || !instance.config.apiKey) {
         res.status(400).json({ error: 'Invalid Uptime Kuma configuration' });
         return;
     }
 
     try {
-        const translatedUrl = translateHostUrl(url);
-
-        // Use Prometheus /metrics endpoint with Basic auth
-        const authHeader = `Basic ${Buffer.from(':' + apiKey).toString('base64')}`;
-
-        const response = await axios.get(`${translatedUrl}/metrics`, {
-            headers: { 'Authorization': authHeader },
-            httpsAgent,
+        const response = await adapter.get!(instance, '/metrics', {
             timeout: 10000
         });
 
@@ -146,14 +140,15 @@ router.post('/uptimekuma/monitors-preview', requireAuth, async (req: Request, re
     }
 
     try {
-        const translatedUrl = translateHostUrl(url);
+        // Build temp instance from form credentials (not saved yet)
+        const tempInstance: PluginInstance = {
+            id: 'preview',
+            type: 'uptimekuma',
+            name: 'Preview',
+            config: { url, apiKey: resolvedApiKey }
+        };
 
-        // Basic auth with empty username, API key as password
-        const authHeader = `Basic ${Buffer.from(':' + resolvedApiKey).toString('base64')}`;
-
-        const response = await axios.get(`${translatedUrl}/metrics`, {
-            headers: { 'Authorization': authHeader },
-            httpsAgent,
+        const response = await adapter.get!(tempInstance, '/metrics', {
             timeout: 10000
         });
 
@@ -220,13 +215,13 @@ router.post('/uptimekuma/monitors-preview', requireAuth, async (req: Request, re
         logger.info(`[UptimeKuma] Monitors preview: count=${monitors.length}`);
         res.json({ monitors });
     } catch (error) {
-        const axiosError = error as { response?: { status?: number; statusText?: string }; message?: string };
-        logger.error(`[UptimeKuma Proxy] Monitors preview error: error="${axiosError.message}"`);
+        const adapterErr = error as { code?: string; message?: string; context?: { status?: number } };
+        logger.error(`[UptimeKuma Proxy] Monitors preview error: error="${adapterErr.message}"`);
 
-        if (axiosError.response?.status === 401) {
+        if (adapterErr.code === 'AUTH_FAILED') {
             res.status(401).json({ error: 'Authentication failed - check API key' });
         } else {
-            res.status(500).json({ error: axiosError.message || 'Failed to fetch monitors' });
+            res.status(500).json({ error: adapterErr.message || 'Failed to fetch monitors' });
         }
     }
 });
