@@ -211,6 +211,18 @@ export const AppDataProvider = ({ children }: AppDataProviderProps): React.JSX.E
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [isAuthenticated, fetchData]);
 
+    // Apply solid-ui class based on user preference at app level
+    // Without this, the class is only applied when visiting Customization Settings,
+    // causing the sidebar to be semi-transparent (glass mode) until then
+    useEffect(() => {
+        const prefs = userSettings as { ui?: { flattenUI?: boolean } };
+        if (prefs?.ui?.flattenUI) {
+            document.documentElement.classList.add('solid-ui');
+        } else {
+            document.documentElement.classList.remove('solid-ui');
+        }
+    }, [userSettings]);
+
     const updateWidgetLayout = useCallback(async (newLayout: FramerrWidget[]): Promise<void> => {
         try {
             // Optimistically update UI

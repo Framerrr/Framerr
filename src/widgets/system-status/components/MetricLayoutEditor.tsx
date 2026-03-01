@@ -24,6 +24,7 @@ import {
     useSensors,
     useDraggable,
     useDroppable,
+    closestCenter,
     DragStartEvent,
     DragOverEvent,
     DragEndEvent,
@@ -114,6 +115,15 @@ function buildRows(config: Record<string, unknown>, isStacked: boolean, registry
         // Collapsed mode: use metricOrder (normal)
         order = (config.metricOrder as string[] | undefined) || registry.map(m => m.key);
         spans = (config.metricSpans as Record<string, number> | undefined) || {};
+    }
+
+    // Ensure all registry metrics are in the order — append any missing ones.
+    // This handles metrics that were added to the registry after the order was saved,
+    // or metrics that weren't included when the order was first persisted.
+    const orderSet = new Set(order);
+    const missingKeys = registry.map(m => m.key).filter(k => !orderSet.has(k));
+    if (missingKeys.length > 0) {
+        order = [...order, ...missingKeys];
     }
 
     // Filter to visible keys using getDef (handles disk-{id} → diskUsage fallback)
@@ -381,7 +391,7 @@ function MetricRow({
                 {row.map((slot, slotIndex) => {
                     const slotId = `${rowIndex}-${slotIndex}`;
                     return (
-                        <React.Fragment key={slot.key}>
+                        <React.Fragment key={slotId}>
                             <DraggableSlot
                                 slot={slot}
                                 slotId={slotId}
@@ -672,76 +682,13 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
     const visibleRowSlice = displayRows.slice(0, maxRows);
     const hiddenRowCount = rows.length - visibleRowSlice.length;
 
-    // Row counter constraints
-    // + is enabled when there's a row with 2 metrics that can be split AND we haven't hit maxRows
-    const canSplitRow = visibleRowSlice.some((r: LayoutRow) => r.length === 2) && rows.length < visibleMetrics.length;
-    // − is enabled when there's more than 1 row (destructive: removes last row, hides its metrics)
-    const canMergeRows = rows.length > 1;
-
-    const handleIncrementRows = useCallback(() => {
-        if (!canSplitRow) return;
-        // Find last visible row with 2 metrics and split it into 2 full-width rows
-        for (let i = visibleRowSlice.length - 1; i >= 0; i--) {
-            if (rows[i].length === 2) {
-                const [m1, m2] = rows[i];
-                const newRows = rows.map(r => [...r]);
-                newRows.splice(i, 1, [{ ...m1, w: COLS }], [{ ...m2, w: COLS }]);
-                commitRows(newRows);
-                return;
-            }
-        }
-    }, [rows, visibleRowSlice, canSplitRow, commitRows]);
-
-    const handleDecrementRows = useCallback(() => {
-        if (!canMergeRows) return;
-        // DESTRUCTIVE: remove the last row and hide its metrics
-        const lastRow = rows[rows.length - 1];
-        const newRows = rows.slice(0, -1);
-
-        // Commit the reduced layout
-        commitRows(newRows);
-
-        // Hide the metrics that were in the removed row
-        for (const slot of lastRow) {
-            const def = getDef(slot.key, availableMetrics);
-            if (def) {
-                updateConfig(def.configKey, false);
-            }
-        }
-    }, [rows, canMergeRows, commitRows, updateConfig]);
-
     return (
         <div className="metric-layout-editor">
-
-            {/* Row count selector */}
-            <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-theme-secondary">Rows</span>
-                <div className="flex items-center gap-1">
-                    <button
-                        type="button"
-                        onClick={handleDecrementRows}
-                        disabled={!canMergeRows}
-                        className="metric-row-counter-btn"
-                        aria-label="Decrease rows"
-                    >
-                        −
-                    </button>
-                    <span className="metric-row-counter-value">{rows.length}</span>
-                    <button
-                        type="button"
-                        onClick={handleIncrementRows}
-                        disabled={!canSplitRow}
-                        className="metric-row-counter-btn"
-                        aria-label="Increase rows"
-                    >
-                        +
-                    </button>
-                </div>
-            </div>
 
             {/* Row-based mini grid */}
             <DndContext
                 sensors={sensors}
+                collisionDetection={closestCenter}
                 onDragStart={handleDndDragStart}
                 onDragOver={handleDndDragOver}
                 onDragEnd={handleDndDragEnd}
@@ -750,7 +697,7 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
                     <div className="metric-layout-rows" style={{ gap: `${rowGap}px`, padding: `${rowGap}px` }}>
                         {visibleRowSlice.map((row: LayoutRow, rowIndex: number) => (
                             <MetricRow
-                                key={row.map((s: MetricSlot) => s.key).join('-')}
+                                key={`row-${rowIndex}`}
                                 row={row}
                                 rowIndex={rowIndex}
                                 isStacked={isStacked}

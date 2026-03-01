@@ -21,6 +21,7 @@ router.get('/schemas', (_req, res) => {
         category: string;
         configSchema: unknown;
         hasCustomForm: boolean;
+        metrics?: { key: string }[];
     }> = {};
 
     for (const plugin of plugins) {
@@ -30,6 +31,7 @@ router.get('/schemas', (_req, res) => {
             category: plugin.category,
             configSchema: plugin.configSchema,
             hasCustomForm: plugin.hasCustomForm ?? false,
+            metrics: plugin.metrics?.map(m => ({ key: m.key })),
         };
     }
 
