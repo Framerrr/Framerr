@@ -2,6 +2,13 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.1.9] - 2026-03-01
+
+### Fixed
+- Mobile tab bar not scrolling tabs
+
+---
+
 ## [0.1.8] - 2026-03-01
 
 ### Added
