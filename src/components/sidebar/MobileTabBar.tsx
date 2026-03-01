@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, LayoutDashboard, ChevronUp, LogOut, UserCircle, Mail, LayoutGrid, Settings as SettingsIcon, Undo2, Redo2, Plus, Save, Link, Unlink } from 'lucide-react';
-import { useDrag } from '@use-gesture/react';
 import { useSharedSidebar } from './SharedSidebarContext';
 import { sidebarSpring } from './types';
 import MenuContentShell from './MenuContentShell';
@@ -169,22 +168,17 @@ export function MobileTabBar() {
     }, [showEditConfirm]);
 
     // ==========================================
-    // Pull-to-close gesture (@use-gesture/react)
+    // Pull-to-close gesture (native touch handlers)
+    // Scroll-aware: content scrolls freely, sheet dismiss
+    // only activates when scrollTop === 0 AND pulling down.
     // ==========================================
 
-    // Find nearest scrollable parent element
-    const findScrollableParent = useCallback((el: HTMLElement | null): HTMLElement | null => {
-        while (el) {
-            const style = getComputedStyle(el);
-            const isScrollable = style.overflowY === 'auto' || style.overflowY === 'scroll';
-            const hasScroll = el.scrollHeight > el.clientHeight;
-            if (isScrollable && hasScroll) {
-                return el;
-            }
-            el = el.parentElement;
-        }
-        return null;
-    }, []);
+    // Refs for touch tracking (must persist across renders without re-triggering effect)
+    const touchStartY = useRef(0);
+    const sheetDragMode = useRef<'none' | 'sheet' | 'scroll'>('none');
+    const dragOffsetRef = useRef(0);
+    const lastTouchY = useRef(0);
+    const lastTouchTime = useRef(0);
 
     // Reset drag state when menu closes
     useEffect(() => {
@@ -194,65 +188,120 @@ export function MobileTabBar() {
         }
     }, [isMobileMenuOpen]);
 
-    useDrag(
-        ({ down, movement: [, my], velocity: [, vy], direction: [, dy], first, event, cancel }) => {
-            if (!isMobileMenuOpen) return;
+    // Native touch handler effect — replaces useDrag
+    useEffect(() => {
+        const el = contentRef.current;
+        if (!el || !isMobileMenuOpen) return;
 
-            // On first touch, check if we're in scrollable content
-            if (first) {
-                const target = event.target as HTMLElement;
-                const scrollEl = findScrollableParent(target);
-                if (scrollEl && scrollEl.scrollTop > 0) {
-                    // Content is scrolled down — let native scroll handle it
-                    cancel();
-                    return;
+        // Walk up from touch target to find nearest scroll container
+        const findScrollEl = (target: HTMLElement): HTMLElement | null => {
+            let current: HTMLElement | null = target;
+            while (current && current !== el) {
+                const style = getComputedStyle(current);
+                const isScrollable = style.overflowY === 'auto' || style.overflowY === 'scroll';
+                if (isScrollable && current.scrollHeight > current.clientHeight) {
+                    return current;
                 }
+                current = current.parentElement;
             }
+            return null;
+        };
 
-            // Prevent native scroll while we're handling the gesture
-            if (event.cancelable) {
-                event.preventDefault();
-            }
+        let scrollEl: HTMLElement | null = null;
 
-            if (down) {
-                if (my > 0) {
+        const onTouchStart = (e: TouchEvent) => {
+            const y = e.touches[0].clientY;
+            touchStartY.current = y;
+            lastTouchY.current = y;
+            lastTouchTime.current = Date.now();
+            sheetDragMode.current = 'none';
+            dragOffsetRef.current = 0;
+            scrollEl = findScrollEl(e.target as HTMLElement);
+        };
+
+        const onTouchMove = (e: TouchEvent) => {
+            const currentY = e.touches[0].clientY;
+            const deltaFromStart = currentY - touchStartY.current; // positive = pulling down
+
+            // Track for velocity calc on end
+            lastTouchY.current = currentY;
+            lastTouchTime.current = Date.now();
+
+            // If browser is handling scroll, stay out of the way
+            if (sheetDragMode.current === 'scroll') return;
+
+            // Already in sheet-drag mode — keep driving the sheet
+            if (sheetDragMode.current === 'sheet') {
+                if (e.cancelable) e.preventDefault();
+                if (deltaFromStart > 0) {
                     // Pulling DOWN — close gesture with logarithmic rubber-band
-                    const rubberBand = Math.log2(1 + my * 0.01) * 100;
-                    setDragOffset(Math.max(0, rubberBand));
+                    const rubberBand = Math.log2(1 + deltaFromStart * 0.01) * 100;
+                    dragOffsetRef.current = Math.max(0, rubberBand);
                 } else {
-                    // Pulling UP past max height — Apple-style overscroll
-                    // Starts loose, gets progressively tighter, caps at MAX_STRETCH
-                    const MAX_STRETCH = 60; // max px the menu can stretch beyond 75vh
-                    const absMy = Math.abs(my);
-                    const stretch = MAX_STRETCH * (1 - 1 / (1 + absMy / (MAX_STRETCH * 3)));
-                    setDragOffset(-stretch); // negative = grow beyond max
+                    // Pulling UP past max — Apple-style overscroll
+                    const MAX_STRETCH = 60;
+                    const abs = Math.abs(deltaFromStart);
+                    dragOffsetRef.current = -(MAX_STRETCH * (1 - 1 / (1 + abs / (MAX_STRETCH * 3))));
                 }
+                setDragOffset(dragOffsetRef.current);
                 setIsDragging(true);
-            } else {
-                // Released — decide: close or snap back
-                if (dragOffset > 0) {
-                    // Was pulling down — check close threshold
-                    const CLOSE_THRESHOLD = 80;  // px offset
-                    const VELOCITY_THRESHOLD = 0.5; // px/ms
+                return;
+            }
 
-                    if (dragOffset > CLOSE_THRESHOLD || (vy > VELOCITY_THRESHOLD && dy > 0)) {
-                        triggerHaptic();
-                        setIsMobileMenuOpen(false);
-                    }
+            // === First significant move — decide mode ===
+            if (Math.abs(deltaFromStart) < 8) return; // dead zone
+
+            if (scrollEl) {
+                if (scrollEl.scrollTop <= 0 && deltaFromStart > 0) {
+                    // At top of scroll AND pulling down → sheet dismiss
+                    sheetDragMode.current = 'sheet';
+                    if (e.cancelable) e.preventDefault();
+                    setIsDragging(true);
+                } else {
+                    // Scrolled down or pulling up → native scroll
+                    sheetDragMode.current = 'scroll';
                 }
-                // Either direction: snap back to rest
+            } else {
+                // No scrollable parent (header, footer, etc.) → sheet drag
+                sheetDragMode.current = 'sheet';
+                if (e.cancelable) e.preventDefault();
+                setIsDragging(true);
+            }
+        };
+
+        const onTouchEnd = (e: TouchEvent) => {
+            if (sheetDragMode.current === 'sheet') {
+                const CLOSE_THRESHOLD = 80;
+                const VELOCITY_THRESHOLD = 0.5; // px/ms
+
+                // Compute velocity from last move
+                const endY = e.changedTouches[0].clientY;
+                const dt = Date.now() - lastTouchTime.current;
+                const velocity = dt > 0 ? (endY - lastTouchY.current) / dt : 0;
+
+                if (dragOffsetRef.current > CLOSE_THRESHOLD || (velocity > VELOCITY_THRESHOLD && dragOffsetRef.current > 0)) {
+                    triggerHaptic();
+                    setIsMobileMenuOpen(false);
+                }
                 setDragOffset(0);
                 setIsDragging(false);
             }
-        },
-        {
-            target: contentRef,
-            eventOptions: { passive: false }, // Required for iOS preventDefault
-            axis: 'y',
-            filterTaps: true,
-            threshold: [0, 10], // 10px dead zone before activating
-        }
-    );
+            sheetDragMode.current = 'none';
+            dragOffsetRef.current = 0;
+            scrollEl = null;
+        };
+
+        el.addEventListener('touchstart', onTouchStart, { passive: true });
+        el.addEventListener('touchmove', onTouchMove, { passive: false });
+        el.addEventListener('touchend', onTouchEnd, { passive: true });
+
+        return () => {
+            el.removeEventListener('touchstart', onTouchStart);
+            el.removeEventListener('touchmove', onTouchMove);
+            el.removeEventListener('touchend', onTouchEnd);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isMobileMenuOpen]);
 
     return (
         <>
@@ -321,79 +370,90 @@ export function MobileTabBar() {
                         </div>
                     }
                     tabsBody={
-                        <div className="h-full overflow-hidden">
-                            <div
-                                className={`h-full overflow-x-hidden custom-scrollbar px-6 pt-4 pb-4 ${isDragging ? 'overflow-y-hidden' : 'overflow-y-auto'}`}
-                                style={{
-                                    overscrollBehavior: 'contain',
-                                    WebkitOverflowScrolling: 'touch',
-                                    touchAction: isDragging ? 'none' : 'pan-y'
-                                }}
-                            >
-                                <nav className="space-y-4">
-                                    {tabs && tabs.length > 0 && (
-                                        <div>
-                                            <motion.div
-                                                className="text-xs font-medium text-theme-tertiary uppercase tracking-wider mb-2"
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: isMobileMenuOpen ? 1 : 0 }}
-                                                transition={{
-                                                    type: 'spring',
-                                                    stiffness: 350,
-                                                    damping: 35,
-                                                }}
-                                            >
-                                                Tabs
-                                            </motion.div>
-                                            <div className="space-y-1">
-                                                {tabs.map((tab, index) => {
-                                                    const isActive = hash === tab.slug;
-                                                    return (
-                                                        <motion.a
-                                                            key={tab.id}
-                                                            href={tab.openInNewTab ? tab.url : `/#${tab.slug}`}
-                                                            target={tab.openInNewTab ? '_blank' : undefined}
-                                                            rel={tab.openInNewTab ? 'noopener noreferrer' : undefined}
-                                                            onClick={(e) => {
-                                                                if (tab.openInNewTab) {
-                                                                    setIsMobileMenuOpen(false);
-                                                                    return;
-                                                                }
-                                                                handleNavigation(e, `#${tab.slug}`); if (!dashboardEdit?.editMode || !dashboardEdit?.hasUnsavedChanges) setIsMobileMenuOpen(false);
-                                                            }}
-                                                            className={`w-full flex items-center gap-3 py-3 px-4 rounded-xl transition-colors relative ${isActive ? 'text-accent' : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-tertiary'}`}
-                                                            initial={{ opacity: 0 }}
-                                                            animate={{
-                                                                opacity: isMobileMenuOpen ? 1 : 0,
-                                                            }}
-                                                            transition={{
-                                                                type: 'spring',
-                                                                stiffness: 350,
-                                                                damping: 35,
-                                                            }}
-                                                            whileTap={{ scale: 0.97 }}
-                                                        >
-                                                            {/* Active Indicator for Menu List */}
-                                                            {isActive && (
-                                                                <motion.div
-                                                                    layoutId="mobileTabIndicator"
-                                                                    className="absolute inset-0 bg-accent/20 rounded-xl shadow-lg"
-                                                                    transition={sidebarSpring}
-                                                                />
-                                                            )}
+                        <div
+                            className="h-full flex flex-col"
+                            style={{
+                                minHeight: 0,
+                                overflow: 'hidden',
+                                touchAction: 'pan-y'
+                            }}
+                            onTouchMove={(e) => {
+                                e.stopPropagation();
+                            }}
+                        >
+                            <div className="flex-1 overflow-hidden">
+                                <div
+                                    className="h-full overflow-y-auto overflow-x-hidden custom-scrollbar px-6 pt-4 pb-4"
+                                    style={{
+                                        overscrollBehavior: 'contain',
+                                        WebkitOverflowScrolling: 'touch',
+                                    }}
+                                >
+                                    <nav className="space-y-4">
+                                        {tabs && tabs.length > 0 && (
+                                            <div>
+                                                <motion.div
+                                                    className="text-xs font-medium text-theme-tertiary uppercase tracking-wider mb-2"
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: isMobileMenuOpen ? 1 : 0 }}
+                                                    transition={{
+                                                        type: 'spring',
+                                                        stiffness: 350,
+                                                        damping: 35,
+                                                    }}
+                                                >
+                                                    Tabs
+                                                </motion.div>
+                                                <div className="space-y-1">
+                                                    {tabs.map((tab, index) => {
+                                                        const isActive = hash === tab.slug;
+                                                        return (
+                                                            <motion.a
+                                                                key={tab.id}
+                                                                href={tab.openInNewTab ? tab.url : `/#${tab.slug}`}
+                                                                target={tab.openInNewTab ? '_blank' : undefined}
+                                                                rel={tab.openInNewTab ? 'noopener noreferrer' : undefined}
+                                                                onClick={(e) => {
+                                                                    if (tab.openInNewTab) {
+                                                                        setIsMobileMenuOpen(false);
+                                                                        return;
+                                                                    }
+                                                                    handleNavigation(e, `#${tab.slug}`); if (!dashboardEdit?.editMode || !dashboardEdit?.hasUnsavedChanges) setIsMobileMenuOpen(false);
+                                                                }}
+                                                                className={`w-full flex items-center gap-3 py-3 px-4 rounded-xl transition-colors relative ${isActive ? 'text-accent' : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-tertiary'}`}
+                                                                initial={{ opacity: 0 }}
+                                                                animate={{
+                                                                    opacity: isMobileMenuOpen ? 1 : 0,
+                                                                }}
+                                                                transition={{
+                                                                    type: 'spring',
+                                                                    stiffness: 350,
+                                                                    damping: 35,
+                                                                }}
+                                                                whileTap={{ scale: 0.97 }}
+                                                            >
+                                                                {/* Active Indicator for Menu List */}
+                                                                {isActive && (
+                                                                    <motion.div
+                                                                        layoutId="mobileTabIndicator"
+                                                                        className="absolute inset-0 bg-accent/20 rounded-xl shadow-lg"
+                                                                        transition={sidebarSpring}
+                                                                    />
+                                                                )}
 
-                                                            {/* Content */}
-                                                            <div className="relative z-10 flex items-center gap-3">
-                                                                {renderIcon(tab.icon, 18)}
-                                                                <span className="font-medium">{tab.name}</span>
-                                                            </div>
-                                                        </motion.a>
-                                                    );
-                                                })}
+                                                                {/* Content */}
+                                                                <div className="relative z-10 flex items-center gap-3">
+                                                                    {renderIcon(tab.icon, 18)}
+                                                                    <span className="font-medium">{tab.name}</span>
+                                                                </div>
+                                                            </motion.a>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
-                                </nav>
+                                        )}
+                                    </nav>
+                                </div>
                             </div>
                         </div>
                     }
