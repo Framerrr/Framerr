@@ -26,6 +26,7 @@ import type {
 } from './types';
 
 import logger from '../../../utils/logger';
+import { GRID_COLS } from '../../../constants/gridConfig';
 
 // ============================================================================
 // WIDGET CRUD OPERATIONS
@@ -87,6 +88,39 @@ export function deleteWidget(
     return widgets.filter(w => w.id !== widgetId);
 }
 
+/**
+ * Duplicate a widget with a new ID.
+ * The clone is nudged one column to the right but keeps the source row.
+ */
+export function duplicateWidget(
+    widgets: FramerrWidget[],
+    widgetId: string,
+    newId?: string
+): FramerrWidget[] {
+    const source = widgets.find(w => w.id === widgetId);
+    if (!source) return widgets;
+
+    const duplicated: FramerrWidget = {
+        ...source,
+        id: newId ?? generateWidgetId(),
+        layout: {
+            ...source.layout,
+            x: source.layout.x + 1,
+            y: source.layout.y,
+        },
+        mobileLayout: source.mobileLayout
+            ? {
+                ...source.mobileLayout,
+                x: source.mobileLayout.x + 1,
+                y: source.mobileLayout.y,
+            }
+            : undefined,
+        config: source.config ? { ...source.config } : source.config,
+    };
+
+    return [...widgets, duplicated];
+}
+
 
 
 // ============================================================================
@@ -99,140 +133,6 @@ export function deleteWidget(
  */
 export const TENTATIVE_WIDGET_ID = '__tentative__';
 
-/**
- * Inject a tentative widget during external drag.
- * 
- * The tentative widget is a placeholder that shows where the new widget
- * will be placed. It triggers RGL compaction so other widgets shift.
- * 
- * @param widgets - Current widget array
- * @param type - Widget type (e.g., 'clock', 'weather')  
- * @param position - Grid position { x, y }
- * @param size - Grid size { w, h }
- * @returns New array with tentative widget added
- * 
- * @example
- * ```typescript
- * // On drag move when entering grid
- * if (isOverGrid && !hasTentative) {
- *     setWidgets(injectTentativeWidget(widgets, 'clock', { x: 2, y: 0 }, { w: 4, h: 2 }));
- * }
- * ```
- */
-export function injectTentativeWidget(
-    widgets: FramerrWidget[],
-    type: string,
-    position: { x: number; y: number },
-    size: { w: number; h: number }
-): FramerrWidget[] {
-    // Remove existing tentative if any (shouldn't happen, but safety)
-    const filtered = widgets.filter(w => w.id !== TENTATIVE_WIDGET_ID);
-
-    const tentativeWidget: FramerrWidget = {
-        id: TENTATIVE_WIDGET_ID,
-        type,
-        layout: {
-            x: position.x,
-            y: position.y,
-            w: size.w,
-            h: size.h,
-        },
-        config: {},
-    };
-
-    return [...filtered, tentativeWidget];
-}
-
-/**
- * Update tentative widget position during drag.
- * 
- * @param widgets - Current widget array (must contain tentative)
- * @param position - New grid position
- * @returns Updated array, or original if no tentative exists
- */
-export function moveTentativeWidget(
-    widgets: FramerrWidget[],
-    position: { x: number; y: number }
-): FramerrWidget[] {
-    const tentative = widgets.find(w => w.id === TENTATIVE_WIDGET_ID);
-    if (!tentative) return widgets;
-
-    // Skip if position hasn't changed
-    if (tentative.layout.x === position.x && tentative.layout.y === position.y) {
-        return widgets;
-    }
-
-    return widgets.map(w =>
-        w.id === TENTATIVE_WIDGET_ID
-            ? { ...w, layout: { ...w.layout, ...position } }
-            : w
-    );
-}
-
-/**
- * Commit tentative widget - convert to permanent widget.
- * 
- * Called on successful drop. Renames the tentative widget to a permanent ID.
- * 
- * @param widgets - Current widget array (must contain tentative)
- * @param newId - Permanent ID for the widget (optional, auto-generates if not provided)
- * @returns Updated array with permanent widget, or original if no tentative
- * 
- * @example
- * ```typescript
- * // On drop inside grid
- * if (over?.id === 'grid-dropzone') {
- *     setWidgets(commitTentativeWidget(widgets, `${type}-${Date.now()}`));
- * }
- * ```
- */
-export function commitTentativeWidget(
-    widgets: FramerrWidget[],
-    newId?: string
-): FramerrWidget[] {
-    const tentative = widgets.find(w => w.id === TENTATIVE_WIDGET_ID);
-    if (!tentative) return widgets;
-
-    const permanentId = newId ?? generateWidgetId();
-
-    return widgets.map(w =>
-        w.id === TENTATIVE_WIDGET_ID
-            ? { ...w, id: permanentId }
-            : w
-    );
-}
-
-/**
- * Remove tentative widget - cancel the drag or left the grid.
- * 
- * @param widgets - Current widget array
- * @returns Array without tentative widget
- * 
- * @example
- * ```typescript
- * // On drag leave grid or cancel
- * setWidgets(removeTentativeWidget(widgets));
- * ```
- */
-export function removeTentativeWidget(
-    widgets: FramerrWidget[]
-): FramerrWidget[] {
-    return widgets.filter(w => w.id !== TENTATIVE_WIDGET_ID);
-}
-
-/**
- * Check if a tentative widget exists.
- */
-export function hasTentativeWidget(widgets: FramerrWidget[]): boolean {
-    return widgets.some(w => w.id === TENTATIVE_WIDGET_ID);
-}
-
-/**
- * Get the tentative widget if it exists.
- */
-export function getTentativeWidget(widgets: FramerrWidget[]): FramerrWidget | undefined {
-    return widgets.find(w => w.id === TENTATIVE_WIDGET_ID);
-}
 
 // ============================================================================
 // WIDGET MODIFICATION OPERATIONS
@@ -466,14 +366,26 @@ export function applyConstraintsToLayout(
  * when converting a multi-column desktop layout to single-column mobile.
  *
  * @param widgets - Source widgets with desktop layouts
- * @param mobileColumns - Number of columns in mobile view (default: 2)
+ * @param options - Optional configuration
+ * @param options.mobileColumns - Number of columns in mobile view (default: GRID_COLS.sm = 4)
+ * @param options.getMinHeight - Optional callback for registry-aware minimum height lookup
  * @returns Widgets with mobileLayout populated in reading order
  */
 export function deriveLinkedMobileLayout(
     widgets: FramerrWidget[],
-    mobileColumns: number = 2
+    options?: {
+        mobileColumns?: number;
+        getMinHeight?: (widgetType: string) => number | undefined;
+    }
 ): FramerrWidget[] {
-    if (widgets.length === 0) return [];
+    // Defensive filter: skip widgets without valid desktop layout
+    const validWidgets = widgets.filter(
+        w => w.layout && typeof w.layout.x === 'number'
+    );
+    if (validWidgets.length === 0) return [];
+
+    const mobileColumns = options?.mobileColumns ?? GRID_COLS.sm;
+    const getMinHeight = options?.getMinHeight;
 
     interface BandInfo {
         widget: FramerrWidget;
@@ -483,7 +395,7 @@ export function deriveLinkedMobileLayout(
     }
 
     // Extract desktop layout info with Y range
-    const bandInfos: BandInfo[] = widgets.map(w => ({
+    const bandInfos: BandInfo[] = validWidgets.map(w => ({
         widget: w,
         x: w.layout.x,
         y: w.layout.y,
@@ -494,7 +406,7 @@ export function deriveLinkedMobileLayout(
     const ySorted = [...bandInfos].sort((a, b) => {
         if (a.y !== b.y) return a.y - b.y;
         if (a.x !== b.x) return a.x - b.x;
-        return a.widget.id.localeCompare(b.widget.id);
+        return (a.widget.id || '').localeCompare(b.widget.id || '');
     });
 
     // Sweep line: Separate into horizontal bands
@@ -531,14 +443,16 @@ export function deriveLinkedMobileLayout(
         [...band].sort((a, b) => {
             if (a.x !== b.x) return a.x - b.x;
             if (a.y !== b.y) return a.y - b.y;
-            return a.widget.id.localeCompare(b.widget.id);
+            return (a.widget.id || '').localeCompare(b.widget.id || '');
         })
     );
 
     // Create stacked mobile layout
     let currentY = 0;
     return sortedInfos.map(info => {
-        const mobileHeight = info.widget.layout.h;
+        // Registry-aware height: max of registry minH and desktop h
+        const registryMinH = getMinHeight?.(info.widget.type) ?? 0;
+        const mobileHeight = Math.max(registryMinH, info.widget.layout.h);
         const newMobileLayout: WidgetLayout = {
             x: 0,
             y: currentY,
@@ -556,18 +470,29 @@ export function deriveLinkedMobileLayout(
 /**
  * Create a snapshot of desktop layout as mobile layout.
  * Used when first editing on mobile while in linked mode.
+ *
+ * @param widgets - Source widgets
+ * @param options - Optional configuration
+ * @param options.mobileColumns - Number of columns in mobile view (default: GRID_COLS.sm = 4)
+ * @param options.getMinHeight - Optional callback for registry-aware minimum height lookup
  */
 export function snapshotToMobileLayout(
     widgets: FramerrWidget[],
-    mobileColumns: number = 2
+    options?: {
+        mobileColumns?: number;
+        getMinHeight?: (widgetType: string) => number | undefined;
+    }
 ): FramerrWidget[] {
+    const mobileColumns = options?.mobileColumns ?? GRID_COLS.sm;
+    const getMinHeight = options?.getMinHeight;
+
     return widgets.map(w => ({
         ...w,
         mobileLayout: w.mobileLayout ?? {
             x: 0,
             y: 0,
             w: mobileColumns,
-            h: w.layout.h,
+            h: Math.max(getMinHeight?.(w.type) ?? 0, w.layout.h),
         },
     }));
 }
@@ -707,153 +632,3 @@ export function widgetSetsMatch(
     return idsA.every((id, i) => id === idsB[i]);
 }
 
-// ============================================================================
-// CRACK-BASED SNAPPING (Vertical Insertion Points)
-// ============================================================================
-
-/**
- * Breakpoint type for crack snapping (re-declared here to avoid circular deps).
- */
-type BreakpointKey = 'lg' | 'sm';
-
-/**
- * Find all vertical "cracks" (insertion points) from widget boundaries.
- * 
- * Cracks are the Y positions where new widgets can be inserted:
- * - Row 0 (top of grid)
- * - Top edge of each widget (widget.y)
- * - Bottom edge of each widget (widget.y + widget.h)
- * 
- * @param widgets - Current widget array
- * @param excludeId - Widget ID to exclude (e.g., the one being dragged)
- * @param breakpoint - Current breakpoint for layout selection
- * @returns Sorted array of unique crack positions
- * 
- * @example
- * ```typescript
- * // Widget A at y=0, h=2 and Widget B at y=2, h=3
- * const cracks = findVerticalCracks(widgets, null, 'lg');
- * // Returns: [0, 2, 5] (top, A-bottom/B-top, B-bottom)
- * ```
- */
-export function findVerticalCracks(
-    widgets: FramerrWidget[],
-    excludeId: string | null,
-    breakpoint: BreakpointKey
-): number[] {
-    const filtered = excludeId
-        ? widgets.filter(w => w.id !== excludeId)
-        : widgets;
-
-    const crackSet = new Set<number>([0]); // Always include row 0
-
-    for (const w of filtered) {
-        const layout = (breakpoint === 'sm' && w.mobileLayout) ? w.mobileLayout : w.layout;
-        crackSet.add(layout.y);
-        crackSet.add(layout.y + layout.h);
-    }
-
-    return Array.from(crackSet).sort((a, b) => a - b);
-}
-
-/**
- * Select the optimal crack based on cursor position and movement direction.
- * 
- * When direction is known, selects the FIRST crack in that direction
- * (prevents skipping to farther cracks). When direction is null, uses
- * nearest by absolute distance.
- * 
- * @param cracks - Sorted array of crack positions
- * @param cursorRow - Current cursor row position
- * @param direction - Movement direction ('up', 'down', or null)
- * @param toleranceBuffer - Extra rows to include in direction filter (prevents skipping)
- *        - 0 = strict filtering (c < cursorRow for UP, c > cursorRow for DOWN) - best for internal drags
- *        - 1+ = tolerant filtering (includes cracks you might have just passed) - best for external drags
- * @returns The selected crack position
- * 
- * @example
- * ```typescript
- * const cracks = [0, 2, 5, 8];
- * // Strict mode (internal drags)
- * selectCrackByDirection(cracks, 3, 'down', 0); // Returns 5 (first crack strictly below)
- * // Tolerant mode (external drags)
- * selectCrackByDirection(cracks, 3, 'down', 1); // Returns 2 (includes crack we might have passed)
- * ```
- */
-export function selectCrackByDirection(
-    cracks: number[],
-    cursorRow: number,
-    direction: 'up' | 'down' | null,
-    toleranceBuffer: number = 0
-): number {
-    if (cracks.length === 0) return 0;
-
-    // Filter cracks by direction
-    // toleranceBuffer controls strictness:
-    // - 0: strict filtering (original internal drag behavior)
-    // - 1+: tolerant filtering (original external drag behavior)
-    let relevantCracks = cracks;
-
-    if (direction === 'up') {
-        // UP = toward row 0
-        // Strict: only cracks strictly above cursor (c < cursorRow)
-        // Tolerant: include crack at or slightly below cursor position (in case we just passed it)
-        // But still exclude cracks far below (in the DOWN direction)
-        const threshold = toleranceBuffer > 0 ? cursorRow + toleranceBuffer : cursorRow;
-        relevantCracks = cracks.filter(c => c < threshold);
-    } else if (direction === 'down') {
-        // DOWN = toward higher rows  
-        // Strict: only cracks strictly below cursor (c > cursorRow)
-        // Tolerant: include crack at or slightly above cursor position (in case we just passed it)
-        // But still exclude cracks far above (in the UP direction)
-        const threshold = toleranceBuffer > 0 ? cursorRow - toleranceBuffer : cursorRow;
-        relevantCracks = cracks.filter(c => c > threshold);
-    }
-
-    // Select first-in-direction crack
-    if (direction === 'up' && relevantCracks.length > 0) {
-        // Moving UP: take the MAX (highest crack that's still above us = first you'll hit)
-        return Math.max(...relevantCracks);
-    } else if (direction === 'down' && relevantCracks.length > 0) {
-        // Moving DOWN: take the MIN (lowest crack that's still below us = first you'll hit)
-        return Math.min(...relevantCracks);
-    } else if (relevantCracks.length > 0) {
-        // No direction yet: use nearest by absolute distance
-        return relevantCracks.reduce((best, crack) =>
-            Math.abs(crack - cursorRow) < Math.abs(best - cursorRow) ? crack : best);
-    }
-
-    return cracks[0] ?? 0;
-}
-
-/**
- * Calculate adaptive snap threshold based on gap size between cracks.
- * 
- * Small gaps require more precision (smaller threshold).
- * Large gaps allow more tolerance (larger threshold).
- * 
- * @param cracks - Sorted array of crack positions
- * @param targetCrack - The crack we're considering snapping to
- * @returns Threshold in rows (clamped between 0.5 and 1.5)
- * 
- * @example
- * ```typescript
- * const cracks = [0, 1, 3]; // Gap of 1 row, then 2 rows
- * calculateAdaptiveThreshold(cracks, 1); // Returns 0.5 (small gap = precise)
- * calculateAdaptiveThreshold(cracks, 3); // Returns 1.0 (medium gap)
- * ```
- */
-export function calculateAdaptiveThreshold(
-    cracks: number[],
-    targetCrack: number
-): number {
-    const crackIndex = cracks.indexOf(targetCrack);
-    if (crackIndex === -1) return 1.0;
-
-    const gapToPrev = crackIndex > 0 ? targetCrack - cracks[crackIndex - 1] : 100;
-    const gapToNext = crackIndex < cracks.length - 1 ? cracks[crackIndex + 1] - targetCrack : 100;
-    const minGap = Math.min(gapToPrev, gapToNext);
-
-    // Adaptive threshold: half the gap size, clamped between 0.5 and 1.5
-    return Math.max(0.5, Math.min(1.5, minGap / 2));
-}

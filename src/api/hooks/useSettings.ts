@@ -11,6 +11,8 @@ import { tabGroupsApi } from '../endpoints/tabGroups';
 import { configApi } from '../endpoints/config';
 import { integrationsApi } from '../endpoints/integrations';
 import { systemApi } from '../endpoints/system';
+import { plexApi } from '../endpoints';
+import { adminOidcApi } from '../endpoints/adminOidc';
 import { queryKeys } from '../queryKeys';
 
 // ============================================================================
@@ -78,6 +80,17 @@ export function useUpdateBackupSchedule() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.backup.schedule() });
         },
+    });
+}
+
+/**
+ * Fetch backup encryption status (admin only)
+ */
+export function useBackupEncryptionStatus() {
+    return useQuery({
+        queryKey: queryKeys.backup.encryption(),
+        queryFn: () => backupApi.encryption.getStatus(),
+        staleTime: 5 * 60 * 1000, // 5 minutes
     });
 }
 
@@ -302,6 +315,38 @@ export function useUpdateAuthConfig() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.auth.config() });
         },
+    });
+}
+
+// ============================================================================
+// PLEX SSO CONFIG
+// ============================================================================
+
+/**
+ * Fetch Plex SSO configuration (admin only)
+ * Cached via React Query — no re-fetch on tab switches
+ */
+export function usePlexSSOConfig() {
+    return useQuery({
+        queryKey: queryKeys.auth.plexSSOConfig(),
+        queryFn: () => plexApi.getSSOConfig(),
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+}
+
+// ============================================================================
+// OIDC CONFIG
+// ============================================================================
+
+/**
+ * Fetch OIDC configuration (admin only, secret redacted)
+ * Cached via React Query — no re-fetch on tab switches
+ */
+export function useOidcConfig() {
+    return useQuery({
+        queryKey: queryKeys.auth.oidcConfig(),
+        queryFn: () => adminOidcApi.getConfig(),
+        staleTime: 5 * 60 * 1000, // 5 minutes
     });
 }
 

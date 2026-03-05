@@ -22,6 +22,8 @@ export const queryKeys = {
         session: () => [...queryKeys.auth.all, 'session'] as const,
         setup: () => [...queryKeys.auth.all, 'setup'] as const,
         config: () => [...queryKeys.auth.all, 'config'] as const,
+        plexSSOConfig: () => [...queryKeys.auth.all, 'plexSSOConfig'] as const,
+        oidcConfig: () => [...queryKeys.auth.all, 'oidcConfig'] as const,
     },
 
     // ============================================
@@ -117,6 +119,7 @@ export const queryKeys = {
         all: ['backup'] as const,
         list: () => [...queryKeys.backup.all, 'list'] as const,
         schedule: () => [...queryKeys.backup.all, 'schedule'] as const,
+        encryption: () => [...queryKeys.backup.all, 'encryption'] as const,
     },
 
     // ============================================

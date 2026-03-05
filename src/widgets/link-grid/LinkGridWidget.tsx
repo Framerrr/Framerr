@@ -206,12 +206,16 @@ export const LinkGridWidget: React.FC<LinkGridWidgetProps> = ({
     return (
         <div
             ref={containerRef}
-            className={`relative w-full h-full flex items-center ${justifyClass}`}
+            className={`relative w-full h-full flex items-center ${justifyClass} scroll-contain-x`}
             style={editMode ? {
                 touchAction: 'manipulation',
                 WebkitUserSelect: 'none',
                 userSelect: 'none'
-            } : undefined}
+            } : {
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-x pan-y',
+            }}
         >
             {/* Empty state */}
             {links.length === 0 && !editMode ? (

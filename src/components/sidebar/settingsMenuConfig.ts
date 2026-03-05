@@ -14,7 +14,7 @@ export interface SidebarSettingsCategory {
     id: string;
     label: string;
     icon: string;           // Lucide icon name
-    iconColor: string;      // iOS-style color key (blue, orange, purple, etc.)
+    iconColor: 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'pink' | 'teal' | 'gray' | 'indigo' | 'default';
     adminOnly?: boolean;
     children?: SettingsSubTab[];  // Sub-tabs for accordion expansion
 }
@@ -35,7 +35,6 @@ export const userSettingsCategories: SidebarSettingsCategory[] = [
             { id: 'gallery', label: 'Widget Gallery', icon: 'Grid3x3' },
             { id: 'active', label: 'Active Widgets', icon: 'Layers' },
             { id: 'shared', label: 'Shared Widgets', icon: 'Share2', adminOnly: true },
-            { id: 'linked', label: 'Linked Accounts', icon: 'Link' },
         ]
     },
     {
@@ -59,7 +58,16 @@ export const userSettingsCategories: SidebarSettingsCategory[] = [
             { id: 'favicon', label: 'Favicon', icon: 'Image', adminOnly: true },
         ]
     },
-    { id: 'profile', label: 'Profile', icon: 'User', iconColor: 'blue' },
+    {
+        id: 'account',
+        label: 'Account',
+        icon: 'User',
+        iconColor: 'blue',
+        children: [
+            { id: 'profile', label: 'Profile', icon: 'User' },
+            { id: 'connected', label: 'Connected Accounts', icon: 'Link' },
+        ]
+    },
     { id: 'notifications', label: 'Notifications', icon: 'Bell', iconColor: 'red' },
 ];
 
@@ -87,6 +95,7 @@ export const adminSettingsCategories: SidebarSettingsCategory[] = [
         children: [
             { id: 'proxy', label: 'Auth Proxy', icon: 'Network' },
             { id: 'plex', label: 'Plex SSO', icon: 'Tv2' },
+            // { id: 'oidc', label: 'OpenID Connect', icon: 'KeyRound' }, // DISABLED: Hidden until 0.20 release
             { id: 'iframe', label: 'iFrame Auth', icon: 'Frame' },
         ]
     },
@@ -135,19 +144,7 @@ export function getFirstVisibleChild(category: SidebarSettingsCategory, hasAdmin
     return children[0];
 }
 
-/**
- * Icon color mapping for iOS-style colored icons
- */
-export const iconColorMap: Record<string, string> = {
-    blue: 'bg-blue-500',
-    orange: 'bg-orange-500',
-    purple: 'bg-purple-500',
-    teal: 'bg-teal-500',
-    gray: 'bg-gray-500',
-    red: 'bg-red-500',
-    green: 'bg-green-500',
-    indigo: 'bg-indigo-500',
-};
+
 
 /**
  * Build a flat map of segment IDs to display labels.

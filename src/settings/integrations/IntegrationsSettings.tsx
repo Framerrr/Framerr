@@ -2,7 +2,7 @@
  * IntegrationsSettings - Router
  * 
  * Routes to the appropriate page based on activeSubTab.
- * Sub-tabs: gallery, active, services, shared, linked
+ * Sub-tabs: gallery, active, services, shared
  */
 
 import React from 'react';
@@ -12,9 +12,8 @@ import { WidgetGalleryPage } from './pages/WidgetGalleryPage';
 import { ActiveWidgetsPage } from './pages/ActiveWidgetsPage';
 import { ServiceSettingsPage } from './pages/ServiceSettingsPage';
 import { SharedWidgetsPage } from './pages/SharedWidgetsPage';
-import { LinkedAccountsPage } from './pages/LinkedAccountsPage';
 
-type SubTabId = 'gallery' | 'active' | 'services' | 'shared' | 'linked';
+type SubTabId = 'gallery' | 'active' | 'services' | 'shared';
 
 interface IntegrationsSettingsProps {
     activeSubTab?: string | null;
@@ -32,7 +31,6 @@ export const IntegrationsSettings: React.FC<IntegrationsSettingsProps> = ({ acti
     if (activeSubTab === 'active') return <ActiveWidgetsPage />;
     if (activeSubTab === 'services' && hasAdminAccess) return <ServiceSettingsPage />;
     if (activeSubTab === 'shared' && hasAdminAccess) return <SharedWidgetsPage />;
-    if (activeSubTab === 'linked') return <LinkedAccountsPage />;
 
     // Default fallback
     return <WidgetGalleryPage />;

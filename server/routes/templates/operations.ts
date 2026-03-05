@@ -30,6 +30,15 @@ router.post('/:id/apply', requireAuth, async (req: Request, res: Response) => {
             return;
         }
 
+        // Authorization: verify caller owns or has been shared this template
+        const shares = await templateDb.getTemplateShares(template.id);
+        const isOwner = template.ownerId === authReq.user!.id;
+        const isShared = shares.some(s => s.sharedWith === authReq.user!.id || s.sharedWith === 'everyone');
+        if (!isOwner && !isShared) {
+            res.status(403).json({ error: 'Access denied' });
+            return;
+        }
+
         // Use canonical helper for template application
         // This handles: backup creation, widget conversion, config update
         const dashboardWidgets = await templateDb.applyTemplateToUser(
@@ -103,7 +112,12 @@ router.post('/:id/sync', requireAuth, async (req: Request, res: Response) => {
             mobileWidgets: sanitizedMobileWidgets,
         });
 
-        // Manually set version to match parent (bypassing increment)
+        // INV-11: Version Auto-Increment Bypass
+        // updateTemplate() always increments version, but after a sync the copy's
+        // version must exactly match the parent's version so hasUpdate becomes false.
+        // Using direct SQL here is intentional — if we used updateTemplate(), the
+        // auto-increment would advance the copy's version past the parent's, permanently
+        // breaking update detection. See docs/private/reference/template-invariants.md.
         const { getDb } = await import('../../database/db');
         getDb().prepare(
             'UPDATE dashboard_templates SET version = ? WHERE id = ?'

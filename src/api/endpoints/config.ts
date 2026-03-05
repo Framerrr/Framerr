@@ -59,7 +59,6 @@ export interface ServerConfig {
 export interface GlobalSystemConfig {
     server?: ServerConfig;
     webhookBaseUrl?: string;
-    appName?: string;
     tabGroups?: Array<{ id: string; name: string; order?: number }>;
     [key: string]: unknown;
 }
@@ -103,9 +102,9 @@ export const configApi = {
 
     /**
      * Update current user's config/preferences
-     * NOTE: Backend expects theme at root level, preferences nested
+     * NOTE: Theme writes must go through /api/theme — not this endpoint.
      */
-    updateUser: (data: { theme?: ThemeConfig; preferences?: Partial<UserPreferences> }) =>
+    updateUser: (data: { preferences?: Partial<UserPreferences> }) =>
         api.put<UserConfig>('/api/config/user', data),
 
     /**

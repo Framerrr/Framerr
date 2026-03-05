@@ -59,6 +59,7 @@ export interface ProfileSettingsState {
     passwordError: string;
     passwordSuccess: boolean;
     confirmRemovePicture: boolean;
+    hasLocalPassword: boolean;
 }
 
 /**

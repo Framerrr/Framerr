@@ -7,9 +7,7 @@
  * Uses FramerrWidget type with .layout (desktop) and .mobileLayout (mobile).
  */
 
-import { getWidgetMetadata } from '../../widgets/registry';
-import { GRID_COLS } from '../../constants/gridConfig';
-import type { FramerrWidget, LayoutItem, LayoutState, MobileLayoutMode, WidgetBandInfo } from './types';
+import type { FramerrWidget, LayoutItem, LayoutState, MobileLayoutMode } from './types';
 
 /**
  * Get the appropriate widget array to use for rendering
@@ -105,112 +103,4 @@ export const getDisplayWidgets = (
     return sortWidgetsByY(
         widgetsToUse, layouts, editMode, isMobile, currentBreakpoint
     );
-};
-
-/**
- * Band detection algorithm for auto-generating mobile layout order
- * 
- * Groups widgets that vertically overlap into "bands", then within each band
- * sorts by X position (left to right). This preserves intended reading order
- * when converting a multi-column desktop layout to single-column mobile.
- */
-export const applyBandDetection = (widgets: FramerrWidget[]): FramerrWidget[] => {
-    if (widgets.length === 0) return [];
-
-    // Extract desktop layout info with Y range
-    const widgetInfos: WidgetBandInfo[] = widgets.map((w, index) => ({
-        index,
-        id: w.id,
-        x: w.layout.x,
-        y: w.layout.y,
-        h: w.layout.h,
-        yStart: w.layout.y,
-        yEnd: w.layout.y + w.layout.h,
-        widget: w
-    }));
-
-    // Sort by Y, then X, then ID for deterministic ordering
-    const ySorted = [...widgetInfos].sort((a, b) => {
-        if (a.y !== b.y) return a.y - b.y;
-        if (a.x !== b.x) return a.x - b.x;
-        return (a.id || '').localeCompare(b.id || '');
-    });
-
-    // Sweep line: Separate into horizontal bands
-    const bands: WidgetBandInfo[][] = [];
-    let currentBand: WidgetBandInfo[] = [];
-    let currentBandMaxY = -1;
-
-    ySorted.forEach((widget) => {
-        if (currentBand.length === 0) {
-            currentBand.push(widget);
-            currentBandMaxY = widget.yEnd;
-            return;
-        }
-
-        // Hard cut: widget starts at or after current band's bottom
-        if (widget.y >= currentBandMaxY) {
-            bands.push(currentBand);
-            currentBand = [widget];
-            currentBandMaxY = widget.yEnd;
-        } else {
-            // Widget overlaps with current band
-            currentBand.push(widget);
-            currentBandMaxY = Math.max(currentBandMaxY, widget.yEnd);
-        }
-    });
-
-    // Push final band
-    if (currentBand.length > 0) {
-        bands.push(currentBand);
-    }
-
-    // Sort each band by X (column), then Y, then ID
-    const sortedInfos = bands.flatMap(band =>
-        [...band].sort((a, b) => {
-            if (a.x !== b.x) return a.x - b.x;
-            if (a.y !== b.y) return a.y - b.y;
-            return (a.id || '').localeCompare(b.id || '');
-        })
-    );
-
-    // Create stacked mobile layout
-    let currentY = 0;
-    return sortedInfos.map(info => {
-        const metadata = getWidgetMetadata(info.widget.type);
-        const mobileHeight = info.widget.layout.h ?? metadata?.defaultSize?.h ?? 2;
-        const newMobileLayout = {
-            x: 0,
-            y: currentY,
-            w: GRID_COLS.sm,
-            h: mobileHeight
-        };
-        currentY += mobileHeight;
-        return {
-            ...info.widget,
-            mobileLayout: newMobileLayout
-        };
-    });
-};
-
-/**
- * Create a snapshot of widgets for mobile editing
- * 
- * When first editing on mobile while linked, we snapshot the desktop layout
- * to mobileWidgets so changes can be tracked independently.
- */
-export const createMobileSnapshot = (widgets: FramerrWidget[]): FramerrWidget[] => {
-    return widgets.map(w => {
-        const metadata = getWidgetMetadata(w.type);
-        const defaultH = metadata?.defaultSize?.h ?? 2;
-        return {
-            ...w,
-            mobileLayout: w.mobileLayout || {
-                x: 0,
-                y: 0,
-                w: GRID_COLS.sm,
-                h: w.layout.h ?? defaultH
-            }
-        };
-    });
 };

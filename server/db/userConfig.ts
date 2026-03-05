@@ -16,10 +16,11 @@ interface DashboardConfig {
 }
 
 interface ThemeConfig {
-    mode: 'light' | 'dark' | 'system';
-    primaryColor: string;
+    mode: string;                          // accepts preset IDs, 'custom', 'system'
+    primaryColor?: string;
     preset?: string;
     customColors?: Record<string, string>;
+    lastSelectedTheme?: string;
 }
 
 interface SidebarConfig {
@@ -85,8 +86,7 @@ const DEFAULT_USER_CONFIG: UserConfig = {
     },
     tabs: [],
     theme: {
-        mode: 'system',
-        primaryColor: '#3b82f6'
+        mode: 'system'
     },
     sidebar: {
         collapsed: false

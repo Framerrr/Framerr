@@ -48,8 +48,10 @@ import advancedRoutes from './routes/advanced';
 import diagnosticsRoutes from './routes/diagnostics';
 import notificationsRoutes from './routes/notifications';
 import plexRoutes from './routes/plex';
-import plexSetupRoutes from './routes/plexSetup';
+import ssoSetupRoutes from './routes/ssoSetup';
 import linkedAccountsRoutes from './routes/linkedAccounts';
+import oidcRoutes from './routes/oidc';
+import adminOidcRoutes from './routes/adminOidc';
 import webhooksRoutes from './routes/webhooks';
 import requestActionsRoutes from './routes/requestActions';
 import templatesRoutes from './routes/templates';
@@ -115,8 +117,12 @@ app.use(csrfProtection());
 app.use('/api', standardRateLimit);
 
 // Stricter rate limiting for auth endpoints (10 attempts/min per IP, brute force protection)
+// Note: This stays IP-based to prevent credential stuffing attacks
 app.use('/api/auth/login', authRateLimit);
 app.use('/api/auth/plex-login', authRateLimit);
+app.use('/api/auth/sso-setup', authRateLimit);
+app.use('/api/auth/setup', authRateLimit);
+app.use('/api/auth/oidc', authRateLimit);
 
 // Global session middleware - proxy auth takes precedence over local session
 app.use(async (req: Request, res: Response, next: NextFunction) => {
@@ -299,8 +305,10 @@ app.use('/api/advanced', advancedRoutes);
 app.use('/api/diagnostics', diagnosticsRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/plex', plexRoutes);
-app.use('/api/auth/plex-setup', plexSetupRoutes);
+app.use('/api/auth/sso-setup', ssoSetupRoutes);
+app.use('/api/auth/oidc', oidcRoutes);
 app.use('/api/linked-accounts', linkedAccountsRoutes);
+app.use('/api/admin/oidc', adminOidcRoutes);
 app.use('/api/webhooks', webhooksRoutes);
 app.use('/api/request-actions', requestActionsRoutes);
 app.use('/api/templates', templatesRoutes);
@@ -318,17 +326,8 @@ app.use('/api/walkthrough', walkthroughRoutes);
 app.use('/api/link-library', linkLibraryRoutes);
 
 
-// Theme splash color map — server injects these into index.html template
-const THEME_SPLASH_COLORS: Record<string, { bg: string; text: string; accent: string }> = {
-    'dark-pro': { bg: '#0a0e1a', text: '#94a3b8', accent: '#3b82f6' },
-    'light': { bg: '#ffffff', text: '#6b7280', accent: '#3b82f6' },
-    'nord': { bg: '#2e3440', text: '#81a1c1', accent: '#88c0d0' },
-    'catppuccin': { bg: '#1e1e2e', text: '#bac2de', accent: '#89b4fa' },
-    'dracula': { bg: '#282a36', text: '#e6e6e6', accent: '#bd93f9' },
-    'noir': { bg: '#0f0f12', text: '#888888', accent: '#8a9ba8' },
-    'nebula': { bg: '#0d0d1a', text: '#94a3b8', accent: '#a855f7' },
-};
-const DEFAULT_SPLASH_COLORS = THEME_SPLASH_COLORS['dark-pro'];
+// Theme splash color map — shared module used by both splash injection and manifest endpoint
+import { THEME_SPLASH_COLORS, DEFAULT_SPLASH_COLORS } from './utils/themeColors';
 
 // In production, serve built frontend
 if (NODE_ENV === 'production') {
@@ -413,7 +412,8 @@ if (NODE_ENV === 'production') {
                 .replace('{{SPLASH_THEME}}', themeName)
                 .replace('{{SPLASH_BG}}', splashColors.bg)
                 .replace('{{SPLASH_TEXT}}', splashColors.text)
-                .replace('{{SPLASH_ACCENT}}', splashColors.accent);
+                .replace('{{SPLASH_ACCENT}}', splashColors.accent)
+                .replace('{{THEME_COLOR}}', splashColors.bg);
 
             res.setHeader('Content-Type', 'text/html');
             res.send(html);

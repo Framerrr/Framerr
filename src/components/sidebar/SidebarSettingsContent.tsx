@@ -4,7 +4,8 @@ import { getLucideIcon } from '../../utils/iconUtils';
 import { useSharedSidebar } from './SharedSidebarContext';
 import { HighlightItem } from './Highlight';
 import { textSpring } from './types';
-import { getSettingsCategories, getVisibleChildren, getFirstVisibleChild, iconColorMap } from './settingsMenuConfig';
+import { getSettingsCategories, getVisibleChildren, getFirstVisibleChild } from './settingsMenuConfig';
+import '../settings/SettingsLayout.css';
 import { useAuth } from '../../context/AuthContext';
 import { isAdmin } from '../../utils/permissions';
 
@@ -102,7 +103,7 @@ export function SidebarSettingsContent() {
             {/* Settings categories */}
             {categories.map(category => {
                 const isActive = activeCategory === category.id;
-                const colorClass = iconColorMap[category.iconColor] || 'bg-gray-500';
+                const colorClass = `settings-item__icon--${category.iconColor || 'default'}`;
                 const visibleChildren = getVisibleChildren(category, hasAdminAccess);
                 const hasChildren = visibleChildren.length > 0;
                 const isOpen = expandedSettingsCategory === category.id;
@@ -117,7 +118,7 @@ export function SidebarSettingsContent() {
                             >
                                 {/* Icon - absolutely positioned in 80px left zone */}
                                 <div className="absolute left-0 w-20 h-full flex items-center justify-center">
-                                    <span className={`flex items-center justify-center w-7 h-7 rounded-lg text-white ${colorClass}`}>
+                                    <span className={`settings-item__icon ${colorClass}`}>
                                         {renderIcon(category.icon, 16)}
                                     </span>
                                 </div>

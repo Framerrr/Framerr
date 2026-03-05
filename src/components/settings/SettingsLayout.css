@@ -183,39 +183,39 @@
 
 /* iOS-style colored icon backgrounds */
 .settings-item__icon--blue {
-    background: #007AFF;
+    background: var(--settings-icon-blue, #007AFF);
 }
 
 .settings-item__icon--green {
-    background: #34C759;
+    background: var(--settings-icon-green, #34C759);
 }
 
 .settings-item__icon--orange {
-    background: #FF9500;
+    background: var(--settings-icon-orange, #FF9500);
 }
 
 .settings-item__icon--red {
-    background: #FF3B30;
+    background: var(--settings-icon-red, #FF3B30);
 }
 
 .settings-item__icon--purple {
-    background: #AF52DE;
+    background: var(--settings-icon-purple, #AF52DE);
 }
 
 .settings-item__icon--pink {
-    background: #FF2D55;
+    background: var(--settings-icon-pink, #FF2D55);
 }
 
 .settings-item__icon--teal {
-    background: #5AC8FA;
+    background: var(--settings-icon-teal, #5AC8FA);
 }
 
 .settings-item__icon--gray {
-    background: #8E8E93;
+    background: var(--settings-icon-gray, #8E8E93);
 }
 
 .settings-item__icon--indigo {
-    background: #5856D6;
+    background: var(--settings-icon-indigo, #5856D6);
 }
 
 /* Default - use accent color */

@@ -20,6 +20,7 @@ export interface User {
     group: UserGroup;
     plexUserId?: string;
     plexUsername?: string;
+    hasLocalPassword?: boolean;
     preferences?: UserPreferences;
     createdAt?: string;
     updatedAt?: string;
@@ -59,7 +60,7 @@ export interface LoginResult {
     // Plex account setup flow
     needsAccountSetup?: boolean;  // New Plex user needs to create/link account
     setupToken?: string;          // Token for /plex-setup page
-    needsPasswordSetup?: boolean; // Migrating user needs to set local password
+
     // Admin password reset flow
     requirePasswordChange?: boolean; // User must change password before accessing app
 }

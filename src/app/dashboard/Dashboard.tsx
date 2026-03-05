@@ -1,39 +1,19 @@
-import React, { useEffect, useRef, useMemo, useState, Suspense } from 'react';
-import { Edit, Plus, LucideIcon, Link, Unlink, LayoutGrid } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { getIconComponent } from '../../utils/iconUtils';
-import { getGreeting, getLoadingMessage } from '../../utils/greetings';
-import type { GreetingTone } from '../../utils/greetings';
-import { signalAppReady, setSplashMessage } from '../../utils/splash';
+import React, { useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLayout } from '../../context/LayoutContext';
 import { LAYOUT } from '../../constants/layout';
-import { WidgetRenderer, WidgetStateMessage } from '../../shared/widgets';
-import WidgetErrorBoundary from '../../components/widgets/WidgetErrorBoundary';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
-import { getWidgetComponent, getWidgetIcon, getWidgetMetadata, getWidgetIconName, getWidgetConfigConstraints } from '../../widgets/registry';
+import { getWidgetConfigConstraints } from '../../widgets/registry';
 import { useIntegrationSchemas } from '../../api/hooks';
-import AddWidgetModal from './components/AddWidgetModal';
-import WidgetConfigModal from './components/WidgetConfigModal';
-import WidgetResizeModal from './components/WidgetResizeModal';
-import MobileEditDisclaimerModal from './components/MobileEditDisclaimerModal';
-import UnlinkConfirmationModal from './components/UnlinkConfirmationModal';
-import RelinkConfirmationModal from './components/RelinkConfirmationModal';
-import UnsavedChangesModal from './components/UnsavedChangesModal';
-import DashboardEditBar from './components/DashboardEditBar';
 import { useDashboardEdit } from '../../context/DashboardEditContext';
 import { useWalkthrough } from '../../features/walkthrough';
 import DevDebugOverlay from '../../components/dev/DevDebugOverlay';
 import { useDragAutoScroll } from '../../hooks/useDragAutoScroll';
 import { useResizeHeightLock } from '../../hooks/useResizeHeightLock';
-import { configApi } from '../../api/endpoints';
-// Grid wrapper - encapsulates RGL and provides library-agnostic API
 import { FramerrDashboardGrid } from '../../shared/grid';
 import '../../styles/GridLayout.css';
-import logger from '../../utils/logger';
 import { useNotifications } from '../../context/NotificationContext';
 import PullToRefresh from '../../shared/ui/PullToRefresh';
-import type { FramerrWidget } from '../../../shared/types/widget';
+import { getLoadingMessage } from '../../utils/greetings';
 
 // Shared layout hook
 import { useDashboardLayout } from '../../hooks/useDashboardLayout';
@@ -41,6 +21,14 @@ import { useDashboardLayout } from '../../hooks/useDashboardLayout';
 // Dashboard-specific hooks
 import { useDashboardData } from './hooks/useDashboardData';
 import { useDashboardHandlers } from './hooks/useDashboardHandlers';
+import { useDashboardEffects } from './hooks/useDashboardEffects';
+
+// Extracted components
+import DashboardHeader from './components/DashboardHeader';
+import DashboardEmptyState from './components/DashboardEmptyState';
+import DashboardEditOverlay from './components/DashboardEditOverlay';
+import DashboardModalStack from './components/DashboardModalStack';
+import { createRenderWidget } from './helpers/renderWidget';
 
 
 /**
@@ -50,6 +38,7 @@ import { useDashboardHandlers } from './hooks/useDashboardHandlers';
  * - useDashboardLayout: Grid/layout state management
  * - useDashboardData: API fetching, integrations, preferences
  * - useDashboardHandlers: Actions, saves, event handling
+ * - useDashboardEffects: Standalone effects (events, splash, debug)
  */
 
 const Dashboard = (): React.JSX.Element => {
@@ -217,23 +206,29 @@ const Dashboard = (): React.JSX.Element => {
     // ========== RESIZE MODAL STATE ==========
     const [resizeModalWidgetId, setResizeModalWidgetId] = React.useState<string | null>(null);
 
-    // ========== SQUARE CELLS (EXPERIMENTAL) ==========
-    const [squareCells, setSquareCells] = React.useState(false);
-    useEffect(() => {
-        const loadPref = async () => {
-            try {
-                const response = await configApi.getUser();
-                if (response?.preferences?.squareCells) setSquareCells(true);
-            } catch { /* ignore */ }
-        };
-        loadPref();
-        const handler = (e: Event) => {
-            const detail = (e as CustomEvent).detail;
-            if (detail?.squareCells !== undefined) setSquareCells(!!detail.squareCells);
-        };
-        window.addEventListener('user-preferences-changed', handler);
-        return () => window.removeEventListener('user-preferences-changed', handler);
-    }, []);
+    // ========== EFFECTS HOOK ==========
+    // Loading message - memoized so it persists during a single load
+    const loadingMsg = useMemo(() => {
+        if (!loadingMessagesEnabled) return null;
+        return getLoadingMessage(user?.displayName || user?.username || 'User');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loadingMessagesEnabled, user?.displayName, user?.username]);
+
+    const { squareCells } = useDashboardEffects({
+        editMode,
+        isMobile,
+        widgets,
+        mobileWidgets,
+        layouts,
+        mobileLayoutMode,
+        pendingUnlink,
+        widgetVisibility,
+        debugOverlayEnabled,
+        loading,
+        loadingMsg,
+        setWidgetPixelSizes,
+        fetchWidgets,
+    });
 
     // ========== AUTO-SCROLL HOOK ==========
     const {
@@ -243,282 +238,27 @@ const Dashboard = (): React.JSX.Element => {
     } = useDragAutoScroll({ enabled: editMode });
 
     // ========== RESIZE HEIGHT LOCK ==========
-    // Prevents page collapse when resizing a widget smaller at the bottom of the grid
     const {
         containerRef: gridAreaRef,
         onResizeStart: heightLockStart,
         onResizeStop: heightLockStop,
     } = useResizeHeightLock();
 
-    // iOS PWA workaround - set inline styles for resize handles
-    useEffect(() => {
-        if (!editMode || !isMobile) return;
-
-        const handles = document.querySelectorAll('.react-resizable-handle');
-        handles.forEach((handle) => {
-            const el = handle as HTMLElement;
-            el.style.pointerEvents = 'auto';
-            el.style.touchAction = 'none';
-        });
-
-        return () => {
-            handles.forEach((handle) => {
-                const el = handle as HTMLElement;
-                el.style.pointerEvents = '';
-                el.style.touchAction = '';
-            });
-        };
-    }, [editMode, isMobile, widgets]);
-
-    // Dynamically adjust widget heights when visibility changes
-    const prevVisibilityRef = useRef<Record<string, boolean>>({});
-    const prevEditModeRef = useRef<boolean>(false);
-    useEffect(() => {
-        if (!widgets.length) return;
-
-        const editModeJustEnabled = editMode && !prevEditModeRef.current;
-        prevEditModeRef.current = editMode;
-
-        if (editModeJustEnabled || editMode) return;
-
-        const visibilityChanged = Object.keys(widgetVisibility).some(
-            key => widgetVisibility[key] !== prevVisibilityRef.current[key]
-        ) || Object.keys(prevVisibilityRef.current).some(
-            key => prevVisibilityRef.current[key] !== widgetVisibility[key]
-        );
-
-        prevVisibilityRef.current = { ...widgetVisibility };
-
-        if (!visibilityChanged) return;
-    }, [widgetVisibility, widgets, mobileWidgets, mobileLayoutMode, pendingUnlink, editMode]);
-
-    // Track widget pixel sizes for debug overlay
-    useEffect(() => {
-        if (!debugOverlayEnabled) return;
-
-        const updateSizes = () => {
-            const widgetElements = document.querySelectorAll('[data-widget-id]');
-            const sizes: Record<string, { w: number; h: number }> = {};
-            widgetElements.forEach((el) => {
-                const widgetId = el.getAttribute('data-widget-id');
-                if (widgetId) {
-                    const rect = el.getBoundingClientRect();
-                    const computed = window.getComputedStyle(el);
-                    const paddingLeft = parseFloat(computed.paddingLeft) || 0;
-                    const paddingRight = parseFloat(computed.paddingRight) || 0;
-                    const paddingTop = parseFloat(computed.paddingTop) || 0;
-                    const paddingBottom = parseFloat(computed.paddingBottom) || 0;
-                    sizes[widgetId] = {
-                        w: Math.round(rect.width - paddingLeft - paddingRight),
-                        h: Math.round(rect.height - paddingTop - paddingBottom)
-                    };
-                }
-            });
-            setWidgetPixelSizes(sizes);
-        };
-
-        updateSizes();
-
-        const observer = new ResizeObserver(() => updateSizes());
-        const widgetElements = document.querySelectorAll('[data-widget-id]');
-        widgetElements.forEach((el) => observer.observe(el));
-        window.addEventListener('resize', updateSizes);
-
-        return () => {
-            observer.disconnect();
-            window.removeEventListener('resize', updateSizes);
-        };
-    }, [debugOverlayEnabled, widgets, mobileWidgets, layouts, setWidgetPixelSizes]);
-
-    // Listen for widgets-added event to refetch
-    useEffect(() => {
-        const handleWidgetsAdded = (): void => {
-            logger.debug('widgets-added event received, reloading dashboard');
-            fetchWidgets();
-        };
-
-        // Also listen for widget-config-updated (dispatched by fallback persistence)
-        const handleConfigUpdated = (): void => {
-            logger.debug('widget-config-updated event received, reloading dashboard');
-            fetchWidgets();
-        };
-
-        window.addEventListener('widgets-added', handleWidgetsAdded);
-        window.addEventListener('widget-config-updated', handleConfigUpdated);
-        return () => {
-            window.removeEventListener('widgets-added', handleWidgetsAdded);
-            window.removeEventListener('widget-config-updated', handleConfigUpdated);
-        };
-    }, [fetchWidgets]);
-
     // ========== RENDER WIDGET ==========
-
-    const renderWidget = (widget: FramerrWidget): React.JSX.Element | null => {
-        const WidgetComponent = getWidgetComponent(widget.type);
-        const defaultIcon = getWidgetIcon(widget.type);
-        const metadata = getWidgetMetadata(widget.type);
-
-        if (!WidgetComponent) return null;
-
-        // Check widget type access for non-admin users
-        const hasAccess = hasWidgetAccess(widget.type);
-
-        // If no access, show "access revoked" state
-        if (!hasAccess) {
-            return (
-                <WidgetRenderer
-                    widget={widget}
-                    mode="live"
-                    title={widget.config?.title as string || metadata?.name || 'Widget'}
-                    icon={defaultIcon as LucideIcon}
-                    editMode={editMode}
-                    onEdit={() => handleEditWidget(widget.id)}
-                    onMoveResize={() => setResizeModalWidgetId(widget.id)}
-                    onDuplicate={() => handleDuplicateWidget(widget.id)}
-                    onDelete={handleDeleteWidget}
-                    flatten={false}
-                    showHeader={true}
-                >
-                    <WidgetStateMessage
-                        variant="noAccess"
-                        serviceName={widget.config?.title as string || metadata?.name || 'Widget'}
-                    />
-                </WidgetRenderer>
-            );
-        }
-
-        // Only resolve integration icon/name for single-type widgets (e.g., overseerr, plex, sonarr).
-        // Multi-type widgets (media-search, calendar, system-status) keep their own identity.
-        const compatibleTypes = metadata?.compatibleIntegrations || [];
-        const isSingleTypeWidget = compatibleTypes.length === 1;
-        const integrationId = widget.config?.integrationId as string | undefined;
-
-        let Icon: LucideIcon | React.FC;
-        if (widget.config?.customIcon) {
-            // User explicitly picked an icon
-            const customIconValue = widget.config.customIcon as string;
-            Icon = getIconComponent(customIconValue);
-        } else if (isSingleTypeWidget && integrationId && schemas) {
-            // Single-type widget with bound integration → use integration icon
-            const intType = integrationId.split('-')[0];
-            const schemaIcon = schemas[intType]?.icon;
-            Icon = schemaIcon ? getIconComponent(schemaIcon) : defaultIcon;
-        } else {
-            Icon = defaultIcon;
-        }
-
-        // Title resolution chain: config.title (if customized) → integration name → widget default
-        const storedTitle = widget.config?.title as string;
-        const defaultName = metadata?.name || 'Widget';
-        const isDefaultTitle = !storedTitle || storedTitle === defaultName;
-        let resolvedTitle: string;
-
-        if (!isDefaultTitle) {
-            // User set a custom title — use it
-            resolvedTitle = storedTitle;
-        } else if (isSingleTypeWidget && integrationId && schemas) {
-            // Single-type widget → use integration schema name
-            const intType = integrationId.split('-')[0];
-            resolvedTitle = schemas[intType]?.name || defaultName;
-        } else {
-            resolvedTitle = defaultName;
-        }
-
-        const smLayout = layouts.sm.find(l => l.id === widget.id);
-        const yPos = smLayout?.y ?? '?';
-
-        return (
-            <WidgetRenderer
-                widget={widget}
-                mode="live"
-                title={resolvedTitle}
-                icon={Icon as LucideIcon}
-                editMode={editMode}
-                isMobile={isMobile}
-                onEdit={() => handleEditWidget(widget.id)}
-                onMoveResize={() => setResizeModalWidgetId(widget.id)}
-                onDuplicate={() => handleDuplicateWidget(widget.id)}
-                onDelete={handleDeleteWidget}
-                flatten={widget.config?.flatten as boolean || false}
-                showHeader={widget.config?.showHeader !== false}
-            >
-                {debugOverlayEnabled && (
-                    <div
-                        style={{
-                            position: 'absolute',
-                            top: '4px',
-                            right: '4px',
-                            backgroundColor: 'rgba(0,0,0,0.8)',
-                            color: '#fff',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            fontSize: '10px',
-                            fontFamily: 'monospace',
-                            zIndex: 100
-                        }}
-                    >
-                        sm.y: {yPos}
-                    </div>
-                )}
-                <WidgetErrorBoundary>
-                    <Suspense fallback={<LoadingSpinner />}>
-                        <WidgetComponent
-                            widget={widget}
-                            isEditMode={editMode}
-                            onVisibilityChange={handleWidgetVisibilityChange}
-                            setGlobalDragEnabled={setGlobalDragEnabled}
-                        />
-                    </Suspense>
-                </WidgetErrorBoundary>
-            </WidgetRenderer>
-        );
-    };
-
-    // ========== GREETING LOGIC (must be before early return) ==========
-
-    // Auto greeting - memoized so it doesn't change on every render
-    const autoGreeting = useMemo(() => {
-        if (greetingMode !== 'auto') return null;
-        return getGreeting(user?.displayName || user?.username || 'User', tones as GreetingTone[]);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [greetingMode, user?.displayName, user?.username, tones]);
-
-    // Loading message - memoized so it persists during a single load
-    const loadingMsg = useMemo(() => {
-        if (!loadingMessagesEnabled) return null;
-        return getLoadingMessage(user?.displayName || user?.username || 'User');
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loadingMessagesEnabled, user?.displayName, user?.username]);
-
-    // Resolve the greeting icon component if available
-    const GreetingIcon = useMemo(() => {
-        if (!autoGreeting?.icon) return null;
-        return getIconComponent(autoGreeting.icon);
-    }, [autoGreeting?.icon]);
-
-    // Determine greeting text to display
-    const username = user?.displayName || user?.username || 'User';
-    const displayGreetingText = greetingMode === 'auto'
-        ? (autoGreeting?.text || `Welcome back, ${username}`)
-        : ((greetingText || `Welcome back, ${username}`).replace(/\{user\}/gi, username));
-
-
-    // ========== SPLASH SCREEN INTEGRATION ==========
-
-    // Update splash message while loading
-    useEffect(() => {
-        if (loading && loadingMsg) {
-            setSplashMessage(loadingMsg.text);
-        }
-    }, [loading, loadingMsg]);
-
-    // Signal app ready when data loads — triggers theme airlock + splash dismiss
-    useEffect(() => {
-        if (!loading) {
-            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark-pro';
-            signalAppReady(currentTheme);
-        }
-    }, [loading]);
+    const renderWidget = createRenderWidget({
+        editMode,
+        isMobile,
+        schemas,
+        layouts,
+        debugOverlayEnabled,
+        handleEditWidget,
+        setResizeModalWidgetId,
+        handleDuplicateWidget,
+        handleDeleteWidget,
+        handleWidgetVisibilityChange,
+        setGlobalDragEnabled,
+        hasWidgetAccess,
+    });
 
     // ========== RENDER ==========
 
@@ -529,8 +269,6 @@ const Dashboard = (): React.JSX.Element => {
 
     const isEmpty = displayWidgets.length === 0;
 
-
-
     return (
         <div
             className={`w-full min-h-full max-w-[2000px] mx-auto fade-in p-2 md:p-4 ${editMode ? 'dashboard-edit-mode' : ''}`}
@@ -539,227 +277,43 @@ const Dashboard = (): React.JSX.Element => {
             {/* Mobile pull-to-refresh — disabled during edit mode */}
             {!editMode && <PullToRefresh />}
 
-            {/* Edit Button - standalone when header is hidden */}
-            {!headerVisible && !(isMobile && hideMobileEditButton) && (
-                <div
-                    className="flex justify-end transition-opacity duration-150"
-                    style={{
-                        opacity: editMode ? 0 : 1,
-                        visibility: editMode ? 'hidden' : 'visible',
-                        pointerEvents: editMode ? 'none' : 'auto',
-                    }}
-                >
-                    <button
-                        onPointerUp={(e) => {
-                            const isTouch = e.pointerType === 'touch';
-                            handleToggleEdit(isTouch);
-                        }}
-                        className="p-2 rounded-lg text-theme-tertiary opacity-40 hover:opacity-90 hover:bg-theme-hover transition-all duration-300"
-                        title="Edit dashboard"
-                    >
-                        <Edit size={16} />
-                    </button>
-                </div>
-            )}
+            {/* Header — greeting, edit button, tagline */}
+            <DashboardHeader
+                user={user}
+                greetingMode={greetingMode}
+                greetingText={greetingText}
+                tones={tones}
+                headerVisible={headerVisible}
+                taglineEnabled={taglineEnabled}
+                taglineText={taglineText}
+                editMode={editMode}
+                isMobile={isMobile}
+                hideMobileEditButton={hideMobileEditButton}
+                mobileLayoutMode={mobileLayoutMode}
+                pendingUnlink={pendingUnlink}
+                debugOverlayEnabled={debugOverlayEnabled}
+                onToggleEdit={handleToggleEdit}
+            />
 
-            {/* Header - conditionally visible, always static (no layout-shifting animations) */}
-            {headerVisible && (
-                <header className={`${taglineEnabled ? 'mb-8' : 'mb-4'}`}>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            {GreetingIcon && autoGreeting?.iconColor && (
-                                <span style={{ color: autoGreeting.iconColor }} className="flex-shrink-0 flex items-center">
-                                    <GreetingIcon size={28} />
-                                </span>
-                            )}
-                            <h1 className="text-4xl font-bold gradient-text">
-                                {displayGreetingText}
-                            </h1>
-                        </div>
-                        {!editMode && !(isMobile && hideMobileEditButton) && (
-                            <button
-                                onClick={() => handleToggleEdit(isMobile)}
-                                className="p-2 rounded-lg text-theme-tertiary opacity-40 hover:opacity-90 hover:bg-theme-hover transition-all duration-300 flex-shrink-0 cursor-pointer"
-                                title="Edit dashboard"
-                                data-walkthrough="edit-button"
-                            >
-                                <Edit size={16} />
-                            </button>
-                        )}
-                    </div>
-                    {/* Subtitle area — tagline crossfades to edit text in place (no height change) */}
-                    <AnimatePresence mode="wait">
-                        {taglineEnabled && (
-                            editMode ? (
-                                <motion.p
-                                    key="edit-subtitle"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="text-lg text-theme-secondary mt-2"
-                                >
-                                    {isMobile
-                                        ? 'Hold to drag and rearrange widgets'
-                                        : 'Editing mode — Drag to rearrange widgets'}
-                                </motion.p>
-                            ) : (
-                                <motion.p
-                                    key="tagline"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="text-lg text-theme-secondary mt-2"
-                                >
-                                    {taglineText}
-                                </motion.p>
-                            )
-                        )}
-                    </AnimatePresence>
-                    {debugOverlayEnabled && (
-                        <div className="flex items-center gap-2 mt-2">
-                            <span
-                                className="text-xs px-2 py-1 rounded"
-                                style={{
-                                    backgroundColor: mobileLayoutMode === 'linked' ? '#3b82f680' : '#22c55e80',
-                                    color: '#fff'
-                                }}
-                            >
-                                {mobileLayoutMode.toUpperCase()}
-                            </span>
-                            {pendingUnlink && (
-                                <span className="text-xs px-2 py-1 rounded bg-orange-500/50 text-white">
-                                    PENDING UNLINK
-                                </span>
-                            )}
-                        </div>
-                    )}
-                </header>
-            )}
-
-            {/* ==================== EDIT MODE SECTION ====================
-             * Two animated wrappers for edit-mode content:
-             * 
-             * 1. Subtitle wrapper — height-clip animation (overflow: hidden)
-             *    Only rendered when tagline is OFF or header is OFF.
-             * 
-             * 2. Edit bar wrapper — sticky at top, opacity + translateY animation
-             *    Separated so position:sticky works (can't work inside overflow:hidden).
-             */}
-
-            {/* Part 1: Subtitle (height-clip animation) */}
-            <AnimatePresence>
-                {editMode && !isMobile && (!taglineEnabled || !headerVisible) && (
-                    <motion.div
-                        key="edit-subtitle"
-                        initial={{ height: 0 }}
-                        animate={{ height: 'auto' }}
-                        exit={{ height: 0 }}
-                        transition={{
-                            type: 'spring',
-                            damping: 32,
-                            stiffness: 300,
-                            mass: 0.8,
-                            restDelta: 2,
-                        }}
-                        style={{ overflow: 'hidden' }}
-                    >
-                        <p className="text-lg text-theme-secondary mb-3 text-center">
-                            {isMobile
-                                ? 'Hold to drag and rearrange widgets'
-                                : 'Editing mode — Drag to rearrange widgets'}
-                        </p>
-
-                        {/* Mobile link status badge (shown in edit section when no tagline) */}
-                        {isMobile && (
-                            <div className="flex items-center justify-center gap-2 mb-3">
-                                <span
-                                    className={`text-xs px-2 py-1 rounded-lg flex items-center gap-1 font-medium ${(mobileLayoutMode === 'independent' || pendingUnlink)
-                                        ? 'bg-warning/20 text-warning'
-                                        : 'bg-success/20 text-success'
-                                        }`}
-                                >
-                                    {(mobileLayoutMode === 'independent' || pendingUnlink) ? (
-                                        <>
-                                            <Unlink size={12} />
-                                            Independent
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Link size={12} />
-                                            Linked
-                                        </>
-                                    )}
-                                </span>
-                            </div>
-                        )}
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Part 2: Edit bar (sticky, opacity animation) */}
-            <AnimatePresence>
-                {editMode && !isMobile && (
-                    <motion.div
-                        key="edit-bar"
-                        initial={{ opacity: 0, height: 0, marginBottom: 0, overflow: 'hidden' as const }}
-                        animate={{ opacity: 1, height: 'auto', marginBottom: 12, overflow: 'visible' as const }}
-                        exit={{ opacity: 0, height: 0, marginBottom: 0, overflow: 'hidden' as const }}
-                        transition={{
-                            type: 'spring',
-                            damping: 32,
-                            stiffness: 300,
-                            mass: 0.8,
-                            restDelta: 2,
-                            overflow: { delay: 0.15 },
-                        }}
-                        className="sticky top-0 z-30 py-1"
-                    >
-                        <DashboardEditBar
-                            canUndo={canUndo}
-                            canRedo={canRedo}
-                            onUndo={undo}
-                            onRedo={redo}
-                            mobileLayoutMode={mobileLayoutMode}
-                            pendingUnlink={pendingUnlink}
-                            isMobile={isMobile}
-                            hasUnsavedChanges={hasUnsavedChanges}
-                            saving={saving}
-                            onAddWidget={() => {
-                                handleAddWidget();
-                            }}
-                            onRelink={() => setShowRelinkConfirmation(true)}
-                            onSave={handleSave}
-                            onCancel={handleCancel}
-                        />
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Mobile edit mode subtitle — shown in header when tagline is on */}
-            {editMode && isMobile && headerVisible && taglineEnabled && (
-                <div className="flex items-center gap-2 mb-3 -mt-6">
-                    <span
-                        className={`text-xs px-2 py-1 rounded-lg flex items-center gap-1 font-medium ${(mobileLayoutMode === 'independent' || pendingUnlink)
-                            ? 'bg-warning/20 text-warning'
-                            : 'bg-success/20 text-success'
-                            }`}
-                    >
-                        {(mobileLayoutMode === 'independent' || pendingUnlink) ? (
-                            <>
-                                <Unlink size={12} />
-                                Independent
-                            </>
-                        ) : (
-                            <>
-                                <Link size={12} />
-                                Linked
-                            </>
-                        )}
-                    </span>
-                </div>
-            )}
+            {/* Edit mode overlay — subtitle, edit bar, mobile badge */}
+            <DashboardEditOverlay
+                editMode={editMode}
+                isMobile={isMobile}
+                taglineEnabled={taglineEnabled}
+                headerVisible={headerVisible}
+                mobileLayoutMode={mobileLayoutMode}
+                pendingUnlink={pendingUnlink}
+                hasUnsavedChanges={hasUnsavedChanges}
+                saving={saving}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                onUndo={undo}
+                onRedo={redo}
+                onAddWidget={() => handleAddWidget()}
+                onRelink={() => setShowRelinkConfirmation(true)}
+                onSave={handleSave}
+                onCancel={handleCancel}
+            />
 
             {/* Grid Layout or Empty State */}
             <div
@@ -767,17 +321,12 @@ const Dashboard = (): React.JSX.Element => {
                 className="dashboard-grid-area relative"
                 data-walkthrough="dashboard-grid"
                 style={{
-                    // When empty, fill remaining viewport height (accounting for header/edit bar ~200px)
                     minHeight: isEmpty ? 'calc(100dvh - 200px)' : '400px',
-                    // Extra bottom padding in edit mode so resize handles are accessible
                     paddingBottom: editMode ? '200px' : undefined,
                 }}
             >
-
-                {/* Grid - always rendered for drop target */}
                 <FramerrDashboardGrid
                     widgets={displayWidgets}
-                    layouts={layouts}
                     editMode={editMode}
                     isMobile={isMobile}
                     currentBreakpoint={currentBreakpoint}
@@ -803,10 +352,6 @@ const Dashboard = (): React.JSX.Element => {
                         }
                     }}
                     onExternalWidgetDrop={(event) => {
-                        // Use layout info from external drop event
-                        // NOTE: Do NOT pass event.id - we intentionally want the React widget
-                        // to have a DIFFERENT ID so the sync effect replaces the dirty drop element
-                        // (which has morph/card content) with a fresh clean element
                         handleAddWidgetFromModal(event.widgetType, {
                             x: event.x,
                             y: event.y,
@@ -821,55 +366,7 @@ const Dashboard = (): React.JSX.Element => {
                     pendingUnlink={pendingUnlink}
                     squareCells={squareCells}
                     emptyOverlay={isEmpty ? (
-                        <div className="empty-dashboard-overlay absolute inset-0 flex items-center justify-center pointer-events-none">
-                            {/* Card - visual only, no pointer events */}
-                            <div className="glass-card rounded-2xl p-10 max-w-xl w-full border border-theme text-center space-y-5">
-                                <div className="flex justify-center mb-2">
-                                    <div className="relative">
-                                        <div className="absolute inset-0 bg-accent/20 blur-2xl rounded-full"></div>
-                                        <LayoutGrid
-                                            size={64}
-                                            className="relative text-accent"
-                                            strokeWidth={1.5}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    <h2 className="text-2xl font-bold text-theme-primary">
-                                        Your Dashboard is Empty
-                                    </h2>
-                                    <p className="text-theme-secondary">
-                                        Add your first widget to get started.
-                                    </p>
-                                </div>
-                                {/* Placeholder space for button - actual button is positioned separately */}
-                                <div className="pt-2">
-                                    <div className="inline-flex items-center gap-2 px-6 py-3 opacity-0">
-                                        <Plus size={18} />
-                                        Add Widget
-                                    </div>
-                                </div>
-                                <p className="text-xs text-theme-tertiary pt-2">
-                                    💡 Widgets can display your media, downloads, system stats, and more.
-                                </p>
-                            </div>
-
-                            {/* Button - separate element, positioned to appear on card */}
-                            {/* Uses pointer-events-auto so it's clickable */}
-                            <button
-                                onClick={handleAddWidget}
-                                className="absolute inline-flex items-center gap-2 px-6 py-3 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg transition-colors pointer-events-auto z-30 whitespace-nowrap"
-                                style={{
-                                    // Position to center horizontally, offset vertically to match card button position
-                                    top: '50%',
-                                    left: '50%',
-                                    transform: 'translate(-50%, 45px)', // Adjust Y to match button position on card
-                                }}
-                            >
-                                <Plus size={18} />
-                                Add Widget
-                            </button>
-                        </div>
+                        <DashboardEmptyState onAddWidget={handleAddWidget} />
                     ) : undefined}
                 />
             </div>
@@ -892,142 +389,54 @@ const Dashboard = (): React.JSX.Element => {
                 />
             )}
 
-            {/* Add Widget Modal */}
-            <AddWidgetModal
-                isOpen={showAddModal}
-                onClose={() => setShowAddModal(false)}
-                onAddWidget={handleAddWidgetFromModal}
-                preventClose={walkthrough?.isModalProtected}
-            />
-
-            {/* Mobile Edit Disclaimer Modal */}
-            <MobileEditDisclaimerModal
-                isOpen={showMobileDisclaimer}
-                onContinue={() => {
-                    setShowMobileDisclaimer(false);
-                    setEditMode(true);
-                    // Resume walkthrough — overlay reappears, continues at add-widget-button
-                    if (walkthrough?.state.suspended) {
-                        walkthrough.resume();
-                    }
+            {/* Modal Stack */}
+            <DashboardModalStack
+                modals={{
+                    showAddModal,
+                    showMobileDisclaimer,
+                    showUnlinkConfirmation,
+                    showRelinkConfirmation,
+                    configModalWidgetId,
+                    resizeModalWidgetId,
                 }}
-                onCancel={() => {
-                    setShowMobileDisclaimer(false);
-                    // End the walkthrough entirely — user chose not to continue
-                    if (walkthrough?.state.isActive) {
-                        walkthrough.skip();
-                    }
+                modalSetters={{
+                    setShowAddModal,
+                    setShowMobileDisclaimer,
+                    setShowUnlinkConfirmation,
+                    setShowRelinkConfirmation,
+                    setConfigModalWidgetId,
+                    setResizeModalWidgetId,
                 }}
-                onDismissForever={async () => {
-                    setMobileDisclaimerDismissed(true);
-                    try {
-                        await configApi.updateUser({
-                            preferences: { mobileEditDisclaimerDismissed: true }
-                        });
-                    } catch (error) {
-                        logger.error('Failed to save mobile disclaimer preference:', { error });
-                    }
+                handlers={{
+                    handleAddWidgetFromModal,
+                    handleSaveWidgetConfig,
+                    performSave,
+                    handleSaveAndNavigate,
+                    handleCancelNavigation,
+                    handleDiscardAndNavigate,
+                    handleResetMobileLayout,
+                    resizeWidget,
+                    updateWidgetConfig,
                 }}
-            />
-
-            {/* Unlink Confirmation Modal */}
-            <UnlinkConfirmationModal
-                isOpen={showUnlinkConfirmation}
-                onConfirm={performSave}
-                onCancel={() => setShowUnlinkConfirmation(false)}
-            />
-
-            {/* Relink Confirmation Modal */}
-            <RelinkConfirmationModal
-                isOpen={showRelinkConfirmation}
-                onConfirm={async () => {
-                    setShowRelinkConfirmation(false);
-                    setEditMode(false);
-                    await handleResetMobileLayout();
+                context={{
+                    displayWidgets,
+                    layouts,
+                    isMobile,
+                    editMode,
+                    hasUnsavedChanges,
+                    pendingUnlink,
+                    pendingDestination: dashboardEditContext?.pendingDestination ?? null,
+                    mobileDisclaimerDismissed,
+                    walkthrough: walkthrough ? {
+                        isModalProtected: walkthrough.isModalProtected,
+                        state: walkthrough.state,
+                        resume: walkthrough.resume,
+                        skip: walkthrough.skip,
+                    } : null,
                 }}
-                onCancel={() => setShowRelinkConfirmation(false)}
+                setEditMode={setEditMode}
+                setMobileDisclaimerDismissed={setMobileDisclaimerDismissed}
             />
-
-            {/* Navigation Guard Modals */}
-            {dashboardEditContext?.pendingDestination && pendingUnlink && (
-                <UnlinkConfirmationModal
-                    isOpen={true}
-                    onConfirm={handleSaveAndNavigate}
-                    onCancel={handleCancelNavigation}
-                    onDiscard={handleDiscardAndNavigate}
-                />
-            )}
-            {dashboardEditContext?.pendingDestination && !pendingUnlink && hasUnsavedChanges && (
-                <UnsavedChangesModal
-                    isOpen={true}
-                    onSave={handleSaveAndNavigate}
-                    onCancel={handleCancelNavigation}
-                    onDiscard={handleDiscardAndNavigate}
-                />
-            )}
-
-            {/* Widget Config Modal */}
-            {configModalWidgetId && (() => {
-                // Use displayWidgets so we get the correct config for the current breakpoint
-                // (mobile independent mode has its own config separate from desktop)
-                const widget = displayWidgets.find(w => w.id === configModalWidgetId);
-                if (!widget) return null;
-                // Get current height from the correct breakpoint layout
-                const breakpoint = isMobile ? 'sm' : 'lg';
-                const layoutItem = layouts[breakpoint].find(l => l.id === widget.id);
-                const widgetHeight = layoutItem?.h ?? widget.layout.h;
-                return (
-                    <WidgetConfigModal
-                        isOpen={true}
-                        onClose={() => {
-                            // Don't let Radix outside-click close the modal during walkthrough
-                            if (walkthrough?.isModalProtected) return;
-                            setConfigModalWidgetId(null);
-                        }}
-                        widgetId={widget.id}
-                        widgetType={widget.type}
-                        widgetHeight={widgetHeight}
-                        currentConfig={widget.config || {}}
-                        onSave={handleSaveWidgetConfig}
-                        onResize={resizeWidget}
-                    />
-                );
-            })()}
-
-            {/* Widget Resize Modal */}
-            {resizeModalWidgetId && (() => {
-                const widget = displayWidgets.find(w => w.id === resizeModalWidgetId);
-                if (!widget) return null;
-                // Get current layout from grid state
-                const breakpoint = isMobile ? 'sm' : 'lg';
-                const layoutItem = layouts[breakpoint].find(l => l.id === widget.id);
-                // Use FramerrWidget.layout or .mobileLayout based on breakpoint
-                const widgetLayout = breakpoint === 'sm' ? widget.mobileLayout : widget.layout;
-                const currentLayout = {
-                    x: layoutItem?.x ?? widgetLayout?.x ?? 0,
-                    y: layoutItem?.y ?? widgetLayout?.y ?? 0,
-                    w: layoutItem?.w ?? widgetLayout?.w ?? 4,
-                    h: layoutItem?.h ?? widgetLayout?.h ?? 2,
-                };
-                return (
-                    <WidgetResizeModal
-                        isOpen={true}
-                        onClose={() => setResizeModalWidgetId(null)}
-                        widgetId={widget.id}
-                        widgetType={widget.type}
-                        widgetName={widget.config?.title as string || getWidgetMetadata(widget.type)?.name || 'Widget'}
-                        currentLayout={currentLayout}
-                        currentShowHeader={widget.config?.showHeader !== false}
-                        isMobile={isMobile}
-                        allLayouts={layouts[breakpoint]}
-                        onSave={(id, layout) => {
-                            resizeWidget(id, layout);
-                            setResizeModalWidgetId(null);
-                        }}
-                        onConfigUpdate={updateWidgetConfig}
-                    />
-                );
-            })()}
 
             {/* Bottom Spacer */}
             <div style={{ height: isMobile ? LAYOUT.TABBAR_HEIGHT + LAYOUT.PAGE_MARGIN : LAYOUT.PAGE_MARGIN }} aria-hidden="true" />

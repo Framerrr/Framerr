@@ -60,7 +60,7 @@ router.post('/test', requireAuth, requireAdmin, async (req: Request, res: Respon
         logger.error(`[Integrations] Test failed: error="${(error as Error).message}"`);
         res.status(500).json({
             success: false,
-            error: (error as Error).message || 'Test failed'
+            error: 'Connection test failed'
         });
     }
 });
@@ -90,7 +90,7 @@ router.post('/:id/test', requireAuth, requireAdmin, async (req: Request, res: Re
         logger.error(`[Integrations] Test failed: id=${req.params.id} error="${(error as Error).message}"`);
         res.status(500).json({
             success: false,
-            error: (error as Error).message || 'Test failed'
+            error: 'Connection test failed'
         });
     }
 });

@@ -11,6 +11,7 @@ export * from './types';
 export {
     getUser,
     getUserById,
+    getUserByEmail,
     createUser,
     updateUser,
     deleteUser,

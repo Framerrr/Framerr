@@ -82,7 +82,7 @@ export function SidebarNavigationProvider({ children, tabs, onExpandSidebar }: S
             const searchParams = new URLSearchParams(queryPart || '');
 
             // Path-based profile detection
-            if (pathPart === 'settings/profile' && searchParams.get('source') === 'profile') {
+            if (pathPart === 'settings/account/profile' && searchParams.get('source') === 'profile') {
                 return 'profile';
             }
             // Query-based profile detection (legacy)
@@ -172,7 +172,7 @@ export function SidebarNavigationProvider({ children, tabs, onExpandSidebar }: S
             setSettingsNavPath(pathSegments);
 
             // Store the full settings path in memory (for return navigation)
-            const isProfilePage = pathPart === 'settings/profile' || pathPart.startsWith('settings/profile?');
+            const isProfilePage = pathPart === 'settings/account/profile' || pathPart.startsWith('settings/account/profile?');
             if (!isInitialRender.current && !isProfilePage) {
                 setLastSettingsPath('#' + hash);
             }

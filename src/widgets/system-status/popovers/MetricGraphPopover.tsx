@@ -359,7 +359,7 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
             <Popover.Content
                 side="bottom"
                 align="start"
-                sideOffset={4}
+                sideOffset={2}
                 className="w-[550px] max-w-[90vw]"
             >
                 {/* Header */}

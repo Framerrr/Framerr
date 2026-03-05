@@ -221,7 +221,7 @@ router.post('/uptimekuma/monitors-preview', requireAuth, async (req: Request, re
         if (adapterErr.code === 'AUTH_FAILED') {
             res.status(401).json({ error: 'Authentication failed - check API key' });
         } else {
-            res.status(500).json({ error: adapterErr.message || 'Failed to fetch monitors' });
+            res.status(500).json({ error: 'Failed to fetch monitors' });
         }
     }
 });

@@ -62,3 +62,22 @@ export function validatePasswordComplexity(password: string, rules: PasswordRule
         errors
     };
 }
+
+/**
+ * Get the current password policy from system config.
+ * Phase 0: hardcoded defaults. Later phases will read from admin-configurable settings.
+ */
+export function getPasswordPolicy(): PasswordRules {
+    return {
+        minLength: 6,
+    };
+}
+
+/**
+ * Validate a password against the current system password policy.
+ * Convenience wrapper around getPasswordPolicy() + validatePasswordComplexity().
+ */
+export function validatePassword(password: string): ValidationResult {
+    const policy = getPasswordPolicy();
+    return validatePasswordComplexity(password, policy);
+}

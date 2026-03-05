@@ -14,7 +14,11 @@ import type { BackupRow, DashboardBackup } from '../templates.types';
 // ============================================================================
 
 /**
- * Create or update dashboard backup before template apply
+ * Create or update dashboard backup before template apply.
+ *
+ * @invariant INV-02 Single Backup Per User — uses SQL `ON CONFLICT(user_id) DO UPDATE`
+ * to ensure each user has at most one backup at any time. Creating a new backup
+ * replaces the existing one. See docs/private/reference/template-invariants.md.
  */
 export async function createBackup(
     userId: string,

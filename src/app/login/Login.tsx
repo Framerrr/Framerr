@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { plexApi, themeApi } from '../../api/endpoints';
+import { plexApi, themeApi, authApi } from '../../api/endpoints';
 import { resetSessionExpiredFlag } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { Lock, User, AlertCircle, Loader, ExternalLink, Eye, EyeOff } from 'lucide-react';
+import { Lock, User, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Checkbox } from '../../shared/ui';
+import { getIconComponent } from '../../utils/iconUtils';
 
 // Types are now imported from API layer
 
@@ -23,6 +24,10 @@ const Login = (): React.JSX.Element => {
     const [error, setError] = useState<string>('');
     const [loading, setLoading] = useState<boolean>(false);
     const [plexSSOEnabled, setPlexSSOEnabled] = useState<boolean>(false);
+    const [oidcEnabled, setOidcEnabled] = useState<boolean>(false);
+    const [oidcDisplayName, setOidcDisplayName] = useState<string>('SSO');
+    const [oidcButtonIcon, setOidcButtonIcon] = useState<string>('KeyRound');
+    const [oidcLoading, setOidcLoading] = useState<boolean>(false);
     // Initialize to true if returning from Plex OAuth to prevent form flash
     const [plexLoading, setPlexLoading] = useState<boolean>(() =>
         !!localStorage.getItem('plexPendingPinId')
@@ -65,17 +70,47 @@ const Login = (): React.JSX.Element => {
         fetchDefaultTheme();
     }, []);
 
-    // Check if Plex SSO is enabled (delayed slightly to avoid race with auth check)
+    // Fetch SSO configuration (which SSO methods are available)
     useEffect(() => {
         const timer = setTimeout(async () => {
             try {
-                const response = await plexApi.getSSOStatus();
-                setPlexSSOEnabled(response.enabled);
+                const response = await authApi.getSSOConfig();
+                setPlexSSOEnabled(response.plex.enabled);
+                setOidcEnabled(response.oidc.enabled);
+                if (response.oidc.displayName) {
+                    setOidcDisplayName(response.oidc.displayName);
+                }
+                if (response.oidc.buttonIcon) {
+                    setOidcButtonIcon(response.oidc.buttonIcon);
+                }
             } catch {
-                // SSO not available - that's fine, just hide the Plex login button
+                // SSO not available - that's fine, just hide SSO buttons
             }
         }, 100);
         return () => clearTimeout(timer);
+    }, []);
+
+    // Handle OIDC callback errors (server redirects back with ?error= param)
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const oidcError = params.get('error');
+        if (oidcError) {
+            const errorMessages: Record<string, string> = {
+                'no_account': 'No account found. Contact your administrator.',
+                'auth_expired': 'Authentication expired. Please try again.',
+                'state_expired': 'Authentication session expired. Please try again.',
+                'state_invalid': 'Invalid authentication session. Please try again.',
+                'discovery_failed': 'Could not reach the identity provider. It may be down — try again later.',
+                'not_configured': 'SSO is not properly configured. Contact your administrator.',
+                'missing_claims': 'Identity provider did not return required information. Contact your administrator.',
+                'oidc_failed': 'SSO authentication failed. Please try again.',
+                'missing_state': 'Invalid authentication response. Please try again.',
+                'rate_limited': 'Too many attempts. Please wait and try again.',
+            };
+            setError(errorMessages[oidcError] || decodeURIComponent(oidcError));
+            // Clean up URL params
+            window.history.replaceState({}, '', '/login');
+        }
     }, []);
 
     // Show logout message if coming from logout
@@ -117,11 +152,7 @@ const Login = (): React.JSX.Element => {
 
                     if (result.needsAccountSetup && result.setupToken) {
                         // New Plex user - redirect to account setup page
-                        navigate(`/plex-setup?token=${result.setupToken}`, { replace: true });
-                    } else if (result.needsPasswordSetup) {
-                        // Migrating user - redirect to password setup
-                        showInfo('Password Required', 'Please set up a local password for your account');
-                        navigate('/settings/security', { replace: true });
+                        navigate(`/sso-setup?token=${result.setupToken}`, { replace: true });
                     } else if (result.success) {
                         showSuccess('Welcome!', `Signed in as ${user.username}`);
                         navigate(from, { replace: true });
@@ -195,6 +226,21 @@ const Login = (): React.JSX.Element => {
             const apiError = err as { message?: string };
             setError(apiError.message || 'Failed to connect to Plex');
             setPlexLoading(false);
+        }
+    };
+
+    const handleOidcLogin = async (): Promise<void> => {
+        setOidcLoading(true);
+        setError('');
+
+        try {
+            const response = await authApi.oidcLogin();
+            // Full page redirect to IdP (same pattern as Plex)
+            window.location.href = response.redirectUrl;
+        } catch (err) {
+            const apiError = err as { message?: string };
+            setError(apiError.message || 'Failed to initiate SSO login');
+            setOidcLoading(false);
         }
     };
 
@@ -358,8 +404,8 @@ const Login = (): React.JSX.Element => {
                     </motion.button>
                 </form>
 
-                {/* Plex SSO Button */}
-                {plexSSOEnabled && (
+                {/* SSO Buttons */}
+                {(plexSSOEnabled || oidcEnabled) && (
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -374,31 +420,64 @@ const Login = (): React.JSX.Element => {
                             </div>
                         </div>
 
-                        <motion.button
-                            type="button"
-                            onClick={handlePlexLogin}
-                            disabled={plexLoading}
-                            className="w-full py-4 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all"
-                            style={{
-                                backgroundColor: '#e5a00d',
-                                color: '#000',
-                                boxShadow: '0 4px 14px rgba(229, 160, 13, 0.3)'
-                            }}
-                            whileHover={!plexLoading ? { scale: 1.02, boxShadow: '0 6px 20px rgba(229, 160, 13, 0.4)' } : {}}
-                            whileTap={!plexLoading ? { scale: 0.98 } : {}}
-                        >
-                            {plexLoading ? (
-                                <>
-                                    <Loader className="animate-spin" size={20} />
-                                    Connecting to Plex...
-                                </>
-                            ) : (
-                                <>
-                                    <ExternalLink size={20} />
-                                    Continue with Plex
-                                </>
+                        <div className="flex flex-col gap-3">
+                            {plexSSOEnabled && (
+                                <motion.button
+                                    type="button"
+                                    onClick={handlePlexLogin}
+                                    disabled={plexLoading}
+                                    className="w-full py-4 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all"
+                                    style={{
+                                        backgroundColor: '#e5a00d',
+                                        color: '#000',
+                                        boxShadow: '0 4px 14px rgba(229, 160, 13, 0.3)'
+                                    }}
+                                    whileHover={!plexLoading ? { scale: 1.02 } : {}}
+                                    whileTap={!plexLoading ? { scale: 0.98 } : {}}
+                                >
+                                    {plexLoading ? (
+                                        <>
+                                            <Loader className="animate-spin" size={20} />
+                                            Connecting to Plex...
+                                        </>
+                                    ) : (
+                                        <>
+                                            {(() => {
+                                                const PlexIcon = getIconComponent('system:plex');
+                                                return <PlexIcon size={20} />;
+                                            })()}
+                                            Continue with Plex
+                                        </>
+                                    )}
+                                </motion.button>
                             )}
-                        </motion.button>
+
+                            {oidcEnabled && (
+                                <motion.button
+                                    type="button"
+                                    onClick={handleOidcLogin}
+                                    disabled={oidcLoading}
+                                    className="w-full py-4 px-4 rounded-xl font-semibold flex items-center justify-center gap-2 bg-theme-secondary text-theme-primary border-2 border-theme transition-all"
+                                    whileHover={!oidcLoading ? { scale: 1.02 } : {}}
+                                    whileTap={!oidcLoading ? { scale: 0.98 } : {}}
+                                >
+                                    {oidcLoading ? (
+                                        <>
+                                            <Loader className="animate-spin" size={20} />
+                                            Redirecting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            {(() => {
+                                                const OidcIcon = getIconComponent(oidcButtonIcon);
+                                                return <OidcIcon size={20} />;
+                                            })()}
+                                            {oidcDisplayName}
+                                        </>
+                                    )}
+                                </motion.button>
+                            )}
+                        </div>
                     </motion.div>
                 )}
             </motion.div>

@@ -56,5 +56,11 @@ pnpm-lock.yaml
 # Local development tools
 develop-server/
 
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # Note: docs/ and .agent/ ARE tracked in git
 # They contain important documentation and agent rules

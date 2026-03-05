@@ -115,13 +115,13 @@ describe('duplicateWidget', () => {
         expect(copy?.type).toBe('clock');
     });
 
-    it('offsets the duplicated widget position', () => {
+    it('offsets the duplicated widget without changing row', () => {
         const result = duplicateWidget(fixtureWidgets, 'w1', 'w1-copy');
         const original = result.find(w => w.id === 'w1');
         const copy = result.find(w => w.id === 'w1-copy');
 
         expect(copy?.layout.x).toBeGreaterThan(original!.layout.x);
-        expect(copy?.layout.y).toBeGreaterThan(original!.layout.y);
+        expect(copy?.layout.y).toBe(original!.layout.y);
     });
 
     it('returns same array if widget not found', () => {
@@ -340,13 +340,13 @@ describe('deriveLinkedMobileLayout', () => {
         expect(deriveLinkedMobileLayout([])).toEqual([]);
     });
 
-    it('creates stacked mobile layout', () => {
+    it('creates stacked mobile layout with GRID_COLS.sm default width', () => {
         const result = deriveLinkedMobileLayout(fixtureWidgets);
 
-        // All widgets should be stacked (x=0, w=2)
+        // All widgets should be stacked (x=0, w=GRID_COLS.sm=4)
         result.forEach(w => {
             expect(w.mobileLayout?.x).toBe(0);
-            expect(w.mobileLayout?.w).toBe(2);
+            expect(w.mobileLayout?.w).toBe(4);
         });
 
         // Y positions should be sequential
@@ -357,7 +357,7 @@ describe('deriveLinkedMobileLayout', () => {
         });
     });
 
-    it('preserves desktop-relative reading order (band detection)', () => {
+    it('preserves desktop-relative reading order (band detection) — BL-1', () => {
         // Widgets in a row should maintain left-to-right order in mobile
         const widgets: FramerrWidget[] = [
             { id: 'right', type: 'a', layout: { x: 8, y: 0, w: 4, h: 2 }, config: {} },
@@ -370,6 +370,60 @@ describe('deriveLinkedMobileLayout', () => {
 
         expect(order).toEqual(['left', 'middle', 'right']);
     });
+
+    it('respects registry minH via getMinHeight callback — BL-2', () => {
+        const widgets: FramerrWidget[] = [
+            { id: 'w1', type: 'tall-widget', layout: { x: 0, y: 0, w: 4, h: 2 }, config: {} },
+            { id: 'w2', type: 'short-widget', layout: { x: 4, y: 0, w: 4, h: 3 }, config: {} },
+        ];
+
+        // Registry says tall-widget needs minimum 5 rows
+        const getMinHeight = (type: string) => type === 'tall-widget' ? 5 : 0;
+        const result = deriveLinkedMobileLayout(widgets, { getMinHeight });
+
+        // w1 should have h=5 (registry minH > desktop h=2)
+        expect(result[0].mobileLayout?.h).toBe(5);
+        // w2 should have h=3 (desktop h=3 > registry 0)
+        expect(result[1].mobileLayout?.h).toBe(3);
+    });
+
+    it('Y stacking is contiguous — BL-4', () => {
+        const widgets: FramerrWidget[] = [
+            { id: 'a', type: 'x', layout: { x: 0, y: 0, w: 4, h: 3 }, config: {} },
+            { id: 'b', type: 'y', layout: { x: 4, y: 0, w: 4, h: 2 }, config: {} },
+            { id: 'c', type: 'z', layout: { x: 0, y: 3, w: 8, h: 4 }, config: {} },
+        ];
+
+        const result = deriveLinkedMobileLayout(widgets);
+        const totalHeight = result.reduce((sum, w) => sum + (w.mobileLayout?.h ?? 0), 0);
+        const lastWidget = result[result.length - 1];
+
+        // Sum of all heights should equal last Y + last H (no gaps)
+        expect(lastWidget.mobileLayout!.y + lastWidget.mobileLayout!.h).toBe(totalHeight);
+    });
+
+    it('all mobile widgets have w === 4 (GRID_COLS.sm) — BL-6', () => {
+        const widgets: FramerrWidget[] = [
+            { id: 'a', type: 'x', layout: { x: 0, y: 0, w: 6, h: 3 }, config: {} },
+            { id: 'b', type: 'y', layout: { x: 6, y: 0, w: 6, h: 2 }, config: {} },
+        ];
+
+        const result = deriveLinkedMobileLayout(widgets);
+        result.forEach(w => {
+            expect(w.mobileLayout?.w).toBe(4);
+        });
+    });
+
+    it('skips widgets without valid desktop layout (valid-widget filter)', () => {
+        const widgets: FramerrWidget[] = [
+            { id: 'good', type: 'a', layout: { x: 0, y: 0, w: 4, h: 2 }, config: {} },
+            { id: 'bad', type: 'b', layout: undefined as unknown as FramerrWidget['layout'], config: {} },
+        ];
+
+        const result = deriveLinkedMobileLayout(widgets);
+        expect(result).toHaveLength(1);
+        expect(result[0].id).toBe('good');
+    });
 });
 
 describe('snapshotToMobileLayout', () => {
@@ -378,11 +432,11 @@ describe('snapshotToMobileLayout', () => {
 
         result.forEach(w => {
             expect(w.mobileLayout).toBeDefined();
-            expect(w.mobileLayout?.w).toBe(2);
+            expect(w.mobileLayout?.w).toBe(4); // GRID_COLS.sm default
         });
     });
 
-    it('preserves existing mobileLayout', () => {
+    it('preserves existing mobileLayout — BL-3', () => {
         const widgets = [
             { ...fixtureWidgets[0], mobileLayout: { x: 0, y: 5, w: 2, h: 3 } },
         ];
@@ -390,6 +444,18 @@ describe('snapshotToMobileLayout', () => {
 
         expect(result[0].mobileLayout?.y).toBe(5);
         expect(result[0].mobileLayout?.h).toBe(3);
+    });
+
+    it('uses registry minH via getMinHeight callback', () => {
+        const widgets: FramerrWidget[] = [
+            { id: 'w1', type: 'tall-widget', layout: { x: 0, y: 0, w: 4, h: 2 }, config: {} },
+        ];
+
+        const getMinHeight = (type: string) => type === 'tall-widget' ? 5 : 0;
+        const result = snapshotToMobileLayout(widgets, { getMinHeight });
+
+        // h should be max(5, 2) = 5
+        expect(result[0].mobileLayout?.h).toBe(5);
     });
 });
 
@@ -426,6 +492,53 @@ describe('isDifferent', () => {
             w.id === 'w1' ? { ...w, layout: { ...w.layout, x: 5 } } : w
         );
         expect(isDifferent(modified, fixtureWidgets, { compareLayout: false })).toBe(false);
+    });
+
+    // --- BL-1: Behavior Lock — Mobile breakpoint with targeted flags ---
+
+    it('detects layout changes on mobile breakpoint — BL-1', () => {
+        const base: FramerrWidget[] = [
+            { id: 'w1', type: 'clock', layout: { x: 0, y: 0, w: 4, h: 2 }, mobileLayout: { x: 0, y: 0, w: 4, h: 2 }, config: {} },
+        ];
+        const modified: FramerrWidget[] = [
+            { id: 'w1', type: 'clock', layout: { x: 0, y: 0, w: 4, h: 2 }, mobileLayout: { x: 0, y: 0, w: 4, h: 5 }, config: {} },
+        ];
+
+        expect(isDifferent(modified, base, { breakpoint: 'sm', compareConfig: false })).toBe(true);
+    });
+
+    it('detects config-only changes with compareLayout=false — BL-1', () => {
+        const base: FramerrWidget[] = [
+            { id: 'w1', type: 'clock', layout: { x: 0, y: 0, w: 4, h: 2 }, config: { theme: 'dark' } },
+        ];
+        const modified: FramerrWidget[] = [
+            { id: 'w1', type: 'clock', layout: { x: 0, y: 0, w: 4, h: 2 }, config: { theme: 'light' } },
+        ];
+
+        expect(isDifferent(modified, base, { breakpoint: 'sm', compareLayout: false })).toBe(true);
+    });
+
+    it('returns false for layout-only check when only config changes — BL-1', () => {
+        const base: FramerrWidget[] = [
+            { id: 'w1', type: 'clock', layout: { x: 0, y: 0, w: 4, h: 2 }, mobileLayout: { x: 0, y: 0, w: 4, h: 2 }, config: { theme: 'dark' } },
+        ];
+        const modified: FramerrWidget[] = [
+            { id: 'w1', type: 'clock', layout: { x: 0, y: 0, w: 4, h: 2 }, mobileLayout: { x: 0, y: 0, w: 4, h: 2 }, config: { theme: 'light' } },
+        ];
+
+        expect(isDifferent(modified, base, { breakpoint: 'sm', compareConfig: false })).toBe(false);
+    });
+
+    it('falls back to desktop layout for mobile when mobileLayout is undefined — BL-1', () => {
+        const base: FramerrWidget[] = [
+            { id: 'w1', type: 'clock', layout: { x: 0, y: 0, w: 4, h: 2 }, config: {} },
+        ];
+        const modified: FramerrWidget[] = [
+            { id: 'w1', type: 'clock', layout: { x: 0, y: 0, w: 4, h: 2 }, config: {} },
+        ];
+
+        // No mobile layout, desktop identical — should be false
+        expect(isDifferent(modified, base, { breakpoint: 'sm', compareConfig: false })).toBe(false);
     });
 });
 

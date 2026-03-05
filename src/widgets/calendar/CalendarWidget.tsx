@@ -82,6 +82,7 @@ interface CalendarConfig {
     radarrIntegrationId?: string;   // Legacy
     viewMode?: ViewMode;
     showPastEvents?: boolean;
+    startWeekOnMonday?: boolean | string;
 }
 
 const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = false }) => {
@@ -94,6 +95,7 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
     const config = widget.config as CalendarConfig | undefined;
     const viewMode: ViewMode = config?.viewMode ?? 'month';
     const showPastEvents = config?.showPastEvents ?? false;
+    const startWeekOnMonday = config?.startWeekOnMonday === true || config?.startWeekOnMonday === 'true';
 
     // ---- Integration access ----
     const { data: allIntegrations } = useRoleAwareIntegrations();
@@ -343,6 +345,7 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
                                 hasMultipleRadarr={hasMultipleRadarr}
                                 showFilter
                                 onFilterChange={setFilter}
+                                startWeekOnMonday={startWeekOnMonday}
                             />
                         )}
 
@@ -361,6 +364,7 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
                                         showFilter
                                         onFilterChange={setFilter}
                                         compact
+                                        startWeekOnMonday={startWeekOnMonday}
                                     />
                                 </div>
                                 <div className="cal-split-agenda">

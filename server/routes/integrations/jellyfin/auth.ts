@@ -96,7 +96,7 @@ router.post('/jellyfin/authenticate', requireAuth, requireAdmin, async (req: Req
             logger.error(`[Jellyfin Auth] Failed: status=${status} error="${axiosError.message}"`);
             res.status(500).json({
                 success: false,
-                error: `Failed to connect to Jellyfin server: ${axiosError.message}`,
+                error: 'Failed to connect to Jellyfin server',
             });
         }
     }

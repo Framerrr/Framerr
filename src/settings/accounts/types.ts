@@ -21,6 +21,7 @@ export interface LinkedAccountData {
 export interface DbLinkedAccounts {
     plex?: LinkedAccountData;
     overseerr?: LinkedAccountData;
+    oidc?: LinkedAccountData;
     [key: string]: unknown;
 }
 
@@ -77,4 +78,13 @@ export interface UseAccountSettingsReturn {
     handleDisconnectOverseerr: () => Promise<void>;
     setOverseerrUsername: (value: string) => void;
     setOverseerrPassword: (value: string) => void;
+
+    // OIDC state
+    oidcSSOEnabled: boolean;
+    oidcDisplayName: string;
+    oidcButtonIcon: string;
+    oidcConnecting: boolean;
+    oidcDisconnecting: boolean;
+    handleConnectOidc: () => Promise<void>;
+    handleDisconnectOidc: () => Promise<void>;
 }

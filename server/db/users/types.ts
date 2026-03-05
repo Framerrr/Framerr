@@ -11,6 +11,7 @@
 export interface UserRow {
     id: string;
     username: string;
+    email?: string;
     passwordHash?: string;
     displayName: string;
     group: string;
@@ -38,6 +39,7 @@ export interface SessionRow {
 export interface User {
     id: string;
     username: string;
+    email?: string;
     passwordHash?: string;
     displayName: string;
     group: string;
@@ -72,6 +74,7 @@ export interface CreateUserData {
 
 export interface UpdateUserData {
     username?: string;
+    email?: string;
     passwordHash?: string;
     displayName?: string;
     group?: string;

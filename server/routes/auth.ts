@@ -1,13 +1,14 @@
 import { Router, Request, Response } from 'express';
-import { hashPassword, verifyPassword } from '../auth/password';
+import { hashPassword, verifyPassword, validatePassword, getPasswordPolicy } from '../auth/password';
 import { createUserSession, validateSession } from '../auth/session';
-import { getUser, getUserById, listUsers, revokeSession, revokeAllUserSessions, createUser, updateUser, hasLocalPassword, getRequirePasswordReset, setRequirePasswordReset, createSession } from '../db/users';
+import { getUser, getUserById, getUserByEmail, listUsers, revokeSession, revokeAllUserSessions, createUser, updateUser, hasLocalPassword, getRequirePasswordReset, setRequirePasswordReset, createSession } from '../db/users';
 import { getUserConfig } from '../db/userConfig';
 import { getSystemConfig } from '../db/systemConfig';
 import { findUserByExternalId, linkAccount, getLinkedAccount, updateLinkedAccountMetadata } from '../db/linkedAccounts';
-import { createPlexSetupToken } from '../db/plexSetupTokens';
+import { createSSOSetupToken } from '../db/ssoSetupTokens';
 import { checkPlexLibraryAccess } from '../utils/plexLibraryAccess';
 import logger from '../utils/logger';
+import { importSsoProfilePicture } from '../utils/importSsoProfilePicture';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -44,6 +45,15 @@ const getAuthConfig = async () => {
 };
 
 /**
+ * GET /api/auth/password-policy
+ * Return current password policy for frontend validation (public, no auth required)
+ */
+router.get('/password-policy', (_req: Request, res: Response): void => {
+    const policy = getPasswordPolicy();
+    res.json(policy);
+});
+
+/**
  * POST /api/auth/login
  * Login with username/password
  */
@@ -57,7 +67,11 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        const user = await getUser(username);
+        let user = await getUser(username);
+        // Fallback: try email if username lookup fails
+        if (!user) {
+            user = await getUserByEmail(username);
+        }
         if (!user) {
             logger.warn(`[Auth] Login failed: User not found username=${username}`);
             res.status(401).json({ error: 'Login failed. Please check your credentials and try again.' });
@@ -100,6 +114,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
             user: {
                 id: user.id,
                 username: user.username,
+                email: user.email,
                 displayName,
                 group: user.group,
                 preferences: user.preferences
@@ -196,10 +211,12 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
                 user: {
                     id: req.user.id,
                     username: req.user.username,
+                    email: (req.user as any).email,
                     displayName,
                     profilePicture,
                     group: req.user.group,
-                    preferences: req.user.preferences
+                    preferences: req.user.preferences,
+                    hasLocalPassword: hasLocalPassword(req.user.id)
                 },
                 requirePasswordChange: getRequirePasswordReset(req.user.id)
             });
@@ -238,10 +255,12 @@ router.get('/me', async (req: Request, res: Response): Promise<void> => {
             user: {
                 id: user.id,
                 username: user.username,
+                email: user.email,
                 displayName,
                 profilePicture,
                 group: user.group,
-                preferences: user.preferences
+                preferences: user.preferences,
+                hasLocalPassword: hasLocalPassword(user.id)
             },
             requirePasswordChange: getRequirePasswordReset(user.id)
         });
@@ -323,7 +342,6 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
 
         // Find or create Framerr user for this Plex user
         let user;
-        let needsPasswordSetup = false;
 
         // Check if user already has a linked Plex account
         const linkedUserId = findUserByExternalId('plex', plexUser.id.toString());
@@ -345,10 +363,6 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
                 }
             }
 
-            // Check if user needs to set up a local password (migration)
-            if (user && !hasLocalPassword(user.id)) {
-                needsPasswordSetup = true;
-            }
         } else if (isPlexAdmin && ssoConfig.linkedUserId) {
             // Plex admin logging in - map to the configured Framerr admin user
             user = await getUserById(ssoConfig.linkedUserId as string);
@@ -366,18 +380,32 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
                     }
                 });
                 logger.info(`[PlexSSO] Linked Plex admin to Framerr user: plexUsername=${plexUser.username} framerUser=${user.username}`);
+
+                // Import Plex avatar if user doesn't have one (awaited — ready before response)
+                await importSsoProfilePicture(user.id, plexUser.thumb);
             }
         } else {
-            // No linked user found - redirect to account setup page
-            // Do NOT auto-link by username match (security) or auto-create (requires local password)
+            // No linked user found
+            // Check autoCreateUsers flag (defaults to true for backward compat)
+            const autoCreateEnabled = ssoConfig.autoCreateUsers !== false;
+
+            if (!autoCreateEnabled) {
+                logger.info(`[PlexSSO] Auto-create disabled, rejecting new user: plexUsername=${plexUser.username}`);
+                res.status(403).json({
+                    error: 'No account found. Contact your administrator to get access.'
+                });
+                return;
+            }
+
+            // Redirect to account setup page
             logger.info(`[PlexSSO] No linked account found, redirecting to setup: plexUsername=${plexUser.username}`);
 
             // Generate setup token for the frontend to use
-            const setupToken = createPlexSetupToken({
-                plexId: plexUser.id.toString(),
-                plexUsername: plexUser.username,
-                plexEmail: plexUser.email,
-                plexThumb: plexUser.thumb
+            const setupToken = createSSOSetupToken('plex', {
+                externalId: plexUser.id.toString(),
+                externalUsername: plexUser.username,
+                externalEmail: plexUser.email,
+                externalAvatar: plexUser.thumb
             });
 
             res.json({
@@ -409,6 +437,9 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
             maxAge: expiresIn
         });
 
+        // Import Plex avatar if user doesn't have one (awaited — ready before response)
+        await importSsoProfilePicture(user!.id, plexUser.thumb);
+
         logger.info(`[PlexSSO] User logged in: ${user.username}`);
 
         // Fire-and-forget: try to auto-match/refresh Overseerr account
@@ -421,8 +452,7 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
                 displayName: user.displayName || user.username,
                 group: user.group,
                 preferences: user.preferences
-            },
-            needsPasswordSetup  // Tell frontend to redirect to password setup if true
+            }
         });
 
     } catch (error) {
@@ -453,8 +483,14 @@ router.post('/change-password', async (req: Request, res: Response): Promise<voi
 
         const { newPassword } = req.body as { newPassword?: string };
 
-        if (!newPassword || newPassword.trim().length < 4) {
-            res.status(400).json({ error: 'Password must be at least 4 characters' });
+        if (!newPassword || !newPassword.trim()) {
+            res.status(400).json({ error: 'Password is required' });
+            return;
+        }
+
+        const validation = validatePassword(newPassword.trim());
+        if (!validation.valid) {
+            res.status(400).json({ error: validation.errors[0] });
             return;
         }
 
@@ -513,6 +549,47 @@ router.post('/change-password', async (req: Request, res: Response): Promise<voi
     } catch (error) {
         logger.error(`[Auth] Change password error: error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Failed to change password' });
+    }
+});
+
+// =============================================================================
+// SSO Configuration (public — for login page button rendering)
+// =============================================================================
+
+/**
+ * GET /api/auth/sso-config
+ * Returns which SSO methods are available (for login page to render buttons)
+ * Public endpoint — no auth required
+ */
+router.get('/sso-config', async (_req: Request, res: Response): Promise<void> => {
+    try {
+        const systemConfig = await getSystemConfig();
+        const plexSSOEnabled = !!(systemConfig.plexSSO?.enabled);
+
+        // OIDC status
+        let oidcEnabled = false;
+        let oidcDisplayName = 'SSO';
+        let oidcButtonIcon = 'KeyRound';
+
+        try {
+            const { isOidcEnabled, getOidcConfigRedacted } = await import('../db/oidcConfig');
+            oidcEnabled = isOidcEnabled();
+            if (oidcEnabled) {
+                const oidcConfig = getOidcConfigRedacted();
+                oidcDisplayName = oidcConfig.displayName || 'SSO';
+                oidcButtonIcon = oidcConfig.buttonIcon || 'KeyRound';
+            }
+        } catch {
+            // OIDC not available (migration not run yet, etc.)
+        }
+
+        res.json({
+            plex: { enabled: plexSSOEnabled },
+            oidc: { enabled: oidcEnabled, displayName: oidcDisplayName, buttonIcon: oidcButtonIcon },
+        });
+    } catch (error) {
+        logger.error(`[Auth] SSO config fetch error: error="${(error as Error).message}"`);
+        res.status(500).json({ error: 'Failed to fetch SSO configuration' });
     }
 });
 

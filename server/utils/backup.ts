@@ -16,6 +16,8 @@ import logger from './logger';
 import { broadcast } from '../services/sseStreamService';
 import { decryptConfigsInDb, encryptConfigsInDb } from './encryption';
 import { safePath } from './pathSanitize';
+import { isBackupEncryptionEnabled, getServerMBK, getBackupEncryption } from '../db/backupEncryption';
+import { generateKey, wrapKey, encryptBuffer } from './backupCrypto';
 
 // Environment paths
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
@@ -56,14 +58,12 @@ export interface BackupResult {
     filename: string;
     size: number;
     savedToServer: boolean;
+    encrypted: boolean;
 }
 
-export interface BackupInfo {
-    filename: string;
-    type: 'manual' | 'scheduled' | 'safety';
-    size: number;
-    createdAt: string;
-}
+// BackupInfo is imported from shared types (single source of truth)
+export type { BackupInfo } from '../../shared/types/backup';
+import type { BackupInfo } from '../../shared/types/backup';
 
 export interface BackupProgress {
     id: string;
@@ -125,14 +125,16 @@ function ensureBackupsDir(): void {
 
 /**
  * Parse backup filename to extract type and timestamp
+ * Supports both .zip (plain) and .framerr-backup (encrypted) extensions
  */
-function parseBackupFilename(filename: string): { type: 'manual' | 'scheduled' | 'safety'; timestamp: string } | null {
-    // Format: framerr-{type}-{timestamp}.zip
-    const match = filename.match(/^framerr-(manual|scheduled|safety)-(.+)\.zip$/);
+function parseBackupFilename(filename: string): { type: 'manual' | 'scheduled' | 'safety'; timestamp: string; encrypted: boolean } | null {
+    // Format: framerr-{type}-{timestamp}.zip or framerr-{type}-{timestamp}.framerr-backup
+    const match = filename.match(/^framerr-(manual|scheduled|safety)-(.+)\.(zip|framerr-backup)$/);
     if (!match) return null;
     return {
         type: match[1] as 'manual' | 'scheduled' | 'safety',
-        timestamp: match[2]
+        timestamp: match[2],
+        encrypted: match[3] === 'framerr-backup'
     };
 }
 
@@ -147,7 +149,7 @@ export function listBackups(): BackupInfo[] {
         const backups: BackupInfo[] = [];
 
         for (const filename of files) {
-            if (!filename.endsWith('.zip')) continue;
+            if (!filename.endsWith('.zip') && !filename.endsWith('.framerr-backup')) continue;
 
             const parsed = parseBackupFilename(filename);
             if (!parsed) continue;
@@ -160,7 +162,8 @@ export function listBackups(): BackupInfo[] {
                 type: parsed.type,
                 size: stats.size,
                 // Use mtime instead of birthtime - birthtime is unreliable on Docker/Linux
-                createdAt: stats.mtime.toISOString()
+                createdAt: stats.mtime.toISOString(),
+                encrypted: parsed.encrypted
             });
         }
 
@@ -179,8 +182,8 @@ export function listBackups(): BackupInfo[] {
  */
 export function getBackupFilePath(filename: string): string | null {
     // Security: validate filename and prevent path traversal
-    if (!filename.endsWith('.zip')) {
-        logger.warn(`[Backup] Invalid filename (not zip): file="${filename}"`);
+    if (!filename.endsWith('.zip') && !filename.endsWith('.framerr-backup')) {
+        logger.warn(`[Backup] Invalid filename (not backup): file="${filename}"`);
         return null;
     }
 
@@ -338,17 +341,20 @@ export async function createBackup(options: BackupOptions = {}): Promise<BackupR
             logger.debug(`[Backup] Added favicon: count=${files.length}`);
         }
 
+        // Step 6: Check encryption status
+        const encryptionEnabled = isBackupEncryptionEnabled();
+
         // Step 6: Add manifest (70%)
         broadcastProgress(backupId, 'Adding manifest...', 70);
         const manifest = {
             version: '2.0',
             type,
             createdAt: new Date().toISOString(),
-            encryption: 'plaintext',
+            encryption: encryptionEnabled ? 'envelope-v1' : 'plaintext',
             purgedOnRestore: [
                 'media_library', 'library_sync_status', 'media_cache',
                 'media_search_history', 'sessions', 'push_subscriptions',
-                'plex_setup_tokens', 'notifications',
+                'sso_setup_tokens', 'notifications',
                 'service_monitor_history', 'service_monitor_aggregates'
             ],
             assets: {
@@ -367,10 +373,62 @@ export async function createBackup(options: BackupOptions = {}): Promise<BackupR
         const zipBuffer = await archiveComplete;
         logger.info(`[Backup] Archive complete: size=${zipBuffer.length} sizeMB=${(zipBuffer.length / 1024 / 1024).toFixed(2)}`);
 
+        // Step 7.5: Encrypt if enabled
+        let finalBuffer: Buffer;
+        let encrypted = false;
+
+        if (encryptionEnabled) {
+            broadcastProgress(backupId, 'Encrypting backup...', 85);
+            try {
+                const mbk = getServerMBK();
+                const dek = generateKey();
+                const wrappedDek = wrapKey(dek, mbk);
+                const { iv: payloadIv, ciphertext, authTag: payloadAuthTag } = encryptBuffer(zipBuffer, dek);
+
+                // Get the password-wrapped MBK from DB for the file header
+                const config = getBackupEncryption()!;
+
+                // Build header JSON
+                const header = JSON.stringify({
+                    version: 1,
+                    kdf: 'pbkdf2-sha256',
+                    iterations: config.kdfIterations,
+                    salt: config.kekSalt,
+                    wrappedMbk: config.mbkPassword,
+                    wrappedDek: wrappedDek.toString('base64'),
+                    payloadIv: payloadIv.toString('base64'),
+                    payloadAuthTag: payloadAuthTag.toString('base64'),
+                });
+
+                const headerBuffer = Buffer.from(header, 'utf-8');
+                if (headerBuffer.length > 8192) {
+                    throw new Error(`Encrypted backup header too large: ${headerBuffer.length} bytes (max 8192)`);
+                }
+
+                // Build binary file: magic (8) + version (1) + headerLen (2) + header (N) + payload
+                const magic = Buffer.from('FRMRBKUP', 'ascii');
+                const version = Buffer.from([0x01]);
+                const headerLen = Buffer.alloc(2);
+                headerLen.writeUInt16LE(headerBuffer.length, 0);
+
+                finalBuffer = Buffer.concat([magic, version, headerLen, headerBuffer, ciphertext]);
+                encrypted = true;
+
+                logger.info(`[Backup] Encrypted: plainSize=${zipBuffer.length} encryptedSize=${finalBuffer.length}`);
+            } catch (encError) {
+                logger.error(`[Backup] Encryption failed, saving as plain ZIP: error="${(encError as Error).message}"`);
+                // Fallback to unencrypted — don't lose the backup
+                finalBuffer = zipBuffer;
+            }
+        } else {
+            finalBuffer = zipBuffer;
+        }
+
         // Generate filename with local timestamp
         const now = new Date();
         const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
-        const filename = `framerr-${type}-${timestamp}.zip`;
+        const extension = encrypted ? 'framerr-backup' : 'zip';
+        const filename = `framerr-${type}-${timestamp}.${extension}`;
 
         // Step 8: Save to server (90%)
         let savedToServer = false;
@@ -378,26 +436,27 @@ export async function createBackup(options: BackupOptions = {}): Promise<BackupR
             broadcastProgress(backupId, 'Saving to server...', 90);
             ensureBackupsDir();
             const filePath = path.join(BACKUPS_DIR, filename);
-            fs.writeFileSync(filePath, zipBuffer);
+            fs.writeFileSync(filePath, finalBuffer);
             savedToServer = true;
             logger.debug(`[Backup] Saved to server: path=${filePath}`);
         }
 
         // Complete (100%)
         broadcastProgress(backupId, 'Complete!', 100);
-        broadcastComplete(backupId, filename, zipBuffer.length);
+        broadcastComplete(backupId, filename, finalBuffer.length);
 
         const elapsed = Date.now() - startTime;
-        logger.info(`[Backup] Complete: file=${filename} size=${(zipBuffer.length / 1024 / 1024).toFixed(2)}MB`);
+        logger.info(`[Backup] Complete: file=${filename} size=${(finalBuffer.length / 1024 / 1024).toFixed(2)}MB encrypted=${encrypted}`);
         logger.debug(`[Backup] Stats: elapsed=${elapsed}ms savedToServer=${savedToServer}`);
 
         currentBackupId = null;
 
         return {
-            stream: saveToServer ? undefined : Readable.from(zipBuffer),
+            stream: saveToServer ? undefined : Readable.from(finalBuffer),
             filename,
-            size: zipBuffer.length,
-            savedToServer
+            size: finalBuffer.length,
+            savedToServer,
+            encrypted
         };
 
     } catch (error) {
@@ -562,7 +621,7 @@ async function postRestoreProcessing(): Promise<void> {
             'media_search_history',
             'sessions',
             'push_subscriptions',
-            'plex_setup_tokens',
+            'sso_setup_tokens',
             'notifications',
             'service_monitor_history',
             'service_monitor_aggregates',

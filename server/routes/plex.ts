@@ -13,6 +13,7 @@ import logger from '../utils/logger';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import { getSystemConfig, updateSystemConfig } from '../db/systemConfig';
 import { linkAccount } from '../db/linkedAccounts';
+import { invalidateSystemSettings } from '../utils/invalidateUserSettings';
 import xml2js from 'xml2js';
 
 // ============================================================================
@@ -552,6 +553,9 @@ router.post('/sso/config', requireAuth, requireAdmin, async (req: Request, res: 
         await updateSystemConfig({ plexSSO: newConfig });
 
         logger.info(`[Plex] SSO config updated: enabled=${newConfig.enabled}`);
+
+        // Broadcast SSO config change to all connected clients
+        invalidateSystemSettings('sso-config');
 
         // Return config without sensitive token
         res.json({

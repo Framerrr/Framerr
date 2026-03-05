@@ -4,17 +4,12 @@
  * Smart detection of actual changes vs original state.
  * Used for determining save button state and pendingUnlink triggers.
  * 
- * Uses FramerrWidget type with .layout and .mobileLayout properties.
+ * Delegates structural comparison to ops.isDifferent (canonical core).
+ * This module owns the hook-specific baseline selection and unlink decision.
  */
 
+import { isDifferent } from '../../shared/grid/core/ops';
 import type { FramerrWidget, Breakpoint, ChangeDetectionResult, MobileLayoutMode } from './types';
-
-/**
- * Get the layout for a specific breakpoint from a FramerrWidget
- */
-const getLayoutForBreakpoint = (widget: FramerrWidget, breakpoint: Breakpoint) => {
-    return breakpoint === 'sm' ? (widget.mobileLayout || widget.layout) : widget.layout;
-};
 
 /**
  * Check if current layouts OR configs differ from original state.
@@ -41,7 +36,7 @@ export const checkForActualChanges = (
     pendingUnlink: boolean,
     widgets: FramerrWidget[]
 ): ChangeDetectionResult => {
-    // Determine which original to compare against
+    // Determine which original to compare against (hook-specific logic)
     // For mobile (sm) edits:
     // - If independent mode: compare against mobileOriginalLayout
     // - If pendingUnlink: compare against widgets (the desktop layout that was snapshotted)
@@ -68,37 +63,15 @@ export const checkForActualChanges = (
         };
     }
 
-    // Track layout and config changes separately
-    let hasLayoutChanges = false;
-    let hasConfigChanges = false;
-
-    // Compare each widget's layout AND config at the relevant breakpoint
-    updatedWidgets.forEach(widget => {
-        const original = originalToCompare.find(w => w.id === widget.id);
-        if (!original) {
-            hasLayoutChanges = true; // Widget doesn't exist in original
-            return;
-        }
-
-        // Check layout changes
-        const curr = getLayoutForBreakpoint(widget, breakpoint);
-        const orig = getLayoutForBreakpoint(original, breakpoint);
-
-        if (curr.x !== orig.x ||
-            curr.y !== orig.y ||
-            curr.w !== orig.w ||
-            curr.h !== orig.h) {
-            hasLayoutChanges = true;
-        }
-
-        // Check config changes (for widgets like LinkGrid)
-        const currConfig = JSON.stringify(widget.config || {});
-        const origConfig = JSON.stringify(original.config || {});
-        if (currConfig !== origConfig) {
-            hasConfigChanges = true;
-        }
+    // Delegate structural comparison to canonical core ops
+    const hasLayoutChanges = isDifferent(updatedWidgets, originalToCompare, {
+        breakpoint,
+        compareConfig: false,
     });
-
+    const hasConfigChanges = isDifferent(updatedWidgets, originalToCompare, {
+        breakpoint,
+        compareLayout: false,
+    });
     const hasChanges = hasLayoutChanges || hasConfigChanges;
 
     return {

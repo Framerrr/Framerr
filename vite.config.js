@@ -70,11 +70,28 @@ export default defineConfig({
                 target: 'http://localhost:3001',
                 changeOrigin: true,
             },
+            '/profile-pictures': {
+                target: 'http://localhost:3001',
+                changeOrigin: true,
+            },
         },
     },
     test: {
         globals: true,
         environment: 'jsdom',
         setupFiles: './src/test/setup.ts',
+        include: [
+            'src/**/*.test.{ts,tsx}',
+            'src/**/*.spec.{ts,tsx}',
+            'server/**/*.test.ts',
+            'server/**/*.spec.ts',
+        ],
+        exclude: [
+            '**/node_modules/**',
+            '**/dist/**',
+            '.agent/**',
+            'develop-server/**',
+            'docs-site/**',
+        ],
     },
 });

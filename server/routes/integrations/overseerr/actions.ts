@@ -120,7 +120,7 @@ router.post('/:id/actions/:action/:notificationId', requireAuth, requireAdmin, a
 
             res.status(502).json({
                 success: false,
-                error: `Overseerr error: ${errorMessage}`
+                error: 'Failed to process Overseerr action'
             });
         }
 

@@ -57,8 +57,8 @@ export * from './pushSubscriptions';
 // Custom icons
 export * from './customIcons';
 
-// Plex setup tokens
-export * from './plexSetupTokens';
+// SSO setup tokens
+export * from './ssoSetupTokens';
 
 // Types (re-export from templates for convenience)
 export * from './templates.types';

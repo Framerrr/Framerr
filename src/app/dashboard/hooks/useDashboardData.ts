@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import logger from '../../../utils/logger';
-import { generateAllMobileLayouts } from '../../../utils/layoutUtils';
+import { deriveLinkedMobileLayout } from '../../../shared/grid/core/ops';
 import { isAdmin } from '../../../utils/permissions';
 import { getWidgetMetadata } from '../../../widgets/registry';
 import {
@@ -140,10 +140,10 @@ export function useDashboardData({
         if (fetchedMobileMode === 'independent' && (rawWidgetData.mobileWidgets || []).length > 0) {
             fetchedMobileWidgets = (rawWidgetData.mobileWidgets || []) as unknown as FramerrWidget[];
             // Generate mobile layouts for desktop widgets in independent mode
-            fetchedWidgets = generateAllMobileLayouts(fetchedWidgets);
+            fetchedWidgets = deriveLinkedMobileLayout(fetchedWidgets, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h });
         } else {
             // Generate mobile layouts for linked mode
-            fetchedWidgets = generateAllMobileLayouts(fetchedWidgets);
+            fetchedWidgets = deriveLinkedMobileLayout(fetchedWidgets, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h });
         }
 
         return {

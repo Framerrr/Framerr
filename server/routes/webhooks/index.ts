@@ -3,8 +3,7 @@
  * 
  * Routes webhooks to the appropriate plugin handler based on type and instance.
  * 
- * New URL format: POST /api/webhooks/:type/:instanceId/:token
- * Legacy format:  POST /api/webhooks/:type/:token (deprecated, to be removed)
+ * URL format: POST /api/webhooks/:type/:instanceId/:token
  * 
  * The router:
  * 1. Validates the instance exists and has webhooks enabled
@@ -19,10 +18,7 @@ import * as integrationInstancesDb from '../../db/integrationInstances';
 import { broadcastToTopic } from '../../services/sse';
 import type { WebhookSettings } from '../../integrations/types';
 
-// Legacy routers - kept for backwards compatibility during migration
-import sonarrRouter from './sonarr';
-import radarrRouter from './radarr';
-import overseerrRouter from './overseerr';
+// Test router (admin only, for development)
 import testRouter from './test';
 
 const router = Router();
@@ -128,17 +124,6 @@ router.post('/:type/:instanceId/:token', async (req: Request, res: Response): Pr
         res.status(500).json({ error: 'Processing failed' });
     }
 });
-
-// ============================================================================
-// Legacy Routes (Deprecated - for backwards compatibility)
-// ============================================================================
-
-// Mount legacy service-specific routers
-// These use the old URL format: /api/webhooks/:type/:token
-// TODO: Remove after migration period
-router.use('/overseerr', overseerrRouter);
-router.use('/sonarr', sonarrRouter);
-router.use('/radarr', radarrRouter);
 
 // Test endpoint (admin only, for development)
 router.use('/test', testRouter);

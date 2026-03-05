@@ -18,8 +18,24 @@ import {
     getActiveTopics,
     getSubscriberCount
 } from '../services/sseStreamService';
+import { clientConnections, setPushEndpoint } from '../services/sse/connections';
 import { requireAuth } from '../middleware/auth';
 import logger from '../utils/logger';
+
+/**
+ * Verify that the authenticated user owns the given SSE connection.
+ * Returns true if ownership is confirmed, false if rejected (sends 403).
+ */
+function verifyConnectionOwnership(connectionId: string, userId: string, res: Response): boolean {
+    const connection = clientConnections.get(connectionId);
+    if (!connection || connection.userId !== userId) {
+        res.status(403).json({
+            error: 'Connection does not belong to the authenticated user'
+        });
+        return false;
+    }
+    return true;
+}
 
 const router = Router();
 
@@ -138,6 +154,11 @@ router.post('/subscribe', requireAuth, (req: Request, res: Response) => {
         });
     }
 
+    // Security: verify the authenticated user owns this connection
+    if (!verifyConnectionOwnership(connectionId, userId || '', res)) {
+        return;
+    }
+
     logger.debug(`[Realtime Subscribe] connection=${connectionId} topic=${topic} user=${userId}`);
 
     const result = subscribe(connectionId, topic);
@@ -165,6 +186,11 @@ router.post('/unsubscribe', requireAuth, (req: Request, res: Response) => {
         });
     }
 
+    // Security: verify the authenticated user owns this connection
+    if (!verifyConnectionOwnership(connectionId, userId || '', res)) {
+        return;
+    }
+
     logger.debug(`[Realtime Unsubscribe] connection=${connectionId} topic=${topic} user=${userId}`);
 
     unsubscribe(connectionId, topic);
@@ -182,6 +208,7 @@ router.post('/unsubscribe', requireAuth, (req: Request, res: Response) => {
  */
 router.post('/push-endpoint', requireAuth, (req: Request, res: Response) => {
     const { connectionId, pushEndpoint } = req.body;
+    const userId = (req as unknown as { user?: { id: string } }).user?.id;
 
     if (!connectionId || !pushEndpoint) {
         return res.status(400).json({
@@ -189,7 +216,11 @@ router.post('/push-endpoint', requireAuth, (req: Request, res: Response) => {
         });
     }
 
-    const { setPushEndpoint } = require('../services/sse/connections');
+    // Security: verify the authenticated user owns this connection
+    if (!verifyConnectionOwnership(connectionId, userId || '', res)) {
+        return;
+    }
+
     const linked = setPushEndpoint(connectionId, pushEndpoint);
 
     if (!linked) {

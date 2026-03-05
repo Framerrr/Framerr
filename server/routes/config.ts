@@ -3,6 +3,7 @@ import { getSystemConfig, updateSystemConfig } from '../db/systemConfig';
 import { getUserConfig, updateUserConfig } from '../db/userConfig';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import logger from '../utils/logger';
+import { resolveThemeColors } from '../utils/themeColors';
 import upload from '../middleware/upload';
 import AdmZip from 'adm-zip';
 import fs from 'fs/promises';
@@ -123,6 +124,13 @@ router.get('/user', requireAuth, async (req: Request, res: Response) => {
  */
 router.put('/user', requireAuth, async (req: Request, res: Response) => {
     try {
+        // Contract enforcement: theme writes must use /api/theme
+        if ('theme' in req.body) {
+            logger.warn(`[Config] Theme write rejected on /api/config/user: user=${req.user!.id}. Use /api/theme instead.`);
+            res.status(400).json({ error: 'Theme writes must use /api/theme endpoint' });
+            return;
+        }
+
         const updatedConfig = await updateUserConfig(req.user!.id, req.body);
 
         logger.debug(`[Config] User config updated: user=${req.user!.id}`);
@@ -193,7 +201,7 @@ router.put('/auth', requireAdmin, async (req: Request, res: Response) => {
             // Set session cookie
             res.cookie('sessionId', session.id, {
                 httpOnly: true,
-                secure: false,
+                secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
                 sameSite: 'lax',
                 maxAge: currentConfig.auth?.session?.timeout || 86400000
             });
@@ -380,14 +388,19 @@ router.get('/manifest.json', async (req: Request, res: Response) => {
         const systemConfig = await getSystemConfig();
         const appName = systemConfig.server?.name || 'Framerr';
 
+        // Resolve theme colors for the current user context
+        const themeColors = await resolveThemeColors(
+            req.user as { id?: string } | undefined,
+        );
+
         const manifest = {
             name: appName,
             short_name: appName,
             description: 'Your Personal Homelab Dashboard',
             start_url: '/',
             display: 'standalone',
-            background_color: '#0a0a0b',
-            theme_color: '#6366f1',
+            background_color: themeColors.bg,
+            theme_color: themeColors.accent,
             orientation: 'any',
             icons: [
                 { src: '/favicon/web-app-manifest-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
@@ -397,6 +410,8 @@ router.get('/manifest.json', async (req: Request, res: Response) => {
             ]
         };
 
+        // User-specific content — prevent proxy/CDN caching of wrong colors
+        res.setHeader('Cache-Control', 'private, no-store');
         res.setHeader('Content-Type', 'application/manifest+json');
         res.json(manifest);
     } catch (error) {

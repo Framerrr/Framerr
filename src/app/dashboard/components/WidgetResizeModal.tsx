@@ -171,7 +171,10 @@ const WidgetResizeModal: React.FC<WidgetResizeModalProps> = ({
 
     // Get widget constraints
     const metadata = useMemo(() => getWidgetMetadata(widgetType), [widgetType]);
-    const WidgetIcon = useMemo(() => getWidgetIcon(widgetType), [widgetType]);
+    const widgetIconElement = useMemo(
+        () => React.createElement(getWidgetIcon(widgetType), { size: 16, className: 'text-theme-secondary' }),
+        [widgetType]
+    );
 
     // Grid constraints based on breakpoint
     const maxCols = isMobile ? 4 : 24;
@@ -191,6 +194,7 @@ const WidgetResizeModal: React.FC<WidgetResizeModalProps> = ({
     }, [allLayouts, widgetId, h]);
 
     // Reset form when modal opens with new layout
+    /* eslint-disable react-hooks/set-state-in-effect -- Intentional: resets form state when modal opens (prop transition, not continuous sync) */
     useEffect(() => {
         if (isOpen) {
             setX(currentLayout.x);
@@ -199,6 +203,7 @@ const WidgetResizeModal: React.FC<WidgetResizeModalProps> = ({
             setH(currentLayout.h);
         }
     }, [isOpen, currentLayout]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     // Immediate per-field validation
     const fieldErrors = useMemo((): Record<FieldKey, boolean> => ({
@@ -242,7 +247,7 @@ const WidgetResizeModal: React.FC<WidgetResizeModalProps> = ({
                 icon={<Move size={18} className="text-accent" />}
                 title={
                     <span className="flex items-center gap-2">
-                        <WidgetIcon size={16} className="text-theme-secondary" />
+                        {widgetIconElement}
                         Move & Resize
                     </span>
                 }

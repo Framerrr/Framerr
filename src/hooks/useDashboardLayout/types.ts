@@ -109,24 +109,13 @@ export interface UseDashboardLayoutOptions {
 }
 
 /**
- * Grid props bundle - can be spread directly to ResponsiveGridLayout
- * Also includes abstracted onLayoutCommit for wrapper consumption.
+ * Grid callback bundle - live callbacks consumed by Dashboard and Template Builder.
+ * Contains only the GridStack-era callbacks; RGL config fields have been removed.
  */
-export interface GridPropsBundle {
-    layouts: LayoutState;
-    cols: { [key: string]: number };
-    breakpoints: { [key: string]: number };
-    rowHeight: number;
-    margin: [number, number];
-    containerPadding: [number, number];
-    compactType: 'vertical';
-    onLayoutChange: (currentLayout: LayoutItem[], allLayouts: LayoutState) => void;
+export interface GridCallbackBundle {
     onDragStart: () => void;
-    onDragStop: (layout: LayoutItem[], oldItem: LayoutItem, newItem: LayoutItem, placeholder: LayoutItem, e: MouseEvent, element: HTMLElement) => void;
     onResizeStart: () => void;
-    onResizeStop: (layout: LayoutItem[], oldItem: LayoutItem, newItem: LayoutItem, placeholder: LayoutItem, e: MouseEvent, element: HTMLElement) => void;
     onBreakpointChange: (newBreakpoint: string) => void;
-    /** Abstracted callback for wrapper consumption (Phase 4b+) */
     onLayoutCommit: (event: LayoutCommitEvent) => void;
 }
 
@@ -180,8 +169,8 @@ export interface UseDashboardLayoutReturn {
     /** Grid breakpoint thresholds */
     gridBreakpoints: { [key: string]: number };
 
-    /** Bundle of props to spread to ResponsiveGridLayout */
-    gridProps: GridPropsBundle;
+    /** Bundle of grid event callbacks for Dashboard/Template Builder */
+    gridProps: GridCallbackBundle;
 
     // ========== ACTIONS ==========
 
@@ -281,19 +270,5 @@ export interface ChangeDetectionResult {
     hasChanges: boolean;
     /** Whether the changes warrant unlinking mobile layout */
     shouldUnlink: boolean;
-}
-
-/**
- * Widget info used for band detection algorithm
- */
-export interface WidgetBandInfo {
-    index: number;
-    id: string;
-    x: number;
-    y: number;
-    h: number;
-    yStart: number;
-    yEnd: number;
-    widget: FramerrWidget;
 }
 

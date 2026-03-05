@@ -55,7 +55,7 @@ const AUTH_ENDPOINTS: string[] = [
     '/api/auth/logout',
     '/api/auth/me',
     '/api/auth/setup',
-    '/api/auth/plex-setup'  // Plex setup flow returns 401 for invalid creds
+    '/api/auth/sso-setup'  // SSO setup flow returns 401 for invalid creds
 ];
 
 // REQUEST interceptor - add CSRF header and block requests during logout

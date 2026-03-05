@@ -61,6 +61,11 @@ interface UseAuthSettingsReturn {
     setPlexHasChanges: (value: boolean) => void;
     plexSaveRef: MutableRefObject<(() => Promise<void>) | null>;
 
+    // OIDC SSO integration
+    oidcHasChanges: boolean;
+    setOidcHasChanges: (value: boolean) => void;
+    oidcSaveRef: MutableRefObject<(() => Promise<void>) | null>;
+
     // Actions
     handleSave: () => Promise<void>;
     handleUseAuthentikTemplate: () => void;
@@ -97,6 +102,7 @@ export function useAuthSettings({ propSubTab }: UseAuthSettingsOptions = {}): Us
     const subTabRefs = useRef<Record<TabId, HTMLButtonElement | null>>({
         proxy: null,
         plex: null,
+        oidc: null,
         iframe: null
     });
 
@@ -124,6 +130,10 @@ export function useAuthSettings({ propSubTab }: UseAuthSettingsOptions = {}): Us
     // Plex SSO integration
     const [plexHasChanges, setPlexHasChanges] = useState<boolean>(false);
     const plexSaveRef = useRef<(() => Promise<void>) | null>(null);
+
+    // OIDC SSO integration
+    const [oidcHasChanges, setOidcHasChanges] = useState<boolean>(false);
+    const oidcSaveRef = useRef<(() => Promise<void>) | null>(null);
 
     // Sync form state when server data loads
     useEffect(() => {
@@ -213,6 +223,12 @@ export function useAuthSettings({ propSubTab }: UseAuthSettingsOptions = {}): Us
         // If on Plex tab, delegate to PlexSection save
         if (activeTab === 'plex' && plexSaveRef.current) {
             await plexSaveRef.current();
+            return;
+        }
+
+        // If on OIDC tab, delegate to OidcPage save
+        if (activeTab === 'oidc' && oidcSaveRef.current) {
+            await oidcSaveRef.current();
             return;
         }
 
@@ -349,6 +365,11 @@ export function useAuthSettings({ propSubTab }: UseAuthSettingsOptions = {}): Us
         plexHasChanges,
         setPlexHasChanges,
         plexSaveRef,
+
+        // OIDC SSO integration
+        oidcHasChanges,
+        setOidcHasChanges,
+        oidcSaveRef,
 
         // Actions
         handleSave,

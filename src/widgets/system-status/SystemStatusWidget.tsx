@@ -168,63 +168,22 @@ const DEFAULT_DATA: StatusData = {
 };
 
 // ============================================================================
-// MAIN WIDGET
+// LIVE MODE CHILD COMPONENT
 // ============================================================================
 
-const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({
+interface SystemStatusLiveProps {
+    widget: SystemStatusWidgetProps['widget'];
+    config: Record<string, unknown> | undefined;
+    widgetH: number;
+    showHeader: boolean;
+}
+
+const SystemStatusLive: React.FC<SystemStatusLiveProps> = ({
     widget,
-    previewMode = false,
+    config,
+    widgetH,
+    showHeader,
 }) => {
-    const config = widget.config as Record<string, unknown> | undefined;
-
-    // Get widget dimensions and header config for row arithmetic
-    // At runtime, widget may be FramerrWidget (layout.h / mobileLayout.h) or WidgetData (h directly)
-    const { isMobile } = useLayout();
-    const fw = widget as unknown as { layout?: { h?: number }; mobileLayout?: { h?: number } };
-    const widgetH = (isMobile ? fw.mobileLayout?.h : null) ?? fw.layout?.h ?? widget.h ?? 2;
-    const showHeader = config?.showHeader !== false;
-
-    const {
-        packedMetrics,
-        visibleCount,
-        isInline,
-        layout,
-    } = useMetricConfig({
-        widgetId: widget.id,
-        config,
-        widgetH,
-        showHeader,
-        // integrationType and statusData are provided in live mode below
-    });
-
-    // Grid class based on layout mode
-    const gridClassName = `system-status-grid${layout === 'stacked' ? ' system-status-grid--stacked' : ''}`;
-    const widgetClassName = `system-status-widget${isInline ? ' system-status--inline' : ''}`;
-
-    // ========================================================================
-    // PREVIEW MODE — render mock data without hooks
-    // ========================================================================
-    if (previewMode) {
-        return (
-            <div className={widgetClassName}>
-                <div className={gridClassName}>
-                    {packedMetrics.map((metric) => (
-                        <MetricCard
-                            key={metric.key}
-                            metric={metric}
-                            value={PREVIEW_DATA[metric.key as StatusScalarKey]}
-                            visibleCount={visibleCount}
-                        />
-                    ))}
-                </div>
-            </div>
-        );
-    }
-
-    // ========================================================================
-    // LIVE MODE — hooks and data fetching
-    // ========================================================================
-
     const { user } = useAuth();
     const userIsAdmin = isAdmin(user);
 
@@ -244,7 +203,6 @@ const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({
         sourceId: string | null;
         data: StatusData;
     }>({ sourceId: null, data: DEFAULT_DATA });
-
 
     const integrationType = integrationId?.split('-')[0] || 'glances';
 
@@ -270,6 +228,7 @@ const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({
         });
         return unsubscribe;
     }, [onSettingsInvalidate, queryClient, integrationId]);
+
     const schemaInfo = schemas?.[integrationType];
     const schemaMetricKeys = useMemo(
         () => schemaInfo?.metrics?.map(m => m.key),
@@ -279,6 +238,7 @@ const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({
         () => new Set(schemaInfo?.metrics?.filter(m => m.recordable).map(m => m.key) ?? []),
         [schemaInfo]
     );
+
     const { loading, isConnected, isUnavailable, isAuthError } = useIntegrationSSE<StatusData>({
         integrationType,
         integrationId,
@@ -460,5 +420,70 @@ const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({
     );
 };
 
-export default SystemStatusWidget;
+// ============================================================================
+// MAIN WIDGET
+// ============================================================================
 
+const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({
+    widget,
+    previewMode = false,
+}) => {
+    const config = widget.config as Record<string, unknown> | undefined;
+
+    // Get widget dimensions and header config for row arithmetic
+    // At runtime, widget may be FramerrWidget (layout.h / mobileLayout.h) or WidgetData (h directly)
+    const { isMobile } = useLayout();
+    const fw = widget as unknown as { layout?: { h?: number }; mobileLayout?: { h?: number } };
+    const widgetH = (isMobile ? fw.mobileLayout?.h : null) ?? fw.layout?.h ?? widget.h ?? 2;
+    const showHeader = config?.showHeader !== false;
+
+    const {
+        packedMetrics,
+        visibleCount,
+        isInline,
+        layout,
+    } = useMetricConfig({
+        widgetId: widget.id,
+        config,
+        widgetH,
+        showHeader,
+    });
+
+    // Grid class based on layout mode
+    const gridClassName = `system-status-grid${layout === 'stacked' ? ' system-status-grid--stacked' : ''}`;
+    const widgetClassName = `system-status-widget${isInline ? ' system-status--inline' : ''}`;
+
+    // ========================================================================
+    // PREVIEW MODE — render mock data, no live hooks needed
+    // ========================================================================
+    if (previewMode) {
+        return (
+            <div className={widgetClassName}>
+                <div className={gridClassName}>
+                    {packedMetrics.map((metric) => (
+                        <MetricCard
+                            key={metric.key}
+                            metric={metric}
+                            value={PREVIEW_DATA[metric.key as StatusScalarKey]}
+                            visibleCount={visibleCount}
+                        />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    // ========================================================================
+    // LIVE MODE — delegate to SystemStatusLive (all live hooks there)
+    // ========================================================================
+    return (
+        <SystemStatusLive
+            widget={widget}
+            config={config}
+            widgetH={widgetH}
+            showHeader={showHeader}
+        />
+    );
+};
+
+export default SystemStatusWidget;

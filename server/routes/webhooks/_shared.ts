@@ -1,10 +1,9 @@
 /**
  * Shared Webhook Utilities
  * 
- * Token validation and notification routing logic shared across all webhook handlers.
+ * Notification routing logic used by plugin webhook handlers.
  */
-import * as integrationInstancesDb from '../../db/integrationInstances';
-import { createNotification } from '../../db/notifications';
+import { produceNotification } from '../../services/notificationGateway';
 import { resolveUserByUsername, getAdminsWithReceiveUnmatched, userWantsEvent } from '../../services/webhookUserResolver';
 import { getSystemIconIdForService } from '../../services/systemIcons';
 import { listUsers } from '../../db/users';
@@ -12,40 +11,11 @@ import logger from '../../utils/logger';
 import type {
     WebhookService,
     WebhookConfig,
-    TokenValidationResult,
     ProcessNotificationParams,
     NotificationSent,
     User
 } from './types';
 
-/**
- * Validate webhook token against stored config
- */
-export async function validateToken(service: WebhookService, token: string): Promise<TokenValidationResult> {
-    try {
-        // Get integration instance from new table
-        const instance = integrationInstancesDb.getFirstEnabledByType(service);
-
-        if (!instance) {
-            return { valid: false, reason: 'Integration not configured or disabled' };
-        }
-
-        const webhookConfig = instance.config.webhookConfig as WebhookConfig | undefined;
-
-        if (!webhookConfig?.webhookEnabled) {
-            return { valid: false, reason: 'Webhook not enabled' };
-        }
-
-        if (webhookConfig.webhookToken !== token) {
-            return { valid: false, reason: 'Invalid token' };
-        }
-
-        return { valid: true, webhookConfig };
-    } catch (error) {
-        logger.error(`[Webhook] Token validation error: error="${(error as Error).message}"`);
-        return { valid: false, reason: 'Validation error' };
-    }
-}
 
 /**
  * Process webhook and create notifications for appropriate users
@@ -103,14 +73,14 @@ export async function processWebhookNotification({
             const wantsEvent = await userWantsEvent(admin.id, service, eventKey, true, webhookConfig);
 
             if (wantsEvent) {
-                await createNotification({
+                await produceNotification({
                     userId: admin.id,
                     type: 'info',
                     title: titleOverride || title,
                     message: messageOverride || message,
                     iconId,
                     metadata: mergedMetadata
-                });
+                }, 'webhook');
                 notificationsSent.push({ userId: admin.id, username: admin.username, role: 'admin' });
                 logger.debug(`[Webhook] Admin notification sent: admin=${admin.id} event=${eventKey}`);
             }
@@ -123,14 +93,14 @@ export async function processWebhookNotification({
         const wantsEvent = await userWantsEvent(user.id, service, eventKey, isAdmin, webhookConfig);
 
         if (wantsEvent) {
-            await createNotification({
+            await produceNotification({
                 userId: user.id,
                 type: 'info',
                 title,
                 message,
                 iconId,
                 metadata: mergedMetadata
-            });
+            }, 'webhook');
             notificationsSent.push({ userId: user.id, username: user.username, role: 'user' });
             logger.debug(`[Webhook] User notification sent: user=${user.id} event=${eventKey}`);
         }
@@ -145,14 +115,14 @@ export async function processWebhookNotification({
         const admins = await getAdmins();
 
         for (const admin of admins) {
-            await createNotification({
+            await produceNotification({
                 userId: admin.id,
                 type: 'success',
                 title: `[Test] ${title}`,
                 message: message || 'Test notification received successfully!',
                 iconId,
                 metadata: { service } // Include service for proper grouping, but not actionable
-            });
+            }, 'webhook');
             notificationsSent.push({ userId: admin.id, username: admin.username, test: true });
         }
 
@@ -165,14 +135,14 @@ export async function processWebhookNotification({
             for (const user of nonAdmins) {
                 const wantsEvent = await userWantsEvent(user.id, service, 'test', false, webhookConfig);
                 if (wantsEvent) {
-                    await createNotification({
+                    await produceNotification({
                         userId: user.id,
                         type: 'success',
                         title: `[Test] ${title}`,
                         message: message || 'Test notification received successfully!',
                         iconId,
                         metadata: { service }
-                    });
+                    }, 'webhook');
                     notificationsSent.push({ userId: user.id, username: user.username, test: true });
                 }
             }
@@ -212,14 +182,14 @@ export async function processWebhookNotification({
                 const wantsEvent = await userWantsEvent(admin.id, service, eventKey, true, webhookConfig);
 
                 if (wantsEvent) {
-                    await createNotification({
+                    await produceNotification({
                         userId: admin.id,
                         type: 'info',
                         title: `[Unmatched] ${title}`,
                         message: `From: ${username}\n${message}`,
                         iconId,
                         metadata: { service } // Include service for proper grouping
-                    });
+                    }, 'webhook');
                     notificationsSent.push({ userId: admin.id, username: admin.username, unmatched: true });
                 }
             }
@@ -251,14 +221,14 @@ export async function processWebhookNotification({
             const wantsEvent = await userWantsEvent(admin.id, service, eventKey, true, webhookConfig);
 
             if (wantsEvent) {
-                await createNotification({
+                await produceNotification({
                     userId: admin.id,
                     type: 'info',
                     title,
                     message,
                     iconId,
                     metadata: mergedMetadata
-                });
+                }, 'webhook');
                 notificationsSent.push({ userId: admin.id, username: admin.username, role: 'admin' });
                 logger.debug(`[Webhook] Admin notification sent: admin=${admin.id} event=${eventKey}`);
             }

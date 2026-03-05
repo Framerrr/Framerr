@@ -82,6 +82,8 @@ export function SidebarTabsProvider({ children }: SidebarTabsProviderProps) {
                 setCurrentUser({
                     username: data.user.username,
                     profilePicture: data.user.profilePicture
+                        ? `${data.user.profilePicture}?t=${Date.now()}`
+                        : undefined
                 });
             }
         } catch (error) {

@@ -3,7 +3,7 @@
  * Shared type definitions for authentication settings
  */
 
-export type TabId = 'proxy' | 'plex' | 'iframe';
+export type TabId = 'proxy' | 'plex' | 'oidc' | 'iframe';
 
 export interface OriginalSettings {
     proxyEnabled: boolean;

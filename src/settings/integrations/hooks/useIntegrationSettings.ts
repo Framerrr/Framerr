@@ -1,11 +1,11 @@
 /**
  * useIntegrationSettings Hook
  * 
- * Manages all state and logic for integration settings:
- * - Fetching and saving integration instances
- * - Connection testing
- * - Plex OAuth flow and server management
- * - Adding/deleting integration instances
+ * Orchestrator that manages all state and logic for integration settings.
+ * Composes extracted sub-hooks for focused concerns:
+ * - useConnectionTesting: connection test state and handlers
+ * - usePlexIntegration: Plex OAuth flow and server management
+ * - useFormRefs: Monitor/UptimeKuma form ref management
  * 
  * P2 Migration: Hybrid pattern
  * - Server state: useIntegrations for list, mutations for CRUD
@@ -13,9 +13,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { integrationsApi, plexApi } from '@/api';
 import { ApiError } from '@/api/errors';
-import { usePlexOAuth, PlexUser } from '../../../hooks/usePlexOAuth';
 import {
     useIntegrations,
     useCreateIntegration,
@@ -24,15 +22,15 @@ import {
 } from '../../../api/hooks/useIntegrations';
 import logger from '../../../utils/logger';
 import { useNotifications } from '../../../context/NotificationContext';
+import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
+import { useConnectionTesting } from './useConnectionTesting';
+import { usePlexIntegration } from './usePlexIntegration';
+import { useFormRefs } from './useFormRefs';
 import type {
     IntegrationInstance,
     IntegrationsState,
-    TestState,
     IntegrationConfig,
-    PlexConfig
 } from '../types';
-import type { MonitorFormRef } from '../../../integrations/monitor';
-import type { UptimeKumaFormRef } from '../../../integrations/uptime-kuma';
 
 export interface UseIntegrationSettingsReturn {
     // State
@@ -42,7 +40,7 @@ export interface UseIntegrationSettingsReturn {
     savedInstances: IntegrationInstance[];
     loading: boolean;
     saving: boolean;
-    testStates: Record<string, TestState | null>;
+    testStates: Record<string, import('../types').TestState | null>;
 
     // Modal state
     activeModal: string | null;
@@ -50,8 +48,8 @@ export interface UseIntegrationSettingsReturn {
     newInstanceId: string | null;
 
     // Form refs
-    monitorFormRef: React.RefObject<MonitorFormRef | null>;
-    uptimeKumaFormRef: React.RefObject<UptimeKumaFormRef | null>;
+    monitorFormRef: React.RefObject<import('../../../integrations/monitor').MonitorFormRef | null>;
+    uptimeKumaFormRef: React.RefObject<import('../../../integrations/uptime-kuma').UptimeKumaFormRef | null>;
 
     // Plex state
     plexAuthenticating: boolean;
@@ -119,26 +117,10 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
     const [savedInstances, setSavedInstances] = useState<IntegrationInstance[]>([]);
 
     const [saving, setSaving] = useState<boolean>(false);
-    const [testStates, setTestStates] = useState<Record<string, TestState | null>>({});
     const [initialized, setInitialized] = useState<boolean>(false);
-
-    // Plex-specific state
-    const [plexLoadingServers, setPlexLoadingServers] = useState(false);
 
     // Ref to capture current activeModal for async callbacks (synced after activeModal declaration)
     const activeModalRef = useRef<string | null>(null);
-
-    // Monitor form ref for modal save/cancel
-    const monitorFormRef = useRef<MonitorFormRef>(null);
-    // UptimeKuma form ref for modal save/cancel
-    const uptimeKumaFormRef = useRef<UptimeKumaFormRef>(null);
-    // Force re-render when forms mount
-    const [, setMonitorFormReady] = useState(0);
-    const [, setUptimeKumaFormReady] = useState(0);
-    // Track monitor form dirty state (new/edited/reordered monitors)
-    const [monitorDirty, setMonitorDirty] = useState(false);
-
-
 
     // Track newly created instance that hasn't been saved yet (for cancel-to-delete)
     const [newInstanceId, setNewInstanceId] = useState<string | null>(null);
@@ -165,6 +147,40 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
         const serverInstances = (fetchedInstances as IntegrationInstance[]) || [];
         return [...serverInstances, ...ephemeralInstances];
     }, [fetchedInstances, localInstances]);
+
+    // ========================================================================
+    // Composed Sub-Hooks
+    // ========================================================================
+
+    const { testStates, handleTest } = useConnectionTesting({ integrations });
+
+    const {
+        monitorFormRef,
+        uptimeKumaFormRef,
+        monitorDirty,
+        handleMonitorFormReady,
+        handleMonitorSave,
+        handleMonitorCancel,
+        handleMonitorDirtyChange,
+        handleUptimeKumaFormReady,
+        handleUptimeKumaSave,
+        handleUptimeKumaCancel,
+    } = useFormRefs();
+
+    const {
+        plexAuthenticating,
+        plexLoadingServers,
+        handlePlexLogin,
+        handlePlexServerChange,
+        fetchPlexServers,
+    } = usePlexIntegration({
+        activeModal,
+        activeModalRef,
+        integrations,
+        setIntegrations,
+        showSuccess,
+        showError,
+    });
 
     // ========================================================================
     // Sync from Server Data
@@ -284,7 +300,7 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
             }
 
             showSuccess('Settings Saved', 'Integration settings saved successfully');
-            window.dispatchEvent(new CustomEvent('integrationsUpdated'));
+            dispatchCustomEvent(CustomEventNames.INTEGRATIONS_UPDATED);
 
             logger.info(`[useIntegrationSettings] Saved single integration: instanceId=${instanceId}`);
         } catch (error) {
@@ -295,58 +311,6 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
             setSaving(false);
         }
     }, [integrations, createMutation, updateMutation, showSuccess, showError]);
-
-    const handleTest = useCallback(async (instanceId: string): Promise<void> => {
-        const config = integrations[instanceId];
-        if (!config) {
-            setTestStates(prev => ({
-                ...prev,
-                [instanceId]: { loading: false, success: false, message: '✗ No config found' }
-            }));
-            return;
-        }
-
-        const type = (config as { _type?: string })._type;
-        if (!type) {
-            setTestStates(prev => ({
-                ...prev,
-                [instanceId]: { loading: false, success: false, message: '✗ Unknown integration type' }
-            }));
-            return;
-        }
-
-        setTestStates(prev => ({ ...prev, [instanceId]: { loading: true } }));
-        try {
-            const { _instanceId, _displayName, _type, enabled, ...configWithoutMeta } = config as IntegrationConfig & { _instanceId?: string; _displayName?: string; _type?: string };
-
-            const result = await integrationsApi.testByConfig(type, configWithoutMeta, instanceId.startsWith('new-') ? undefined : instanceId);
-
-            setTestStates(prev => ({
-                ...prev,
-                [instanceId]: {
-                    loading: false,
-                    success: result.success,
-                    message: result.success
-                        ? `✓ ${result.message || 'Connection successful'}`
-                        : `✗ ${result.error}`
-                }
-            }));
-
-            setTimeout(() => {
-                setTestStates(prev => ({ ...prev, [instanceId]: null }));
-            }, 5000);
-        } catch (error) {
-            const apiError = error as ApiError;
-            setTestStates(prev => ({
-                ...prev,
-                [instanceId]: {
-                    loading: false,
-                    success: false,
-                    message: `✗ ${apiError.message || 'Connection failed'}`
-                }
-            }));
-        }
-    }, [integrations]);
 
     const handleReset = useCallback((instanceId: string): void => {
         const savedConfig = savedIntegrations[instanceId];
@@ -429,7 +393,7 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
         try {
             await deleteMutation.mutateAsync(instanceId);
             showSuccess('Integration Deleted', 'Integration instance removed successfully');
-            window.dispatchEvent(new CustomEvent('integrationsUpdated'));
+            dispatchCustomEvent(CustomEventNames.INTEGRATIONS_UPDATED);
         } catch (error) {
             const apiError = error as ApiError;
             showError('Delete Failed', apiError.message || 'Failed to delete integration');
@@ -456,115 +420,6 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
             }
         }));
     }, [integrations]);
-
-    // ========================================================================
-    // Plex Handlers
-    // ========================================================================
-
-    const fetchPlexServers = useCallback(async (token: string): Promise<void> => {
-        if (!activeModal) return;
-        const instanceId = activeModal;
-
-        setPlexLoadingServers(true);
-        try {
-            const servers = await plexApi.getResources(token) || [];
-
-            setIntegrations(prev => {
-                const currentConfig = (prev[instanceId] as PlexConfig) || { enabled: true };
-                let newPlex: PlexConfig = { ...currentConfig, servers, token };
-
-                if (!currentConfig.machineId && servers.length > 0) {
-                    const ownedServer = servers.find((s: { owned: boolean }) => s.owned) || servers[0];
-                    newPlex = {
-                        ...newPlex,
-                        machineId: ownedServer.machineId,
-                        url: ownedServer.connections?.find((c: { local: boolean }) => c.local)?.uri || ownedServer.connections?.[0]?.uri || ''
-                    };
-                }
-
-                return { ...prev, [instanceId]: newPlex };
-            });
-        } catch (error) {
-            logger.error('[Plex] Failed to fetch servers:', (error as Error).message);
-        } finally {
-            setPlexLoadingServers(false);
-        }
-    }, [activeModal]);
-
-    // Plex OAuth hook - uses ref to get current activeModal in callbacks
-    const handlePlexAuthSuccess = useCallback(async (token: string, user: PlexUser): Promise<void> => {
-        const currentInstanceId = activeModalRef.current;
-        if (!currentInstanceId) return;
-
-        setIntegrations(prev => ({
-            ...prev,
-            [currentInstanceId]: { ...prev[currentInstanceId], token }
-        }));
-
-        await fetchPlexServers(token);
-        showSuccess('Plex Connected', `Connected as ${user.username ?? 'Plex User'}`);
-        window.dispatchEvent(new CustomEvent('linkedAccountsUpdated'));
-    }, [fetchPlexServers, showSuccess]);
-
-    const handlePlexAuthError = useCallback((error: string): void => {
-        showError('Plex Auth Failed', error);
-    }, [showError]);
-
-    const { startAuth: handlePlexLogin, isAuthenticating: plexAuthenticating } = usePlexOAuth({
-        mode: 'popup',
-        onSuccess: handlePlexAuthSuccess,
-        onError: handlePlexAuthError
-    });
-
-    const handlePlexServerChange = useCallback((machineId: string): void => {
-        if (!activeModal) return;
-
-        const currentConfig = integrations[activeModal] as PlexConfig || {};
-        const servers = currentConfig.servers || [];
-        const server = servers.find((s: { machineId: string }) => s.machineId === machineId);
-        const url = server?.connections?.find((c) => c.local === true)?.uri || server?.connections?.[0]?.uri || '';
-
-        setIntegrations(prev => ({
-            ...prev,
-            [activeModal]: { ...prev[activeModal], machineId, url }
-        }));
-    }, [activeModal, integrations]);
-
-    // ========================================================================
-    // Form Ready Callbacks
-    // ========================================================================
-
-    const handleMonitorFormReady = useCallback(() => {
-        setMonitorFormReady(prev => prev + 1);
-    }, []);
-
-    const handleUptimeKumaFormReady = useCallback(() => {
-        setUptimeKumaFormReady(prev => prev + 1);
-    }, []);
-
-    const handleMonitorDirtyChange = useCallback((dirty: boolean) => {
-        setMonitorDirty(dirty);
-    }, []);
-
-    // ========================================================================
-    // Monitor/UptimeKuma Handlers
-    // ========================================================================
-
-    const handleMonitorSave = useCallback(async (): Promise<void> => {
-        await monitorFormRef.current?.saveAll();
-    }, []);
-
-    const handleMonitorCancel = useCallback((): void => {
-        monitorFormRef.current?.resetAll();
-    }, []);
-
-    const handleUptimeKumaSave = useCallback(async (): Promise<void> => {
-        await uptimeKumaFormRef.current?.saveAll();
-    }, []);
-
-    const handleUptimeKumaCancel = useCallback((): void => {
-        uptimeKumaFormRef.current?.resetAll();
-    }, []);
 
     // ========================================================================
     // Return

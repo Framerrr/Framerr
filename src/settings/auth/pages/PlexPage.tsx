@@ -10,10 +10,12 @@
  */
 import React, { useState, useEffect } from 'react';
 import { plexApi } from '../../../api/endpoints';
+import { usePlexSSOConfig } from '../../../api/hooks/useSettings';
 import { usePlexOAuth, PlexUser } from '../../../hooks/usePlexOAuth';
-import { Tv, Loader, RefreshCw, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
+import { Tv, Loader, RefreshCw, CheckCircle, AlertCircle, ExternalLink, Settings2 } from 'lucide-react';
 import { Switch, Select } from '@/shared/ui';
 import { SettingsPage, SettingsSection } from '../../../shared/ui/settings';
+import LoadingSpinner from '../../../components/common/LoadingSpinner';
 import { useNotifications } from '../../../context/NotificationContext';
 import logger from '../../../utils/logger';
 import type { PlexConfig, PlexServer, PlexAuthSettingsProps } from '../types';
@@ -21,7 +23,8 @@ import type { PlexConfig, PlexServer, PlexAuthSettingsProps } from '../types';
 export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave }) => {
     const { success: showSuccess, error: showError } = useNotifications();
 
-    // Config state
+    // Config state — seeded from React Query cache
+    const { data: cachedConfig, isPending: loading } = usePlexSSOConfig();
     const [config, setConfig] = useState<PlexConfig>({
         enabled: false,
         adminEmail: '',
@@ -31,7 +34,6 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
     });
 
     // UI state
-    const [loading, setLoading] = useState<boolean>(true);
     const [saving, setSaving] = useState<boolean>(false);
     const [servers, setServers] = useState<PlexServer[]>([]);
     const [loadingServers, setLoadingServers] = useState<boolean>(false);
@@ -39,9 +41,13 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
     // Change tracking
     const [originalConfig, setOriginalConfig] = useState<PlexConfig | null>(null);
 
+    // Sync form state when React Query data loads
     useEffect(() => {
-        fetchConfig();
-    }, []);
+        if (cachedConfig) {
+            setConfig(cachedConfig as PlexConfig);
+            setOriginalConfig(cachedConfig as PlexConfig);
+        }
+    }, [cachedConfig]);
 
     // Fetch servers when config is loaded and has token
     useEffect(() => {
@@ -50,18 +56,7 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
         }
     }, [config.hasToken]);
 
-    const fetchConfig = async (): Promise<void> => {
-        try {
-            const response = await plexApi.getSSOConfig();
-            setConfig(response as PlexConfig);
-            setOriginalConfig(response as PlexConfig);
-        } catch (error) {
-            const err = error as Error;
-            logger.error('[PlexAuth] Failed to fetch config:', err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+
 
 
 
@@ -176,7 +171,7 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
     if (loading) {
         return (
             <div className="flex items-center justify-center py-8">
-                <Loader className="animate-spin text-accent" size={32} />
+                <LoadingSpinner size="sm" message="Loading Plex SSO configuration..." />
             </div>
         );
     }
@@ -187,11 +182,15 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
             description="Allow users to sign in with their Plex account"
         >
             <SettingsSection title="Plex SSO" icon={Tv}>
-                {/* Header with Enable Toggle */}
+                {/* Enable Toggle */}
                 <div className="flex items-center justify-between p-4 rounded-lg bg-theme-tertiary border border-theme">
                     <div>
-                        <span className="text-sm font-medium text-theme-primary">Enable Plex SSO</span>
-                        <p className="text-xs text-theme-tertiary mt-1">Allow users to sign in with Plex</p>
+                        <label className="text-sm font-medium text-theme-primary">
+                            Enable Plex SSO
+                        </label>
+                        <p className="text-xs text-theme-tertiary mt-1">
+                            Allow users to sign in with Plex
+                        </p>
                     </div>
                     <Switch
                         checked={config.enabled}
@@ -242,7 +241,7 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
                     </div>
                 </div>
 
-                {/* Server Selection */}
+                {/* Server Selection + Auto-create — hidden until connected */}
                 {config.hasToken && (
                     <div className="space-y-4">
                         {/* Server Selector */}
@@ -291,7 +290,6 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
                                 onCheckedChange={(checked: boolean) => handleChange('autoCreateUsers', checked)}
                             />
                         </div>
-
                     </div>
                 )}
             </SettingsSection>

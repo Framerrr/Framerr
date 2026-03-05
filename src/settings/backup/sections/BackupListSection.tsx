@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Archive, Download, Loader2 } from 'lucide-react';
+import { Archive, Download, Loader2, Lock } from 'lucide-react';
 import { Button } from '../../../shared/ui';
 import { ConfirmButton } from '../../../shared/ui';
 import { SettingsSection, EmptyState } from '../../../shared/ui/settings';
@@ -60,7 +60,12 @@ export const BackupListSection = ({
 
                                 {/* Info */}
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-theme-primary font-medium truncate">
+                                    <p className="text-theme-primary font-medium truncate flex items-center gap-1.5">
+                                        {backup.encrypted && (
+                                            <span title="Encrypted backup">
+                                                <Lock size={14} className="text-accent flex-shrink-0" />
+                                            </span>
+                                        )}
                                         {backup.filename}
                                     </p>
                                     <div className="flex items-center gap-3 text-sm text-theme-secondary">

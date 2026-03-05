@@ -19,6 +19,7 @@ import LoadingSpinner from '../../../components/common/LoadingSpinner';
 import logger from '../../../utils/logger';
 import { useNotifications } from '../../../context/NotificationContext';
 import { useLayout } from '../../../context/LayoutContext';
+import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
 
 interface Category {
     id: string;
@@ -95,7 +96,7 @@ const TemplateList: React.FC<TemplateListProps> = ({
             success('Template Applied', `"${confirmTemplate.name}" applied.`);
 
             // Trigger dashboard reload
-            window.dispatchEvent(new CustomEvent('widgets-added'));
+            dispatchCustomEvent(CustomEventNames.WIDGETS_ADDED);
 
             // Close dialog
             setConfirmAction(null);

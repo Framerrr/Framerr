@@ -28,13 +28,19 @@ vi.mock('../db/linkedAccounts', () => ({
     getLinkedAccount: (...args: unknown[]) => mockGetLinkedAccount(...args),
 }));
 
-const mockAxiosGet = vi.fn();
-const mockAxiosPost = vi.fn();
-vi.mock('axios', () => ({
-    default: {
-        get: (...args: unknown[]) => mockAxiosGet(...args),
-        post: (...args: unknown[]) => mockAxiosPost(...args),
-    },
+const mockAdapterGet = vi.fn();
+const mockAdapterPost = vi.fn();
+vi.mock('../integrations/registry', () => ({
+    getPlugin: () => ({
+        adapter: {
+            get: (...args: unknown[]) => mockAdapterGet(...args),
+            post: (...args: unknown[]) => mockAdapterPost(...args),
+        },
+    }),
+}));
+
+vi.mock('../integrations/utils', () => ({
+    toPluginInstance: <T>(instance: T) => instance,
 }));
 
 vi.mock('../utils/logger', () => ({
@@ -103,7 +109,7 @@ describe('Overseerr Proxy Routes - Phase 2', () => {
 
     describe('GET /:id/proxy/search', () => {
         it('should return search results from Overseerr', async () => {
-            mockAxiosGet.mockResolvedValue({
+            mockAdapterGet.mockResolvedValue({
                 data: {
                     results: [{ id: 1, title: 'Test Movie', mediaType: 'movie' }],
                     pageInfo: { pages: 1, page: 1, results: 1 },
@@ -125,12 +131,12 @@ describe('Overseerr Proxy Routes - Phase 2', () => {
                 .query({ query: 'a' });
 
             expect(res.status).toBe(400);
-            expect(mockAxiosGet).not.toHaveBeenCalled();
+            expect(mockAdapterGet).not.toHaveBeenCalled();
         });
 
         it('should limit results to 10', async () => {
             const results = Array.from({ length: 20 }, (_, i) => ({ id: i, title: `Movie ${i}` }));
-            mockAxiosGet.mockResolvedValue({
+            mockAdapterGet.mockResolvedValue({
                 data: { results, pageInfo: { pages: 1, page: 1, results: 20 } },
             });
 
@@ -159,7 +165,7 @@ describe('Overseerr Proxy Routes - Phase 2', () => {
 
     describe('POST /:id/proxy/request', () => {
         it('should create a request for admin without requiring linked account', async () => {
-            mockAxiosPost.mockResolvedValue({ data: { id: 1, status: 'pending' } });
+            mockAdapterPost.mockResolvedValue({ data: { id: 1, status: 'pending' } });
 
             const res = await request(app)
                 .post('/overseerr-abc/proxy/request')
@@ -172,9 +178,9 @@ describe('Overseerr Proxy Routes - Phase 2', () => {
         });
 
         it('should forward Overseerr error status codes', async () => {
-            mockAxiosPost.mockRejectedValue({
-                response: { status: 409, data: { message: 'Already requested' } },
-                message: 'Request failed',
+            mockAdapterPost.mockRejectedValue({
+                context: { status: 409 },
+                message: 'Already requested',
             });
 
             const res = await request(app)
@@ -182,7 +188,7 @@ describe('Overseerr Proxy Routes - Phase 2', () => {
                 .send({ mediaType: 'movie', mediaId: 123 });
 
             expect(res.status).toBe(409);
-            expect(res.body.error).toBe('Already requested');
+            expect(res.body.error).toBe('Failed to create media request');
         });
     });
 
@@ -192,7 +198,7 @@ describe('Overseerr Proxy Routes - Phase 2', () => {
 
     describe('GET /:id/proxy/tv/:tmdbId', () => {
         it('should return TV details', async () => {
-            mockAxiosGet.mockResolvedValue({
+            mockAdapterGet.mockResolvedValue({
                 data: { id: 456, name: 'Test Show', numberOfSeasons: 3 },
             });
 
@@ -224,7 +230,7 @@ describe('Overseerr Proxy Routes - Phase 2', () => {
 
     describe('GET /:id/proxy/servers', () => {
         it('should return Radarr and Sonarr server lists', async () => {
-            mockAxiosGet.mockImplementation((url: string) => {
+            mockAdapterGet.mockImplementation((_instance: unknown, url: string) => {
                 if (url.includes('/settings/radarr')) {
                     return Promise.resolve({ data: [{ id: 1, name: 'Radarr', is4k: false }] });
                 }

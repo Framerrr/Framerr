@@ -10,7 +10,7 @@ import { Router, Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../../middleware/auth';
 import * as serviceMonitorsDb from '../../db/serviceMonitors';
 import * as integrationInstancesDb from '../../db/integrationInstances';
-import { createNotification } from '../../db/notifications';
+import { produceNotification } from '../../services/notificationGateway';
 import { userWantsEvent } from '../../services/webhookUserResolver';
 import logger from '../../utils/logger';
 
@@ -89,14 +89,14 @@ router.post('/:id/maintenance', requireAuth, requireAdmin, async (req: Request, 
         // Check if owner wants this event
         const ownerWantsEvent = await userWantsEvent(monitor.ownerId, 'servicemonitoring', eventKey, true, webhookConfig);
         if (ownerWantsEvent) {
-            await createNotification({
+            await produceNotification({
                 userId: monitor.ownerId,
                 type: 'info',
                 title: maintenanceTitle,
                 message: '',
                 iconId: notificationIconId,
                 metadata: notificationLucideIcon ? { lucideIcon: notificationLucideIcon } : undefined,
-            });
+            }, 'service-monitor');
         }
 
         // Notify shared users
@@ -105,14 +105,14 @@ router.post('/:id/maintenance', requireAuth, requireAdmin, async (req: Request, 
             if (share.notify) {
                 const userWants = await userWantsEvent(share.userId, 'servicemonitoring', eventKey, false, webhookConfig);
                 if (userWants) {
-                    await createNotification({
+                    await produceNotification({
                         userId: share.userId,
                         type: 'info',
                         title: maintenanceTitle,
                         message: '',
                         iconId: notificationIconId,
                         metadata: notificationLucideIcon ? { lucideIcon: notificationLucideIcon } : undefined,
-                    });
+                    }, 'service-monitor');
                 }
             }
         }

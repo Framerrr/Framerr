@@ -3,6 +3,7 @@ import { Link2 } from 'lucide-react';
 import { SettingsPage, SettingsSection, SettingsAlert } from '../../shared/ui/settings';
 import { useAccountSettings } from './hooks/useAccountSettings';
 import { PlexSection } from './sections/PlexSection';
+import { OidcSection } from './sections/OidcSection';
 import { OverseerrSection } from './sections/OverseerrSection';
 import { OverseerrLinkModal } from './components/OverseerrLinkModal';
 
@@ -26,6 +27,14 @@ const AccountSettings: React.FC = () => {
         overseerrError,
         handleConnectPlex,
         handleDisconnectPlex,
+        // OIDC state
+        oidcSSOEnabled,
+        oidcDisplayName,
+        oidcButtonIcon,
+        oidcConnecting,
+        oidcDisconnecting,
+        handleConnectOidc,
+        handleDisconnectOidc,
         handleOpenOverseerrModal,
         handleCloseOverseerrModal,
         handleLinkOverseerr,
@@ -46,28 +55,44 @@ const AccountSettings: React.FC = () => {
 
     return (
         <SettingsPage
-            title="Linked Accounts"
+            title="Connected Accounts"
             description="Connect external services to personalize your Framerr experience"
         >
             <SettingsSection title="External Services" icon={Link2}>
                 {/* Info Banner */}
                 <SettingsAlert type="info" className="mb-4">
-                    <strong>About Linked Accounts:</strong> Connect your external accounts to Framerr for personalized content, notifications, and streamlined sign-in.
-                    Credentials are only used for verification and never stored.
+                    <strong>About Linked Accounts:</strong> Connect your external accounts to Framerr for single sign-on, personalized content, and streamlined access.
+                    Your passwords are never stored by Framerr.
                 </SettingsAlert>
 
                 {/* Linked Accounts List */}
                 <div className="space-y-4">
                     {/* Plex Account */}
-                    <PlexSection
-                        plexAccount={plexAccount}
-                        isPlexLinked={isPlexLinked}
-                        plexSSOEnabled={plexSSOEnabled}
-                        plexLinking={plexLinking}
-                        plexUnlinking={plexUnlinking}
-                        onConnect={handleConnectPlex}
-                        onDisconnect={handleDisconnectPlex}
-                    />
+                    {plexSSOEnabled && (
+                        <PlexSection
+                            plexAccount={plexAccount}
+                            isPlexLinked={isPlexLinked}
+                            plexLinking={plexLinking}
+                            plexUnlinking={plexUnlinking}
+                            onConnect={handleConnectPlex}
+                            onDisconnect={handleDisconnectPlex}
+                        />
+                    )}
+
+                    {/* OIDC Account */}
+                    {oidcSSOEnabled && (
+                        <OidcSection
+                            oidcAccount={dbLinkedAccounts.oidc}
+                            isOidcLinked={!!dbLinkedAccounts.oidc?.linked}
+                            oidcDisplayName={oidcDisplayName}
+                            oidcButtonIcon={oidcButtonIcon}
+                            oidcConnecting={oidcConnecting}
+                            oidcDisconnecting={oidcDisconnecting}
+                            onConnect={handleConnectOidc}
+                            onDisconnect={handleDisconnectOidc}
+                        />
+                    )
+                    }
 
                     {/* Overseerr Account */}
                     {hasOverseerrAccess && (
@@ -82,20 +107,6 @@ const AccountSettings: React.FC = () => {
                         />
                     )}
 
-                    {/* Placeholder for future integrations */}
-                    <div className="bg-theme-tertiary rounded-lg p-6 border border-theme opacity-50">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-theme-secondary/10 rounded-lg">
-                                <Link2 className="text-theme-secondary" size={24} />
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-theme-secondary">More Coming Soon</h3>
-                                <p className="text-sm text-theme-tertiary">
-                                    Additional service linking options will be added in future updates
-                                </p>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </SettingsSection>
 

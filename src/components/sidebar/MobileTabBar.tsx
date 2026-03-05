@@ -719,13 +719,13 @@ export function MobileTabBar() {
                                     })()}`}>Dashboard</span>
                                 </a>
                                 <a
-                                    href="/#settings/profile"
-                                    onClick={(e) => { triggerHaptic(); handleNavigation(e, '#settings/profile'); if (!dashboardEdit?.editMode || !dashboardEdit?.hasUnsavedChanges) setIsMobileMenuOpen(false); }}
+                                    href="/#settings/account/profile"
+                                    onClick={(e) => { triggerHaptic(); handleNavigation(e, '#settings/account/profile'); if (!dashboardEdit?.editMode || !dashboardEdit?.hasUnsavedChanges) setIsMobileMenuOpen(false); }}
                                     className="flex flex-col items-center gap-1 transition-colors py-2 px-3 rounded-xl relative text-theme-tertiary active:text-theme-primary"
                                 >
                                     {/* Animated sliding indicator - active state only */}
                                     {(() => {
-                                        const isActive = hash === 'settings/profile' || hash.startsWith('settings/profile?');
+                                        const isActive = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
 
                                         return isActive && (
                                             <motion.div
@@ -737,7 +737,7 @@ export function MobileTabBar() {
                                     })()}
                                     {/* Icon - with relative z-index to stay above indicator */}
                                     <div className={`relative z-10 ${(() => {
-                                        const isActive = hash === 'settings/profile' || hash.startsWith('settings/profile?');
+                                        const isActive = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
                                         return isActive ? 'text-accent' : '';
                                     })()}`}>
                                         {currentUser?.profilePicture ? (
@@ -751,7 +751,7 @@ export function MobileTabBar() {
                                         )}
                                     </div>
                                     <span className={`text-[10px] font-medium relative z-10 ${(() => {
-                                        const isActive = hash === 'settings/profile' || hash.startsWith('settings/profile?');
+                                        const isActive = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
                                         return isActive ? 'text-accent' : '';
                                     })()}`}>Profile</span>
                                 </a>
@@ -778,7 +778,7 @@ export function MobileTabBar() {
                                 >
                                     {/* Animated sliding indicator - active state only */}
                                     {(() => {
-                                        const isProfilePage = hash === 'settings/profile' || hash.startsWith('settings/profile?');
+                                        const isProfilePage = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
                                         const isActive = hash.startsWith('settings') && !isProfilePage;
 
                                         return isActive && (
@@ -791,14 +791,14 @@ export function MobileTabBar() {
                                     })()}
                                     {/* Icon - with relative z-index to stay above indicator */}
                                     <div className={`relative z-10 ${(() => {
-                                        const isProfilePage = hash === 'settings/profile' || hash.startsWith('settings/profile?');
+                                        const isProfilePage = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
                                         const isActive = hash.startsWith('settings') && !isProfilePage;
                                         return isActive ? 'text-accent' : '';
                                     })()}`}>
                                         <SettingsIcon size={24} />
                                     </div>
                                     <span className={`text-[10px] font-medium relative z-10 ${(() => {
-                                        const isProfilePage = hash === 'settings/profile' || hash.startsWith('settings/profile?');
+                                        const isProfilePage = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
                                         const isActive = hash.startsWith('settings') && !isProfilePage;
                                         return isActive ? 'text-accent' : '';
                                     })()}`}>Settings</span>

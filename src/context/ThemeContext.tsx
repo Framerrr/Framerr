@@ -96,6 +96,22 @@ export const ThemeProvider = ({ children }: ThemeProviderProps): React.JSX.Eleme
     // Apply theme to document
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', localTheme);
+
+        // Sync meta theme-color for browser chrome (address bar, PWA title bar)
+        // Uses a static map instead of CSS variables to avoid timing race conditions
+        const THEME_BG: Record<string, string> = {
+            'dark-pro': '#0a0e1a',
+            'light': '#ffffff',
+            'nord': '#2e3440',
+            'catppuccin': '#1e1e2e',
+            'dracula': '#282a36',
+            'noir': '#0f0f12',
+            'nebula': '#0d0d1a',
+        };
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) {
+            meta.setAttribute('content', THEME_BG[localTheme] || '#0a0e1a');
+        }
     }, [localTheme]);
 
     // Change theme with optimistic update

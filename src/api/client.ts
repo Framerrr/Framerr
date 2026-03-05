@@ -54,7 +54,7 @@ const AUTH_ENDPOINTS = [
     '/api/auth/logout',
     '/api/auth/me',
     '/api/auth/setup',
-    '/api/auth/plex-setup',
+    '/api/auth/sso-setup',
 ];
 
 /**

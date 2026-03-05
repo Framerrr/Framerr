@@ -14,7 +14,7 @@ import { Router, Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../../middleware/auth';
 import * as templateDb from '../../db/templates';
 import * as integrationSharesDb from '../../db/integrationShares';
-import { createNotification } from '../../db/notifications';
+import { produceNotification } from '../../services/notificationGateway';
 import logger from '../../utils/logger';
 import type { AuthenticatedRequest } from './types';
 
@@ -235,13 +235,13 @@ router.post('/:id/share', requireAuth, requireAdmin, async (req: Request, res: R
             // Send notification (only for specific user shares, not everyone)
             if (sharedWith !== 'everyone') {
                 try {
-                    await createNotification({
+                    await produceNotification({
                         userId: userId,
                         type: 'info',
                         title: 'New template shared',
                         message: `${authReq.user!.username} shared template "${template.name}" with you`,
                         metadata: { templateId: template.id }
-                    });
+                    }, 'template-sharing');
                 } catch (notifyError) {
                     logger.warn(`[Templates] Notification failed: user=${userId} error="${(notifyError as Error).message}"`);
                 }
@@ -284,12 +284,12 @@ router.delete('/:id/share/:userId', requireAuth, requireAdmin, async (req: Reque
         const unshared = await templateDb.unshareTemplate(req.params.id, req.params.userId);
 
         if (unshared && req.params.userId !== 'everyone') {
-            await createNotification({
+            await produceNotification({
                 userId: req.params.userId,
                 type: 'info',
                 title: 'Template access revoked',
                 message: `${authReq.user!.username} revoked access to template "${template.name}"`,
-            });
+            }, 'template-sharing');
         }
 
         res.json({ success: unshared });

@@ -7,7 +7,7 @@
  */
 import { Router, Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../../middleware/auth';
-import { createNotification } from '../../db/notifications';
+import { produceNotification } from '../../services/notificationGateway';
 import { resolveUserByUsername, getAdminsWithReceiveUnmatched } from '../../services/webhookUserResolver';
 import { getSystemIconIdForService } from '../../services/systemIcons';
 import logger from '../../utils/logger';
@@ -41,14 +41,14 @@ router.post('/overseerr-match', requireAuth, requireAdmin, async (req: Request, 
         // Matched! Send a real test notification to this user
         const iconId = getSystemIconIdForService('overseerr');
 
-        await createNotification({
+        await produceNotification({
             userId: user.id,
             type: 'success',
             title: '[Test] Overseerr Match',
             message: `Test notification for "${username}" → matched to you!`,
             iconId,
             metadata: { service: 'overseerr', test: true }
-        });
+        }, 'test');
 
         logger.info(`[Webhook Test] User matched: input="${username}" matched=${user.id} (${user.username})`);
 

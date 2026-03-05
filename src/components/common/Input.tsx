@@ -19,6 +19,21 @@ export interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElem
      * Used for integration config fields (API keys, tokens, passwords).
      */
     redacted?: boolean;
+    /**
+     * Optional inline action button rendered beside the input.
+     * Useful for test/discover/refresh actions on URL or connection fields.
+     */
+    action?: {
+        label: string;
+        onClick: () => void;
+        disabled?: boolean;
+        icon?: React.ReactNode;
+    };
+    /**
+     * Optional element rendered to the LEFT of the input (e.g., icon picker).
+     * Creates a flex row: [prefixElement] [input] [action?]
+     */
+    prefixElement?: React.ReactNode;
 }
 
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
@@ -40,6 +55,8 @@ export const Input = ({
     className = '',
     type,
     redacted,
+    action,
+    prefixElement,
     value,
     onFocus,
     onBlur,
@@ -76,35 +93,53 @@ export const Input = ({
                     {label}
                 </label>
             )}
-            <div className="relative">
-                {Icon && (
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-theme-tertiary">
-                        <Icon size={sizeStyles.iconSize} />
+            <div className={`relative ${(action || prefixElement) ? 'flex gap-2' : ''}`}>
+                {prefixElement && (
+                    <div className="flex-shrink-0 self-stretch">
+                        {prefixElement}
                     </div>
                 )}
-                <input
-                    {...props}
-                    type={inputType}
-                    value={value}
-                    onFocus={handleFocus}
-                    onBlur={handleBlur}
-                    className={`w-full rounded-lg transition-all focus:outline-none focus-visible:outline-none bg-theme-tertiary text-theme-primary ${sizeStyles.text} placeholder-theme-tertiary
+                <div className={`relative ${(action || prefixElement) ? 'flex-1' : ''}`}>
+                    {Icon && (
+                        <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-theme-tertiary">
+                            <Icon size={sizeStyles.iconSize} />
+                        </div>
+                    )}
+                    <input
+                        {...props}
+                        type={inputType}
+                        value={value}
+                        onFocus={handleFocus}
+                        onBlur={handleBlur}
+                        className={`w-full rounded-lg transition-all focus:outline-none focus-visible:outline-none bg-theme-tertiary text-theme-primary ${sizeStyles.text} placeholder-theme-tertiary
             ${error
-                            ? 'border-error focus:border-error'
-                            : 'border-theme focus:border-accent'
-                        }
+                                ? 'border-error focus:border-error'
+                                : 'border-theme focus:border-accent'
+                            }
             ${Icon ? `pl-10 ${isPassword ? 'pr-10' : 'pr-4'} ${sizeStyles.padding.split(' ').pop()}` : isPassword ? `${sizeStyles.padding} pr-10` : sizeStyles.padding}
             border
           `}
-                />
-                {isPassword && (
+                    />
+                    {isPassword && (
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(prev => !prev)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-secondary opacity-50 hover:opacity-100 transition-all"
+                            tabIndex={-1}
+                        >
+                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                    )}
+                </div>
+                {action && (
                     <button
                         type="button"
-                        onClick={() => setShowPassword(prev => !prev)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-secondary opacity-50 hover:opacity-100 transition-all"
-                        tabIndex={-1}
+                        onClick={action.onClick}
+                        disabled={action.disabled}
+                        className="px-3 py-2 bg-theme-tertiary border border-theme rounded-lg text-theme-secondary text-sm flex items-center gap-2 transition-colors disabled:opacity-50 hover:bg-theme-hover flex-shrink-0"
                     >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        {action.icon}
+                        {action.label}
                     </button>
                 )}
             </div>

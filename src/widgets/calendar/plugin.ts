@@ -30,6 +30,7 @@ export const plugin: WidgetPlugin = {
     defaultConfig: {
         viewMode: 'month',
         showPastEvents: false,
+        startWeekOnMonday: false,
     },
     configConstraints: {
         contentPadding: 'none',
@@ -51,6 +52,17 @@ export const plugin: WidgetPlugin = {
                 type: 'toggle',
                 defaultValue: false,
                 visibleWhen: { key: 'viewMode', value: ['agenda', 'both'] },
+            },
+            {
+                key: 'startWeekOnMonday',
+                label: 'Start Week On',
+                type: 'buttons',
+                defaultValue: 'false',
+                choices: [
+                    { value: 'false', label: 'Sunday' },
+                    { value: 'true', label: 'Monday' },
+                ],
+                visibleWhen: { key: 'viewMode', value: ['month', 'both'] },
             },
         ],
     },

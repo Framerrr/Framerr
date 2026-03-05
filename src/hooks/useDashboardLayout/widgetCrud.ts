@@ -24,9 +24,7 @@ import type {
 
 import { createLgLayoutItem, createSmLayoutItem } from './layoutCreators';
 import { checkForActualChanges } from './changeDetection';
-import { widgetSetsMatch } from '../../shared/grid/core/ops';
-import { createMobileSnapshot } from './mobileLayout';
-import { generateAllMobileLayouts } from './widgetConversion';
+import { widgetSetsMatch, deriveLinkedMobileLayout, snapshotToMobileLayout } from '../../shared/grid/core/ops';
 import type { HistoryStackName } from '../../shared/grid/core/types';
 
 // ========== TYPES ==========
@@ -180,7 +178,7 @@ export function useWidgetCrud(deps: WidgetCrudDeps): WidgetCrudReturn {
                 workingMobileWidgets = [...mobileWidgets];
             } else {
                 if (widgets.length > 0) {
-                    workingMobileWidgets = createMobileSnapshot(widgets);
+                    workingMobileWidgets = snapshotToMobileLayout(widgets, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h });
                     shouldTriggerPendingUnlink = true;
                 } else {
                     workingMobileWidgets = [];
@@ -265,7 +263,7 @@ export function useWidgetCrud(deps: WidgetCrudDeps): WidgetCrudReturn {
 
             // Just add the new widget - GridStack handles collision/pushing automatically
             const updatedWidgets = [newWidget, ...widgets];
-            const withMobileLayouts = generateAllMobileLayouts(updatedWidgets);
+            const withMobileLayouts = deriveLinkedMobileLayout(updatedWidgets, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h });
 
             setWidgets(withMobileLayouts);
             setLayouts({
@@ -327,7 +325,7 @@ export function useWidgetCrud(deps: WidgetCrudDeps): WidgetCrudReturn {
             if (pendingUnlink) {
                 workingMobileWidgets = [...mobileWidgets];
             } else {
-                workingMobileWidgets = createMobileSnapshot(widgets);
+                workingMobileWidgets = snapshotToMobileLayout(widgets, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h });
                 shouldTriggerPendingUnlink = true;
             }
 
@@ -335,7 +333,7 @@ export function useWidgetCrud(deps: WidgetCrudDeps): WidgetCrudReturn {
 
             // Check for revert (net zero changes)
             if (widgetSetsMatch(updatedMobileWidgets, widgets) && pendingUnlink) {
-                const restoredMobileWidgets = createMobileSnapshot(widgets);
+                const restoredMobileWidgets = snapshotToMobileLayout(widgets, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h });
                 setMobileWidgets(restoredMobileWidgets);
                 setLayouts(prev => ({
                     ...prev,
@@ -372,7 +370,7 @@ export function useWidgetCrud(deps: WidgetCrudDeps): WidgetCrudReturn {
 
         // Desktop deletion in linked mode - sync to mobile
         const updatedWidgets = widgets.filter(w => w.id !== widgetId);
-        const withMobileLayouts = generateAllMobileLayouts(updatedWidgets);
+        const withMobileLayouts = deriveLinkedMobileLayout(updatedWidgets, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h });
 
         setWidgets(withMobileLayouts);
         setLayouts({

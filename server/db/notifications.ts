@@ -15,7 +15,7 @@ function getEmitter() {
     return notificationEmitter!;
 }
 
-interface NotificationData {
+export interface NotificationData {
     userId: string;
     type?: 'success' | 'error' | 'warning' | 'info';
     title: string;
@@ -26,7 +26,7 @@ interface NotificationData {
     expiresAt?: string | null;
 }
 
-interface Notification {
+export interface Notification {
     id: string;
     userId: string;
     type: 'success' | 'error' | 'warning' | 'info';

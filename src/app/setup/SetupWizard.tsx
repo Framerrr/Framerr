@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { authApi, systemApi, themeApi, plexApi } from '../../api/endpoints';
+import { authApi, systemApi, configApi, themeApi, plexApi } from '../../api/endpoints';
 import { showLoginSplash } from '../../utils/splash';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -185,8 +185,8 @@ const SetupWizard: React.FC = () => {
 
         try {
             // Save app name (system config)
-            await systemApi.updateSystemConfig({
-                appName: data.appName
+            await configApi.updateSystem({
+                server: { name: data.appName }
             });
 
             // Save theme - call API directly (guaranteed persistence) AND update ThemeContext (UI sync)

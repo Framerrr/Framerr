@@ -21,6 +21,7 @@ import { useWidgetData } from '../../../shared/widgets';
 // Note: SSE permission subscription is now centralized in useWidgetData
 import { GRID_COLS } from '../../../constants/gridConfig';
 import { Widget, IntegrationConfig, SharedIntegration } from '../types';
+import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
 
 export interface UseWidgetGalleryReturn {
     // State
@@ -283,9 +284,9 @@ export function useWidgetGallery(): UseWidgetGalleryReturn {
             }
 
             // Dispatch event for Dashboard refresh
-            window.dispatchEvent(new CustomEvent('widgets-added', {
-                detail: { widgetType, target: shouldAddToMobile ? 'mobile' : 'desktop' }
-            }));
+            dispatchCustomEvent(CustomEventNames.WIDGETS_ADDED, {
+                widgetType, target: shouldAddToMobile ? 'mobile' : 'desktop'
+            });
         } catch (error) {
             logger.error('Failed to add widget:', error);
             showError('Add Failed', 'Failed to add widget. Please try again.');

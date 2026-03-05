@@ -15,6 +15,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import { useAuthSettings } from './hooks/useAuthSettings';
 import { ProxyPage } from './pages/ProxyPage';
 import { PlexPage } from './pages/PlexPage';
+import { OidcPage } from './pages/OidcPage';
 import { IframePage } from './pages/IframePage';
 import { useSettingsAnimationClass } from '../../context/SettingsAnimationContext';
 import type { AuthSettingsProps } from './types';
@@ -63,6 +64,11 @@ export const AuthSettings: React.FC<AuthSettingsProps> = ({ activeSubTab: propSu
         setPlexHasChanges,
         plexSaveRef,
 
+        // OIDC SSO integration
+        oidcHasChanges,
+        setOidcHasChanges,
+        oidcSaveRef,
+
         // Actions
         handleSave,
         handleUseAuthentikTemplate,
@@ -108,6 +114,14 @@ export const AuthSettings: React.FC<AuthSettingsProps> = ({ activeSubTab: propSu
                 />
             )}
 
+            {/* OIDC Tab */}
+            {activeTab === 'oidc' && (
+                <OidcPage
+                    onSaveNeeded={setOidcHasChanges}
+                    onSave={oidcSaveRef}
+                />
+            )}
+
             {/* iFrame Auth Tab */}
             {activeTab === 'iframe' && (
                 <IframePage
@@ -133,7 +147,11 @@ export const AuthSettings: React.FC<AuthSettingsProps> = ({ activeSubTab: propSu
             <div className="flex gap-3">
                 <Button
                     onClick={handleSave}
-                    disabled={activeTab === 'plex' ? !plexHasChanges : (!hasChanges || saving)}
+                    disabled={
+                        activeTab === 'plex' ? !plexHasChanges :
+                            activeTab === 'oidc' ? !oidcHasChanges :
+                                (!hasChanges || saving)
+                    }
                     icon={saving ? Loader : Save}
                     size="md"
                     textSize="sm"

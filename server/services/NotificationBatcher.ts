@@ -7,7 +7,7 @@
  * Used by: ServicePoller
  */
 
-import { createNotification } from '../db/notifications';
+import { produceNotification } from './notificationGateway';
 import logger from '../utils/logger';
 
 // ============================================================================
@@ -141,7 +141,7 @@ class NotificationBatcher {
 
         // Create the notification
         try {
-            await createNotification({
+            await produceNotification({
                 userId,
                 type: notificationType,
                 title,
@@ -153,7 +153,7 @@ class NotificationBatcher {
                     lucideIcon: lucideIcons.length === 1 ? lucideIcons[0] : null,
                     lucideIcons: lucideIcons.length > 1 ? lucideIcons : undefined,
                 } : undefined,
-            });
+            }, 'batcher');
             logger.info(`[Batcher] Batched notification sent: userId=${userId} status=${status} count=${count} title="${title}"`);
         } catch (error) {
             logger.error(`[Batcher] Failed to send batched notification: userId=${userId} status=${status} error="${(error as Error).message}"`);

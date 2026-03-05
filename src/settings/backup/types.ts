@@ -1,11 +1,5 @@
-// Backup Settings Types
-
-export interface BackupInfo {
-    filename: string;
-    type: 'manual' | 'scheduled' | 'safety';
-    size: number;
-    createdAt: string;
-}
+// Backup Settings Types — BackupInfo is the shared single source of truth
+export type { BackupInfo } from '../../../shared/types/backup';
 
 export interface BackupProgress {
     id: string;

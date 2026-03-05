@@ -193,7 +193,7 @@ const DiskWarningIndicator: React.FC<DiskWarningIndicatorProps> = ({ unhealthyDi
             <Popover.Content
                 side="bottom"
                 align="start"
-                sideOffset={4}
+                sideOffset={2}
                 className="disk-warning-popover"
             >
                 <div className="disk-warning-popover__title">
@@ -266,7 +266,7 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
 
     const cardProps = {
         ref: triggerRef,
-        className: `metric-card metric-card--disk metric-card--disk-aggregate ${spanClass}`,
+        className: `metric-card metric-card--disk metric-card--disk-aggregate metric-card--clickable${popoverOpen ? ' metric-card--active' : ''} ${spanClass}`,
         role: 'button' as const,
         tabIndex: 0,
     };
@@ -338,9 +338,8 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
             <Popover.Content
                 side="bottom"
                 align="center"
-                sideOffset={6}
+                sideOffset={2}
                 className="disk-popover"
-                maxHeight="300px"
             >
                 <div
                     className="disk-popover__list"
@@ -349,7 +348,7 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
                     }}
                 >
                     {disks.map((d) => (
-                        <div key={d.id} className="disk-popover__item metric-card metric-card--disk">
+                        <div key={d.id} className="disk-popover__item">
                             <DiskRow disk={d} isInline={isInline} />
                         </div>
                     ))}

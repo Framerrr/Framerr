@@ -18,6 +18,7 @@ import { Button } from '../../../shared/ui';
 import LoadingSpinner from '../../../components/common/LoadingSpinner';
 import { useLayout } from '../../../context/LayoutContext';
 import logger from '../../../utils/logger';
+import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
 
 // Import types from centralized types file
 import type { TemplateWidget, TemplateData } from './types';
@@ -339,7 +340,7 @@ const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
             // Handle action-specific logic
             if (action === 'apply') {
                 await templatesApi.apply(savedTemplate.id);
-                window.dispatchEvent(new CustomEvent('widgets-added'));
+                dispatchCustomEvent(CustomEventNames.WIDGETS_ADDED);
             }
 
             // Call onSave callback if provided

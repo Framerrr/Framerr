@@ -1,0 +1,19 @@
+/**
+ * User Table Styles
+ * 
+ * Container query for dynamic role badge text collapse.
+ * Uses an inner div as the container since CQ doesn't work on <td>.
+ */
+
+.user-table-role-container {
+    container-type: inline-size;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+@container (max-width: 70px) {
+    .user-table-role-label {
+        display: none;
+    }
+}

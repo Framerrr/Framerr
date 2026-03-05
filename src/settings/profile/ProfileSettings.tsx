@@ -48,12 +48,13 @@ const ProfileSettings: React.FC = () => {
                 onSave={handlers.handleSaveProfile}
             />
 
-            {/* Change Password */}
+            {/* Password */}
             <PasswordSection
                 password={state.password}
                 changingPassword={state.changingPassword}
                 passwordError={state.passwordError}
                 passwordSuccess={state.passwordSuccess}
+                hasLocalPassword={state.hasLocalPassword}
                 onPasswordChange={handlers.setPassword}
                 onSubmit={handlers.handleChangePassword}
             />

@@ -75,3 +75,6 @@ export type { LinkedAccount, LinkedAccounts } from './linkedAccounts';
 
 export { widgetSharesApi } from './widgetShares';
 export type { UserShareState, UserData, GroupData, UsersAndGroupsResponse, ExistingSharesResponse, MyAccessResponse, SaveSharesData } from './widgetShares';
+
+export { adminOidcApi } from './adminOidc';
+export type { OidcConfigResponse, OidcConfigUpdateData, OidcDiscoveryResult } from './adminOidc';

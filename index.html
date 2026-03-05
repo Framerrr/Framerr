@@ -22,7 +22,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
 
   <!-- Theme Color for PWA -->
-  <meta name="theme-color" content="#0a0a0b" />
+  <meta name="theme-color" content="{{THEME_COLOR}}" />
 
   <!-- Critical CSS for Splash Screen - loads before React/JS -->
   <style id="splash-styles">
@@ -123,6 +123,10 @@
       document.documentElement.style.setProperty('--splash-text', text);
       document.documentElement.style.setProperty('--splash-accent', accent);
       document.documentElement.style.setProperty('--splash-border', text + '33');
+
+      // Sync meta theme-color for browser chrome (address bar, PWA title bar)
+      var metaThemeColor = document.querySelector('meta[name="theme-color"]');
+      if (metaThemeColor) metaThemeColor.setAttribute('content', bg);
 
       // Record splash start time + initial theme for airlock comparison
       window.__splashStart = performance.now();

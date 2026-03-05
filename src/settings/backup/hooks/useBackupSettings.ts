@@ -1,10 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import logger from '../../../utils/logger';
 import { useRealtimeSSE, BackupEvent } from '../../../hooks/useRealtimeSSE';
 import { useNotification } from '../../../hooks/useNotification';
 import { backupApi, extractErrorMessage } from '../../../api';
 import { useBackupList, useBackupSchedule, useCreateBackup, useDeleteBackup, useUpdateBackupSchedule } from '../../../api/hooks';
+import { useBackupEncryptionStatus } from '../../../api/hooks/useSettings';
+import { queryKeys } from '../../../api/queryKeys';
 import type { BackupInfo, BackupProgress, ScheduleConfig } from '../types';
+
+const MIN_ACTION_DELAY = 2000;
+function withMinDelay<T>(action: Promise<T>): Promise<T> {
+    return Promise.all([action, new Promise(r => setTimeout(r, MIN_ACTION_DELAY))]).then(([result]) => result);
+}
 
 interface UseBackupSettingsReturn {
     // Backup List
@@ -37,6 +45,13 @@ interface UseBackupSettingsReturn {
     handleSaveSchedule: () => Promise<void>;
     handleToggleSchedule: () => Promise<void>;
     updateSchedule: (updates: Partial<ScheduleConfig>) => void;
+
+    // Encryption
+    encryptionEnabled: boolean;
+    encryptionLoading: boolean;
+    handleEnableEncryption: (password: string) => Promise<void>;
+    handleDisableEncryption: (password: string) => Promise<void>;
+    handleChangePassword: (oldPassword: string, newPassword: string) => Promise<void>;
 }
 
 export function useBackupSettings(): UseBackupSettingsReturn {
@@ -46,6 +61,8 @@ export function useBackupSettings(): UseBackupSettingsReturn {
     const createBackupMutation = useCreateBackup();
     const deleteBackupMutation = useDeleteBackup();
     const updateScheduleMutation = useUpdateBackupSchedule();
+    const encryptionQuery = useBackupEncryptionStatus();
+    const queryClient = useQueryClient();
 
     // Local UI state (not fetched data)
     const [isCreating, setIsCreating] = useState<boolean>(false);
@@ -244,6 +261,51 @@ export function useBackupSettings(): UseBackupSettingsReturn {
         setScheduleChanged(true);
     }, []);
 
+    // Encryption
+    const encryptionEnabled = encryptionQuery.data?.enabled ?? false;
+    const encryptionLoading = encryptionQuery.isLoading;
+
+    const handleEnableEncryption = useCallback(async (password: string): Promise<void> => {
+        try {
+            const result = await withMinDelay(backupApi.encryption.enable(password));
+            notify.success('Encryption Enabled', result.message);
+            queryClient.invalidateQueries({ queryKey: queryKeys.backup.encryption() });
+        } catch (err) {
+            const message = extractErrorMessage(err);
+            notify.error('Enable Failed', message);
+            throw err;
+        }
+    }, [notify, queryClient]);
+
+    const handleDisableEncryption = useCallback(async (password: string): Promise<void> => {
+        try {
+            const result = await withMinDelay(backupApi.encryption.disable(password));
+            notify.success('Encryption Disabled', result.message);
+            queryClient.invalidateQueries({ queryKey: queryKeys.backup.encryption() });
+        } catch (err) {
+            const message = extractErrorMessage(err);
+            notify.error('Disable Failed', message);
+            throw err;
+        }
+    }, [notify, queryClient]);
+
+    const handleChangePassword = useCallback(async (oldPassword: string, newPassword: string): Promise<void> => {
+        try {
+            const result = await withMinDelay(backupApi.encryption.changePassword(oldPassword, newPassword));
+            let msg = result.message;
+            if (result.rewriteErrors && result.rewriteErrors.length > 0) {
+                msg += ` (${result.rewriteErrors.length} file(s) could not be updated)`;
+                notify.warning('Password Changed', msg);
+            } else {
+                notify.success('Password Changed', msg);
+            }
+        } catch (err) {
+            const message = extractErrorMessage(err);
+            notify.error('Change Password Failed', message);
+            throw err;
+        }
+    }, [notify]);
+
     return {
         // Backup List
         backups,
@@ -274,6 +336,13 @@ export function useBackupSettings(): UseBackupSettingsReturn {
         scheduleChanged,
         handleSaveSchedule,
         handleToggleSchedule,
-        updateSchedule
+        updateSchedule,
+
+        // Encryption
+        encryptionEnabled,
+        encryptionLoading,
+        handleEnableEncryption,
+        handleDisableEncryption,
+        handleChangePassword,
     };
 }

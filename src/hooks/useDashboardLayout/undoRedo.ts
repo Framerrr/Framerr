@@ -18,7 +18,8 @@
  */
 
 import { useCallback, useMemo, useRef, MutableRefObject } from 'react';
-import { generateAllMobileLayouts } from './widgetConversion';
+import { deriveLinkedMobileLayout } from '../../shared/grid/core/ops';
+import { getWidgetMetadata } from '../../widgets/registry';
 
 import type {
     FramerrWidget,
@@ -218,7 +219,7 @@ export function useUndoRedo(deps: UndoRedoDeps): UndoRedoReturn {
 
             // Apply the previous state with mobile sync if linked
             const restoredWidgets = mobileLayoutMode === 'linked'
-                ? generateAllMobileLayouts(previousState)
+                ? deriveLinkedMobileLayout(previousState, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h })
                 : previousState;
 
             setWidgets(restoredWidgets);
@@ -295,7 +296,7 @@ export function useUndoRedo(deps: UndoRedoDeps): UndoRedoReturn {
 
             // Apply the next state with mobile sync if linked
             const restoredWidgets = mobileLayoutMode === 'linked'
-                ? generateAllMobileLayouts(nextState)
+                ? deriveLinkedMobileLayout(nextState, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h })
                 : nextState;
 
             setWidgets(restoredWidgets);

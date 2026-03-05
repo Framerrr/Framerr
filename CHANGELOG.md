@@ -2,6 +2,17 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.1.10] - 2026-03-05
+
+### Added
+- Calendar widget "Start Week On" setting — choose Sunday or Monday as the first day of the week
+
+### Fixed
+- Email field not saving in user settings
+- Link grid widget not scrolling horizontally on mobile
+
+---
+
 ## [0.1.9] - 2026-03-01
 
 ### Fixed

@@ -50,6 +50,69 @@ export interface CustomizationSettingsProps {
 }
 
 /**
+ * Per-domain state interfaces (internal — used by controller hooks)
+ */
+
+export interface ColorThemeState {
+    customColors: CustomColors;
+    useCustomColors: boolean;
+    customColorsEnabled: boolean;
+    lastSelectedTheme: string;
+    autoSaving: boolean;
+    saving: boolean;
+    statusColorsExpanded: boolean;
+    setStatusColorsExpanded: (expanded: boolean) => void;
+    advancedExpanded: boolean;
+    setAdvancedExpanded: (expanded: boolean) => void;
+    handleColorChange: (key: string, value: string) => void;
+    handleToggleCustomColors: (enabled: boolean) => Promise<void>;
+    handleSaveCustomColors: () => Promise<void>;
+    handleResetColors: () => Promise<void>;
+    resetToThemeColors: (themeId: string) => Promise<CustomColors>;
+    setUseCustomColors: (value: boolean) => void;
+    setCustomColorsEnabled: (value: boolean) => void;
+    setLastSelectedTheme: (themeId: string) => void;
+    setCustomColors: (colors: CustomColors) => void;
+}
+
+export interface BrandingState {
+    applicationName: string;
+    setApplicationName: (name: string) => void;
+    applicationIcon: string;
+    setApplicationIcon: (icon: string) => void;
+    savingAppName: boolean;
+    hasAppNameChanges: boolean;
+    handleSaveApplicationName: () => Promise<void>;
+}
+
+export interface FlattenUIState {
+    flattenUI: boolean;
+    savingFlattenUI: boolean;
+    handleToggleFlattenUI: (value: boolean) => Promise<void>;
+}
+
+export interface GreetingState {
+    greetingMode: 'auto' | 'manual';
+    setGreetingMode: (mode: 'auto' | 'manual') => void;
+    greetingText: string;
+    setGreetingText: (text: string) => void;
+    headerVisible: boolean;
+    setHeaderVisible: (visible: boolean) => void;
+    taglineEnabled: boolean;
+    setTaglineEnabled: (enabled: boolean) => void;
+    taglineText: string;
+    setTaglineText: (text: string) => void;
+    tones: string[];
+    setTones: (tones: string[]) => void;
+    loadingMessagesEnabled: boolean;
+    setLoadingMessagesEnabled: (enabled: boolean) => void;
+    savingGreeting: boolean;
+    hasGreetingChanges: boolean;
+    handleSaveGreeting: () => Promise<void>;
+    handleResetGreeting: () => void;
+}
+
+/**
  * State returned by useCustomizationState hook
  */
 export interface CustomizationState {

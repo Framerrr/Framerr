@@ -1,11 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, FileArchive, CheckCircle, XCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { Upload, FileArchive, CheckCircle, XCircle, Loader2, ArrowLeft, Lock } from 'lucide-react';
 import { authApi } from '../../../api/endpoints';
 
 interface RestoreStepProps {
     goBack: () => void;
 }
+
+const ACCEPTED_EXTENSIONS = ['.zip', '.framerr-backup'];
 
 const RestoreStep: React.FC<RestoreStepProps> = ({ goBack }) => {
     const [file, setFile] = useState<File | null>(null);
@@ -15,6 +17,16 @@ const RestoreStep: React.FC<RestoreStepProps> = ({ goBack }) => {
     const [progress, setProgress] = useState(0);
     const [dragOver, setDragOver] = useState(false);
 
+    // Encrypted backup state
+    const [needsPassword, setNeedsPassword] = useState(false);
+    const [backupPassword, setBackupPassword] = useState('');
+    const [restoreId, setRestoreId] = useState<string | null>(null);
+    const [attemptsRemaining, setAttemptsRemaining] = useState<number | null>(null);
+    const [decrypting, setDecrypting] = useState(false);
+
+    const isValidFile = (filename: string): boolean =>
+        ACCEPTED_EXTENSIONS.some(ext => filename.endsWith(ext));
+
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         setDragOver(false);
@@ -22,11 +34,14 @@ const RestoreStep: React.FC<RestoreStepProps> = ({ goBack }) => {
 
         const droppedFile = e.dataTransfer.files[0];
         if (droppedFile) {
-            if (!droppedFile.name.endsWith('.zip')) {
-                setError('Please upload a .zip file');
+            if (!isValidFile(droppedFile.name)) {
+                setError('Please upload a .zip or .framerr-backup file');
                 return;
             }
             setFile(droppedFile);
+            setNeedsPassword(false);
+            setRestoreId(null);
+            setAttemptsRemaining(null);
         }
     }, []);
 
@@ -34,11 +49,14 @@ const RestoreStep: React.FC<RestoreStepProps> = ({ goBack }) => {
         setError(null);
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
-            if (!selectedFile.name.endsWith('.zip')) {
-                setError('Please upload a .zip file');
+            if (!isValidFile(selectedFile.name)) {
+                setError('Please upload a .zip or .framerr-backup file');
                 return;
             }
             setFile(selectedFile);
+            setNeedsPassword(false);
+            setRestoreId(null);
+            setAttemptsRemaining(null);
         }
     }, []);
 
@@ -53,17 +71,21 @@ const RestoreStep: React.FC<RestoreStepProps> = ({ goBack }) => {
         formData.append('backup', file);
 
         try {
-            await authApi.setupRestore(formData, (percent) => {
+            const response = await authApi.setupRestore(formData, (percent) => {
                 setProgress(percent);
             });
 
+            // Check if response indicates encrypted backup requiring password
+            if (response && 'encrypted' in response && response.encrypted && response.restoreId) {
+                setNeedsPassword(true);
+                setRestoreId(response.restoreId);
+                setUploading(false);
+                return;
+            }
+
+            // Plain backup — restore complete
             setSuccess(true);
-
-            // Set flag so Login page shows success toast for admin
             localStorage.setItem('restoredFromBackup', 'true');
-
-            // Hard redirect to login - forces AuthContext to re-check setup status
-            // With hot-swap, redirect can be fast
             setTimeout(() => {
                 window.location.href = '/login';
             }, 1000);
@@ -73,6 +95,51 @@ const RestoreStep: React.FC<RestoreStepProps> = ({ goBack }) => {
             setUploading(false);
         }
     }, [file]);
+
+    const handleDecrypt = useCallback(async () => {
+        if (!restoreId || !backupPassword) return;
+
+        setDecrypting(true);
+        setError(null);
+
+        try {
+            await authApi.setupRestoreDecrypt(backupPassword, restoreId);
+
+            setSuccess(true);
+            localStorage.setItem('restoredFromBackup', 'true');
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1000);
+        } catch (err) {
+            const error = err as { response?: { data?: { error?: string; attemptsRemaining?: number }; status?: number } };
+            const status = error.response?.status;
+            const data = error.response?.data;
+
+            if (status === 401) {
+                // Wrong password
+                if (data?.attemptsRemaining != null) {
+                    setAttemptsRemaining(data.attemptsRemaining);
+                    setError(`Incorrect password. ${data.attemptsRemaining} attempt${data.attemptsRemaining !== 1 ? 's' : ''} remaining.`);
+                } else {
+                    setError(data?.error || 'Incorrect password');
+                }
+            } else if (status === 410) {
+                // Session expired or locked out
+                setError('Session expired. Please upload the backup file again.');
+                setNeedsPassword(false);
+                setRestoreId(null);
+                setAttemptsRemaining(null);
+                setBackupPassword('');
+            } else if (status === 429) {
+                // Rate limited
+                setError('Too many attempts. Please wait a moment before trying again.');
+            } else {
+                setError(data?.error || 'Decryption failed');
+            }
+        } finally {
+            setDecrypting(false);
+        }
+    }, [restoreId, backupPassword]);
 
     const formatFileSize = (bytes: number): string => {
         if (bytes < 1024) return bytes + ' B';
@@ -113,6 +180,82 @@ const RestoreStep: React.FC<RestoreStepProps> = ({ goBack }) => {
                     <h3 className="text-xl font-semibold text-theme-primary mb-2">Restore Complete!</h3>
                     <p className="text-theme-secondary">Redirecting to login...</p>
                 </motion.div>
+
+                /* Password Prompt */
+            ) : needsPassword ? (
+                <motion.div
+                    className="max-w-sm mx-auto space-y-4"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                >
+                    <div className="p-6 rounded-xl glass-subtle border border-theme">
+                        <Lock size={36} className="text-accent mx-auto mb-3" />
+                        <h3 className="text-lg font-semibold text-theme-primary mb-1">Encrypted Backup</h3>
+                        <p className="text-sm text-theme-secondary mb-4">
+                            This backup is encrypted. Enter the password that was used when encryption was enabled.
+                        </p>
+
+                        <input
+                            type="password"
+                            value={backupPassword}
+                            onChange={(e) => setBackupPassword(e.target.value)}
+                            placeholder="Backup encryption password"
+                            className="w-full px-3 py-2 rounded-lg bg-theme-tertiary border border-theme text-theme-primary placeholder-theme-tertiary text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+                            disabled={decrypting}
+                            autoFocus
+                            autoComplete="off"
+                            onKeyDown={(e) => e.key === 'Enter' && backupPassword && handleDecrypt()}
+                        />
+
+                        {attemptsRemaining != null && attemptsRemaining <= 3 && (
+                            <p className="text-xs text-warning mt-2 text-left">
+                                {attemptsRemaining} attempt{attemptsRemaining !== 1 ? 's' : ''} remaining before lockout
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Error */}
+                    {error && (
+                        <div className="p-3 rounded-lg bg-error/10 border border-error/30 flex items-center gap-2">
+                            <XCircle size={18} className="text-error flex-shrink-0" />
+                            <span className="text-sm text-error text-left">{error}</span>
+                        </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-center gap-4">
+                        <button
+                            onClick={() => {
+                                setNeedsPassword(false);
+                                setRestoreId(null);
+                                setBackupPassword('');
+                                setError(null);
+                                setAttemptsRemaining(null);
+                                setFile(null);
+                            }}
+                            disabled={decrypting}
+                            className="px-6 py-3 rounded-xl border border-theme text-theme-secondary hover:text-theme-primary hover:border-theme-primary transition-colors disabled:opacity-50"
+                        >
+                            <ArrowLeft size={18} className="inline mr-2" />
+                            Back
+                        </button>
+
+                        <button
+                            onClick={handleDecrypt}
+                            disabled={!backupPassword || decrypting}
+                            className="px-6 py-3 bg-accent hover:bg-accent-hover text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                            {decrypting ? (
+                                <>
+                                    <Loader2 size={18} className="animate-spin" />
+                                    Decrypting...
+                                </>
+                            ) : (
+                                'Decrypt & Restore'
+                            )}
+                        </button>
+                    </div>
+                </motion.div>
             ) : (
                 <>
                     {/* Upload Zone - no hover effect */}
@@ -133,7 +276,7 @@ const RestoreStep: React.FC<RestoreStepProps> = ({ goBack }) => {
                         <label className="block p-8 cursor-pointer">
                             <input
                                 type="file"
-                                accept=".zip"
+                                accept=".zip,.framerr-backup"
                                 onChange={handleFileSelect}
                                 className="hidden"
                                 disabled={uploading}
@@ -149,7 +292,7 @@ const RestoreStep: React.FC<RestoreStepProps> = ({ goBack }) => {
                                 <div className="text-center">
                                     <Upload size={40} className="text-theme-tertiary mx-auto mb-3" />
                                     <p className="text-theme-primary font-medium">Drop backup file here</p>
-                                    <p className="text-sm text-theme-secondary">or click to browse</p>
+                                    <p className="text-sm text-theme-secondary">or click to browse (.zip or .framerr-backup)</p>
                                 </div>
                             )}
                         </label>

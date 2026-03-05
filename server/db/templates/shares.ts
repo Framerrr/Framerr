@@ -41,8 +41,12 @@ export async function shareTemplate(templateId: string, sharedWith: string): Pro
 }
 
 /**
- * Unshare a template
- * Also clears shared_from_id on user copies so they become "normal" templates
+ * Unshare a template.
+ * Also clears shared_from_id on user copies so they become "normal" templates.
+ *
+ * @invariant INV-06 Share Cleanup on Delete — this function must be called before
+ * template deletion to remove the share record and clear `shared_from_id` on copies.
+ * See docs/private/reference/template-invariants.md.
  */
 export async function unshareTemplate(templateId: string, sharedWith: string): Promise<boolean> {
     try {

@@ -4,157 +4,29 @@
  * Class-based polling management with error isolation, exponential backoff,
  * and health diagnostics. Each topic runs in complete isolation.
  * 
+ * Implementation is split across focused modules:
+ * - topicPolicy.ts: constants, types, topic parsing, interval resolution
+ * - pollExecution.ts: poll routing, monitor polling, data fetching
+ * - errorPolicy.ts: error classification, fast retry, exponential backoff
+ * 
  * @module server/services/sse/PollerOrchestrator
  */
 
 import { subscriptions } from './subscriptions';
-import { broadcastToTopic, broadcastToTopicFiltered } from './transport';
-import type { SubscriberFilterFn } from './transport';
 import { getPlugin } from '../../integrations/registry';
-import { toPluginInstance } from '../../integrations/utils';
-import * as integrationInstancesDb from '../../db/integrationInstances';
 import { metricHistoryService } from '../MetricHistoryService';
 import logger from '../../utils/logger';
+import type { SubscriberFilterFn } from './transport';
 
-// ============================================================================
-// CONSTANTS
-// ============================================================================
+// Re-export public API from extracted modules
+export { parseTopic, getPollingInterval } from './topicPolicy';
+export type { PollerHealth, PollerState, TopicInfo } from './topicPolicy';
 
-/**
- * Polling intervals by integration type (in milliseconds).
- * Queue subtypes get faster polling for near real-time download progress.
- */
-const POLLING_INTERVALS: Record<string, number> = {
-    'qbittorrent': 5000,        // 5 seconds
-    'glances': 2000,            // 2 seconds
-    'customsystemstatus': 2000, // 2 seconds
-    'sonarr': 5000,             // 5 seconds (default)
-    'radarr': 5000,             // 5 seconds (default)
-    'sonarr:queue': 3000,       // 3 seconds (queue data - near real-time)
-    'radarr:queue': 3000,       // 3 seconds
-    'sonarr:calendar': 300000,  // 5 minutes (calendar changes rarely)
-    'sonarr:missing': 60000,    // 1 minute (missing counts for stats bar)
-    'radarr:calendar': 300000,  // 5 minutes
-    'overseerr': 60000,         // 60 seconds (requests)
-    'overseerr:requests': 60000,
-    'plex': 30000,              // 30 seconds
-    'monitor': 10000,           // 10 seconds
-    'monitors': 30000,          // 30 seconds
-    'default': 10000            // 10 seconds fallback
-};
-
-/** Maximum backoff interval: 3 minutes */
-const BACKOFF_MAX_MS = 3 * 60 * 1000;
-
-/** Fixed base interval for exponential backoff (standardized across all pollers) */
-const BACKOFF_BASE_MS = 15_000;
-
-/** Fast retry interval: 10 seconds for quick error detection */
-const FAST_RETRY_INTERVAL_MS = 10_000;
-
-/** Number of fast retries before error broadcast */
-const FAST_RETRY_ATTEMPTS = 3;
-
-// ============================================================================
-// TYPES
-// ============================================================================
-
-/**
- * State tracking for each active poller.
- */
-interface PollerState {
-    /** The interval timer reference */
-    interval: NodeJS.Timeout;
-    /** Count of consecutive poll failures */
-    consecutiveErrors: number;
-    /** Last error message if any */
-    lastError: string | null;
-    /** Last successful poll time */
-    lastSuccess: Date | null;
-    /** Current polling interval (may be increased due to backoff) */
-    currentIntervalMs: number;
-    /** Base interval before any backoff */
-    baseIntervalMs: number;
-    /** Parsed topic info */
-    topicInfo: { type: string; instanceId: string | null; subtype?: string };
-    /** Whether in fast retry mode (10s intervals for quick error detection) */
-    inFastRetryMode: boolean;
-}
-
-/**
- * Health status for a poller, returned by getHealth().
- */
-export interface PollerHealth {
-    topic: string;
-    status: 'healthy' | 'warning' | 'degraded';
-    lastSuccess: string | null;
-    consecutiveErrors: number;
-    lastError: string | null;
-    currentIntervalMs: number;
-}
-
-// ============================================================================
-// UTILITY FUNCTIONS (Exported for use by other modules)
-// ============================================================================
-
-/**
- * Parse a topic string into integration type and instance ID.
- * Topic format: "{type}:{instanceId}" or "{type}:queue:{instanceId}" or "monitors:status"
- * 
- * Examples:
- * - "qbittorrent:123" -> { type: 'qbittorrent', instanceId: '123' }
- * - "sonarr:queue:456" -> { type: 'sonarr', instanceId: '456', subtype: 'queue' }
- * - "monitors:status" -> { type: 'monitors', instanceId: null }
- */
-export function parseTopic(topic: string): { type: string; instanceId: string | null; subtype?: string } {
-    const parts = topic.split(':');
-
-    if (parts.length === 1) {
-        return { type: parts[0], instanceId: null };
-    }
-
-    if (parts.length === 2) {
-        // Could be "type:instanceId" or "type:subtype"
-        if (parts[1] === 'status' || parts[1] === 'queue') {
-            return { type: parts[0], instanceId: null, subtype: parts[1] };
-        }
-        return { type: parts[0], instanceId: parts[1] };
-    }
-
-    // "type:subtype:instanceId"
-    return { type: parts[0], instanceId: parts[2], subtype: parts[1] };
-}
-
-/**
- * Get polling interval for a topic.
- * Uses plugin registry if available, otherwise falls back to POLLING_INTERVALS.
- */
-export function getPollingInterval(topic: string): number {
-    const { type, subtype } = parseTopic(topic);
-
-    // Check for subtype-specific interval first (e.g., "sonarr:calendar", "sonarr:missing")
-    // These override the main plugin interval since subtypes often poll at different rates
-    if (subtype) {
-        const subtypeKey = `${type}:${subtype}`;
-        if (POLLING_INTERVALS[subtypeKey]) {
-            return POLLING_INTERVALS[subtypeKey];
-        }
-
-        // Also check plugin's subtype interval
-        const plugin = getPlugin(type);
-        if (plugin?.poller?.subtypes?.[subtype]?.intervalMs) {
-            return plugin.poller.subtypes[subtype].intervalMs;
-        }
-    }
-
-    // Check plugin registry for main interval
-    const plugin = getPlugin(type);
-    if (plugin?.poller?.intervalMs) {
-        return plugin.poller.intervalMs;
-    }
-
-    return POLLING_INTERVALS[type] ?? POLLING_INTERVALS.default;
-}
+// Import from extracted modules
+import { parseTopic, getPollingInterval, getTopicFilter } from './topicPolicy';
+import type { PollerState, PollerHealth } from './topicPolicy';
+import { pollForTopic } from './pollExecution';
+import { handlePollSuccess, handlePollError } from './errorPolicy';
 
 // ============================================================================
 // POLLER ORCHESTRATOR CLASS
@@ -329,12 +201,7 @@ export class PollerOrchestrator {
      * Get filter for a topic, if any registered prefix matches.
      */
     getTopicFilter(topic: string): SubscriberFilterFn | null {
-        for (const [prefix, filterFn] of this.topicFilters) {
-            if (topic.startsWith(prefix)) {
-                return filterFn;
-            }
-        }
-        return null;
+        return getTopicFilter(topic, this.topicFilters);
     }
 
     /**
@@ -394,327 +261,15 @@ export class PollerOrchestrator {
         if (!state) return;
 
         try {
-            const data = await this.pollForTopic(topic, state.topicInfo);
+            const data = await pollForTopic(topic, state.topicInfo);
             if (data === null || data === undefined) {
-                this.handleError(topic, 'Poll returned no data');
+                handlePollError(topic, 'Poll returned no data', this.activePollers, (t) => this.executePoll(t));
             } else {
-                this.handleSuccess(topic, data);
+                handlePollSuccess(topic, data, this.activePollers, this.topicFilters, (t) => this.executePoll(t));
             }
         } catch (error) {
-            this.handleError(topic, (error as Error).message);
+            handlePollError(topic, (error as Error).message, this.activePollers, (t) => this.executePoll(t));
         }
-    }
-
-    /**
-     * Execute the actual poll for a topic.
-     * Routes to appropriate handler based on topic type.
-     */
-    private async pollForTopic(
-        topic: string,
-        topicInfo: { type: string; instanceId: string | null; subtype?: string }
-    ): Promise<unknown> {
-        const { type, instanceId, subtype } = topicInfo;
-
-        // =================================================================
-        // SPECIAL TOPICS (not plugin-based)
-        // =================================================================
-
-        // Service monitors - internal Framerr feature, reads from local DB
-        if (type === 'monitor' || type === 'monitors') {
-            return await this.pollMonitors(instanceId);
-        }
-
-        // =================================================================
-        // PLUGIN-BASED TOPICS
-        // =================================================================
-
-        // Get plugin from registry
-        const plugin = getPlugin(type);
-        if (!plugin?.poller) {
-            throw new Error(`No poller available for topic=${topic}`);
-        }
-
-        // Get instance
-        const instance = instanceId
-            ? integrationInstancesDb.getInstanceById(instanceId)
-            : integrationInstancesDb.getFirstEnabledByType(type);
-
-        if (!instance) {
-            throw new Error(`No instance found for type=${type}`);
-        }
-
-        const pluginInstance = toPluginInstance(instance);
-
-        // Handle subtype-specific polling (e.g., calendar)
-        if (subtype && plugin.poller.subtypes?.[subtype]) {
-            return await plugin.poller.subtypes[subtype].poll(pluginInstance, plugin.adapter);
-        }
-
-        // Default: use main poller
-        return await plugin.poller.poll(pluginInstance, plugin.adapter);
-    }
-
-    /**
-     * Poll service monitors from local database.
-     * Special handler for monitors:status and monitor:{id} topics.
-     */
-    private async pollMonitors(instanceId: string | null): Promise<unknown> {
-        // Lazy import to avoid circular dependency
-        const serviceMonitorsDb = require('../../db/serviceMonitors');
-
-        if (!instanceId) {
-            // monitors:status - get all monitors for all instances
-            try {
-                const all = await serviceMonitorsDb.getAllMonitors();
-                return await this.formatMonitors(all, serviceMonitorsDb);
-            } catch {
-                return [];
-            }
-        }
-
-        try {
-            const monitors = await serviceMonitorsDb.getMonitorsByIntegrationInstance(instanceId);
-            return await this.formatMonitors(monitors, serviceMonitorsDb);
-        } catch {
-            return [];
-        }
-    }
-
-    /**
-     * Format monitors with status data.
-     */
-    private async formatMonitors(monitors: unknown[], serviceMonitorsDb: unknown): Promise<unknown[]> {
-        const db = serviceMonitorsDb as { getRecentChecks: (id: string, count: number) => Promise<{ status?: string; responseTimeMs?: number; checkedAt?: string }[]> };
-
-        return Promise.all((monitors as { id: string; name: string; url: string; iconName?: string; iconId?: string; maintenance?: boolean; intervalSeconds?: number }[]).map(async (m) => {
-            const recentChecks = await db.getRecentChecks(m.id, 1);
-            const lastCheck = recentChecks[0];
-
-            const rawStatus = lastCheck?.status || 'pending';
-            const effectiveStatus = m.maintenance ? 'maintenance' : rawStatus;
-
-            return {
-                id: m.id,
-                name: m.name,
-                url: m.url,
-                iconName: m.iconName || null,
-                iconId: m.iconId || null,
-                maintenance: m.maintenance,
-                status: effectiveStatus,
-                responseTimeMs: lastCheck?.responseTimeMs || null,
-                lastCheck: lastCheck?.checkedAt || null,
-                uptimePercent: null,
-                intervalSeconds: m.intervalSeconds ?? 60
-            };
-        }));
-    }
-
-    /**
-     * Handle successful poll - reset error state, exit fast retry mode, broadcast data.
-     */
-    private handleSuccess(topic: string, data: unknown): void {
-        const state = this.activePollers.get(topic);
-        if (!state) return;
-
-        const wasInErrorState = state.consecutiveErrors > 0;
-
-        // Reset error state
-        state.consecutiveErrors = 0;
-        state.lastError = null;
-        state.lastSuccess = new Date();
-
-        // Exit fast retry mode or backoff - restore normal interval
-        if (wasInErrorState && (state.inFastRetryMode || state.currentIntervalMs !== state.baseIntervalMs)) {
-            state.inFastRetryMode = false;
-            clearInterval(state.interval);
-            state.interval = setInterval(() => this.executePoll(topic), state.baseIntervalMs);
-            state.currentIntervalMs = state.baseIntervalMs;
-            const { type, instanceId } = state.topicInfo;
-            const serviceName = `${type}${instanceId ? `:${instanceId.slice(0, 8)}` : ''}`;
-            logger.info(`[PollerOrchestrator] Service reconnected: ${serviceName}`);
-        }
-
-        // Broadcast with health metadata
-        // IMPORTANT: Arrays must be wrapped in an object to survive JSON Patch delta updates.
-        // Spreading an array as {...array} creates {0: {...}, 1: {...}} which breaks Array.isArray() checks.
-        const meta = {
-            healthy: true,
-            lastPoll: state.lastSuccess.toISOString(),
-            errorCount: 0,
-        };
-
-        let payload: unknown;
-        if (Array.isArray(data)) {
-            // Wrap arrays in an object to preserve array structure through delta patching
-            payload = { items: data, _meta: meta };
-        } else if (typeof data === 'object' && data !== null) {
-            // Objects can be spread normally
-            payload = { ...(data as Record<string, unknown>), _meta: meta };
-        } else {
-            payload = data;
-        }
-
-        // Use filtered broadcast if a topic filter is registered
-        const topicFilter = this.getTopicFilter(topic);
-        if (topicFilter) {
-            broadcastToTopicFiltered(topic, payload, topicFilter);
-        } else {
-            broadcastToTopic(topic, payload);
-        }
-
-        // Feed metric history recording if enabled
-        if (metricHistoryService.isEnabled()) {
-            const { type, instanceId } = state.topicInfo;
-            if (instanceId && typeof data === 'object' && data !== null) {
-                metricHistoryService.onSSEData(instanceId, type, data as Record<string, unknown>);
-            }
-        }
-    }
-
-    /**
-     * Config error patterns that should broadcast immediately without retries.
-     * These are errors caused by missing/invalid config, not transient failures.
-     */
-    private static CONFIG_ERROR_PATTERNS = [
-        'No URL configured',
-        'URL and API key required',
-        'URL and token required',
-        'No instance found',
-    ];
-
-    /**
-     * Auth error patterns that should broadcast immediately without retries.
-     * Bad credentials won't fix themselves — no point retrying for 30s.
-     */
-    private static AUTH_ERROR_PATTERNS = [
-        'Authentication failed',
-        'Request failed with status code 401',
-        'Request failed with status code 403',
-    ];
-
-    /**
-     * Handle poll error - enter fast retry mode for quick error detection.
-     * 
-     * Strategy:
-     * 1. Config errors: broadcast immediately, skip retries
-     * 2. On first error: switch to 10s fast retry interval
-     * 3. After 3 fast retries (30s): broadcast _error and start exponential backoff
-     * 4. This ensures consistent ~30s error detection regardless of normal poll interval
-     */
-    private handleError(topic: string, error: string): void {
-        const state = this.activePollers.get(topic);
-        if (!state) return;
-
-        // Config errors broadcast immediately — no retries, config won't fix itself
-        const isConfigError = PollerOrchestrator.CONFIG_ERROR_PATTERNS
-            .some(p => error.includes(p));
-        if (isConfigError) {
-            logger.debug(`[PollerOrchestrator] Config error: topic=${topic} error="${error}"`);
-            broadcastToTopic(topic, {
-                _error: true,
-                _message: error,
-                _configError: true,
-            });
-            return;
-        }
-
-        // Auth errors broadcast immediately — bad credentials won't fix themselves
-        const isAuthError = PollerOrchestrator.AUTH_ERROR_PATTERNS
-            .some(p => error.includes(p));
-        if (isAuthError) {
-            logger.debug(`[PollerOrchestrator] Auth error: topic=${topic} error="${error}"`);
-            broadcastToTopic(topic, {
-                _error: true,
-                _message: 'Authentication failed — check credentials in Settings',
-                _authError: true,
-            });
-            return;
-        }
-
-        state.consecutiveErrors++;
-        state.lastError = error;
-
-        // Smart logging: debug during retries, single error at threshold, no spam
-        if (state.consecutiveErrors < FAST_RETRY_ATTEMPTS) {
-            // Debug during fast retry attempts (1, 2) - expected transient failures
-            logger.debug(`[PollerOrchestrator] Poll failed (retry ${state.consecutiveErrors}/${FAST_RETRY_ATTEMPTS}): topic=${topic} error="${error}"`);
-        } else if (state.consecutiveErrors === FAST_RETRY_ATTEMPTS) {
-            // Single ERROR when threshold reached - service confirmed unreachable
-            const { type, instanceId } = state.topicInfo;
-            const serviceName = `${type}${instanceId ? `:${instanceId.slice(0, 8)}` : ''}`;
-            // Calculate backoff interval for informative logging
-            const backoffMs = Math.min(
-                BACKOFF_BASE_MS * Math.pow(2, state.consecutiveErrors - 2),
-                BACKOFF_MAX_MS
-            );
-            const backoffSec = Math.round(backoffMs / 1000);
-            logger.error(`[PollerOrchestrator] Service unreachable: ${serviceName} (backoff: ${backoffSec}s)`);
-        }
-        // No logging after threshold - avoid spam, UI shows error state
-
-        // Enter fast retry mode on first error (if not already in it)
-        if (state.consecutiveErrors === 1 && !state.inFastRetryMode) {
-            state.inFastRetryMode = true;
-            clearInterval(state.interval);
-            state.interval = setInterval(() => this.executePoll(topic), FAST_RETRY_INTERVAL_MS);
-            state.currentIntervalMs = FAST_RETRY_INTERVAL_MS;
-            // Debug level - routine state change during retry phase
-            logger.debug(`[PollerOrchestrator] Fast retry mode: topic=${topic}`);
-        }
-
-        // After FAST_RETRY_ATTEMPTS failures: broadcast error and start exponential backoff
-        if (state.consecutiveErrors === FAST_RETRY_ATTEMPTS) {
-            // Broadcast error state to frontend
-            broadcastToTopic(topic, {
-                _error: true,
-                _message: 'Service temporarily unavailable',
-                _lastSuccess: state.lastSuccess?.toISOString(),
-                _meta: {
-                    healthy: false,
-                    errorCount: state.consecutiveErrors,
-                    lastError: error,
-                }
-            });
-
-            // Now apply exponential backoff
-            this.applyBackoff(topic);
-        }
-
-        // Keep broadcasting error on subsequent failures (backoff continues)
-        if (state.consecutiveErrors > FAST_RETRY_ATTEMPTS) {
-            broadcastToTopic(topic, {
-                _error: true,
-                _message: 'Service temporarily unavailable',
-                _lastSuccess: state.lastSuccess?.toISOString(),
-                _meta: {
-                    healthy: false,
-                    errorCount: state.consecutiveErrors,
-                    lastError: error,
-                }
-            });
-        }
-    }
-
-    /**
-     * Apply exponential backoff to a failing poller.
-     */
-    private applyBackoff(topic: string): void {
-        const state = this.activePollers.get(topic);
-        if (!state) return;
-
-        clearInterval(state.interval);
-
-        // Exponential backoff: fixed 15s base * 2^(errors-2), capped at 3 minutes
-        // Uses BACKOFF_BASE_MS instead of baseIntervalMs so all pollers share
-        // the same retry curve regardless of their normal polling speed.
-        const backoffInterval = Math.min(
-            BACKOFF_BASE_MS * Math.pow(2, state.consecutiveErrors - 2),
-            BACKOFF_MAX_MS
-        );
-
-        state.currentIntervalMs = backoffInterval;
-        state.interval = setInterval(() => this.executePoll(topic), backoffInterval);
-        // No logging here - already included in error message
     }
 }
 

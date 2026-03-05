@@ -28,11 +28,11 @@ import type {
 } from './types';
 
 import { createLgLayoutItem, createSmLayoutItem, createLayoutsFromWidgets } from './layoutCreators';
-import { applyBandDetection, createMobileSnapshot } from './mobileLayout';
 import { useWidgetCrud, type WidgetCrudDeps } from './widgetCrud';
-import { generateAllMobileLayouts } from './widgetConversion';
 import type { HistoryStackName } from '../../shared/grid/core/types';
-import { updateWidgetConfig as coreUpdateWidgetConfig, resizeWidget as coreResizeWidget } from '../../shared/grid/core/ops';
+import { updateWidgetConfig as coreUpdateWidgetConfig, resizeWidget as coreResizeWidget, deriveLinkedMobileLayout, snapshotToMobileLayout } from '../../shared/grid/core/ops';
+import { getWidgetMetadata } from '../../widgets/registry';
+
 
 // ========== TYPES ==========
 
@@ -202,7 +202,7 @@ export function useWidgetActions(deps: WidgetActionDeps): WidgetActionReturn {
             } else {
                 // Linked mode — first mobile edit triggers pendingUnlink
                 // Create mobile snapshot from desktop, then apply resize to the snapshot
-                const workingMobileWidgets = createMobileSnapshot(widgets);
+                const workingMobileWidgets = snapshotToMobileLayout(widgets, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h });
 
                 // Push the PRE-EDIT mobile state to undo stack
                 pushToStack('mobile', workingMobileWidgets);
@@ -289,7 +289,7 @@ export function useWidgetActions(deps: WidgetActionDeps): WidgetActionReturn {
                 manualLayout = mobileWidgets;
             } else {
                 // Create new snapshot from desktop with band detection
-                manualLayout = applyBandDetection(widgets);
+                manualLayout = deriveLinkedMobileLayout(widgets, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h });
             }
 
             setMobileWidgets(manualLayout);
@@ -306,7 +306,7 @@ export function useWidgetActions(deps: WidgetActionDeps): WidgetActionReturn {
             }
 
             // Regenerate auto layout from desktop
-            const autoLayout = generateAllMobileLayouts(widgets);
+            const autoLayout = deriveLinkedMobileLayout(widgets, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h });
             setMobileWidgets(autoLayout);  // Update mobileWidgets so display updates
             setLayouts(prev => ({
                 ...prev,
@@ -318,7 +318,7 @@ export function useWidgetActions(deps: WidgetActionDeps): WidgetActionReturn {
     }, [mobileLayoutMode, widgets, mobileWidgets, cachedManualLayout, setMobileWidgets, setMobileLayoutMode, setLayouts, setCachedManualLayout, setHasUnsavedChanges]);
 
     const resetMobileLayout = useCallback((): void => {
-        const regenerated = generateAllMobileLayouts(widgets);
+        const regenerated = deriveLinkedMobileLayout(widgets, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h });
         setWidgets(regenerated);
         setMobileWidgets([]);
         setMobileLayoutMode('linked');

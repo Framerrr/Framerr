@@ -1,7 +1,9 @@
 /**
  * PasswordSection
  * 
- * Password change form with validation feedback.
+ * Conditional password form:
+ * - hasLocalPassword=true: "Change Password" with current + new + confirm
+ * - hasLocalPassword=false: "Set Password" with new + confirm only (for SSO-only users)
  */
 
 import React, { ChangeEvent } from 'react';
@@ -16,6 +18,7 @@ interface PasswordSectionProps {
     changingPassword: boolean;
     passwordError: string;
     passwordSuccess: boolean;
+    hasLocalPassword: boolean;
     onPasswordChange: (field: keyof PasswordFormData, value: string) => void;
     onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
 }
@@ -25,14 +28,21 @@ export const PasswordSection: React.FC<PasswordSectionProps> = ({
     changingPassword,
     passwordError,
     passwordSuccess,
+    hasLocalPassword,
     onPasswordChange,
     onSubmit,
 }) => {
+    const title = hasLocalPassword ? 'Change Password' : 'Set Password';
+    const submitLabel = hasLocalPassword ? 'Change Password' : 'Set Password';
+    const successMessage = hasLocalPassword
+        ? 'Password changed successfully!'
+        : 'Password set successfully!';
+
     return (
-        <SettingsSection title="Change Password" icon={Lock}>
+        <SettingsSection title={title} icon={Lock}>
             {passwordSuccess && (
                 <SettingsAlert type="success">
-                    Password changed successfully!
+                    {successMessage}
                 </SettingsAlert>
             )}
 
@@ -43,13 +53,15 @@ export const PasswordSection: React.FC<PasswordSectionProps> = ({
             )}
 
             <form onSubmit={onSubmit} className="space-y-4">
-                <Input
-                    label="Current Password"
-                    type="password"
-                    value={password.currentPassword}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => onPasswordChange('currentPassword', e.target.value)}
-                    required
-                />
+                {hasLocalPassword && (
+                    <Input
+                        label="Current Password"
+                        type="password"
+                        value={password.currentPassword}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => onPasswordChange('currentPassword', e.target.value)}
+                        required
+                    />
+                )}
 
                 <Input
                     label="New Password"
@@ -77,7 +89,7 @@ export const PasswordSection: React.FC<PasswordSectionProps> = ({
                     size="md"
                     textSize="sm"
                 >
-                    {changingPassword ? 'Changing...' : 'Change Password'}
+                    {changingPassword ? 'Saving...' : submitLabel}
                 </Button>
             </form>
         </SettingsSection>

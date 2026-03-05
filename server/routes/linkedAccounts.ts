@@ -10,8 +10,8 @@ import {
     unlinkAccount,
     findUserByExternalId
 } from '../db/linkedAccounts';
-import { setHasLocalPassword } from '../db/users';
-import { hashPassword } from '../auth/password';
+import { setHasLocalPassword, hasLocalPassword } from '../db/users';
+import { hashPassword, validatePassword } from '../auth/password';
 import { getSystemConfig } from '../db/systemConfig';
 import { checkPlexLibraryAccess } from '../utils/plexLibraryAccess';
 import logger from '../utils/logger';
@@ -205,6 +205,21 @@ router.delete('/plex', requireAuth, async (req: Request, res: Response) => {
         const authReq = req as AuthenticatedRequest;
         const userId = authReq.user!.id;
 
+        // Disconnect guard: prevent lockout
+        // Count remaining auth methods (local password + SSO links only — NOT service links like Overseerr)
+        const userHasPassword = hasLocalPassword(userId);
+        const linkedAccounts = getLinkedAccountsForUser(userId);
+        const hasOidcLink = linkedAccounts.some(a => a.service === 'oidc');
+        const remainingMethods = (userHasPassword ? 1 : 0) + (hasOidcLink ? 1 : 0);
+
+        if (remainingMethods < 1) {
+            logger.warn(`[LinkedAccounts] Disconnect blocked - would cause lockout: user=${userId}`);
+            res.status(403).json({
+                error: 'Cannot disconnect — this is your only sign-in method. Set a local password first, or link another account.'
+            });
+            return;
+        }
+
         const success = unlinkAccount(userId, 'plex');
 
         if (success) {
@@ -239,8 +254,9 @@ router.post('/setup-password', requireAuth, async (req: Request, res: Response) 
             return;
         }
 
-        if (password.length < 8) {
-            res.status(400).json({ error: 'Password must be at least 8 characters' });
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.valid) {
+            res.status(400).json({ error: passwordValidation.errors[0] });
             return;
         }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader, CheckCircle2, Unlink, ExternalLink, AlertCircle } from 'lucide-react';
+import { Loader, CheckCircle2, Unlink, ExternalLink } from 'lucide-react';
 import { Button } from '../../../shared/ui';
 import { getIconComponent } from '../../../utils/iconUtils';
 import type { LinkedAccountData } from '../types';
@@ -7,7 +7,6 @@ import type { LinkedAccountData } from '../types';
 interface PlexSectionProps {
     plexAccount: LinkedAccountData | undefined;
     isPlexLinked: boolean;
-    plexSSOEnabled: boolean;
     plexLinking: boolean;
     plexUnlinking: boolean;
     onConnect: () => Promise<void>;
@@ -16,12 +15,11 @@ interface PlexSectionProps {
 
 /**
  * Plex account linking section
- * Allows users to connect/disconnect their Plex account for SSO
+ * Only rendered when Plex SSO is enabled (parent gates visibility)
  */
 export const PlexSection: React.FC<PlexSectionProps> = ({
     plexAccount,
     isPlexLinked,
-    plexSSOEnabled,
     plexLinking,
     plexUnlinking,
     onConnect,
@@ -86,7 +84,7 @@ export const PlexSection: React.FC<PlexSectionProps> = ({
                                 {plexUnlinking ? 'Disconnecting...' : 'Disconnect Plex'}
                             </Button>
                         </div>
-                    ) : plexSSOEnabled ? (
+                    ) : (
                         <div className="text-sm text-theme-secondary">
                             <p className="mb-3">
                                 Connect your Plex account to use &quot;Continue with Plex&quot; sign-in.
@@ -100,13 +98,6 @@ export const PlexSection: React.FC<PlexSectionProps> = ({
                             >
                                 {plexLinking ? 'Connecting...' : 'Connect Plex Account'}
                             </Button>
-                        </div>
-                    ) : (
-                        <div className="text-sm text-theme-secondary">
-                            <div className="flex items-start gap-2 text-theme-tertiary">
-                                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
-                                <p>Plex SSO is not enabled. Contact your admin to enable it.</p>
-                            </div>
                         </div>
                     )}
                 </div>

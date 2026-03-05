@@ -18,6 +18,7 @@ import { readFramerrFile } from '../../../utils/templateExportImport';
 import { generateWidgetId } from '../../../shared/grid/core/ops';
 import { filterRegisteredWidgets } from '../../../widgets/registry';
 import logger from '../../../utils/logger';
+import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
 import type { Template, BackupData, BuilderMode } from '../types';
 
 interface UseTemplateSettingsReturn {
@@ -314,7 +315,7 @@ export function useTemplateSettings(): UseTemplateSettingsReturn {
             setHasBackup(false);
 
             // Trigger dashboard reload
-            window.dispatchEvent(new CustomEvent('widgets-added'));
+            dispatchCustomEvent(CustomEventNames.WIDGETS_ADDED);
 
             // Close dialog
             setShowRevertConfirm(false);

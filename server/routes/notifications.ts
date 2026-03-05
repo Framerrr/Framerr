@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
 import {
-    createNotification,
     getNotifications,
     markAsRead,
     deleteNotification,
     markAllAsRead,
     clearAll
 } from '../db/notifications';
+import { produceNotification } from '../services/notificationGateway';
 import { requireAuth } from '../middleware/auth';
 import logger from '../utils/logger';
 import notificationEmitter from '../services/notificationEmitter';
@@ -104,16 +104,28 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
             return;
         }
 
-        const targetUserId = userId || authReq.user!.id;
+        // Security: only admins can target notifications to other users
+        const requesterId = authReq.user!.id;
+        let targetUserId = requesterId;
 
-        const notification = await createNotification({
+        if (userId && userId !== requesterId) {
+            if (authReq.user!.group !== 'admin') {
+                res.status(403).json({
+                    error: 'Only administrators can create notifications for other users'
+                });
+                return;
+            }
+            targetUserId = userId;
+        }
+
+        const notification = await produceNotification({
             userId: targetUserId,
             type,
             title,
             message,
             metadata: metadata || null,
             expiresAt: expiresAt || null
-        });
+        }, 'api');
 
         logger.info(`[Notifications] Created: id=${notification.id} user=${targetUserId} type=${type}`);
 

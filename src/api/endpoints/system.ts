@@ -126,7 +126,8 @@ export const systemApi = {
     /**
      * Update system-level configuration (app name, etc.)
      */
-    updateSystemConfig: (config: { appName?: string;[key: string]: unknown }) =>
+    // Used by webhook settings (useSettings.ts) — see configApi.updateSystem for server/branding config
+    updateSystemConfig: (config: Record<string, unknown>) =>
         api.put<void>('/api/config/system', config),
 
     /**
@@ -137,8 +138,9 @@ export const systemApi = {
 
     /**
      * Update user-specific configuration
+     * NOTE: Theme writes must go through /api/theme — not this endpoint.
      */
-    updateUserConfig: (config: Partial<SystemConfig>) =>
+    updateUserConfig: (config: { preferences?: Record<string, unknown> }) =>
         api.put<ApiResponse<void>>('/api/config/user', config),
 
     // =========================================================================

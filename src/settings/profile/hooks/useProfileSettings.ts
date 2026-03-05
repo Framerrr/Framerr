@@ -20,6 +20,7 @@ import {
     ProfileSettingsHandlers,
     COMPRESSION_SETTINGS,
 } from '../types';
+import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
 
 interface UseProfileSettingsReturn {
     state: ProfileSettingsState;
@@ -29,7 +30,7 @@ interface UseProfileSettingsReturn {
 
 export function useProfileSettings(): UseProfileSettingsReturn {
     const { error: showError, success: showSuccess } = useNotifications();
-    const { checkAuth } = useAuth();
+    const { checkAuth, user: authUser } = useAuth();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // React Query hooks
@@ -169,9 +170,9 @@ export function useProfileSettings(): UseProfileSettingsReturn {
 
             // Dispatch event to notify Sidebar
             const pictureUrl = `${response.profilePicture}?t=${Date.now()}`;
-            window.dispatchEvent(new CustomEvent('profilePictureUpdated', {
-                detail: { profilePicture: pictureUrl }
-            }));
+            dispatchCustomEvent(CustomEventNames.PROFILE_PICTURE_UPDATED, {
+                profilePicture: pictureUrl
+            });
             showSuccess('Photo Updated', 'Profile picture uploaded successfully');
         } catch (error) {
             logger.error('Failed to upload profile picture:', error);
@@ -187,9 +188,9 @@ export function useProfileSettings(): UseProfileSettingsReturn {
             setConfirmRemovePicture(false);
 
             // Dispatch event to notify Sidebar
-            window.dispatchEvent(new CustomEvent('profilePictureUpdated', {
-                detail: { profilePicture: null }
-            }));
+            dispatchCustomEvent(CustomEventNames.PROFILE_PICTURE_UPDATED, {
+                profilePicture: null
+            });
             showSuccess('Photo Removed', 'Profile picture removed');
         } catch (error) {
             logger.error('Failed to remove profile picture:', error);
@@ -212,6 +213,7 @@ export function useProfileSettings(): UseProfileSettingsReturn {
             passwordError,
             passwordSuccess,
             confirmRemovePicture,
+            hasLocalPassword: authUser?.hasLocalPassword !== false,
         },
         handlers: {
             setDisplayName,

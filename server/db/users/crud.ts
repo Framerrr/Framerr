@@ -23,7 +23,7 @@ const DEFAULT_PREFS = {
 export async function getUser(username: string): Promise<User | null> {
     try {
         const user = getDb().prepare(`
-            SELECT id, username, password as passwordHash, username as displayName,
+            SELECT id, username, email, password as passwordHash, username as displayName,
                    group_id as "group", is_setup_admin as isSetupAdmin,
                    created_at as createdAt, last_login as lastLogin,
                    walkthrough_flows as walkthroughFlows
@@ -51,7 +51,7 @@ export async function getUser(username: string): Promise<User | null> {
 export async function getUserById(userId: string): Promise<User | null> {
     try {
         const user = getDb().prepare(`
-            SELECT id, username, password as passwordHash, username as displayName,
+            SELECT id, username, email, password as passwordHash, username as displayName,
                    group_id as "group", is_setup_admin as isSetupAdmin,
                    created_at as createdAt, last_login as lastLogin,
                    walkthrough_flows as walkthroughFlows
@@ -74,6 +74,35 @@ export async function getUserById(userId: string): Promise<User | null> {
 }
 
 /**
+ * Get user by email (case-insensitive)
+ * Used as login fallback when username lookup fails
+ */
+export async function getUserByEmail(email: string): Promise<User | null> {
+    try {
+        const user = getDb().prepare(`
+            SELECT id, username, email, password as passwordHash, username as displayName,
+                   group_id as "group", is_setup_admin as isSetupAdmin,
+                   created_at as createdAt, last_login as lastLogin,
+                   walkthrough_flows as walkthroughFlows
+            FROM users
+            WHERE LOWER(email) = LOWER(?)
+        `).get(email) as UserRow | undefined;
+
+        if (!user) return null;
+
+        return {
+            ...user,
+            isSetupAdmin: Boolean(user.isSetupAdmin),
+            preferences: user.preferences ? JSON.parse(user.preferences) : undefined,
+            walkthroughFlows: user.walkthroughFlows ? JSON.parse(user.walkthroughFlows) : {}
+        };
+    } catch (error) {
+        logger.error(`[Users] Failed to get by email: email="${email}" error="${(error as Error).message}"`);
+        throw error;
+    }
+}
+
+/**
  * Create a new user
  */
 export async function createUser(userData: CreateUserData): Promise<Omit<User, 'passwordHash'>> {
@@ -84,6 +113,15 @@ export async function createUser(userData: CreateUserData): Promise<Omit<User, '
 
         if (existing) {
             throw new Error('User already exists');
+        }
+
+        if (userData.email) {
+            const existingEmail = getDb().prepare(
+                'SELECT id FROM users WHERE LOWER(email) = LOWER(?)'
+            ).get(userData.email);
+            if (existingEmail) {
+                throw new Error('Email already in use');
+            }
         }
 
         const id = uuidv4();
@@ -141,6 +179,7 @@ export async function createUser(userData: CreateUserData): Promise<Omit<User, '
         return {
             id,
             username: userData.username,
+            email: userData.email || undefined,
             displayName: userData.username,
             group: userData.group || 'user',
             isSetupAdmin: userData.isSetupAdmin || false,
@@ -174,6 +213,19 @@ export async function updateUser(userId: string, updates: UpdateUserData): Promi
             }
         }
 
+        if (updates.email !== undefined && updates.email !== currentUser.email) {
+            if (updates.email) {
+                const existingEmail = getDb().prepare(`
+                    SELECT id FROM users 
+                    WHERE LOWER(email) = LOWER(?) AND id != ?
+                `).get(updates.email, userId);
+
+                if (existingEmail) {
+                    throw new Error('Email already in use');
+                }
+            }
+        }
+
         const { id, createdAt, ...allowedUpdates } = updates;
 
         const fields: string[] = [];
@@ -190,6 +242,10 @@ export async function updateUser(userId: string, updates: UpdateUserData): Promi
         if (allowedUpdates.group !== undefined) {
             fields.push('group_id = ?');
             values.push(allowedUpdates.group);
+        }
+        if (allowedUpdates.email !== undefined) {
+            fields.push('email = ?');
+            values.push(allowedUpdates.email);
         }
         if (allowedUpdates.lastLogin !== undefined) {
             fields.push('last_login = ?');
@@ -268,6 +324,7 @@ export async function listUsers(): Promise<(Omit<User, 'passwordHash'> & { profi
             SELECT 
                 u.id, 
                 u.username, 
+                u.email,
                 u.username as displayName,
                 u.group_id as "group", 
                 u.is_setup_admin as isSetupAdmin,
@@ -305,7 +362,7 @@ export async function listUsers(): Promise<(Omit<User, 'passwordHash'> & { profi
 export async function getAllUsers(): Promise<User[]> {
     try {
         const users = getDb().prepare(`
-            SELECT id, username, password as passwordHash, username as displayName,
+            SELECT id, username, email, password as passwordHash, username as displayName,
                    group_id as "group", is_setup_admin as isSetupAdmin,
                    created_at as createdAt, last_login as lastLogin
             FROM users

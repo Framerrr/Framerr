@@ -1,5 +1,5 @@
 import rateLimit from 'express-rate-limit';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 
 /**
  * Rate Limiting Middleware
@@ -52,12 +52,22 @@ export const proxyRateLimit = rateLimit({
  * Strict rate limit for auth endpoints
  * 10 attempts per minute per IP (prevents brute force)
  * 
- * Note: This stays IP-based to prevent credential stuffing attacks
+ * Custom handler: browser navigations (OIDC callbacks) get redirected
+ * to the login page with a styled error. API calls get standard JSON 429.
  */
 export const authRateLimit = rateLimit({
     windowMs: 60 * 1000,
     max: 10,
-    message: { error: 'Too many authentication attempts, please try again later' },
     standardHeaders: true,
     legacyHeaders: false,
+    handler: (_req: Request, res: Response) => {
+        const accept = _req.headers.accept || '';
+        if (accept.includes('text/html')) {
+            // Browser navigation (e.g. OIDC callback redirect from IdP)
+            res.redirect('/login?error=rate_limited');
+        } else {
+            // API call (e.g. login form POST, Plex login POST)
+            res.status(429).json({ error: 'Too many authentication attempts, please try again later' });
+        }
+    },
 });

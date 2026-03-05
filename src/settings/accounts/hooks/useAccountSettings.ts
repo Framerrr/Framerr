@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { plexApi, linkedAccountsApi } from '../../../api/endpoints';
+import { plexApi, linkedAccountsApi, authApi } from '../../../api/endpoints';
 import { useNotifications } from '../../../context/NotificationContext';
 import { useAuth } from '../../../context/AuthContext';
 import { useAppData } from '../../../context/AppDataContext';
+import useRealtimeSSE from '../../../hooks/useRealtimeSSE';
 import logger from '../../../utils/logger';
 import type {
     DbLinkedAccounts,
@@ -32,11 +33,17 @@ export function useAccountSettings(): UseAccountSettingsReturn {
 
     // Integration availability
     const [plexSSOEnabled, setPlexSSOEnabled] = useState<boolean>(false);
-
+    const [oidcSSOEnabled, setOidcSSOEnabled] = useState<boolean>(false);
+    const [oidcDisplayName, setOidcDisplayName] = useState<string>('OpenID Connect');
+    const [oidcButtonIcon, setOidcButtonIcon] = useState<string>('KeyRound');
 
     // Plex linking state
     const [plexLinking, setPlexLinking] = useState<boolean>(false);
     const [plexUnlinking, setPlexUnlinking] = useState<boolean>(false);
+
+    // OIDC linking state
+    const [oidcConnecting, setOidcConnecting] = useState<boolean>(false);
+    const [oidcDisconnecting, setOidcDisconnecting] = useState<boolean>(false);
 
     // Overseerr linking state
     const [overseerrModalOpen, setOverseerrModalOpen] = useState<boolean>(false);
@@ -53,6 +60,17 @@ export function useAccountSettings(): UseAccountSettingsReturn {
             setPlexSSOEnabled(response.enabled);
         } catch {
             setPlexSSOEnabled(false);
+        }
+    };
+
+    const checkOidcSSOStatus = async (): Promise<void> => {
+        try {
+            const ssoConfig = await authApi.getSSOConfig();
+            setOidcSSOEnabled(ssoConfig.oidc.enabled);
+            setOidcDisplayName(ssoConfig.oidc.displayName || 'OpenID Connect');
+            setOidcButtonIcon(ssoConfig.oidc.buttonIcon || 'KeyRound');
+        } catch {
+            setOidcSSOEnabled(false);
         }
     };
 
@@ -73,16 +91,54 @@ export function useAccountSettings(): UseAccountSettingsReturn {
     useEffect(() => {
         fetchAllLinkedAccounts();
         checkPlexSSOStatus();
+        checkOidcSSOStatus();
 
         const handleLinkedAccountsUpdated = (): void => {
             fetchAllLinkedAccounts();
         };
         window.addEventListener('linkedAccountsUpdated', handleLinkedAccountsUpdated);
 
+        // Check for OIDC connect callback params in hash
+        const hash = window.location.hash;
+        if (hash.includes('oidc_linked=true')) {
+            showSuccess('OIDC Connected', 'Your OIDC account has been linked');
+            // Clean up the hash params
+            window.location.hash = hash.split('?')[0];
+            fetchAllLinkedAccounts();
+        } else if (hash.includes('error=')) {
+            const params = new URLSearchParams(hash.split('?')[1] || '');
+            const error = params.get('error');
+            if (error && hash.includes('settings/account/connected')) {
+                const errorMessages: Record<string, string> = {
+                    'already_linked_other': 'This identity is already linked to another user.',
+                    'connect_failed': 'Failed to connect. Please try again.',
+                    'state_expired': 'Connection session expired. Please try again.',
+                    'state_invalid': 'Invalid connection session. Please try again.',
+                    'discovery_failed': 'Could not reach the identity provider.',
+                    'missing_state': 'Connection failed — invalid state. Please try again.',
+                };
+                showError('OIDC Connection Failed', errorMessages[error] || decodeURIComponent(error));
+                window.location.hash = hash.split('?')[0];
+            }
+        }
+
         return () => {
             window.removeEventListener('linkedAccountsUpdated', handleLinkedAccountsUpdated);
         };
     }, []);
+
+    // SSE: Listen for SSO config changes (admin enables/disables Plex or OIDC)
+    const { onSettingsInvalidate } = useRealtimeSSE();
+    useEffect(() => {
+        const unsubscribe = onSettingsInvalidate((event) => {
+            if (event.entity === 'sso-config') {
+                logger.debug('[AccountSettings] SSO config changed via SSE, refreshing');
+                checkPlexSSOStatus();
+                checkOidcSSOStatus();
+            }
+        });
+        return unsubscribe;
+    }, [onSettingsInvalidate]);
 
     // Check for pending Plex auth on page load (redirect flow)
     useEffect(() => {
@@ -137,8 +193,8 @@ export function useAccountSettings(): UseAccountSettingsReturn {
             showSuccess('Plex Disconnected', 'Plex account unlinked');
             fetchAllLinkedAccounts();
         } catch (err) {
-            const error = err as Error & { response?: { data?: { error?: string } } };
-            showError('Disconnect Failed', error.response?.data?.error || 'Failed to disconnect Plex');
+            const error = err as Error;
+            showError('Disconnect Failed', error.message || 'Failed to disconnect Plex');
         } finally {
             setPlexUnlinking(false);
         }
@@ -190,6 +246,33 @@ export function useAccountSettings(): UseAccountSettingsReturn {
         }
     }, [showSuccess, showError]);
 
+    // --- OIDC HANDLERS ---
+    const handleConnectOidc = useCallback(async (): Promise<void> => {
+        setOidcConnecting(true);
+        try {
+            const { redirectUrl } = await authApi.oidcConnect();
+            window.location.href = redirectUrl;
+        } catch (err) {
+            const error = err as Error & { response?: { data?: { error?: string } } };
+            showError('Connection Failed', error.response?.data?.error || 'Failed to initiate OIDC connection');
+            setOidcConnecting(false);
+        }
+    }, [showError]);
+
+    const handleDisconnectOidc = useCallback(async (): Promise<void> => {
+        setOidcDisconnecting(true);
+        try {
+            await authApi.oidcDisconnect();
+            showSuccess('OIDC Disconnected', 'OIDC account unlinked');
+            fetchAllLinkedAccounts();
+        } catch (err) {
+            const error = err as Error;
+            showError('Disconnect Failed', error.message || 'Failed to disconnect OIDC account');
+        } finally {
+            setOidcDisconnecting(false);
+        }
+    }, [showSuccess, showError]);
+
     return {
         // State
         loading,
@@ -221,6 +304,15 @@ export function useAccountSettings(): UseAccountSettingsReturn {
         handleLinkOverseerr,
         handleDisconnectOverseerr,
         setOverseerrUsername,
-        setOverseerrPassword
+        setOverseerrPassword,
+
+        // OIDC state
+        oidcSSOEnabled,
+        oidcDisplayName,
+        oidcButtonIcon,
+        oidcConnecting,
+        oidcDisconnecting,
+        handleConnectOidc,
+        handleDisconnectOidc,
     };
 }

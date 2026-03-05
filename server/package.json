@@ -1,6 +1,6 @@
 {
     "name": "framerr-server",
-    "version": "0.1.9",
+    "version": "0.1.10",
     "description": "Backend API server for Framerr",
     "main": "dist/index.js",
     "bin": {
@@ -37,6 +37,7 @@
         "ipaddr.js": "^2.2.0",
         "multer": "^2.0.2",
         "node-cron": "^4.2.1",
+        "openid-client": "^6.8.2",
         "sharp": "^0.34.5",
         "socket.io-client": "^4.8.1",
         "unzipper": "^0.12.3",

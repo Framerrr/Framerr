@@ -14,31 +14,16 @@
  * ARCHITECTURE: 
  * - Internal state uses FramerrWidget (library-agnostic, .layout/.mobileLayout)
  * - External API now returns FramerrWidget directly
- * - RGL conversion happens at render time in consumers
+ * - GridStack adapter handles rendering; this hook provides state + callbacks
  * 
  * This orchestrator composes specialized sub-hooks:
  * - useUndoRedo: History stacks and undo/redo operations
- * - useGridCallbacks: RGL event handlers
+ * - useGridCallbacks: Grid event handlers (drag, resize, breakpoint, commit)
  * - useWidgetActions: Widget manipulation (add/delete/update)
- * 
- * Usage:
- * ```tsx
- * const { displayWidgets, gridProps, addWidget, deleteWidget } = useDashboardLayout({
- *   initialWidgets: widgetsFromAPI,
- *   isMobile: useLayout().isMobile,
- *   onWidgetsChange: (widgets) => saveToAPI(widgets),
- * });
- * 
- * return (
- *   <ResponsiveGridLayout {...gridProps}>
- *     {displayWidgets.map(widget => <Widget key={widget.id} {...widget} />)}
- *   </ResponsiveGridLayout>
- * );
- * ```
  */
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { GRID_COLS, GRID_BREAKPOINTS, ROW_HEIGHT, GRID_MARGIN, COMPACT_TYPE } from '../../constants/gridConfig';
+import { GRID_COLS, GRID_BREAKPOINTS } from '../../constants/gridConfig';
 
 import type {
     FramerrWidget,
@@ -47,7 +32,7 @@ import type {
     LayoutState,
     UseDashboardLayoutOptions,
     UseDashboardLayoutReturn,
-    GridPropsBundle,
+    GridCallbackBundle,
 } from './types';
 
 import { createLayoutsFromWidgets } from './layoutCreators';
@@ -294,25 +279,14 @@ export const useDashboardLayout = (options: UseDashboardLayoutOptions): UseDashb
         ),
         [widgets, mobileWidgets, layouts, mobileLayoutMode, pendingUnlink, editMode, isMobile, currentBreakpoint]);
 
-    // ========== GRID PROPS BUNDLE ==========
+    // ========== GRID CALLBACK BUNDLE ==========
 
-    const gridProps: GridPropsBundle = useMemo(() => ({
-        layouts,
-        cols: gridCols,
-        breakpoints: gridBreakpoints,
-        rowHeight: ROW_HEIGHT,
-        margin: GRID_MARGIN,
-        containerPadding: [0, 0] as [number, number],
-        compactType: COMPACT_TYPE,
-        onLayoutChange: gridCallbacks.handleLayoutChange,
+    const gridProps: GridCallbackBundle = useMemo(() => ({
         onDragStart: gridCallbacks.handleDragStart,
-        onDragStop: gridCallbacks.handleDragResizeStop,
         onResizeStart: gridCallbacks.handleResizeStart,
-        onResizeStop: gridCallbacks.handleDragResizeStop,
         onBreakpointChange: gridCallbacks.handleBreakpointChange,
-        // Abstracted callback for wrapper consumption (Phase 4b+)
         onLayoutCommit: gridCallbacks.handleLayoutCommitFromGrid,
-    }), [layouts, gridCols, gridBreakpoints, gridCallbacks]);
+    }), [gridCallbacks]);
 
     // ========== RETURN (External API: FramerrWidget) ==========
 

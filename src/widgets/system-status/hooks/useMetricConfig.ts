@@ -332,16 +332,23 @@ export function useMetricConfig({ widgetId, config, widgetH, showHeader, integra
 
     // Track which metrics have ever reported non-null data (sticky — never revert)
     // This prevents cards from flickering when values are briefly null between polls
-    const seenMetricsRef = useRef<Set<string>>(new Set());
+    const [seenMetrics, setSeenMetrics] = useState<Set<string>>(new Set());
 
-    // Update the "ever seen" set when statusData changes
-    if (statusData) {
-        for (const key of Object.keys(statusData) as (keyof StatusData)[]) {
-            if (statusData[key] !== null && statusData[key] !== undefined) {
-                seenMetricsRef.current.add(key);
+    // Update the "ever seen" set when statusData changes (effect — not during render)
+    useEffect(() => {
+        if (!statusData) return;
+        setSeenMetrics(prev => {
+            let changed = false;
+            const next = new Set(prev);
+            for (const key of Object.keys(statusData) as (keyof StatusData)[]) {
+                if (statusData[key] !== null && statusData[key] !== undefined && !prev.has(key)) {
+                    next.add(key);
+                    changed = true;
+                }
             }
-        }
-    }
+            return changed ? next : prev;
+        });
+    }, [statusData]);
 
     const visibleMetrics = useMemo(() => {
         const base = localOrder
@@ -376,7 +383,7 @@ export function useMetricConfig({ widgetId, config, widgetH, showHeader, integra
                 // Once a metric has been seen, it stays visible (sticky)
                 if (statusData && !m.key.startsWith('disk-')) {
                     const value = statusData[m.key as keyof StatusData];
-                    const everSeen = seenMetricsRef.current.has(m.key);
+                    const everSeen = seenMetrics.has(m.key);
                     if ((value === null || value === undefined) && !everSeen) return false;
                 }
                 return true;
@@ -439,7 +446,7 @@ export function useMetricConfig({ widgetId, config, widgetH, showHeader, integra
         }
 
         return base;
-    }, [localOrder, config, availableKeys, statusData, integrationType]);
+    }, [localOrder, config, availableKeys, statusData, integrationType, seenMetrics]);
 
     // Pack metrics into grid
     const allPackedMetrics = useMemo(() => packMetrics(visibleMetrics, localSpans), [visibleMetrics, localSpans]);

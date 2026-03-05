@@ -756,24 +756,16 @@
     flex-direction: column;
     gap: 0.25rem;
     min-width: 200px;
+    max-height: 300px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .disk-popover__item {
     border-radius: 0.5rem;
-    padding: 0.25rem 0.375rem;
+    padding: 0.5rem 0.375rem;
     background: var(--bg-secondary);
     border: 1px solid var(--border-light, color-mix(in srgb, var(--text-tertiary) 10%, transparent));
-}
-
-.disk-popover__item .metric-card__inner {
-    gap: 0.25rem;
-}
-
-.disk-popover__item .metric-card__progress {
-    height: 14px;
-    min-height: 14px;
-    max-height: 14px;
-    margin-top: 0.25rem;
 }
 
 .disk-popover__empty {

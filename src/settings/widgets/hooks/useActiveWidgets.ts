@@ -16,6 +16,7 @@ import { useNotifications } from '../../../context/NotificationContext';
 import { useLayout } from '../../../context/LayoutContext';
 import type { Widget, WidgetConfig, ViewMode, WidgetStats } from '../types';
 import type { MobileLayoutMode } from '../../../api/endpoints';
+import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
 
 interface UseActiveWidgetsReturn {
     // State
@@ -128,7 +129,7 @@ export function useActiveWidgets(): UseActiveWidgetsReturn {
             }
             setConfirmRemoveId(null);
             showSuccess('Widget Removed', 'Widget removed from dashboard');
-            window.dispatchEvent(new CustomEvent('widgets-added'));
+            dispatchCustomEvent(CustomEventNames.WIDGETS_ADDED);
         } catch (error) {
             logger.error('Failed to remove widget', { widgetId, error: (error as Error).message });
             showError('Remove Failed', 'Failed to remove widget. Please try again.');
@@ -153,9 +154,9 @@ export function useActiveWidgets(): UseActiveWidgetsReturn {
                     mobileLayoutMode: 'independent',
                     mobileWidgets: updatedMobileWidgets
                 });
-                window.dispatchEvent(new CustomEvent('widget-config-changed', {
-                    detail: { widgetId, config: updatedMobileWidgets.find(w => w.id === widgetId)?.config, target: 'mobile' as const }
-                }));
+                dispatchCustomEvent(CustomEventNames.WIDGET_CONFIG_CHANGED, {
+                    widgetId, config: updatedMobileWidgets.find(w => w.id === widgetId)?.config, target: 'mobile' as const
+                });
             } else {
                 const updatedWidgets = widgets.map(w =>
                     w.id === widgetId
@@ -167,9 +168,9 @@ export function useActiveWidgets(): UseActiveWidgetsReturn {
                     mobileLayoutMode,
                     mobileWidgets: mobileLayoutMode === 'independent' ? mobileWidgets : undefined
                 });
-                window.dispatchEvent(new CustomEvent('widget-config-changed', {
-                    detail: { widgetId, config: updatedWidgets.find(w => w.id === widgetId)?.config, target: 'desktop' as const }
-                }));
+                dispatchCustomEvent(CustomEventNames.WIDGET_CONFIG_CHANGED, {
+                    widgetId, config: updatedWidgets.find(w => w.id === widgetId)?.config, target: 'desktop' as const
+                });
             }
         } catch (error) {
             logger.error('Failed to update widget icon', { widgetId, error: (error as Error).message });
@@ -196,9 +197,9 @@ export function useActiveWidgets(): UseActiveWidgetsReturn {
                     mobileWidgets: updatedMobileWidgets
                 });
                 const updatedWidget = updatedMobileWidgets.find(w => w.id === widgetId);
-                window.dispatchEvent(new CustomEvent('widget-config-changed', {
-                    detail: { widgetId, config: updatedWidget?.config, target: 'mobile' as const }
-                }));
+                dispatchCustomEvent(CustomEventNames.WIDGET_CONFIG_CHANGED, {
+                    widgetId, config: updatedWidget?.config, target: 'mobile' as const
+                });
             } else {
                 const updatedWidgets = widgets.map(w =>
                     w.id === widgetId
@@ -211,9 +212,9 @@ export function useActiveWidgets(): UseActiveWidgetsReturn {
                     mobileWidgets: mobileLayoutMode === 'independent' ? mobileWidgets : undefined
                 });
                 const updatedWidget = updatedWidgets.find(w => w.id === widgetId);
-                window.dispatchEvent(new CustomEvent('widget-config-changed', {
-                    detail: { widgetId, config: updatedWidget?.config, target: 'desktop' as const }
-                }));
+                dispatchCustomEvent(CustomEventNames.WIDGET_CONFIG_CHANGED, {
+                    widgetId, config: updatedWidget?.config, target: 'desktop' as const
+                });
             }
         } catch (error) {
             logger.error('Failed to update widget config', { widgetId, error: (error as Error).message });
@@ -274,7 +275,7 @@ export function useActiveWidgets(): UseActiveWidgetsReturn {
                 });
             }
             // Notify dashboard to refresh
-            window.dispatchEvent(new CustomEvent('widgets-updated'));
+            dispatchCustomEvent(CustomEventNames.WIDGETS_UPDATED);
         } catch (error) {
             logger.error('Failed to resize widget', { widgetId, size, error: (error as Error).message });
             showError('Resize Failed', 'Failed to resize widget. Please try again.');

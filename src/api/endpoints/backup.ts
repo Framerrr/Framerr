@@ -4,13 +4,9 @@
  */
 import { api, apiClient } from '../client';
 
-// Types
-export interface BackupInfo {
-    filename: string;
-    size: number;
-    createdAt: string;
-    isScheduled?: boolean;
-}
+// Types — BackupInfo is the shared single source of truth
+import type { BackupInfo } from '../../../shared/types/backup';
+export type { BackupInfo } from '../../../shared/types/backup';
 
 export interface BackupListResponse {
     backups: BackupInfo[];
@@ -77,6 +73,23 @@ export const backupApi = {
      */
     updateSchedule: (config: ScheduleConfig) =>
         api.put<ScheduleResponse>('/api/backup/schedule', config),
+
+    /**
+     * Encryption management endpoints (admin only)
+     */
+    encryption: {
+        getStatus: () =>
+            api.get<{ enabled: boolean }>('/api/backup/encryption/status'),
+
+        enable: (password: string) =>
+            api.post<{ enabled: true; message: string }>('/api/backup/encryption/enable', { password }),
+
+        disable: (password: string) =>
+            api.post<{ enabled: false; message: string }>('/api/backup/encryption/disable', { password }),
+
+        changePassword: (oldPassword: string, newPassword: string) =>
+            api.post<{ message: string; rewriteErrors?: string[] }>('/api/backup/encryption/change-password', { oldPassword, newPassword }),
+    },
 };
 
 export default backupApi;

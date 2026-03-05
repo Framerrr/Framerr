@@ -314,11 +314,15 @@ export function useNotificationSettings(): UseNotificationSettingsReturn {
     const generateWebhookToken = useCallback(async (integrationId: string): Promise<void> => {
         const token = typeof crypto.randomUUID === 'function'
             ? crypto.randomUUID()
-            : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-                const r = Math.random() * 16 | 0;
-                const v = c === 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
+            : Array.from(crypto.getRandomValues(new Uint8Array(16)))
+                .map((b, i) => {
+                    // Set version (4) and variant (8/9/a/b) bits per RFC 4122
+                    if (i === 6) b = (b & 0x0f) | 0x40;
+                    if (i === 8) b = (b & 0x3f) | 0x80;
+                    return b.toString(16).padStart(2, '0');
+                })
+                .join('')
+                .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
         const currentConfig = integrations[integrationId]?.webhookConfig || {};
 
         await saveAdminWebhookConfig(integrationId, {

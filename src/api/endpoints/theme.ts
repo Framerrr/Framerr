@@ -8,6 +8,8 @@ import { api } from '../client';
 export interface ThemePreset {
     preset?: string;
     mode?: string;
+    customColors?: Record<string, string>;
+    lastSelectedTheme?: string;
 }
 
 export interface ThemeResponse {

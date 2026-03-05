@@ -1,17 +1,11 @@
 import React, { useMemo, useRef, useEffect } from 'react';
+import { ChevronRight, ArrowLeft } from 'lucide-react';
 import {
-    User, Layout, Settings as SettingsIcon, Users, Cpu, Shield,
-    FolderTree, Puzzle, Bell, LayoutDashboard, ChevronRight, ArrowLeft,
-    // Sub-tab icons for mobile
-    Grid3x3, Layers, Wrench, Share2, Link, Sliders, Copy,
-    SlidersHorizontal, Palette, Image, Network, Tv2, Frame,
-    Bug, Activity, Beaker, Code, Clock
-} from 'lucide-react';
-import {
-    getSettingsCategories as getSettingsCategoriesFromConfig,
+    getSettingsCategories,
     getVisibleChildren,
     SidebarSettingsCategory
 } from '../../components/sidebar/settingsMenuConfig';
+import { getLucideIcon } from '../../utils/iconUtils';
 import { motion, AnimatePresence, Transition } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useLayout } from '../../context/LayoutContext';
@@ -30,6 +24,7 @@ import { TabGroupsSettings } from '../../settings/tabgroups';
 import CustomizationSettings from '../../settings/customization';
 import { ProfileSettings } from '../../settings/profile';
 import { NotificationSettings } from '../../settings/notifications';
+import { LinkedAccountsPage } from '../../settings/integrations/pages/LinkedAccountsPage';
 
 // Admin Settings Components
 import { UserManagementSettings } from '../../settings/users';
@@ -46,32 +41,10 @@ import { DashboardSettings } from '../../settings/dashboard';
  * - #settings                    → Shows category list (mobile) or first category (desktop)
  * - #settings/tabs               → My Tabs settings
  * - #settings/customization      → Customization settings (with sub-tabs)
- * - #settings/profile?source=profile → Profile settings (via profile icon)
+ * - #settings/account/profile?source=profile → Profile settings (via profile icon)
  */
 
-// Define settings categories with iOS-style colors
-const getSettingsCategories = (hasAdminAccess: boolean): SettingsMenuGroup[] => {
-    const userItems: SettingsMenuItem[] = [
-        { id: 'tabs', label: 'My Tabs', icon: Layout, iconColor: 'blue' },
-        { id: 'tabgroups', label: 'Tab Groups', icon: FolderTree, iconColor: 'orange' },
-        { id: 'integrations', label: 'Integrations', icon: Puzzle, iconColor: 'purple' },
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, iconColor: 'teal' },
-        { id: 'customization', label: 'Customization', icon: SettingsIcon, iconColor: 'gray' },
-        { id: 'profile', label: 'Profile', icon: User, iconColor: 'blue' },
-        { id: 'notifications', label: 'Notifications', icon: Bell, iconColor: 'red' },
-    ];
 
-    const adminItems: SettingsMenuItem[] = hasAdminAccess ? [
-        { id: 'users', label: 'Users', icon: Users, iconColor: 'green', adminOnly: true },
-        { id: 'auth', label: 'Auth', icon: Shield, iconColor: 'indigo', adminOnly: true },
-        { id: 'advanced', label: 'Advanced', icon: Cpu, iconColor: 'gray', adminOnly: true },
-    ] : [];
-
-    // Single group with all items (no visible separator between user and admin)
-    return [{
-        items: [...userItems, ...adminItems]
-    }];
-};
 
 // Map category ID to component
 const getCategoryComponent = (categoryId: string, hasAdminAccess: boolean, activeSubTab: string | null): React.ReactNode => {
@@ -86,7 +59,8 @@ const getCategoryComponent = (categoryId: string, hasAdminAccess: boolean, activ
             return <DashboardSettings activeSubTab={activeSubTab} />;
         case 'customization':
             return <CustomizationSettings activeSubTab={activeSubTab} />;
-        case 'profile':
+        case 'account':
+            if (activeSubTab === 'connected') return <LinkedAccountsPage />;
             return <ProfileSettings />;
         case 'notifications':
             return <NotificationSettings />;
@@ -149,12 +123,9 @@ const SettingsContent: React.FC = () => {
         return 0;
     };
 
-    // Get centralized config categories for sub-tab detection
-    const configCategories = useMemo(() => getSettingsCategoriesFromConfig(hasAdminAccess), [hasAdminAccess]);
-
-    // Find category by ID from centralized config
+    // Find category by ID from canonical config
     const findCategoryById = (id: string): SidebarSettingsCategory | undefined => {
-        return configCategories.find(cat => cat.id === id);
+        return categories.find(cat => cat.id === id);
     };
 
     // Mobile breadcrumb header with responsive truncation
@@ -243,47 +214,36 @@ const SettingsContent: React.FC = () => {
     // Render sub-category list for categories with children (Level 2)
     const renderMobileSubCategory = (category: SidebarSettingsCategory): React.ReactNode => {
         const children = getVisibleChildren(category, hasAdminAccess);
-        const Icon = getCategoryIcon(category.icon);
+        const ParentIcon = getLucideIcon(category.icon);
         const iconColorClass = `settings-item__icon--${category.iconColor || 'default'}`;
 
         return (
             <div>
                 {renderMobileBreadcrumbHeader()}
                 <div className="settings-group">
-                    {children.map((child) => (
-                        <button
-                            key={child.id}
-                            onClick={() => navigate(`/${category.id}/${child.id}`)}
-                            className="settings-item w-full text-left"
-                        >
-                            <div className={`settings-item__icon ${iconColorClass}`}>
-                                {React.createElement(getCategoryIcon(child.icon || category.icon), { size: 18 })}
-                            </div>
-                            <div className="settings-item__content">
-                                <div className="settings-item__label">{child.label}</div>
-                            </div>
-                            <div className="settings-item__accessory">
-                                <ChevronRight size={18} className="settings-item__chevron" />
-                            </div>
-                        </button>
-                    ))}
+                    {children.map((child) => {
+                        const ChildIcon = getLucideIcon(child.icon || category.icon);
+                        return (
+                            <button
+                                key={child.id}
+                                onClick={() => navigate(`/${category.id}/${child.id}`)}
+                                className="settings-item w-full text-left"
+                            >
+                                <div className={`settings-item__icon ${iconColorClass}`}>
+                                    <ChildIcon size={18} />
+                                </div>
+                                <div className="settings-item__content">
+                                    <div className="settings-item__label">{child.label}</div>
+                                </div>
+                                <div className="settings-item__accessory">
+                                    <ChevronRight size={18} className="settings-item__chevron" />
+                                </div>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
         );
-    };
-
-    // Helper to get icon component from string name
-    const getCategoryIcon = (iconName: string): React.ElementType => {
-        const iconMap: Record<string, React.ElementType> = {
-            // Parent category icons
-            Layout, User, Settings: SettingsIcon, Users, Cpu, Shield,
-            FolderTree, Puzzle, Bell, LayoutDashboard, ChevronRight,
-            // Sub-tab icons
-            Grid3x3, Layers, Wrench, Share2, Link, Sliders, Copy,
-            SlidersHorizontal, Palette, Image, Network, Tv2, Frame,
-            Bug, Activity, Beaker, Code, Clock
-        };
-        return iconMap[iconName] || ChevronRight;
     };
 
     // Render category list for mobile root
@@ -297,42 +257,33 @@ const SettingsContent: React.FC = () => {
                     </p>
                 )}
             </div>
-            {/* Mobile settings list using settings-group (not settings-sidebar which is hidden on mobile) */}
-            {categories.map((group, groupIndex) => (
-                <div key={groupIndex}>
-                    {group.label && (
-                        <div className="settings-group__label">
-                            {group.label}
-                        </div>
-                    )}
-                    <div className="settings-group">
-                        {group.items.map((item) => {
-                            const Icon = item.icon;
-                            // Only show active state if we're actually at that category (not at root)
-                            const isActive = path.segments.length > 0 && currentCategory === item.id;
-                            const iconColorClass = `settings-item__icon--${item.iconColor || 'default'}`;
+            {/* Mobile settings list — renders canonical categories from settingsMenuConfig */}
+            <div className="settings-group">
+                {categories.map((cat) => {
+                    const Icon = getLucideIcon(cat.icon);
+                    // Only show active state if we're actually at that category (not at root)
+                    const isActive = path.segments.length > 0 && currentCategory === cat.id;
+                    const iconColorClass = `settings-item__icon--${cat.iconColor || 'default'}`;
 
-                            return (
-                                <button
-                                    key={item.id}
-                                    onClick={() => handleSelect(item.id)}
-                                    className={`settings-item w-full text-left ${isActive ? 'settings-item--active' : ''}`}
-                                >
-                                    <div className={`settings-item__icon ${iconColorClass}`}>
-                                        <Icon size={18} />
-                                    </div>
-                                    <div className="settings-item__content">
-                                        <div className="settings-item__label">{item.label}</div>
-                                    </div>
-                                    <div className="settings-item__accessory">
-                                        <ChevronRight size={18} className="settings-item__chevron" />
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            ))}
+                    return (
+                        <button
+                            key={cat.id}
+                            onClick={() => handleSelect(cat.id)}
+                            className={`settings-item w-full text-left ${isActive ? 'settings-item--active' : ''}`}
+                        >
+                            <div className={`settings-item__icon ${iconColorClass}`}>
+                                <Icon size={18} />
+                            </div>
+                            <div className="settings-item__content">
+                                <div className="settings-item__label">{cat.label}</div>
+                            </div>
+                            <div className="settings-item__accessory">
+                                <ChevronRight size={18} className="settings-item__chevron" />
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
         </div>
     );
 

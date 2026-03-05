@@ -96,7 +96,7 @@ router.post('/emby/authenticate', requireAuth, requireAdmin, async (req: Request
             logger.error(`[Emby Auth] Failed: status=${status} error="${axiosError.message}"`);
             res.status(500).json({
                 success: false,
-                error: `Failed to connect to Emby server: ${axiosError.message}`,
+                error: 'Failed to connect to Emby server',
             });
         }
     }

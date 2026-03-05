@@ -27,9 +27,6 @@ export interface FramerrDashboardGridProps {
     /** Widgets to render */
     widgets: FramerrWidget[];
 
-    /** Pre-computed layouts from useDashboardLayout (vestigial - Core derives from widgets) */
-    layouts: { lg: LayoutItem[]; sm: LayoutItem[] };
-
     /** Optional overlay for empty state - rendered inside grid container */
     emptyOverlay?: ReactNode;
 

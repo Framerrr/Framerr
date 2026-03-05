@@ -27,7 +27,7 @@ import Login from './app/login/Login';
 import PlexLoading from './app/login/PlexLoading';
 import ChangePassword from './app/change-password/ChangePassword';
 import Setup from './app/setup/Setup';
-import PlexSetup from './app/plex-setup/PlexSetup';
+import SSOSetup from './app/sso-setup/SSOSetup';
 import MainContent from './app/MainContent';
 import SafeAreaBlur from './components/common/SafeAreaBlur';
 import { initHaptics, cleanupHaptics } from './utils/haptics';
@@ -204,7 +204,7 @@ const App: React.FC = () => {
                                             <Route path="/login/plex/loading" element={<PlexLoading />} />
                                             <Route path="/change-password" element={<ChangePassword />} />
                                             <Route path="/setup" element={<Setup />} />
-                                            <Route path="/plex-setup" element={<PlexSetup />} />
+                                            <Route path="/sso-setup" element={<SSOSetup />} />
 
                                             {/* Protected Routes with Layout-aware Wrapper */}
                                             <Route path="/*" element={<MainLayout />} />

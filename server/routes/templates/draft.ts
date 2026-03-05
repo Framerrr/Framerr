@@ -16,7 +16,12 @@ const router = Router();
 
 /**
  * POST /
- * Auto-save draft (creates or updates)
+ * Auto-save draft (creates or updates).
+ *
+ * @invariant INV-07 Draft Finalization Guard — if the template has already been
+ * finalized (`isDraft === false`), late-arriving auto-saves are silently ignored
+ * (not error-rejected). Prevents race conditions where auto-save overwrites a
+ * finalized template. See docs/private/reference/template-invariants.md.
  */
 router.post('/', requireAuth, async (req: Request, res: Response) => {
     try {

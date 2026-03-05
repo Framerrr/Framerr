@@ -1,22 +1,22 @@
 /**
- * Plex Setup Routes
- * Handles account creation/linking flow for new Plex SSO users
+ * SSO Setup Routes
+ * Handles account creation/linking flow for new SSO users (Plex, OIDC, etc.)
  */
 import { Router, Request, Response } from 'express';
 import {
-    validatePlexSetupToken,
-    markTokenUsed,
-    PlexSetupToken
-} from '../db/plexSetupTokens';
+    validateSSOSetupToken,
+    consumeSSOSetupToken,
+} from '../db/ssoSetupTokens';
 import {
     getUser,
     createUser,
     setHasLocalPassword
 } from '../db/users';
 import { linkAccount, findUserByExternalId } from '../db/linkedAccounts';
-import { hashPassword, verifyPassword } from '../auth/password';
+import { verifyPassword } from '../auth/password';
 import { createUserSession } from '../auth/session';
 import logger from '../utils/logger';
+import { importSsoProfilePicture } from '../utils/importSsoProfilePicture';
 
 const router = Router();
 
@@ -33,13 +33,11 @@ interface LinkExistingBody {
 interface CreateAccountBody {
     setupToken: string;
     username: string;
-    password: string;
-    confirmPassword: string;
 }
 
 /**
- * POST /api/auth/plex-setup/validate
- * Validate setup token and return Plex user info
+ * POST /api/auth/sso-setup/validate
+ * Validate setup token and return SSO user info
  * No auth required - token provides authorization
  */
 router.post('/validate', async (req: Request, res: Response): Promise<void> => {
@@ -51,32 +49,33 @@ router.post('/validate', async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        const tokenData = validatePlexSetupToken(token);
+        const tokenData = validateSSOSetupToken(token);
         if (!tokenData) {
             res.status(401).json({ error: 'Invalid or expired token' });
             return;
         }
 
-        logger.debug(`[PlexSetup] Token validated: plexUsername="${tokenData.plexUsername}"`);
+        logger.debug(`[SSOSetup] Token validated: provider="${tokenData.provider}" username="${tokenData.externalUsername}"`);
 
         res.json({
             valid: true,
-            plexUser: {
-                username: tokenData.plexUsername,
-                email: tokenData.plexEmail,
-                thumb: tokenData.plexThumb
+            provider: tokenData.provider,
+            ssoUser: {
+                username: tokenData.externalUsername,
+                email: tokenData.externalEmail,
+                avatar: tokenData.externalAvatar
             }
         });
     } catch (error) {
-        logger.error(`[PlexSetup] Validate token error: error="${(error as Error).message}"`);
+        logger.error(`[SSOSetup] Validate token error: error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Failed to validate token' });
     }
 });
 
 /**
- * POST /api/auth/plex-setup/link-existing
- * Link Plex account to existing Framerr account
- * Verifies local credentials, links Plex, returns session
+ * POST /api/auth/sso-setup/link-existing
+ * Link SSO account to existing Framerr account
+ * Verifies local credentials, links SSO, returns session
  */
 router.post('/link-existing', async (req: Request, res: Response): Promise<void> => {
     try {
@@ -88,17 +87,17 @@ router.post('/link-existing', async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        // Validate setup token
-        const tokenData = validatePlexSetupToken(setupToken);
+        // Atomically consume setup token (validate + mark used in one step)
+        const tokenData = consumeSSOSetupToken(setupToken);
         if (!tokenData) {
             res.status(401).json({ error: 'Invalid or expired setup token' });
             return;
         }
 
-        // Check if Plex account is already linked to another user
-        const existingLink = findUserByExternalId('plex', tokenData.plexId);
+        // Check if SSO account is already linked to another user
+        const existingLink = findUserByExternalId(tokenData.provider, tokenData.externalId);
         if (existingLink) {
-            res.status(409).json({ error: 'This Plex account is already connected to another user' });
+            res.status(409).json({ error: 'This account is already connected to another user' });
             return;
         }
 
@@ -116,34 +115,40 @@ router.post('/link-existing', async (req: Request, res: Response): Promise<void>
             return;
         }
 
-        // Link Plex account to user
-        linkAccount(user.id, 'plex', {
-            externalId: tokenData.plexId,
-            externalUsername: tokenData.plexUsername,
-            externalEmail: tokenData.plexEmail || undefined,
+        // Link SSO account to user
+        linkAccount(user.id, tokenData.provider, {
+            externalId: tokenData.externalId,
+            externalUsername: tokenData.externalUsername,
+            externalEmail: tokenData.externalEmail || undefined,
             metadata: {
-                thumb: tokenData.plexThumb,
+                avatar: tokenData.externalAvatar,
                 linkedVia: 'sso-link-existing'
             }
         });
 
-        // Fire-and-forget: try to auto-match Overseerr account now that Plex is linked
-        import('../services/overseerrAutoMatch').then(m => m.tryAutoMatchSingleUser(user.id)).catch(() => { });
+        // Fire-and-forget: try to auto-match Overseerr account if Plex
+        if (tokenData.provider === 'plex') {
+            import('../services/overseerrAutoMatch').then(m => m.tryAutoMatchSingleUser(user.id)).catch(() => { });
+        }
 
-        // Mark token as used
-        markTokenUsed(setupToken);
+        // Import SSO profile picture if available (awaited — ready before app loads)
+        if (tokenData.externalAvatar) {
+            await importSsoProfilePicture(user.id, tokenData.externalAvatar);
+        }
+
+        // Token already consumed atomically above
 
         // Create session
         const session = await createUserSession(user, req, 86400000);
 
         res.cookie('sessionId', session.id, {
             httpOnly: true,
-            secure: false,
+            secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
             sameSite: 'lax',
             maxAge: 86400000
         });
 
-        logger.info(`[PlexSetup] Linked to existing: user=${user.id} username="${user.username}" plex="${tokenData.plexUsername}"`);
+        logger.info(`[SSOSetup] Linked to existing: user=${user.id} username="${user.username}" provider="${tokenData.provider}" external="${tokenData.externalUsername}"`);
 
         res.json({
             success: true,
@@ -155,33 +160,23 @@ router.post('/link-existing', async (req: Request, res: Response): Promise<void>
             }
         });
     } catch (error) {
-        logger.error(`[PlexSetup] Link existing error: error="${(error as Error).message}"`);
+        logger.error(`[SSOSetup] Link existing error: error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Failed to link account' });
     }
 });
 
 /**
- * POST /api/auth/plex-setup/create-account
- * Create new Framerr account with Plex link
- * Creates account, links Plex, returns session
+ * POST /api/auth/sso-setup/create-account
+ * Create new Framerr account with SSO link (username only, no password)
+ * Creates SSO-only account, links SSO, returns session
  */
 router.post('/create-account', async (req: Request, res: Response): Promise<void> => {
     try {
-        const { setupToken, username, password, confirmPassword } = req.body as CreateAccountBody;
+        const { setupToken, username } = req.body as CreateAccountBody;
 
-        // Validate inputs
-        if (!setupToken || !username || !password || !confirmPassword) {
-            res.status(400).json({ error: 'All fields are required' });
-            return;
-        }
-
-        if (password !== confirmPassword) {
-            res.status(400).json({ error: 'Passwords do not match' });
-            return;
-        }
-
-        if (password.length < 8) {
-            res.status(400).json({ error: 'Password must be at least 8 characters' });
+        // Validate inputs — username only, no password
+        if (!setupToken || !username) {
+            res.status(400).json({ error: 'Setup token and username are required' });
             return;
         }
 
@@ -190,17 +185,17 @@ router.post('/create-account', async (req: Request, res: Response): Promise<void
             return;
         }
 
-        // Validate setup token
-        const tokenData = validatePlexSetupToken(setupToken);
+        // Atomically consume setup token (validate + mark used in one step)
+        const tokenData = consumeSSOSetupToken(setupToken);
         if (!tokenData) {
             res.status(401).json({ error: 'Invalid or expired setup token' });
             return;
         }
 
-        // Check if Plex account is already linked
-        const existingLink = findUserByExternalId('plex', tokenData.plexId);
+        // Check if SSO account is already linked
+        const existingLink = findUserByExternalId(tokenData.provider, tokenData.externalId);
         if (existingLink) {
-            res.status(409).json({ error: 'This Plex account is already connected to another user' });
+            res.status(409).json({ error: 'This account is already connected to another user' });
             return;
         }
 
@@ -211,32 +206,37 @@ router.post('/create-account', async (req: Request, res: Response): Promise<void
             return;
         }
 
-        // Hash password and create user
-        const passwordHash = await hashPassword(password);
+        // Create SSO-only account — no password
         const user = await createUser({
             username,
-            passwordHash,
-            email: tokenData.plexEmail || undefined,
+            passwordHash: '',
+            email: tokenData.externalEmail || undefined,
             group: 'user',
-            hasLocalPassword: true  // User set their own password
+            hasLocalPassword: false
         });
 
-        // Link Plex account to user
-        linkAccount(user.id, 'plex', {
-            externalId: tokenData.plexId,
-            externalUsername: tokenData.plexUsername,
-            externalEmail: tokenData.plexEmail || undefined,
+        // Link SSO account to user
+        linkAccount(user.id, tokenData.provider, {
+            externalId: tokenData.externalId,
+            externalUsername: tokenData.externalUsername,
+            externalEmail: tokenData.externalEmail || undefined,
             metadata: {
-                thumb: tokenData.plexThumb,
+                avatar: tokenData.externalAvatar,
                 linkedVia: 'sso-create-account'
             }
         });
 
-        // Fire-and-forget: try to auto-match Overseerr account now that Plex is linked
-        import('../services/overseerrAutoMatch').then(m => m.tryAutoMatchSingleUser(user.id)).catch(() => { });
+        // Fire-and-forget: try to auto-match Overseerr account if Plex
+        if (tokenData.provider === 'plex') {
+            import('../services/overseerrAutoMatch').then(m => m.tryAutoMatchSingleUser(user.id)).catch(() => { });
+        }
 
-        // Mark token as used
-        markTokenUsed(setupToken);
+        // Import SSO profile picture if available (awaited — ready before app loads)
+        if (tokenData.externalAvatar) {
+            await importSsoProfilePicture(user.id, tokenData.externalAvatar);
+        }
+
+        // Token already consumed atomically above
 
         // Create session using the full user object with required fields
         const fullUser = await getUser(username);
@@ -248,12 +248,12 @@ router.post('/create-account', async (req: Request, res: Response): Promise<void
 
         res.cookie('sessionId', session.id, {
             httpOnly: true,
-            secure: false,
+            secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
             sameSite: 'lax',
             maxAge: 86400000
         });
 
-        logger.info(`[PlexSetup] Created new account: user=${user.id} username="${user.username}" plex="${tokenData.plexUsername}"`);
+        logger.info(`[SSOSetup] Created new account: user=${user.id} username="${user.username}" provider="${tokenData.provider}" external="${tokenData.externalUsername}"`);
 
         res.json({
             success: true,
@@ -266,7 +266,7 @@ router.post('/create-account', async (req: Request, res: Response): Promise<void
         });
     } catch (error) {
         const err = error as Error;
-        logger.error(`[PlexSetup] Create account error: error="${err.message}"`);
+        logger.error(`[SSOSetup] Create account error: error="${err.message}"`);
 
         if (err.message === 'User already exists') {
             res.status(409).json({ error: 'Username already taken' });

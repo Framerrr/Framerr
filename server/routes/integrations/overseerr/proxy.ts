@@ -481,10 +481,9 @@ router.post('/:id/proxy/request', requireAuth, async (req: Request, res: Respons
     } catch (error) {
         const adapterErr = error as { context?: { status?: number }; message: string };
         const status = adapterErr.context?.status || 500;
-        const message = adapterErr.message;
 
-        logger.error(`[Overseerr Proxy] Request error: status=${status} error="${message}"`);
-        res.status(status === 403 ? 403 : 500).json({ error: message });
+        logger.error(`[Overseerr Proxy] Request error: status=${status} error="${adapterErr.message}"`);
+        res.status(status >= 400 && status < 500 ? status : 500).json({ error: 'Failed to create media request' });
     }
 });
 

@@ -14,3 +14,4 @@ export * from './integration';
 export * from './widget';
 export * from './tab';
 export * from './api';
+export * from './backup';

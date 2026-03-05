@@ -275,15 +275,6 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
                 };
             }
 
-            // Check if password setup is needed (migrating user)
-            if (response.needsPasswordSetup && response.user) {
-                setUser(response.user);
-                return {
-                    success: true,
-                    needsPasswordSetup: true
-                };
-            }
-
             // Normal login
             if (response.user) {
                 showLoginSplash(); // Show splash before navigating to dashboard

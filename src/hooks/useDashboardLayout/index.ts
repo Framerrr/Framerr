@@ -18,9 +18,8 @@ export type {
     LayoutState,
     UseDashboardLayoutOptions,
     UseDashboardLayoutReturn,
-    GridPropsBundle,
+    GridCallbackBundle,
     ChangeDetectionResult,
-    WidgetBandInfo,
 } from './types';
 
 // Utility functions (for advanced use cases)
@@ -35,12 +34,10 @@ export {
     checkForActualChanges,
 } from './changeDetection';
 
-export { widgetSetsMatch } from '../../shared/grid/core/ops';
+export { widgetSetsMatch, deriveLinkedMobileLayout, snapshotToMobileLayout } from '../../shared/grid/core/ops';
 
 export {
     getDisplayWidgets,
     getWidgetsToUse,
     sortWidgetsByY,
-    applyBandDetection,
-    createMobileSnapshot,
 } from './mobileLayout';

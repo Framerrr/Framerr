@@ -9,7 +9,6 @@ import React, { useState, useRef } from 'react';
 import { Palette } from 'lucide-react';
 import { SettingsSection } from '../../../shared/ui/settings';
 import { useTheme } from '../../../context/ThemeContext';
-import { useSaveTheme } from '../../../api/hooks/useConfig';
 import type { ThemeDefinition, CustomColors } from '../types';
 import { themeColorPreviews, getCurrentThemeColors, removeColorsFromDOM } from '../utils/colorUtils';
 import logger from '../../../utils/logger';
@@ -34,7 +33,6 @@ export function ThemePresets({
     triggerRipple,
 }: ThemePresetsProps) {
     const { theme, themes, changeTheme } = useTheme();
-    const saveThemeMutation = useSaveTheme();
 
     // Optimistic UI: track selected theme locally for instant badge update
     const [selectedTheme, setSelectedTheme] = useState<string | null>(null);
@@ -70,38 +68,20 @@ export function ThemePresets({
                 triggerRipple(x, y, rippleColor);
             }
 
-            // Apply theme visually immediately (no delay for rapid clicks)
-            const root = document.documentElement;
-            [
-                'bg-primary', 'bg-secondary', 'bg-tertiary', 'accent', 'accent-secondary',
-                'text-primary', 'text-secondary', 'text-tertiary', 'border', 'border-light',
-                'success', 'warning', 'error', 'info', 'bg-hover', 'accent-hover',
-                'accent-light', 'border-accent'
-            ].forEach(key => root.style.removeProperty(`--${key}`));
-            root.setAttribute('data-theme', themeId);
-            localStorage.setItem('framerr-theme', themeId);
+            // Apply theme immediately: clear custom colors + switch theme (handles DOM, localStorage, API)
+            removeColorsFromDOM();
+            changeTheme(themeId).catch(error => {
+                logger.error('[ThemePresets] Failed to save theme', { error });
+            });
 
-            // Debounced backend save: cancel previous, wait for animation to complete
+            // Debounced: sync color picker state after CSS transition settles
             if (saveTimerRef.current) {
                 clearTimeout(saveTimerRef.current);
             }
-            saveTimerRef.current = setTimeout(async () => {
-                try {
-                    // Save directly to API without triggering context updates
-                    await saveThemeMutation.mutateAsync({
-                        preset: themeId,
-                        mode: 'dark'
-                    });
-                    // Update color pickers to show new theme colors
-                    removeColorsFromDOM();
-                    await changeTheme(themeId);
-                    const newColors = getCurrentThemeColors();
-                    setCustomColors(newColors);
-                } catch (error) {
-                    logger.error('[ThemePresets] Failed to save theme', { error });
-                } finally {
-                    setSelectedTheme(null);
-                }
+            saveTimerRef.current = setTimeout(() => {
+                const newColors = getCurrentThemeColors();
+                setCustomColors(newColors);
+                setSelectedTheme(null);
             }, 1000);
         }
     };

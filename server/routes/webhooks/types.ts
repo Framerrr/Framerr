@@ -4,21 +4,8 @@
  * Shared types and event mappings for webhook handlers.
  */
 
-// Re-export webhook payload types
-export type {
-    OverseerrWebhookPayload,
-    SonarrWebhookPayload,
-    RadarrWebhookPayload
-} from '../../types/webhooks';
-
 // Types
 export type WebhookService = 'overseerr' | 'sonarr' | 'radarr';
-
-export interface TokenValidationResult {
-    valid: boolean;
-    reason?: string;
-    webhookConfig?: WebhookConfig;
-}
 
 export interface WebhookConfig {
     webhookEnabled?: boolean;
@@ -55,20 +42,10 @@ export interface ProcessNotificationParams {
     adminOnly?: boolean;
 }
 
-export interface NotificationContent {
-    title: string;
-    message: string;
-}
-
 export interface User {
     id: string;
     username: string;
     group: string;
-}
-
-export interface SonarrEpisodeInfo {
-    episodeNumber: number;
-    seasonNumber: number;
 }
 
 // Event type mappings from external services to Framerr event keys
@@ -118,38 +95,4 @@ export const OVERSEERR_EVENT_MAP: Record<string, string> = {
     'test': 'test',
     'Test Notification': 'test',
     'TEST_NOTIFICATION': 'test'
-};
-
-export const SONARR_EVENT_MAP: Record<string, string> = {
-    'Grab': 'grab',
-    'Download': 'download',
-    'Upgrade': 'upgrade',
-    'ImportComplete': 'importComplete',
-    'Rename': 'rename',
-    'SeriesAdd': 'seriesAdd',
-    'SeriesDelete': 'seriesDelete',
-    'EpisodeFileDelete': 'episodeFileDelete',
-    'EpisodeFileDeleteForUpgrade': 'episodeFileDeleteForUpgrade',
-    'Health': 'healthIssue', // Will check payload for restored
-    'HealthRestored': 'healthRestored',
-    'ApplicationUpdate': 'applicationUpdate',
-    'ManualInteractionRequired': 'manualInteractionRequired',
-    'Test': 'test'
-};
-
-export const RADARR_EVENT_MAP: Record<string, string> = {
-    'Grab': 'grab',
-    'Download': 'download',
-    'Upgrade': 'upgrade',
-    'ImportComplete': 'importComplete',
-    'Rename': 'rename',
-    'MovieAdded': 'movieAdd',
-    'MovieDelete': 'movieDelete',
-    'MovieFileDelete': 'movieFileDelete',
-    'MovieFileDeleteForUpgrade': 'movieFileDeleteForUpgrade',
-    'Health': 'healthIssue',
-    'HealthRestored': 'healthRestored',
-    'ApplicationUpdate': 'applicationUpdate',
-    'ManualInteractionRequired': 'manualInteractionRequired',
-    'Test': 'test'
 };

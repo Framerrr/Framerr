@@ -6,7 +6,7 @@ import logger from '../../../utils/logger';
 import { useWalkthrough } from '../../../features/walkthrough';
 import { getWidgetMetadata } from '../../../widgets/registry';
 import { resolveAutoBinding } from '../../../widgets/resolveAutoBinding';
-import { generateAllMobileLayouts } from '../../../utils/layoutUtils';
+import { deriveLinkedMobileLayout } from '../../../shared/grid/core/ops';
 import { fromLegacyWidget } from '../../../shared/grid/adapter';
 import { GRID_COLS } from '../../../constants/gridConfig';
 import { triggerHaptic } from '../../../utils/haptics';
@@ -388,7 +388,7 @@ export function useDashboardHandlers({
             let fetchedWidgets = response.widgets || [];
 
             // Generate mobile layouts for the fetched widgets
-            fetchedWidgets = generateAllMobileLayouts(fetchedWidgets);
+            fetchedWidgets = deriveLinkedMobileLayout(fetchedWidgets, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h });
 
             await widgetsApi.saveAll({
                 widgets: fetchedWidgets,

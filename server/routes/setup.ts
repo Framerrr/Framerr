@@ -1,9 +1,75 @@
 import { Router, Request, Response } from 'express';
-import { hashPassword } from '../auth/password';
+import { hashPassword, validatePassword } from '../auth/password';
 import { createUser, listUsers } from '../db/users';
 import { createInstance } from '../db/integrationInstances';
 import logger from '../utils/logger';
 import { onFirstUserCreated } from '../services/IntegrationManager';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
+import { validateBackupZip, extractBackup } from '../utils/backup';
+import { inspectBackupFile, decryptBackupToZip } from '../utils/backupInspector';
+
+// ============================================================================
+// Encrypted Restore State
+// ============================================================================
+
+interface RestoreSession {
+    tempPath: string;
+    uploadedAt: number;
+    attempts: number;
+    lastAttemptAt: number;
+    invalidated: boolean;
+}
+
+const restoreSessions = new Map<string, RestoreSession>();
+let pbkdf2InFlight = false;
+
+const RESTORE_SESSION_TTL = 30 * 60 * 1000; // 30 minutes
+const MAX_DECRYPT_ATTEMPTS = 5;
+const DECRYPT_COOLDOWN_MS = 1000;
+
+/**
+ * Sweep stale restore sessions (older than TTL).
+ * Called on each new upload to prevent orphaned temp files.
+ */
+function sweepStaleSessions(): void {
+    const now = Date.now();
+    for (const [id, session] of restoreSessions) {
+        if (now - session.uploadedAt > RESTORE_SESSION_TTL) {
+            // Delete temp file if it still exists
+            if (fs.existsSync(session.tempPath)) {
+                try {
+                    fs.unlinkSync(session.tempPath);
+                    logger.debug(`[Restore] Cleaned up stale temp file: restoreId=${id}`);
+                } catch (err) {
+                    logger.warn(`[Restore] Failed to clean temp file: restoreId=${id} error="${(err as Error).message}"`);
+                }
+            }
+            restoreSessions.delete(id);
+        }
+    }
+}
+
+/**
+ * Startup cleanup: remove leftover restore temp files from crashed sessions.
+ * Only targets restore-*.framerr-backup files in data/temp/.
+ */
+const tempDir = path.join(process.env.DATA_DIR || path.join(__dirname, '..', 'data'), 'temp');
+try {
+    if (fs.existsSync(tempDir)) {
+        const files = fs.readdirSync(tempDir);
+        for (const file of files) {
+            if (file.startsWith('restore-') && file.endsWith('.framerr-backup')) {
+                fs.unlinkSync(path.join(tempDir, file));
+                logger.debug(`[Restore] Startup cleanup: removed ${file}`);
+            }
+        }
+    }
+} catch (err) {
+    logger.warn(`[Restore] Startup cleanup error: error="${(err as Error).message}"`);
+}
 
 const router = Router();
 
@@ -54,8 +120,9 @@ router.post('/', async (req: Request, res: Response) => {
             return;
         }
 
-        if (password.length < 6) {
-            res.status(400).json({ error: 'Password must be at least 6 characters' });
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.valid) {
+            res.status(400).json({ error: passwordValidation.errors[0] });
             return;
         }
 
@@ -129,14 +196,11 @@ router.post('/', async (req: Request, res: Response) => {
 /**
  * POST /api/auth/setup/restore
  * Restore from backup file (only works if no users exist)
+ * Supports both plain .zip and encrypted .framerr-backup files.
  */
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { validateBackupZip, extractBackup } from '../utils/backup';
 
 // Configure multer for backup upload
-const uploadDir = path.join(process.env.DATA_DIR || path.join(__dirname, '..', 'data'), 'temp');
+const uploadDir = tempDir;
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => {
         if (!fs.existsSync(uploadDir)) {
@@ -154,13 +218,54 @@ const upload = multer({
     fileFilter: (_req, file, cb) => {
         if (file.mimetype === 'application/zip' ||
             file.mimetype === 'application/x-zip-compressed' ||
-            file.originalname.endsWith('.zip')) {
+            file.mimetype === 'application/octet-stream' ||
+            file.originalname.endsWith('.zip') ||
+            file.originalname.endsWith('.framerr-backup')) {
             cb(null, true);
         } else {
-            cb(new Error('Only ZIP files are allowed'));
+            cb(new Error('Only .zip and .framerr-backup files are allowed'));
         }
     }
 });
+
+/**
+ * Execute the actual restore: validate ZIP → close DB → extract → hot-swap → start services.
+ * Shared between plain restore and encrypted decrypt flows.
+ */
+async function executeRestore(zipPath: string): Promise<void> {
+    // Validate backup contents
+    const validation = await validateBackupZip(zipPath);
+    if (!validation.valid) {
+        throw new Error(validation.error || 'Invalid backup file');
+    }
+
+    logger.info(`[Restore] Backup validated: manifest=${JSON.stringify(validation.manifest)}`);
+
+    // CRITICAL: Close the database connection BEFORE extracting
+    // This releases the file lock so we can overwrite the database file
+    const { closeDatabase, reinitializeDatabase } = await import('../database/db');
+    closeDatabase();
+    logger.info('[Restore] Closed old database connection');
+
+    // Extract backup (replaces database file)
+    await extractBackup(zipPath);
+
+    // Reinitialize database connection to pick up the restored database
+    reinitializeDatabase();
+
+    logger.info('[Restore] Backup restore complete via setup wizard');
+
+    // Start background services - the restored database has users and data,
+    // but services were skipped at startup because no users existed then
+    try {
+        const { startAllServices } = await import('../services/IntegrationManager');
+        await startAllServices();
+        logger.info('[Restore] Background services started after restore');
+    } catch (serviceError) {
+        // Non-fatal: services can be started on next server restart
+        logger.warn(`[Restore] Failed to start background services: error="${(serviceError as Error).message}"`);
+    }
+}
 
 router.post('/restore', upload.single('backup'), async (req: Request, res: Response) => {
     try {
@@ -178,56 +283,50 @@ router.post('/restore', upload.single('backup'), async (req: Request, res: Respo
             return;
         }
 
-        const zipPath = req.file.path;
+        const filePath = req.file.path;
         logger.info(`[Restore] Backup file received: filename=${req.file.originalname} size=${req.file.size}`);
 
-        // Validate backup
-        const validation = await validateBackupZip(zipPath);
-        if (!validation.valid) {
-            // Clean up uploaded file
-            fs.unlinkSync(zipPath);
-            res.status(400).json({ error: validation.error });
+        // Sweep stale sessions on each new upload
+        sweepStaleSessions();
+
+        // Detect file format
+        let inspection;
+        try {
+            inspection = inspectBackupFile(filePath);
+        } catch (err) {
+            fs.unlinkSync(filePath);
+            res.status(400).json({ error: (err as Error).message });
             return;
         }
 
-        logger.info(`[Restore] Backup validated: manifest=${JSON.stringify(validation.manifest)}`);
+        if (inspection.format === 'encrypted') {
+            // Encrypted backup — store temp file and return restoreId for two-step flow
+            const restoreId = crypto.randomUUID();
+            restoreSessions.set(restoreId, {
+                tempPath: filePath,
+                uploadedAt: Date.now(),
+                attempts: 0,
+                lastAttemptAt: 0,
+                invalidated: false,
+            });
 
-        // CRITICAL: Close the database connection BEFORE extracting
-        // This releases the file lock so we can overwrite the database file
-        const { closeDatabase, reinitializeDatabase } = await import('../database/db');
-        closeDatabase();
-        logger.info('[Restore] Closed old database connection');
+            logger.info(`[Restore] Encrypted backup detected — awaiting password: restoreId=${restoreId}`);
+            res.json({ encrypted: true, restoreId });
+            return;
+        }
 
-        // Extract backup (replaces database file)
-        await extractBackup(zipPath);
-
-        // Reinitialize database connection to pick up the restored database
-        reinitializeDatabase();
+        // Plain ZIP — proceed with immediate restore
+        await executeRestore(filePath);
 
         // Clean up uploaded file
-        fs.unlinkSync(zipPath);
-
-        logger.info('[Restore] Backup restore complete via setup wizard');
-
-        // Start background services - the restored database has users and data,
-        // but services were skipped at startup because no users existed then
-        try {
-            const { startAllServices } = await import('../services/IntegrationManager');
-            await startAllServices();
-            logger.info('[Restore] Background services started after restore');
-        } catch (serviceError) {
-            // Non-fatal: services can be started on next server restart
-            logger.warn(`[Restore] Failed to start background services: error="${(serviceError as Error).message}"`);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
         }
 
         res.json({
             success: true,
             message: 'Backup restored successfully.',
-            manifest: validation.manifest
         });
-
-        // With the getDb() pattern, the database connection is now hot-swapped
-        // No server restart is needed - the new database is immediately active
     } catch (error) {
         logger.error(`[Restore] Setup restore error: error="${(error as Error).message}"`);
 
@@ -237,6 +336,117 @@ router.post('/restore', upload.single('backup'), async (req: Request, res: Respo
         }
 
         res.status(500).json({ error: (error as Error).message || 'Restore failed' });
+    }
+});
+
+/**
+ * POST /api/auth/setup/restore/decrypt
+ * Decrypt an encrypted backup and restore it (setup mode only).
+ *
+ * Rate limiting:
+ * - Per-session cooldown (1s between attempts)
+ * - Global PBKDF2 concurrency guard (one derivation at a time)
+ * - Max 5 attempts per restoreId, then tombstone (410)
+ */
+router.post('/restore/decrypt', async (req: Request, res: Response) => {
+    try {
+        // Security: Verify no users exist (setup mode only)
+        const users = await listUsers();
+        if (users.length > 0) {
+            res.status(403).json({ error: 'Restore is only available during initial setup' });
+            return;
+        }
+
+        const { password, restoreId } = req.body;
+
+        // Validation
+        if (!password || !restoreId) {
+            res.status(400).json({ error: 'Password and restoreId are required' });
+            return;
+        }
+
+        // Rate limiting chain (ordered by precedence per plan)
+
+        // 1. Unknown restoreId
+        const session = restoreSessions.get(restoreId);
+        if (!session) {
+            res.status(404).json({ error: 'Restore session not found or expired' });
+            return;
+        }
+
+        // 2. Tombstoned session
+        if (session.invalidated) {
+            res.status(410).json({ error: 'Too many failed attempts. Please re-upload the backup.' });
+            return;
+        }
+
+        // 3. Per-session cooldown
+        const now = Date.now();
+        if (session.lastAttemptAt > 0 && now - session.lastAttemptAt < DECRYPT_COOLDOWN_MS) {
+            res.status(429).json({ error: 'Too many attempts. Wait 1 second.', retryAfter: 1 });
+            return;
+        }
+
+        // 4. Global PBKDF2 concurrency
+        if (pbkdf2InFlight) {
+            res.status(429).json({ error: 'Server busy. Try again shortly.', retryAfter: 2 });
+            return;
+        }
+
+        // Mark attempt timing
+        session.lastAttemptAt = now;
+
+        // Attempt decryption
+        pbkdf2InFlight = true;
+        let decryptedZipPath: string;
+        try {
+            decryptedZipPath = decryptBackupToZip(session.tempPath, password);
+        } catch {
+            // Wrong password or corruption
+            session.attempts++;
+
+            if (session.attempts >= MAX_DECRYPT_ATTEMPTS) {
+                // Tombstone the session
+                session.invalidated = true;
+                // Delete temp file
+                if (fs.existsSync(session.tempPath)) {
+                    fs.unlinkSync(session.tempPath);
+                }
+                logger.warn(`[Restore] Max decrypt attempts reached — tombstoned: restoreId=${restoreId}`);
+                res.status(410).json({ error: 'Too many failed attempts. Please re-upload the backup.' });
+                return;
+            }
+
+            const attemptsRemaining = MAX_DECRYPT_ATTEMPTS - session.attempts;
+            logger.info(`[Restore] Wrong password: restoreId=${restoreId} attemptsRemaining=${attemptsRemaining}`);
+            res.status(401).json({ error: 'Incorrect password', attemptsRemaining });
+            return;
+        } finally {
+            pbkdf2InFlight = false;
+        }
+
+        // Decryption succeeded — execute restore with the decrypted ZIP
+        try {
+            await executeRestore(decryptedZipPath);
+        } finally {
+            // Clean up decrypted temp ZIP
+            if (fs.existsSync(decryptedZipPath)) {
+                fs.unlinkSync(decryptedZipPath);
+            }
+        }
+
+        // Clean up encrypted temp file and session
+        if (fs.existsSync(session.tempPath)) {
+            fs.unlinkSync(session.tempPath);
+        }
+        restoreSessions.delete(restoreId);
+
+        logger.info(`[Restore] Encrypted backup restored successfully: restoreId=${restoreId}`);
+        res.json({ success: true });
+
+    } catch (error) {
+        logger.error(`[Restore] Decrypt restore error: error="${(error as Error).message}"`);
+        res.status(500).json({ error: 'Decryption failed' });
     }
 });
 

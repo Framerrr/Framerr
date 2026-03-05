@@ -7,6 +7,11 @@ import logger from '../utils/logger';
 
 const router = Router();
 
+/** Canonical preset names — source of truth for all theme validation */
+export const VALID_PRESETS: readonly string[] = ['dark-pro', 'nord', 'catppuccin', 'dracula', 'light', 'noir', 'nebula'];
+/** All accepted mode values: base modes + preset IDs */
+export const VALID_MODES: readonly string[] = ['light', 'dark', 'system', 'custom', ...VALID_PRESETS];
+
 interface AuthenticatedUser {
     id: string;
     username: string;
@@ -72,9 +77,25 @@ router.put('/', requireAuth, async (req: Request, res: Response) => {
         }
 
         // Validate mode if provided
-        if (theme.mode && !['light', 'dark', 'system'].includes(theme.mode)) {
+        if (theme.mode && !VALID_MODES.includes(theme.mode)) {
             res.status(400).json({
-                error: 'Theme mode must be one of: light, dark, system'
+                error: `Theme mode must be one of: ${VALID_MODES.join(', ')}`
+            });
+            return;
+        }
+
+        // Validate preset if provided
+        if (theme.preset && !VALID_PRESETS.includes(theme.preset)) {
+            res.status(400).json({
+                error: `Theme preset must be one of: ${VALID_PRESETS.join(', ')}`
+            });
+            return;
+        }
+
+        // Validate lastSelectedTheme if provided
+        if (theme.lastSelectedTheme && !VALID_PRESETS.includes(theme.lastSelectedTheme)) {
+            res.status(400).json({
+                error: `lastSelectedTheme must be one of: ${VALID_PRESETS.join(', ')}`
             });
             return;
         }
@@ -104,12 +125,21 @@ router.put('/', requireAuth, async (req: Request, res: Response) => {
         logger.debug(`[Theme] Updated: user=${authReq.user!.id} preset=${updatedTheme.preset}`);
 
         // Auto-sync loginTheme when an admin changes their theme
-        if (authReq.user!.group === 'admin' && updatedTheme.preset) {
-            try {
-                await updateSystemConfig({ loginTheme: updatedTheme.preset });
-                logger.debug(`[Theme] Login theme synced: ${updatedTheme.preset}`);
-            } catch (syncErr) {
-                logger.warn(`[Theme] Failed to sync login theme: ${(syncErr as Error).message}`);
+        if (authReq.user!.group === 'admin') {
+            let loginTheme: string | undefined;
+            if (updatedTheme.mode === 'custom') {
+                // Custom mode: sync underlying preset (validated above)
+                loginTheme = updatedTheme.lastSelectedTheme || updatedTheme.preset || 'dark-pro';
+            } else if (updatedTheme.preset) {
+                loginTheme = updatedTheme.preset;
+            }
+            if (loginTheme && VALID_PRESETS.includes(loginTheme)) {
+                try {
+                    await updateSystemConfig({ loginTheme });
+                    logger.debug(`[Theme] Login theme synced: ${loginTheme}`);
+                } catch (syncErr) {
+                    logger.warn(`[Theme] Failed to sync login theme: ${(syncErr as Error).message}`);
+                }
             }
         }
 

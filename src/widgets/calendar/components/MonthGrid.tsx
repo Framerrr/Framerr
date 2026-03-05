@@ -25,9 +25,12 @@ interface MonthGridProps {
     onFilterChange?: (filter: FilterType) => void;
     /** Whether this is inside the "both" split view (adjusts sizing) */
     compact?: boolean;
+    /** Start week on Monday instead of Sunday */
+    startWeekOnMonday?: boolean;
 }
 
-const DAY_HEADERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const SUNDAY_HEADERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const MONDAY_HEADERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 const MonthGrid: React.FC<MonthGridProps> = ({
     events,
@@ -40,14 +43,19 @@ const MonthGrid: React.FC<MonthGridProps> = ({
     showFilter = true,
     onFilterChange,
     compact = false,
+    startWeekOnMonday = false,
 }) => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const startOfMonth = new Date(year, month, 1);
     const endOfMonth = new Date(year, month + 1, 0);
     const daysInMonth = endOfMonth.getDate();
-    const startDay = startOfMonth.getDay(); // 0 = Sunday
+    // Sunday-start: getDay() returns 0=Sunday, 1=Monday, ..., 6=Saturday
+    // Monday-start: shift so Monday=0, Tuesday=1, ..., Sunday=6
+    const rawStartDay = startOfMonth.getDay();
+    const startDay = startWeekOnMonday ? (rawStartDay + 6) % 7 : rawStartDay;
     const todayStr = toLocalDateStr(new Date());
+    const dayHeaders = startWeekOnMonday ? MONDAY_HEADERS : SUNDAY_HEADERS;
 
     /** Filter events by type */
     const filterEvents = (dayEvents: CalendarEvent[]): CalendarEvent[] => {
@@ -103,7 +111,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({
             {/* Grid */}
             <div className="cal-grid">
                 {/* Day headers */}
-                {DAY_HEADERS.map((d, i) => (
+                {dayHeaders.map((d, i) => (
                     <div key={i} className="cal-grid-day-header">{d}</div>
                 ))}
 

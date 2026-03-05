@@ -4,22 +4,12 @@ import { isAdmin } from '../utils/permissions';
 import logger from '../utils/logger';
 import { configApi } from '../api/endpoints/config';
 import { integrationsApi } from '../api/endpoints/integrations';
-import { widgetsApi } from '../api/endpoints/widgets';
 import useRealtimeSSE from '../hooks/useRealtimeSSE';
-import type { FramerrWidget } from '../../shared/types/widget';
-import type { TabGroup } from '../../shared/types/tab';
 import type { IntegrationsMap } from '../../shared/types/integration';
 import type { AppDataContextValue, UserSettings } from '../types/context/appData';
 
 interface UserConfigResponse {
     preferences?: Record<string, unknown>;
-    dashboard?: {
-        widgets?: FramerrWidget[];
-    };
-}
-
-interface SystemConfigResponse {
-    tabGroups?: TabGroup[];
 }
 
 interface SharedIntegration {
@@ -43,34 +33,21 @@ export const AppDataProvider = ({ children }: AppDataProviderProps): React.JSX.E
     const { isAuthenticated, user } = useAuth();
     const { onSettingsInvalidate } = useRealtimeSSE();
     const [userSettings, setUserSettings] = useState<UserSettings>({});
-    const [services, setServices] = useState<unknown[]>([]);
-    const [groups, setGroups] = useState<TabGroup[]>([]);
-    const [widgets, setWidgets] = useState<FramerrWidget[]>([]);
     const [integrations, setIntegrations] = useState<IntegrationsMap>({});
     const [integrationsLoaded, setIntegrationsLoaded] = useState<boolean>(false);
     const [integrationsError, setIntegrationsError] = useState<Error | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
 
     const fetchData = useCallback(async (): Promise<void> => {
         if (!isAuthenticated) {
-            setLoading(false);
             return;
         }
 
         try {
-            setLoading(true);
-            // Fetch user config (includes preferences, dashboard layout)
+            // Fetch user config (includes preferences)
             const userConfig = await configApi.getUser() as UserConfigResponse;
 
             // Only fetch admin-only endpoints for admins
-            let systemConfig: SystemConfigResponse = {};
             if (isAdmin(user)) {
-                try {
-                    const sysData = await configApi.getSystem();
-                    systemConfig = sysData as SystemConfigResponse;
-                } catch (sysError) {
-                    logger.debug('System config not available');
-                }
 
                 // Fetch integrations config (admin-only)
                 try {
@@ -139,18 +116,8 @@ export const AppDataProvider = ({ children }: AppDataProviderProps): React.JSX.E
                 ...userConfig.preferences
             });
 
-            setWidgets(userConfig.dashboard?.widgets || []);
-
-            // Set tab groups from system config (or empty for non-admins)
-            setGroups((systemConfig.tabGroups || []).sort((a, b) => a.order - b.order));
-
-            // TODO: Fetch real services from backend when service system is implemented
-            setServices([]);
-
         } catch (error) {
             logger.error('Failed to fetch app data', { error: (error as Error).message });
-        } finally {
-            setLoading(false);
         }
     }, [isAuthenticated, user]);
 
@@ -223,38 +190,15 @@ export const AppDataProvider = ({ children }: AppDataProviderProps): React.JSX.E
         }
     }, [userSettings]);
 
-    const updateWidgetLayout = useCallback(async (newLayout: FramerrWidget[]): Promise<void> => {
-        try {
-            // Optimistically update UI
-            setWidgets(newLayout);
-
-            // Save to backend
-            await widgetsApi.saveAll({ widgets: newLayout });
-
-            logger.debug('Widget layout saved', { widgetCount: newLayout.length });
-        } catch (error) {
-            logger.error('Failed to save widget layout', { error: (error as Error).message });
-            // Revert on error
-            fetchData();
-        }
-    }, [fetchData]);
-
     // Memoize context value to prevent unnecessary re-renders
     const value: AppDataContextValue = useMemo(() => ({
         userSettings,
-        services,
-        groups,
-        widgets,
         integrations,
         integrationsLoaded,
         integrationsError,
-        loading,
-        updateWidgetLayout,
-        refreshData: fetchData
     }), [
-        userSettings, services, groups, widgets, integrations,
-        integrationsLoaded, integrationsError, loading,
-        updateWidgetLayout, fetchData
+        userSettings, integrations,
+        integrationsLoaded, integrationsError,
     ]);
 
     return (

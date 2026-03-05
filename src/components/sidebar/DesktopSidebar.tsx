@@ -511,11 +511,11 @@ export function DesktopSidebar() {
                             </button>
                         </HighlightItem>
 
-                        {/* Profile Link - navigates to settings/profile */}
+                        {/* Profile Link - navigates to settings/account/profile */}
                         <HighlightItem value="profile">
                             <a
-                                href="/#settings/profile"
-                                onClick={(e: React.MouseEvent<HTMLAnchorElement>) => handleNavigation(e, '#settings/profile')}
+                                href="/#settings/account/profile"
+                                onClick={(e: React.MouseEvent<HTMLAnchorElement>) => handleNavigation(e, '#settings/account/profile')}
                                 className="relative flex items-center py-3 pl-20 min-h-[44px] text-sm font-medium text-theme-secondary hover:text-theme-primary transition-colors rounded-xl group"
                             >
                                 {/* Icon - absolutely positioned in 80px left zone */}

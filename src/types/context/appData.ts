@@ -3,8 +3,6 @@
  * Types for application data state
  */
 
-import type { FramerrWidget } from '../../../shared/types/widget';
-import type { TabGroup } from '../../../shared/types/tab';
 import type { IntegrationsMap } from '../../../shared/types/integration';
 
 /**
@@ -30,21 +28,6 @@ export interface AppDataContextValue {
     userSettings: UserSettings;
 
     /**
-     * Available services (currently unused, for future expansion)
-     */
-    services: unknown[];
-
-    /**
-     * Tab groups for sidebar organization
-     */
-    groups: TabGroup[];
-
-    /**
-     * User's dashboard widgets
-     */
-    widgets: FramerrWidget[];
-
-    /**
      * User's integration configurations
      */
     integrations: IntegrationsMap;
@@ -58,21 +41,6 @@ export interface AppDataContextValue {
      * Error from loading integrations
      */
     integrationsError: Error | null;
-
-    /**
-     * True while initial data is loading
-     */
-    loading: boolean;
-
-    /**
-     * Update widget layout (positions and sizes)
-     */
-    updateWidgetLayout: (widgets: FramerrWidget[]) => Promise<void>;
-
-    /**
-     * Refresh all app data from server
-     */
-    refreshData: () => Promise<void>;
 }
 
 /**
