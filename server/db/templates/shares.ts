@@ -16,7 +16,7 @@ import type { ShareRow, TemplateShare } from '../templates.types';
 /**
  * Share a template with a user or everyone
  */
-export async function shareTemplate(templateId: string, sharedWith: string): Promise<TemplateShare> {
+export function shareTemplate(templateId: string, sharedWith: string): TemplateShare {
     const id = uuidv4();
 
     try {
@@ -48,7 +48,7 @@ export async function shareTemplate(templateId: string, sharedWith: string): Pro
  * template deletion to remove the share record and clear `shared_from_id` on copies.
  * See docs/private/reference/template-invariants.md.
  */
-export async function unshareTemplate(templateId: string, sharedWith: string): Promise<boolean> {
+export function unshareTemplate(templateId: string, sharedWith: string): boolean {
     try {
         // Delete the share permission
         const result = getDb().prepare('DELETE FROM template_shares WHERE template_id = ? AND shared_with = ?').run(templateId, sharedWith);
@@ -75,7 +75,7 @@ export async function unshareTemplate(templateId: string, sharedWith: string): P
 /**
  * Get shares for a template
  */
-export async function getTemplateShares(templateId: string): Promise<TemplateShare[]> {
+export function getTemplateShares(templateId: string): TemplateShare[] {
     try {
         const rows = getDb().prepare('SELECT * FROM template_shares WHERE template_id = ?').all(templateId) as ShareRow[];
         return rows.map(row => ({

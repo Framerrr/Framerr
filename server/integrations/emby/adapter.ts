@@ -14,6 +14,7 @@ import { PluginInstance } from '../types';
 import { HttpOpts } from '../httpTypes';
 import { AdapterError } from '../errors';
 import { reauthenticate } from '../../utils/reauth';
+import { getInstanceById } from '../../db/integrationInstances';
 import logger from '../../utils/logger';
 
 // ============================================================================
@@ -50,7 +51,7 @@ export class EmbyAdapter extends BaseAdapter {
      * Flow:
      *   1. Try the request via BaseAdapter.request()
      *   2. If AUTH_FAILED → call reauthenticate(instance.id)
-     *   3. On success → refresh realtime, build fresh instance, retry once
+     *   3. On success → refresh realtime, re-read from DB, retry once
      *   4. On failure → throw original error
      * 
      * Skips reauth for the auth endpoint itself to prevent infinite loops.
@@ -89,12 +90,17 @@ export class EmbyAdapter extends BaseAdapter {
                 // Non-fatal — realtime may not be active for this instance
             }
 
-            // Retry with fresh credentials
+            // Re-read from DB to get the latest token (handles concurrent reauth)
+            const dbInstance = getInstanceById(instance.id);
+            if (!dbInstance) {
+                logger.warn(`[Adapter:emby] Instance disappeared during reauth: id=${instance.id}`);
+                throw error;
+            }
+
             const freshInstance: PluginInstance = {
                 ...instance,
                 config: {
-                    ...instance.config,
-                    apiKey: reauth.newApiKey,
+                    ...dbInstance.config,
                 },
             };
 

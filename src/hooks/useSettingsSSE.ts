@@ -26,7 +26,6 @@
  * - 'backup' - Backup config and list
  * - 'auth-config' - Authentication settings
  * - 'app-config' - Server name, icon
- * - 'permission-groups' - Permission group definitions
  */
 
 import { useEffect } from 'react';
@@ -137,11 +136,6 @@ const ENTITY_QUERY_KEYS: Record<string, (() => readonly unknown[])[]> = {
     // App config - server name, icon, etc.
     'app-config': [
         queryKeys.system.config,
-    ],
-
-    // Permission groups - permission group definitions
-    'permission-groups': [
-        queryKeys.system.permissionGroups,
     ],
 };
 

@@ -108,9 +108,9 @@ const DEFAULT_USER_CONFIG: UserConfig = {
 /**
  * Get user configuration
  */
-export async function getUserConfig(userId: string): Promise<UserConfig> {
+export function getUserConfig(userId: string): UserConfig {
     try {
-        const user = await getUserById(userId);
+        const user = getUserById(userId);
         if (!user) {
             throw new Error('User not found');
         }
@@ -176,14 +176,14 @@ function deepMerge<T extends Record<string, unknown>>(target: T, source: Partial
 /**
  * Update user configuration
  */
-export async function updateUserConfig(userId: string, updates: DeepPartial<UserConfig>): Promise<UserConfig> {
+export function updateUserConfig(userId: string, updates: DeepPartial<UserConfig>): UserConfig {
     try {
-        const user = await getUserById(userId);
+        const user = getUserById(userId);
         if (!user) {
             throw new Error('User not found');
         }
 
-        const currentConfig = await getUserConfig(userId);
+        const currentConfig = getUserConfig(userId);
         const newConfig = deepMerge(currentConfig as unknown as Record<string, unknown>, updates as unknown as Record<string, unknown>) as unknown as UserConfig;
 
         const exists = getDb().prepare(`
@@ -247,16 +247,16 @@ function generateSlug(name: string): string {
 /**
  * Get user's tabs
  */
-export async function getUserTabs(userId: string): Promise<UserTab[]> {
-    const config = await getUserConfig(userId);
+export function getUserTabs(userId: string): UserTab[] {
+    const config = getUserConfig(userId);
     return config.tabs || [];
 }
 
 /**
  * Add tab to user's config
  */
-export async function addUserTab(userId: string, tabData: { name: string; url: string; icon?: string; groupId?: string; enabled?: boolean; openInNewTab?: boolean }): Promise<UserTab> {
-    const config = await getUserConfig(userId);
+export function addUserTab(userId: string, tabData: { name: string; url: string; icon?: string; groupId?: string; enabled?: boolean; openInNewTab?: boolean }): UserTab {
+    const config = getUserConfig(userId);
 
     const tab: UserTab = {
         id: uuidv4(),
@@ -274,7 +274,7 @@ export async function addUserTab(userId: string, tabData: { name: string; url: s
     const tabs = config.tabs || [];
     tabs.push(tab);
 
-    await updateUserConfig(userId, { tabs });
+    updateUserConfig(userId, { tabs });
 
     logger.info(`[UserConfig] Tab created: user=${userId} id=${tab.id} name="${tab.name}"`);
     return tab;
@@ -283,8 +283,8 @@ export async function addUserTab(userId: string, tabData: { name: string; url: s
 /**
  * Update user's tab
  */
-export async function updateUserTab(userId: string, tabId: string, updates: Partial<UserTab>): Promise<UserTab> {
-    const config = await getUserConfig(userId);
+export function updateUserTab(userId: string, tabId: string, updates: Partial<UserTab>): UserTab {
+    const config = getUserConfig(userId);
     const tabs = config.tabs || [];
     const tabIndex = tabs.findIndex(t => t.id === tabId);
 
@@ -301,7 +301,7 @@ export async function updateUserTab(userId: string, tabId: string, updates: Part
         ...updates
     };
 
-    await updateUserConfig(userId, { tabs });
+    updateUserConfig(userId, { tabs });
 
     logger.info(`[UserConfig] Tab updated: user=${userId} id=${tabId}`);
     return tabs[tabIndex];
@@ -310,8 +310,8 @@ export async function updateUserTab(userId: string, tabId: string, updates: Part
 /**
  * Delete user's tab
  */
-export async function deleteUserTab(userId: string, tabId: string): Promise<boolean> {
-    const config = await getUserConfig(userId);
+export function deleteUserTab(userId: string, tabId: string): boolean {
+    const config = getUserConfig(userId);
     const tabs = config.tabs || [];
     const filteredTabs = tabs.filter(t => t.id !== tabId);
 
@@ -319,7 +319,7 @@ export async function deleteUserTab(userId: string, tabId: string): Promise<bool
         throw new Error('Tab not found');
     }
 
-    await updateUserConfig(userId, { tabs: filteredTabs });
+    updateUserConfig(userId, { tabs: filteredTabs });
 
     logger.info(`[UserConfig] Tab deleted: user=${userId} id=${tabId}`);
     return true;
@@ -328,8 +328,8 @@ export async function deleteUserTab(userId: string, tabId: string): Promise<bool
 /**
  * Reorder user's tabs
  */
-export async function reorderUserTabs(userId: string, orderedIds: string[]): Promise<UserTab[]> {
-    const config = await getUserConfig(userId);
+export function reorderUserTabs(userId: string, orderedIds: string[]): UserTab[] {
+    const config = getUserConfig(userId);
     const tabs = config.tabs || [];
 
     const reorderedTabs = orderedIds.map((id, index) => {
@@ -338,7 +338,7 @@ export async function reorderUserTabs(userId: string, orderedIds: string[]): Pro
         return { ...tab, order: index };
     });
 
-    await updateUserConfig(userId, { tabs: reorderedTabs });
+    updateUserConfig(userId, { tabs: reorderedTabs });
 
     logger.info(`[UserConfig] Tabs reordered: user=${userId}`);
     return reorderedTabs;

@@ -52,7 +52,7 @@ interface DeleteIconError extends Error {
 /**
  * Add a custom icon
  */
-export async function addIcon(iconData: IconData): Promise<Icon> {
+export function addIcon(iconData: IconData): Icon {
     const icon = {
         id: uuidv4(),
         name: iconData.originalName || iconData.filename || iconData.name || '',
@@ -96,7 +96,7 @@ export async function addIcon(iconData: IconData): Promise<Icon> {
  * Get icon by ID or name
  * Supports both UUID and name-based lookups (for system icons like 'system-sonarr')
  */
-export async function getIconById(iconIdOrName: string): Promise<Icon | null> {
+export function getIconById(iconIdOrName: string): Icon | null {
     try {
         // First try by ID
         let icon = getDb().prepare('SELECT * FROM custom_icons WHERE id = ?').get(iconIdOrName) as IconRow | undefined;
@@ -129,7 +129,7 @@ export async function getIconById(iconIdOrName: string): Promise<Icon | null> {
 /**
  * List all custom icons
  */
-export async function listIcons(): Promise<Icon[]> {
+export function listIcons(): Icon[] {
     try {
         const icons = getDb().prepare('SELECT id, name, file_path, mime_type, uploaded_by, is_system, uploaded_at FROM custom_icons').all() as IconRow[];
 
@@ -151,7 +151,7 @@ export async function listIcons(): Promise<Icon[]> {
 /**
  * Delete an icon
  */
-export async function deleteIcon(iconId: string): Promise<Icon | null> {
+export function deleteIcon(iconId: string): Icon | null {
     try {
         const icon = getDb().prepare('SELECT * FROM custom_icons WHERE id = ?').get(iconId) as IconRow | undefined;
 
@@ -193,7 +193,7 @@ export async function deleteIcon(iconId: string): Promise<Icon | null> {
 /**
  * Get absolute file path for serving icon
  */
-export async function getIconPath(iconIdOrFilename: string): Promise<string | null> {
+export function getIconPath(iconIdOrFilename: string): string | null {
     try {
         let icon = getDb().prepare('SELECT file_path FROM custom_icons WHERE id = ?').get(iconIdOrFilename) as { file_path: string } | undefined;
 
@@ -215,7 +215,7 @@ export async function getIconPath(iconIdOrFilename: string): Promise<string | nu
 /**
  * Add a system icon (used during seeding)
  */
-export async function addSystemIcon(iconData: SystemIconData): Promise<Icon | null> {
+export function addSystemIcon(iconData: SystemIconData): Icon | null {
     try {
         const existing = getDb().prepare('SELECT id FROM custom_icons WHERE id = ?').get(iconData.id);
         if (existing) {
@@ -255,7 +255,7 @@ export async function addSystemIcon(iconData: SystemIconData): Promise<Icon | nu
 /**
  * Check if an icon is a system icon
  */
-export async function isSystemIcon(iconId: string): Promise<boolean> {
+export function isSystemIcon(iconId: string): boolean {
     try {
         const icon = getDb().prepare('SELECT is_system FROM custom_icons WHERE id = ?').get(iconId) as { is_system: number } | undefined;
         return icon?.is_system === 1;
@@ -268,7 +268,7 @@ export async function isSystemIcon(iconId: string): Promise<boolean> {
 /**
  * Get system icon by name (e.g., 'overseerr', 'radarr', 'sonarr')
  */
-export async function getSystemIconByName(name: string): Promise<Omit<Icon, 'uploadedAt' | 'uploadedBy'> | null> {
+export function getSystemIconByName(name: string): Omit<Icon, 'uploadedAt' | 'uploadedBy'> | null {
     try {
         const icon = getDb().prepare('SELECT * FROM custom_icons WHERE name = ? AND is_system = 1').get(name) as IconRow | undefined;
         if (!icon) return null;

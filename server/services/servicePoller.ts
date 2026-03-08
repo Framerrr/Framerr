@@ -12,6 +12,7 @@ import * as integrationInstancesDb from '../db/integrationInstances';
 import { notificationBatcher } from './NotificationBatcher';
 import { startNetworkHealthMonitor, checkNetworkHealth, isNetworkHealthy } from './networkHealth';
 import { registerJob, unregisterJob } from './jobScheduler';
+import { yieldToEventLoop } from '../utils/eventLoopYield';
 import logger from '../utils/logger';
 import https from 'https';
 import http from 'http';
@@ -150,7 +151,8 @@ class ServicePoller {
                 cronExpression: '0 * * * *',
                 description: 'Every hour',
                 execute: async () => {
-                    await serviceMonitorsDb.pruneOldHistory(2);
+                    await yieldToEventLoop();
+                    serviceMonitorsDb.pruneOldHistory(2);
                     logger.debug('[Poller] Pruned old monitor history');
                 },
             });
@@ -160,7 +162,8 @@ class ServicePoller {
                 cronExpression: '0 * * * *',
                 description: 'Every hour',
                 execute: async () => {
-                    await serviceMonitorsDb.pruneOldAggregates(30);
+                    await yieldToEventLoop();
+                    serviceMonitorsDb.pruneOldAggregates(30);
                     logger.debug('[Poller] Pruned old monitor aggregates');
                 },
             });

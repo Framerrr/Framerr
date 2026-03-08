@@ -2,6 +2,13 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.1.11] - 2026-03-08
+
+### Fixed
+- Server crash caused by scheduled task warnings flooding during Daylight Saving Time transitions — all cron scheduling now uses UTC internally to prevent timezone-related loops
+
+---
+
 ## [0.1.10] - 2026-03-05
 
 ### Added

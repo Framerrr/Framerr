@@ -20,12 +20,12 @@ import type { BackupRow, DashboardBackup } from '../templates.types';
  * to ensure each user has at most one backup at any time. Creating a new backup
  * replaces the existing one. See docs/private/reference/template-invariants.md.
  */
-export async function createBackup(
+export function createBackup(
     userId: string,
     widgets: unknown[],
     mobileLayoutMode: 'linked' | 'independent',
     mobileWidgets?: unknown[]
-): Promise<DashboardBackup> {
+): DashboardBackup {
     const id = uuidv4();
 
     try {
@@ -50,7 +50,7 @@ export async function createBackup(
 
         logger.debug(`[Templates] Backup created: user=${userId} widgets=${widgets.length}`);
 
-        return getBackup(userId) as Promise<DashboardBackup>;
+        return getBackup(userId) as DashboardBackup;
     } catch (error) {
         logger.error(`[Templates] Failed to create backup: user=${userId} error="${(error as Error).message}"`);
         throw error;
@@ -60,7 +60,7 @@ export async function createBackup(
 /**
  * Get backup for a user
  */
-export async function getBackup(userId: string): Promise<DashboardBackup | null> {
+export function getBackup(userId: string): DashboardBackup | null {
     try {
         const row = getDb().prepare('SELECT * FROM dashboard_backups WHERE user_id = ?').get(userId) as BackupRow | undefined;
 
@@ -100,7 +100,7 @@ export async function getBackup(userId: string): Promise<DashboardBackup | null>
 /**
  * Delete backup after revert
  */
-export async function deleteBackup(userId: string): Promise<boolean> {
+export function deleteBackup(userId: string): boolean {
     try {
         const result = getDb().prepare('DELETE FROM dashboard_backups WHERE user_id = ?').run(userId);
         return result.changes > 0;

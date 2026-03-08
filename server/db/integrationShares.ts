@@ -61,12 +61,12 @@ function rowToShare(row: ShareRow): IntegrationShare {
  * @param sharedBy - Admin user ID creating the share
  * @returns Array of created share records
  */
-export async function shareIntegration(
+export function shareIntegration(
     integrationName: string,
     shareType: ShareType,
     targets: string[],
     sharedBy: string
-): Promise<IntegrationShare[]> {
+): IntegrationShare[] {
     const shares: IntegrationShare[] = [];
 
     const insert = getDb().prepare(`
@@ -79,7 +79,7 @@ export async function shareIntegration(
         const id = uuidv4();
         try {
             insert.run(id, integrationName, 'everyone', null, sharedBy);
-            const created = await getShareById(id);
+            const created = getShareById(id);
             if (created) shares.push(created);
             logger.info(`[IntegrationShares] Shared: integration=${integrationName} target=everyone sharedBy=${sharedBy}`);
         } catch (error) {
@@ -95,7 +95,7 @@ export async function shareIntegration(
             const id = uuidv4();
             try {
                 insert.run(id, integrationName, shareType, target, sharedBy);
-                const created = await getShareById(id);
+                const created = getShareById(id);
                 if (created) shares.push(created);
             } catch (error) {
                 if (!(error as Error).message.includes('UNIQUE constraint')) {
@@ -119,11 +119,11 @@ export async function shareIntegration(
  * @param targets - Optional: only revoke for these specific targets
  * @returns Number of shares revoked
  */
-export async function unshareIntegration(
+export function unshareIntegration(
     integrationName: string,
     shareType?: ShareType,
     targets?: string[]
-): Promise<number> {
+): number {
     let sql = 'DELETE FROM integration_shares WHERE integration_name = ?';
     const params: (string | null)[] = [integrationName];
 
@@ -165,7 +165,7 @@ export async function unshareIntegration(
 /**
  * Get all shares for an integration.
  */
-export async function getIntegrationShares(integrationName: string): Promise<IntegrationShare[]> {
+export function getIntegrationShares(integrationName: string): IntegrationShare[] {
     const rows = getDb().prepare(`
         SELECT * FROM integration_shares WHERE integration_name = ?
         ORDER BY created_at ASC
@@ -179,7 +179,7 @@ export async function getIntegrationShares(integrationName: string): Promise<Int
  * Used for SharedWidgetsSettings display.
  * Filters out shares for deleted users and self-shares (admin sharing with themselves).
  */
-export async function getAllSharedIntegrations(): Promise<Map<string, IntegrationShare[]>> {
+export function getAllSharedIntegrations(): Map<string, IntegrationShare[]> {
     // Join with users table to filter out:
     // 1. Shares for deleted users (user no longer exists)
     // 2. Self-shares (admin who created the share targeting themselves)
@@ -211,11 +211,11 @@ export async function getAllSharedIntegrations(): Promise<Map<string, Integratio
  * @param userGroup - User's group
  * @returns true if user has access
  */
-export async function userHasIntegrationAccess(
+export function userHasIntegrationAccess(
     integrationName: string,
     userId: string,
     userGroup: string
-): Promise<boolean> {
+): boolean {
     // Check for 'everyone' share
     const everyoneShare = getDb().prepare(`
         SELECT 1 FROM integration_shares 
@@ -251,10 +251,10 @@ export async function userHasIntegrationAccess(
  * @param userGroup - User's group
  * @returns Array of integration names
  */
-export async function getUserAccessibleIntegrations(
+export function getUserAccessibleIntegrations(
     userId: string,
     userGroup: string
-): Promise<string[]> {
+): string[] {
     const rows = getDb().prepare(`
         SELECT DISTINCT integration_name FROM integration_shares
         WHERE share_type = 'everyone'
@@ -274,11 +274,11 @@ export async function getUserAccessibleIntegrations(
  * @param userGroup - User's group
  * @returns The share record or null if no access
  */
-export async function getShareForUser(
+export function getShareForUser(
     integrationName: string,
     userId: string,
     userGroup: string
-): Promise<IntegrationShare | null> {
+): IntegrationShare | null {
     // First check for user-specific share (most specific)
     const userShare = getDb().prepare(`
         SELECT * FROM integration_shares 
@@ -318,11 +318,11 @@ export async function getShareForUser(
  * @param adminId - Admin performing the share
  * @returns Object with shared and alreadyShared integration names
  */
-export async function shareIntegrationsForUsers(
+export function shareIntegrationsForUsers(
     requiredIntegrations: string[],
     targetUserIds: string[],
     adminId: string
-): Promise<{ shared: string[]; alreadyShared: string[] }> {
+): { shared: string[]; alreadyShared: string[] } {
     const shared: string[] = [];
     const alreadyShared: string[] = [];
 
@@ -373,7 +373,7 @@ export async function shareIntegrationsForUsers(
 // Internal Helpers
 // ============================================================================
 
-async function getShareById(id: string): Promise<IntegrationShare | null> {
+function getShareById(id: string): IntegrationShare | null {
     const row = getDb().prepare('SELECT * FROM integration_shares WHERE id = ?').get(id) as ShareRow | undefined;
     return row ? rowToShare(row) : null;
 }
@@ -389,7 +389,7 @@ async function getShareById(id: string): Promise<IntegrationShare | null> {
  * @param integrations - The integrations config from systemConfig
  * @param adminId - Admin ID to use as sharedBy
  */
-export async function migrateConfigSharesToDatabase(
+export function migrateConfigSharesToDatabase(
     integrations: Record<string, {
         enabled?: boolean;
         sharing?: {
@@ -401,7 +401,7 @@ export async function migrateConfigSharesToDatabase(
         }
     }>,
     adminId: string
-): Promise<{ migrated: number; skipped: number }> {
+): { migrated: number; skipped: number } {
     let migrated = 0;
     let skipped = 0;
 
@@ -415,13 +415,13 @@ export async function migrateConfigSharesToDatabase(
 
         try {
             if (sharing.mode === 'everyone') {
-                await shareIntegration(integrationName, 'everyone', [], sharedBy);
+                shareIntegration(integrationName, 'everyone', [], sharedBy);
                 migrated++;
             } else if (sharing.mode === 'groups' && sharing.groups?.length) {
-                await shareIntegration(integrationName, 'group', sharing.groups, sharedBy);
+                shareIntegration(integrationName, 'group', sharing.groups, sharedBy);
                 migrated++;
             } else if (sharing.mode === 'users' && sharing.users?.length) {
-                await shareIntegration(integrationName, 'user', sharing.users, sharedBy);
+                shareIntegration(integrationName, 'user', sharing.users, sharedBy);
                 migrated++;
             } else {
                 skipped++;
@@ -476,13 +476,13 @@ function rowToInstanceShare(row: InstanceShareRow): IntegrationInstanceShare {
  * @param targets - Array of user IDs or group names
  * @param sharedBy - Admin user ID
  */
-export async function shareIntegrationInstance(
+export function shareIntegrationInstance(
     integrationInstanceId: string,
     integrationType: string,
     shareType: ShareType,
     targets: string[],
     sharedBy: string
-): Promise<IntegrationInstanceShare[]> {
+): IntegrationInstanceShare[] {
     const db = getDb();
     const created: IntegrationInstanceShare[] = [];
 
@@ -543,11 +543,11 @@ export async function shareIntegrationInstance(
 /**
  * Revoke sharing for a specific integration instance.
  */
-export async function unshareIntegrationInstance(
+export function unshareIntegrationInstance(
     integrationInstanceId: string,
     shareType?: ShareType,
     targets?: string[]
-): Promise<number> {
+): number {
     const db = getDb();
 
     if (!shareType) {
@@ -592,11 +592,11 @@ export async function unshareIntegrationInstance(
 /**
  * Check if a user has access to a specific integration instance.
  */
-export async function userHasIntegrationInstanceAccess(
+export function userHasIntegrationInstanceAccess(
     integrationInstanceId: string,
     userId: string,
     userGroup: string
-): Promise<boolean> {
+): boolean {
     const db = getDb();
 
     // Check for 'everyone' share
@@ -636,11 +636,11 @@ export async function userHasIntegrationInstanceAccess(
  * @param userGroup - User's group
  * @returns The share record or null if no access
  */
-export async function getInstanceShareForUser(
+export function getInstanceShareForUser(
     integrationInstanceId: string,
     userId: string,
     userGroup: string
-): Promise<IntegrationInstanceShare | null> {
+): IntegrationInstanceShare | null {
     const db = getDb();
 
     // First check for user-specific share (most specific)
@@ -676,10 +676,10 @@ export async function getInstanceShareForUser(
 /**
  * Get all integration instance IDs that a user has access to.
  */
-export async function getUserAccessibleIntegrationInstances(
+export function getUserAccessibleIntegrationInstances(
     userId: string,
     userGroup: string
-): Promise<string[]> {
+): string[] {
     const db = getDb();
 
     const rows = db.prepare(`
@@ -696,9 +696,9 @@ export async function getUserAccessibleIntegrationInstances(
 /**
  * Get all instance shares for a specific integration instance.
  */
-export async function getIntegrationInstanceShares(
+export function getIntegrationInstanceShares(
     integrationInstanceId: string
-): Promise<IntegrationInstanceShare[]> {
+): IntegrationInstanceShare[] {
     const db = getDb();
     const rows = db.prepare(`
         SELECT * FROM integration_shares WHERE integration_instance_id = ?
@@ -710,14 +710,14 @@ export async function getIntegrationInstanceShares(
 /**
  * Bulk update shares for a specific integration instance.
  */
-export async function bulkUpdateIntegrationInstanceShares(
+export function bulkUpdateIntegrationInstanceShares(
     integrationInstanceId: string,
     integrationType: string,
     userShares: string[],
     groupShares: string[],
     everyoneShare: boolean,
     sharedBy: string
-): Promise<void> {
+): void {
     const db = getDb();
 
     db.exec('BEGIN TRANSACTION');

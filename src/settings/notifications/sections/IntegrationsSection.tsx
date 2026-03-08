@@ -78,7 +78,7 @@ export function IntegrationsSection({
                         <IntegrationCard
                             key={instance.instanceId}
                             integrationInstance={instance}
-                            userSettings={userIntegrationSettings[instance.instanceId] || { enabled: true, events: [] }}
+                            userSettings={userIntegrationSettings[instance.instanceId] || { enabled: true, selectedEvents: [] }}
                             isExpanded={expandedSections[instance.instanceId] || false}
                             onToggleExpand={() => toggleSection(instance.instanceId)}
                             isAdmin={false}

@@ -17,7 +17,7 @@ import type { AggregateRow, MonitorAggregate, MonitorCheckResult } from './types
 /**
  * Update hourly aggregate for a monitor.
  */
-export async function updateAggregate(monitorId: string, result: MonitorCheckResult): Promise<void> {
+export function updateAggregate(monitorId: string, result: MonitorCheckResult): void {
     const now = Math.floor(Date.now() / 1000);
     const hourStart = now - (now % 3600); // Round down to hour
 
@@ -71,7 +71,7 @@ export async function updateAggregate(monitorId: string, result: MonitorCheckRes
  * Update hourly aggregate to track maintenance period.
  * Called by poller when a monitor is skipped due to maintenance mode.
  */
-export async function updateMaintenanceAggregate(monitorId: string): Promise<void> {
+export function updateMaintenanceAggregate(monitorId: string): void {
     const now = Math.floor(Date.now() / 1000);
     const hourStart = now - (now % 3600); // Round down to hour
 
@@ -101,7 +101,7 @@ export async function updateMaintenanceAggregate(monitorId: string): Promise<voi
 /**
  * Get hourly aggregates for tick-bar visualization.
  */
-export async function getHourlyAggregates(monitorId: string, hours: number = 24): Promise<MonitorAggregate[]> {
+export function getHourlyAggregates(monitorId: string, hours: number = 24): MonitorAggregate[] {
     const cutoff = Math.floor(Date.now() / 1000) - (hours * 60 * 60);
     const rows = getDb().prepare(`
         SELECT * FROM service_monitor_aggregates 
@@ -114,7 +114,7 @@ export async function getHourlyAggregates(monitorId: string, hours: number = 24)
 /**
  * Prune old aggregates (keep last 30 days).
  */
-export async function pruneOldAggregates(daysToKeep: number = 30): Promise<number> {
+export function pruneOldAggregates(daysToKeep: number = 30): number {
     const cutoff = Math.floor(Date.now() / 1000) - (daysToKeep * 24 * 60 * 60);
     const result = getDb().prepare('DELETE FROM service_monitor_aggregates WHERE hour_start < ?').run(cutoff);
     if (result.changes > 0) {

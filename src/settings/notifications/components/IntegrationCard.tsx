@@ -90,7 +90,7 @@ const IntegrationCard: React.FC<IntegrationCardProps> = (props) => {
 
     // User state
     const userEnabled = userSettings.enabled ?? true;
-    const userSelectedEvents = userSettings.events || [];
+    const userSelectedEvents = userSettings.selectedEvents || [];
 
     const handleMasterToggle = (): void => {
         if (isAdmin) {
@@ -127,7 +127,7 @@ const IntegrationCard: React.FC<IntegrationCardProps> = (props) => {
     const handleUserSelectedEventsChange = (newEvents: string[]): void => {
         onSaveUserSettings({
             ...userSettings,
-            events: newEvents
+            selectedEvents: newEvents
         });
     };
 

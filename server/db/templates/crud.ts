@@ -23,7 +23,7 @@ import type {
 /**
  * Create a new template
  */
-export async function createTemplate(data: CreateTemplateData): Promise<DashboardTemplate> {
+export function createTemplate(data: CreateTemplateData): DashboardTemplate {
     const id = uuidv4();
     const now = Math.floor(Date.now() / 1000);
 
@@ -54,7 +54,7 @@ export async function createTemplate(data: CreateTemplateData): Promise<Dashboar
 
         logger.debug(`[Templates] Created: id=${id} name="${data.name}" owner=${data.ownerId} version=${data.version ?? 1}`);
 
-        return getTemplateById(id) as Promise<DashboardTemplate>;
+        return getTemplateById(id) as DashboardTemplate;
     } catch (error) {
         logger.error(`[Templates] Failed to create: error="${(error as Error).message}"`);
         throw error;
@@ -64,7 +64,7 @@ export async function createTemplate(data: CreateTemplateData): Promise<Dashboar
 /**
  * Get template by ID
  */
-export async function getTemplateById(id: string): Promise<DashboardTemplate | null> {
+export function getTemplateById(id: string): DashboardTemplate | null {
     try {
         const row = getDb().prepare('SELECT * FROM dashboard_templates WHERE id = ?').get(id) as TemplateRow | undefined;
         return row ? rowToTemplate(row) : null;
@@ -78,7 +78,7 @@ export async function getTemplateById(id: string): Promise<DashboardTemplate | n
  * Get all templates for a user (owned only - user copies of shared templates ARE owned)
  * Includes sharedBy and hasUpdate for templates that were shared
  */
-export async function getTemplatesForUser(userId: string): Promise<TemplateWithMeta[]> {
+export function getTemplatesForUser(userId: string): TemplateWithMeta[] {
     try {
         // Get all templates owned by this user
         // This now includes user copies of shared templates (they have sharedFromId)
@@ -133,7 +133,7 @@ export async function getTemplatesForUser(userId: string): Promise<TemplateWithM
 /**
  * Get user's copy of a shared template (by sharedFromId)
  */
-export async function getUserCopyOfTemplate(userId: string, originalTemplateId: string): Promise<DashboardTemplate | null> {
+export function getUserCopyOfTemplate(userId: string, originalTemplateId: string): DashboardTemplate | null {
     try {
         const row = getDb().prepare(
             'SELECT * FROM dashboard_templates WHERE owner_id = ? AND shared_from_id = ?'
@@ -150,7 +150,7 @@ export async function getUserCopyOfTemplate(userId: string, originalTemplateId: 
  * Get all users who have copies of a shared template
  * Used for displaying accurate share list in admin UI
  */
-export async function getTemplateCopyOwners(templateId: string): Promise<Array<{ userId: string; username: string }>> {
+export function getTemplateCopyOwners(templateId: string): Array<{ userId: string; username: string }> {
     try {
         interface CopyOwnerRow {
             owner_id: string;
@@ -178,10 +178,10 @@ export async function getTemplateCopyOwners(templateId: string): Promise<Array<{
 /**
  * Update a template
  */
-export async function updateTemplate(id: string, ownerId: string, data: UpdateTemplateData): Promise<DashboardTemplate | null> {
+export function updateTemplate(id: string, ownerId: string, data: UpdateTemplateData): DashboardTemplate | null {
     try {
         // Verify ownership
-        const existing = await getTemplateById(id);
+        const existing = getTemplateById(id);
         if (!existing || existing.ownerId !== ownerId) {
             return null;
         }
@@ -254,7 +254,7 @@ export async function updateTemplate(id: string, ownerId: string, data: UpdateTe
 /**
  * Delete a template
  */
-export async function deleteTemplate(id: string, ownerId: string): Promise<boolean> {
+export function deleteTemplate(id: string, ownerId: string): boolean {
     try {
         const result = getDb().prepare('DELETE FROM dashboard_templates WHERE id = ? AND owner_id = ?').run(id, ownerId);
 
@@ -272,7 +272,7 @@ export async function deleteTemplate(id: string, ownerId: string): Promise<boole
 /**
  * Get the default template (for new users)
  */
-export async function getDefaultTemplate(): Promise<DashboardTemplate | null> {
+export function getDefaultTemplate(): DashboardTemplate | null {
     try {
         const row = getDb().prepare('SELECT * FROM dashboard_templates WHERE is_default = 1 LIMIT 1').get() as TemplateRow | undefined;
         return row ? rowToTemplate(row) : null;
@@ -285,10 +285,10 @@ export async function getDefaultTemplate(): Promise<DashboardTemplate | null> {
 /**
  * Set a template as default (clears other defaults)
  */
-export async function setDefaultTemplate(id: string, ownerId: string): Promise<boolean> {
+export function setDefaultTemplate(id: string, ownerId: string): boolean {
     try {
         // Verify ownership and admin status would be checked at route level
-        const existing = await getTemplateById(id);
+        const existing = getTemplateById(id);
         if (!existing || existing.ownerId !== ownerId) {
             return false;
         }

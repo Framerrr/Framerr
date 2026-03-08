@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { plexApi, linkedAccountsApi, authApi } from '../../../api/endpoints';
 import { useNotifications } from '../../../context/NotificationContext';
 import { useAuth } from '../../../context/AuthContext';
-import { useAppData } from '../../../context/AppDataContext';
+import { useIntegrationData } from '../../../app/providers/IntegrationDataProvider';
 import useRealtimeSSE from '../../../hooks/useRealtimeSSE';
 import logger from '../../../utils/logger';
 import type {
@@ -20,7 +20,7 @@ import type {
 export function useAccountSettings(): UseAccountSettingsReturn {
     const { success: showSuccess, error: showError } = useNotifications();
     const { user } = useAuth();
-    const { integrations } = useAppData();
+    const { integrations } = useIntegrationData();
     const isAdmin = user?.group === 'admin';
 
     // Check if user has access to Overseerr integration

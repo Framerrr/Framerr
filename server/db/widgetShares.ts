@@ -65,12 +65,12 @@ function rowToShare(row: ShareRow): WidgetShare {
  * @param sharedBy - Admin user ID creating the share
  * @returns Array of created share records
  */
-export async function shareWidgetType(
+export function shareWidgetType(
     widgetType: string,
     shareType: ShareType,
     targets: string[],
     sharedBy: string
-): Promise<WidgetShare[]> {
+): WidgetShare[] {
     const db = getDb();
     const created: WidgetShare[] = [];
 
@@ -136,11 +136,11 @@ export async function shareWidgetType(
  * @param targets - Optional: only revoke for these specific targets
  * @returns Number of shares revoked
  */
-export async function unshareWidgetType(
+export function unshareWidgetType(
     widgetType: string,
     shareType?: ShareType,
     targets?: string[]
-): Promise<number> {
+): number {
     const db = getDb();
 
     if (!shareType) {
@@ -192,7 +192,7 @@ export async function unshareWidgetType(
 /**
  * Get all shares for a widget type.
  */
-export async function getWidgetShares(widgetType: string): Promise<WidgetShare[]> {
+export function getWidgetShares(widgetType: string): WidgetShare[] {
     const db = getDb();
     const rows = db.prepare(`
         SELECT * FROM widget_shares WHERE widget_type = ?
@@ -205,7 +205,7 @@ export async function getWidgetShares(widgetType: string): Promise<WidgetShare[]
  * Get all widget shares grouped by widget type.
  * Used for admin UI display.
  */
-export async function getAllWidgetShares(): Promise<Map<string, WidgetShare[]>> {
+export function getAllWidgetShares(): Map<string, WidgetShare[]> {
     const db = getDb();
     const rows = db.prepare(`
         SELECT * FROM widget_shares ORDER BY widget_type, share_type
@@ -231,11 +231,11 @@ export async function getAllWidgetShares(): Promise<Map<string, WidgetShare[]>> 
  * @param userGroup - User's group
  * @returns true if user has access
  */
-export async function userHasWidgetShare(
+export function userHasWidgetShare(
     widgetType: string,
     userId: string,
     userGroup: string
-): Promise<boolean> {
+): boolean {
     const db = getDb();
 
     // Check for 'everyone' share
@@ -273,10 +273,10 @@ export async function userHasWidgetShare(
  * @param userGroup - User's group
  * @returns Array of widget types
  */
-export async function getUserAccessibleWidgets(
+export function getUserAccessibleWidgets(
     userId: string,
     userGroup: string
-): Promise<string[]> {
+): string[] {
     const db = getDb();
 
     const rows = db.prepare(`
@@ -299,13 +299,13 @@ export async function getUserAccessibleWidgets(
  * @param everyoneShare - Whether to share with everyone
  * @param sharedBy - Admin user ID
  */
-export async function bulkUpdateWidgetShares(
+export function bulkUpdateWidgetShares(
     widgetType: string,
     userShares: string[],
     groupShares: string[],
     everyoneShare: boolean,
     sharedBy: string
-): Promise<void> {
+): void {
     const db = getDb();
 
     // Start transaction

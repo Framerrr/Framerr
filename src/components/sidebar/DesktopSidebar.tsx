@@ -4,7 +4,7 @@ import { LayoutDashboard, LogOut, UserCircle, Mail, LayoutGrid, Settings as Sett
 import { useSharedSidebar } from './SharedSidebarContext';
 import { Highlight, HighlightItem } from './Highlight';
 import { sidebarSpring } from './types';
-import NotificationCenter from '../notifications/NotificationCenter';
+import { NotificationCenter } from '../../features/notifications';
 import { triggerHaptic } from '../../utils/haptics';
 import { SidebarTabsContent } from './SidebarTabsContent';
 import { SidebarSettingsContent } from './SidebarSettingsContent';
@@ -30,7 +30,8 @@ export function DesktopSidebar() {
         currentUser,
         showNotificationCenter,
         setShowNotificationCenter,
-        userSettings,
+        serverName,
+        serverIcon,
         unreadCount,
         dashboardEdit,
         hoverTimeoutRef,
@@ -285,7 +286,7 @@ export function DesktopSidebar() {
                     <div className="h-20 flex items-center border-b border-theme-light text-accent font-semibold text-lg whitespace-nowrap overflow-hidden relative z-10">
                         {/* Icon - locked in 80px container */}
                         <div className="w-20 flex items-center justify-center flex-shrink-0 text-accent drop-shadow-lg">
-                            {renderIcon(userSettings?.serverIcon, 28)}
+                            {renderIcon(serverIcon, 28)}
                         </div>
                         {/* Text - appears when expanded */}
                         <AnimatePresence mode="wait">
@@ -297,7 +298,7 @@ export function DesktopSidebar() {
                                     transition={{ duration: 0.1 }}
                                     className="flex flex-col flex-1 min-w-0"
                                 >
-                                    <span className="gradient-text font-bold">{userSettings?.serverName || 'Dashboard'}</span>
+                                    <span className="gradient-text font-bold">{serverName || 'Dashboard'}</span>
                                     <BetaBadge />
                                 </motion.div>
                             )}

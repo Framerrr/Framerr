@@ -59,7 +59,7 @@ function rowToGroup(row: GroupRow): UserGroup {
  * @param name - Group name (must be unique)
  * @returns Created group
  */
-export async function createGroup(name: string): Promise<UserGroup> {
+export function createGroup(name: string): UserGroup {
     const db = getDb();
     const id = uuidv4();
 
@@ -91,7 +91,7 @@ export async function createGroup(name: string): Promise<UserGroup> {
  * 
  * @returns Array of groups with member counts
  */
-export async function getGroups(): Promise<UserGroup[]> {
+export function getGroups(): UserGroup[] {
     const db = getDb();
 
     const stmt = db.prepare(`
@@ -117,7 +117,7 @@ export async function getGroups(): Promise<UserGroup[]> {
  * @param id - Group ID
  * @returns Group or null if not found
  */
-export async function getGroupById(id: string): Promise<UserGroup | null> {
+export function getGroupById(id: string): UserGroup | null {
     const db = getDb();
 
     const stmt = db.prepare(`
@@ -144,7 +144,7 @@ export async function getGroupById(id: string): Promise<UserGroup | null> {
  * @param name - New group name
  * @returns Updated group
  */
-export async function updateGroup(id: string, name: string): Promise<UserGroup> {
+export function updateGroup(id: string, name: string): UserGroup {
     const db = getDb();
 
     try {
@@ -161,7 +161,7 @@ export async function updateGroup(id: string, name: string): Promise<UserGroup> 
 
         logger.info(`[UserGroups] Updated: id=${id} name="${name}"`);
 
-        const group = await getGroupById(id);
+        const group = getGroupById(id);
         if (!group) {
             throw new Error('Group not found after update');
         }
@@ -180,7 +180,7 @@ export async function updateGroup(id: string, name: string): Promise<UserGroup> 
  * 
  * @param id - Group ID
  */
-export async function deleteGroup(id: string): Promise<void> {
+export function deleteGroup(id: string): void {
     const db = getDb();
 
     const stmt = db.prepare(`DELETE FROM user_groups WHERE id = ?`);
@@ -203,7 +203,7 @@ export async function deleteGroup(id: string): Promise<void> {
  * @param userId - User ID
  * @param groupId - Group ID
  */
-export async function addUserToGroup(userId: string, groupId: string): Promise<void> {
+export function addUserToGroup(userId: string, groupId: string): void {
     const db = getDb();
 
     try {
@@ -230,7 +230,7 @@ export async function addUserToGroup(userId: string, groupId: string): Promise<v
  * @param userId - User ID
  * @param groupId - Group ID
  */
-export async function removeUserFromGroup(userId: string, groupId: string): Promise<void> {
+export function removeUserFromGroup(userId: string, groupId: string): void {
     const db = getDb();
 
     const stmt = db.prepare(`
@@ -248,7 +248,7 @@ export async function removeUserFromGroup(userId: string, groupId: string): Prom
  * @param userId - User ID
  * @returns Array of groups
  */
-export async function getUserGroups(userId: string): Promise<UserGroup[]> {
+export function getUserGroups(userId: string): UserGroup[] {
     const db = getDb();
 
     const stmt = db.prepare(`
@@ -276,7 +276,7 @@ export async function getUserGroups(userId: string): Promise<UserGroup[]> {
  * @param groupId - Group ID
  * @returns Array of user IDs
  */
-export async function getGroupMembers(groupId: string): Promise<string[]> {
+export function getGroupMembers(groupId: string): string[] {
     const db = getDb();
 
     const stmt = db.prepare(`
@@ -297,7 +297,7 @@ export async function getGroupMembers(groupId: string): Promise<string[]> {
  * @param userId - User ID
  * @param groupIds - Array of group IDs to assign
  */
-export async function setUserGroups(userId: string, groupIds: string[]): Promise<void> {
+export function setUserGroups(userId: string, groupIds: string[]): void {
     const db = getDb();
 
     // Use transaction for atomicity
@@ -323,7 +323,7 @@ export async function setUserGroups(userId: string, groupIds: string[]): Promise
  * @param userIds - Array of user IDs
  * @returns Map of userId -> array of group IDs
  */
-export async function getBulkUserGroups(userIds: string[]): Promise<Map<string, string[]>> {
+export function getBulkUserGroups(userIds: string[]): Map<string, string[]> {
     if (userIds.length === 0) {
         return new Map();
     }

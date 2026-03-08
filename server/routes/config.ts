@@ -268,7 +268,7 @@ router.post('/favicon', requireAdmin, upload.single('faviconZip'), async (req: R
                 htmlSnippet: htmlSnippet,
                 uploadedAt: new Date().toISOString(),
                 uploadedBy: req.user!.username
-            } as import('../types/config').FaviconConfig
+            } as import('../db/systemConfig.types').FaviconConfig
         });
 
         logger.info(`[Config] Favicon uploaded: user=${req.user!.id} username="${req.user!.username}"`);

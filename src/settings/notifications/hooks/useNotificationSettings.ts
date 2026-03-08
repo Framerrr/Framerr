@@ -203,7 +203,7 @@ export function useNotificationSettings(): UseNotificationSettingsReturn {
         enabled: updates.enabled ?? notificationsEnabled,
         sound: updates.sound ?? notificationSound,
         receiveUnmatched: updates.receiveUnmatched ?? receiveUnmatched,
-        integrations: userIntegrationSettings as NotificationPreferences['integrations']
+        integrations: userIntegrationSettings
     }), [notificationsEnabled, notificationSound, receiveUnmatched, userIntegrationSettings]);
 
     const handleToggleNotifications = useCallback(async (enabled: boolean): Promise<void> => {
@@ -344,7 +344,7 @@ export function useNotificationSettings(): UseNotificationSettingsReturn {
         const updated = {
             ...userIntegrationSettings,
             [integrationId]: settings
-        } as NotificationPreferences['integrations'];
+        };
 
         try {
             await updatePreferencesMutation.mutateAsync({

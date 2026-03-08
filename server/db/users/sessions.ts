@@ -12,7 +12,7 @@ import type { Session, SessionRow, SessionData } from './types';
 /**
  * Create a session
  */
-export async function createSession(userId: string, sessionData: SessionData, expiresIn: number = 86400000): Promise<Session> {
+export function createSession(userId: string, sessionData: SessionData, expiresIn: number = 86400000): Session {
     try {
         const token = uuidv4();
         const createdAt = Math.floor(Date.now() / 1000);
@@ -49,7 +49,7 @@ export async function createSession(userId: string, sessionData: SessionData, ex
 /**
  * Get session by ID
  */
-export async function getSession(sessionId: string): Promise<Session | null> {
+export function getSession(sessionId: string): Session | null {
     try {
         const session = getDb().prepare(`
             SELECT token as id, user_id as userId, ip_address as ipAddress, 
@@ -63,7 +63,7 @@ export async function getSession(sessionId: string): Promise<Session | null> {
         const now = Math.floor(Date.now() / 1000);
 
         if (session.expiresAt < now) {
-            await revokeSession(sessionId);
+            revokeSession(sessionId);
             return null;
         }
 
@@ -92,7 +92,7 @@ export async function getSession(sessionId: string): Promise<Session | null> {
 /**
  * Revoke a session
  */
-export async function revokeSession(sessionId: string): Promise<void> {
+export function revokeSession(sessionId: string): void {
     try {
         getDb().prepare('DELETE FROM sessions WHERE token = ?').run(sessionId);
     } catch (error) {
@@ -104,7 +104,7 @@ export async function revokeSession(sessionId: string): Promise<void> {
 /**
  * Revoke all sessions for a user
  */
-export async function revokeAllUserSessions(userId: string): Promise<void> {
+export function revokeAllUserSessions(userId: string): void {
     try {
         getDb().prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
     } catch (error) {
@@ -116,7 +116,7 @@ export async function revokeAllUserSessions(userId: string): Promise<void> {
 /**
  * Get all sessions for a user
  */
-export async function getUserSessions(userId: string): Promise<Session[]> {
+export function getUserSessions(userId: string): Session[] {
     try {
         const currentTime = Math.floor(Date.now() / 1000);
         const sessions = getDb().prepare(`
@@ -137,7 +137,7 @@ export async function getUserSessions(userId: string): Promise<Session[]> {
 /**
  * Clean up expired sessions
  */
-export async function cleanupExpiredSessions(): Promise<void> {
+export function cleanupExpiredSessions(): void {
     try {
         const currentTime = Math.floor(Date.now() / 1000);
         const result = getDb().prepare(`

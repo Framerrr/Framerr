@@ -161,6 +161,9 @@ export function registerJob(config: JobConfig): void {
     }
 
     // Create the cron task
+    // Force UTC timezone to avoid node-cron v4 LocalizedTime bug where
+    // MatcherWalker.matchNext() computes incorrect dates on non-UTC systems
+    // (e.g. Windows EST), causing infinite "missed execution" warning loops.
     const task = cron.schedule(config.cronExpression, async () => {
         const job = jobs.get(config.id);
         if (!job || job.status === 'running') {
@@ -180,7 +183,7 @@ export function registerJob(config: JobConfig): void {
         } finally {
             job.status = 'idle';
         }
-    });
+    }, { timezone: 'UTC' });
 
     const registeredJob: RegisteredJob = {
         config,

@@ -35,7 +35,7 @@ export interface IntegrationsState {
 
 export interface UserIntegrationSetting {
     enabled?: boolean;
-    events?: string[];
+    selectedEvents?: string[];
 }
 
 export interface UserIntegrationSettingsState {

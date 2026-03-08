@@ -8,7 +8,8 @@ import api from './api/client';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { SystemConfigProvider } from './context/SystemConfigContext';
-import { AppDataProvider } from './context/AppDataContext';
+import { IntegrationDataProvider } from './app/providers/IntegrationDataProvider';
+import { AppBrandingProvider } from './app/providers/AppBrandingProvider';
 import { NotificationProvider } from './context/NotificationContext';
 import { LayoutProvider, useLayout } from './context/LayoutContext';
 import { DashboardEditProvider } from './context/DashboardEditContext';
@@ -19,7 +20,7 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import Sidebar from './components/Sidebar';
 import FaviconInjector from './components/FaviconInjector';
 import AppTitle from './components/AppTitle';
-import ToastContainer from './components/notifications/ToastContainer';
+import { ToastContainer } from './features/notifications';
 import { useSettingsSSE } from './hooks/useSettingsSSE';
 import { useConnectionToasts } from './hooks/useConnectionToasts';
 
@@ -195,23 +196,25 @@ const App: React.FC = () => {
                 <CustomColorLoader>
                     <ThemeProvider>
                         <SystemConfigProvider>
-                            <AppDataProvider>
-                                <NotificationProvider>
-                                    <LayoutProvider>
-                                        <ToastContainer />
-                                        <Routes>
-                                            <Route path="/login" element={<Login />} />
-                                            <Route path="/login/plex/loading" element={<PlexLoading />} />
-                                            <Route path="/change-password" element={<ChangePassword />} />
-                                            <Route path="/setup" element={<Setup />} />
-                                            <Route path="/sso-setup" element={<SSOSetup />} />
+                            <AppBrandingProvider>
+                                <IntegrationDataProvider>
+                                    <NotificationProvider>
+                                        <LayoutProvider>
+                                            <ToastContainer />
+                                            <Routes>
+                                                <Route path="/login" element={<Login />} />
+                                                <Route path="/login/plex/loading" element={<PlexLoading />} />
+                                                <Route path="/change-password" element={<ChangePassword />} />
+                                                <Route path="/setup" element={<Setup />} />
+                                                <Route path="/sso-setup" element={<SSOSetup />} />
 
-                                            {/* Protected Routes with Layout-aware Wrapper */}
-                                            <Route path="/*" element={<MainLayout />} />
-                                        </Routes>
-                                    </LayoutProvider>
-                                </NotificationProvider>
-                            </AppDataProvider>
+                                                {/* Protected Routes with Layout-aware Wrapper */}
+                                                <Route path="/*" element={<MainLayout />} />
+                                            </Routes>
+                                        </LayoutProvider>
+                                    </NotificationProvider>
+                                </IntegrationDataProvider>
+                            </AppBrandingProvider>
                         </SystemConfigProvider>
                     </ThemeProvider>
                 </CustomColorLoader>

@@ -19,9 +19,9 @@ import type { MonitorRow, ServiceMonitor, CreateMonitorData } from './types';
  * Create a new service monitor.
  * Uses global monitor defaults from system config for any unspecified values.
  */
-export async function createMonitor(ownerId: string, data: CreateMonitorData): Promise<ServiceMonitor> {
+export function createMonitor(ownerId: string, data: CreateMonitorData): ServiceMonitor {
     const id = uuidv4();
-    const defaults = await getMonitorDefaults();
+    const defaults = getMonitorDefaults();
 
     // Normalize expectedStatusCodes to always be an array
     let normalizedCodes: string[] = defaults.expectedStatusCodes;
@@ -70,14 +70,14 @@ export async function createMonitor(ownerId: string, data: CreateMonitorData): P
     );
 
     logger.info(`[ServiceMonitors] Created: id=${id} name="${data.name}" owner=${ownerId}`);
-    return (await getMonitorById(id))!;
+    return (getMonitorById(id))!;
 }
 
 /**
  * Update an existing service monitor.
  */
-export async function updateMonitor(id: string, data: Partial<CreateMonitorData>): Promise<ServiceMonitor | null> {
-    const existing = await getMonitorById(id);
+export function updateMonitor(id: string, data: Partial<CreateMonitorData>): ServiceMonitor | null {
+    const existing = getMonitorById(id);
     if (!existing) return null;
 
     const updates: string[] = [];
@@ -172,7 +172,7 @@ export async function updateMonitor(id: string, data: Partial<CreateMonitorData>
 /**
  * Delete a service monitor and all related data.
  */
-export async function deleteMonitor(id: string): Promise<boolean> {
+export function deleteMonitor(id: string): boolean {
     const result = getDb().prepare('DELETE FROM service_monitors WHERE id = ?').run(id);
     if (result.changes > 0) {
         logger.info(`[ServiceMonitors] Deleted: id=${id}`);
@@ -184,7 +184,7 @@ export async function deleteMonitor(id: string): Promise<boolean> {
 /**
  * Get a monitor by ID.
  */
-export async function getMonitorById(id: string): Promise<ServiceMonitor | null> {
+export function getMonitorById(id: string): ServiceMonitor | null {
     const row = getDb().prepare('SELECT * FROM service_monitors WHERE id = ?').get(id) as MonitorRow | undefined;
     return row ? rowToMonitor(row) : null;
 }
@@ -192,7 +192,7 @@ export async function getMonitorById(id: string): Promise<ServiceMonitor | null>
 /**
  * Get all monitors owned by a user.
  */
-export async function getMonitorsByOwner(ownerId: string): Promise<ServiceMonitor[]> {
+export function getMonitorsByOwner(ownerId: string): ServiceMonitor[] {
     const rows = getDb().prepare(`
         SELECT * FROM service_monitors 
         WHERE owner_id = ? 
@@ -204,7 +204,7 @@ export async function getMonitorsByOwner(ownerId: string): Promise<ServiceMonito
 /**
  * Get all enabled monitors (for polling).
  */
-export async function getEnabledMonitors(): Promise<ServiceMonitor[]> {
+export function getEnabledMonitors(): ServiceMonitor[] {
     const rows = getDb().prepare(`
         SELECT * FROM service_monitors 
         WHERE enabled = 1 
@@ -216,7 +216,7 @@ export async function getEnabledMonitors(): Promise<ServiceMonitor[]> {
 /**
  * Get all monitors (admin view).
  */
-export async function getAllMonitors(): Promise<ServiceMonitor[]> {
+export function getAllMonitors(): ServiceMonitor[] {
     const rows = getDb().prepare(`
         SELECT * FROM service_monitors 
         ORDER BY order_index ASC, created_at ASC
@@ -228,7 +228,7 @@ export async function getAllMonitors(): Promise<ServiceMonitor[]> {
  * Get all monitors for a specific integration instance.
  * Used by framerr-monitoring widgets to fetch monitors for their bound instance.
  */
-export async function getMonitorsByIntegrationInstance(integrationInstanceId: string): Promise<ServiceMonitor[]> {
+export function getMonitorsByIntegrationInstance(integrationInstanceId: string): ServiceMonitor[] {
     const rows = getDb().prepare(`
         SELECT * FROM service_monitors 
         WHERE integration_instance_id = ? AND enabled = 1
@@ -240,7 +240,7 @@ export async function getMonitorsByIntegrationInstance(integrationInstanceId: st
 /**
  * Get a monitor by its Uptime Kuma ID (for checking if already imported).
  */
-export async function getMonitorByUptimeKumaId(uptimeKumaId: number): Promise<ServiceMonitor | null> {
+export function getMonitorByUptimeKumaId(uptimeKumaId: number): ServiceMonitor | null {
     const row = getDb().prepare('SELECT * FROM service_monitors WHERE uptime_kuma_id = ?').get(uptimeKumaId) as MonitorRow | undefined;
     return row ? rowToMonitor(row) : null;
 }
@@ -276,7 +276,7 @@ export function reorderMonitors(orderedIds: string[]): void {
 /**
  * Toggle maintenance mode for a monitor.
  */
-export async function setMonitorMaintenance(id: string, enabled: boolean): Promise<boolean> {
+export function setMonitorMaintenance(id: string, enabled: boolean): boolean {
     const result = getDb().prepare('UPDATE service_monitors SET maintenance = ? WHERE id = ?').run(enabled ? 1 : 0, id);
     if (result.changes > 0) {
         logger.info(`[ServiceMonitors] Maintenance toggled: id=${id} enabled=${enabled}`);

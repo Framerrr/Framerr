@@ -656,7 +656,7 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
             </Modal.Body>
 
             {/* ============ FOOTER — actions for missing mode only (admin) ============ */}
-            {userIsAdmin && episodeStatus === 'missing' && view === 'info' && (
+            {userIsAdmin && episodeStatus !== 'available' && view === 'info' && (
                 <Modal.Footer>
                     <div className="snr-modal-footer-actions">
                         <Button

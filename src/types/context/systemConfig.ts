@@ -7,17 +7,6 @@ import type { TabGroup } from '../../../shared/types/tab';
 import type { IntegrationsMap } from '../../../shared/types/integration';
 
 /**
- * Permission group definition
- */
-export interface PermissionGroup {
-    id: string;
-    name: string;
-    description?: string;
-    permissions: string[];
-    locked?: boolean;
-}
-
-/**
  * Application branding settings
  */
 export interface AppBranding {
@@ -52,11 +41,6 @@ export interface SystemConfig {
      * Admin-configured integrations
      */
     integrations?: IntegrationsMap;
-
-    /**
-     * Permission groups
-     */
-    permissionGroups?: PermissionGroup[];
 
     /**
      * Whether web push is enabled globally

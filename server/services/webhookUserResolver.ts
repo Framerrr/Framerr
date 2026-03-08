@@ -71,7 +71,7 @@ function getEffectiveEvents(service: string, webhookConfig: WebhookConfig | null
 
 interface UserSettings {
     enabled?: boolean;
-    events?: string[];
+    selectedEvents?: string[];
 }
 
 interface UserConfig {
@@ -272,7 +272,8 @@ export async function userWantsEvent(
         }
 
         // Check if user has this specific event enabled
-        const userEvents = userSettings?.events;
+        // Backward compat: read 'selectedEvents' first, fallback to legacy 'events'
+        const userEvents = userSettings?.selectedEvents ?? (userSettings as Record<string, unknown>)?.events as string[] | undefined;
         if (!userEvents || userEvents.length === 0) {
             // User hasn't configured specific events, use all allowed
             return true;

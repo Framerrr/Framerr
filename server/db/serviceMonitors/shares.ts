@@ -17,7 +17,7 @@ import type { MonitorRow, ShareRow, ServiceMonitor, MonitorShare } from './types
 /**
  * Share a monitor with specific users.
  */
-export async function shareMonitor(monitorId: string, userIds: string[], notify: boolean = false): Promise<MonitorShare[]> {
+export function shareMonitor(monitorId: string, userIds: string[], notify: boolean = false): MonitorShare[] {
     const shares: MonitorShare[] = [];
 
     const insert = getDb().prepare(`
@@ -29,7 +29,7 @@ export async function shareMonitor(monitorId: string, userIds: string[], notify:
         const id = uuidv4();
         try {
             insert.run(id, monitorId, userId, notify ? 1 : 0);
-            const share = await getShareById(id);
+            const share = getShareById(id);
             if (share) shares.push(share);
         } catch (error) {
             if (!(error as Error).message.includes('UNIQUE constraint')) {
@@ -45,7 +45,7 @@ export async function shareMonitor(monitorId: string, userIds: string[], notify:
 /**
  * Remove sharing for a monitor.
  */
-export async function unshareMonitor(monitorId: string, userIds?: string[]): Promise<number> {
+export function unshareMonitor(monitorId: string, userIds?: string[]): number {
     let sql = 'DELETE FROM service_monitor_shares WHERE monitor_id = ?';
     const params: string[] = [monitorId];
 
@@ -63,7 +63,7 @@ export async function unshareMonitor(monitorId: string, userIds?: string[]): Pro
 /**
  * Get all shares for a monitor.
  */
-export async function getMonitorShares(monitorId: string): Promise<MonitorShare[]> {
+export function getMonitorShares(monitorId: string): MonitorShare[] {
     const rows = getDb().prepare(`
         SELECT * FROM service_monitor_shares WHERE monitor_id = ?
     `).all(monitorId) as ShareRow[];
@@ -73,7 +73,7 @@ export async function getMonitorShares(monitorId: string): Promise<MonitorShare[
 /**
  * Get monitors shared with a user.
  */
-export async function getSharedMonitors(userId: string): Promise<ServiceMonitor[]> {
+export function getSharedMonitors(userId: string): ServiceMonitor[] {
     const rows = getDb().prepare(`
         SELECT m.* FROM service_monitors m
         INNER JOIN service_monitor_shares s ON m.id = s.monitor_id
@@ -86,7 +86,7 @@ export async function getSharedMonitors(userId: string): Promise<ServiceMonitor[
 /**
  * Update notification preference for a share.
  */
-export async function updateShareNotify(monitorId: string, userId: string, notify: boolean): Promise<boolean> {
+export function updateShareNotify(monitorId: string, userId: string, notify: boolean): boolean {
     const result = getDb().prepare(`
         UPDATE service_monitor_shares SET notify = ? WHERE monitor_id = ? AND user_id = ?
     `).run(notify ? 1 : 0, monitorId, userId);
@@ -97,7 +97,7 @@ export async function updateShareNotify(monitorId: string, userId: string, notif
 // Internal Helpers
 // ============================================================================
 
-async function getShareById(id: string): Promise<MonitorShare | null> {
+function getShareById(id: string): MonitorShare | null {
     const row = getDb().prepare('SELECT * FROM service_monitor_shares WHERE id = ?').get(id) as ShareRow | undefined;
     return row ? rowToShare(row) : null;
 }

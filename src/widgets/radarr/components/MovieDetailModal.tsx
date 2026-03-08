@@ -602,7 +602,7 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
             </Modal.Body>
 
             {/* ============ FOOTER — actions for missing mode only (admin) ============ */}
-            {userIsAdmin && movieStatus === 'missing' && view === 'info' && (
+            {userIsAdmin && movieStatus !== 'available' && view === 'info' && (
                 <Modal.Footer>
                     <div className="rdr-modal-footer-actions">
                         <Button

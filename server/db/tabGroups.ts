@@ -60,7 +60,7 @@ function rowToTabGroup(row: TabGroupRow): TabGroup {
 /**
  * Get all tab groups for a user
  */
-export async function getUserTabGroups(userId: string): Promise<TabGroup[]> {
+export function getUserTabGroups(userId: string): TabGroup[] {
     try {
         const rows = getDb().prepare(`
             SELECT id, user_id, name, icon, tab_order, created_at
@@ -71,7 +71,7 @@ export async function getUserTabGroups(userId: string): Promise<TabGroup[]> {
 
         // If no groups exist, create defaults
         if (rows.length === 0) {
-            await createDefaultTabGroups(userId);
+            createDefaultTabGroups(userId);
             return getUserTabGroups(userId);
         }
 
@@ -85,7 +85,7 @@ export async function getUserTabGroups(userId: string): Promise<TabGroup[]> {
 /**
  * Create default tab groups for a new user
  */
-export async function createDefaultTabGroups(userId: string): Promise<void> {
+export function createDefaultTabGroups(userId: string): void {
     try {
         const stmt = getDb().prepare(`
             INSERT INTO tab_groups (id, user_id, name, icon, tab_order, created_at)
@@ -118,10 +118,10 @@ export async function createDefaultTabGroups(userId: string): Promise<void> {
 /**
  * Create a new tab group
  */
-export async function createTabGroup(
+export function createTabGroup(
     userId: string,
     data: { name: string; icon?: string }
-): Promise<TabGroup> {
+): TabGroup {
     try {
         // Get max order
         const maxOrderRow = getDb().prepare(`
@@ -156,11 +156,11 @@ export async function createTabGroup(
 /**
  * Update a tab group
  */
-export async function updateTabGroup(
+export function updateTabGroup(
     userId: string,
     groupId: string,
     updates: { name?: string; icon?: string }
-): Promise<TabGroup> {
+): TabGroup {
     try {
         // Verify ownership
         const existing = getDb().prepare(`
@@ -209,7 +209,7 @@ export async function updateTabGroup(
 /**
  * Delete a tab group
  */
-export async function deleteTabGroup(userId: string, groupId: string): Promise<boolean> {
+export function deleteTabGroup(userId: string, groupId: string): boolean {
     try {
         const result = getDb().prepare(`
             DELETE FROM tab_groups WHERE id = ? AND user_id = ?
@@ -230,7 +230,7 @@ export async function deleteTabGroup(userId: string, groupId: string): Promise<b
 /**
  * Reorder tab groups
  */
-export async function reorderTabGroups(userId: string, orderedIds: string[]): Promise<TabGroup[]> {
+export function reorderTabGroups(userId: string, orderedIds: string[]): TabGroup[] {
     try {
         const updateStmt = getDb().prepare(`
             UPDATE tab_groups SET tab_order = ? WHERE id = ? AND user_id = ?
@@ -255,9 +255,9 @@ export async function reorderTabGroups(userId: string, orderedIds: string[]): Pr
 /**
  * Batch update tab groups (for full replacement)
  */
-export async function batchUpdateTabGroups(userId: string, groups: Array<{ id: string; name: string; order?: number }>): Promise<TabGroup[]> {
+export function batchUpdateTabGroups(userId: string, groups: Array<{ id: string; name: string; order?: number }>): TabGroup[] {
     try {
-        const existing = await getUserTabGroups(userId);
+        const existing = getUserTabGroups(userId);
         const existingIds = new Set(existing.map(g => g.id));
         const newIds = new Set(groups.map(g => g.id));
 

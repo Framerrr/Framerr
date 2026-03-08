@@ -351,80 +351,6 @@ export function useOidcConfig() {
 }
 
 // ============================================================================
-// PERMISSION GROUPS
-// ============================================================================
-
-/** Permission group type */
-export interface PermissionGroup {
-    id: string;
-    name: string;
-    permissions: string[];
-}
-
-/** Permission groups response shape from system config */
-interface PermissionGroupsWithDefault {
-    groups: PermissionGroup[];
-    defaultGroup: string;
-}
-
-/**
- * Fetch permission groups from system config
- */
-export function usePermissionGroups() {
-    return useQuery({
-        queryKey: queryKeys.system.permissionGroups(),
-        queryFn: async (): Promise<PermissionGroupsWithDefault> => {
-            const config = await configApi.getSystem();
-            const groupsData = (config as { groups?: Record<string, Omit<PermissionGroup, 'id'>> }).groups || {};
-            const defaultGroup = (config as { defaultGroup?: string }).defaultGroup || 'user';
-            // Convert object to array
-            const groups = Object.entries(groupsData).map(([id, group]) => ({
-                id,
-                ...group
-            })) as PermissionGroup[];
-            return { groups, defaultGroup };
-        },
-        staleTime: 5 * 60 * 1000, // 5 minutes
-    });
-}
-
-/**
- * Update permission groups (batch save)
- */
-export function useUpdatePermissionGroups() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: (groups: PermissionGroup[]) => {
-            // Convert array to object for backend
-            const groupsObject = groups.reduce<Record<string, Omit<PermissionGroup, 'id'>>>((acc, { id, ...rest }) => {
-                acc[id] = rest;
-                return acc;
-            }, {});
-            return configApi.updateSystem({ groups: groupsObject });
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.system.permissionGroups() });
-        },
-    });
-}
-
-/**
- * Update default permission group
- */
-export function useUpdateDefaultGroup() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: (defaultGroup: string) =>
-            configApi.updateSystem({ defaultGroup }),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.system.permissionGroups() });
-        },
-    });
-}
-
-// ============================================================================
 // NOTIFICATION SETTINGS
 // ============================================================================
 
@@ -454,11 +380,21 @@ export function useNotificationPreferences() {
         queryFn: async (): Promise<NotificationPreferences> => {
             const config = await configApi.getUser();
             const notifPrefs = (config as { preferences?: { notifications?: NotificationPreferences } })?.preferences?.notifications;
+            // Normalize legacy 'events' → canonical 'selectedEvents' for backward compat
+            const rawIntegrations = notifPrefs?.integrations ?? {};
+            const normalizedIntegrations: NotificationPreferences['integrations'] = {};
+            for (const [key, entry] of Object.entries(rawIntegrations)) {
+                const raw = entry as Record<string, unknown>;
+                normalizedIntegrations[key] = {
+                    enabled: entry?.enabled,
+                    selectedEvents: entry?.selectedEvents ?? (raw.events as string[]) ?? undefined
+                };
+            }
             return {
                 enabled: notifPrefs?.enabled ?? true,
                 sound: notifPrefs?.sound ?? false,
                 receiveUnmatched: notifPrefs?.receiveUnmatched ?? true,
-                integrations: notifPrefs?.integrations ?? {}
+                integrations: normalizedIntegrations
             };
         },
         staleTime: 5 * 60 * 1000,

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-import { useThemeQuery, useSaveTheme } from '../api/hooks/useConfig';
+import { useThemeQuery, useSaveTheme, useUserConfigQuery } from '../api/hooks/useConfig';
 import { useRealtimeSSE } from '../hooks/useRealtimeSSE';
 import logger from '../utils/logger';
 import type { ThemeContextValue, ThemeOption } from '../types/context/theme';
@@ -34,10 +34,14 @@ export const ThemeProvider = ({ children }: ThemeProviderProps): React.JSX.Eleme
     const { isAuthenticated } = useAuth();
 
     // React Query for theme fetching
-    const { data: themeData, isLoading: queryLoading, refetch } = useThemeQuery();
+    const { data: themeData, isLoading: queryLoading } = useThemeQuery();
 
     // React Query mutation for saving theme
     const saveThemeMutation = useSaveTheme();
+
+    // React Query for user config (provides flattenUI preference)
+    // SSE invalidation is handled globally by useSettingsSSE() in App.tsx
+    const { data: userConfigData } = useUserConfigQuery();
 
     // SSE for real-time theme sync across tabs/devices
     const { onThemeChange } = useRealtimeSSE();
@@ -113,6 +117,18 @@ export const ThemeProvider = ({ children }: ThemeProviderProps): React.JSX.Eleme
             meta.setAttribute('content', THEME_BG[localTheme] || '#0a0e1a');
         }
     }, [localTheme]);
+
+    // Apply solid-ui class based on user preference (absorbed from AppDataContext in S-F4-04)
+    // Without this, the class is only applied when visiting Customization Settings,
+    // causing the sidebar to be semi-transparent (glass mode) until then
+    useEffect(() => {
+        const prefs = userConfigData?.preferences as { ui?: { flattenUI?: boolean } } | undefined;
+        if (prefs?.ui?.flattenUI) {
+            document.documentElement.classList.add('solid-ui');
+        } else {
+            document.documentElement.classList.remove('solid-ui');
+        }
+    }, [userConfigData]);
 
     // Change theme with optimistic update
     const changeTheme = useCallback(async (newTheme: string): Promise<void> => {

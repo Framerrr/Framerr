@@ -13,7 +13,7 @@ export { integrationsApi } from './integrations';
 export type { IntegrationInstance, IntegrationConfig, CreateIntegrationData, UpdateIntegrationData, TestConnectionResult, IntegrationShareRecord } from './integrations';
 
 export { widgetsApi } from './widgets';
-export type { Widget, WidgetLayout, WidgetConfig, DashboardLayout, UpdateWidgetData, MobileLayoutMode, WidgetsResponse, SaveWidgetsData } from './widgets';
+export type { Widget, WidgetLayout, WidgetConfig, UpdateWidgetData, MobileLayoutMode, WidgetsResponse, SaveWidgetsData } from './widgets';
 
 export { systemApi } from './system';
 export type {

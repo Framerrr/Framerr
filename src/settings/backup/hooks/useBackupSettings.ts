@@ -79,7 +79,7 @@ export function useBackupSettings(): UseBackupSettingsReturn {
     // Sync local schedule with query data
     useEffect(() => {
         if (scheduleQuery.data?.schedule && !scheduleChanged) {
-            setLocalSchedule(scheduleQuery.data.schedule as ScheduleConfig);
+            setLocalSchedule(scheduleQuery.data.schedule);
         }
     }, [scheduleQuery.data?.schedule, scheduleChanged]);
 

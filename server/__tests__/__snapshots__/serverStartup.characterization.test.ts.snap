@@ -1,0 +1,18 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Server Startup Characterization > locks exact middleware layer sequence 1`] = `
+[
+  "query",
+  "expressInit",
+  "jsonParser",
+  "urlencodedParser",
+  "cookieParser",
+  "helmetMiddleware",
+  "corsMiddleware",
+  "corsMiddleware",
+  "serveStatic",
+  "corsMiddleware",
+  "corsMiddleware",
+  "serveStatic",
+]
+`;

@@ -18,7 +18,7 @@ import type { HistoryRow, MonitorHistoryEntry, MonitorCheckResult } from './type
 /**
  * Record a check result to history.
  */
-export async function recordCheck(monitorId: string, result: MonitorCheckResult): Promise<MonitorHistoryEntry> {
+export function recordCheck(monitorId: string, result: MonitorCheckResult): MonitorHistoryEntry {
     const id = uuidv4();
 
     getDb().prepare(`
@@ -27,7 +27,7 @@ export async function recordCheck(monitorId: string, result: MonitorCheckResult)
     `).run(id, monitorId, result.status, result.responseTimeMs, result.statusCode, result.errorMessage);
 
     // Update hourly aggregate
-    await updateAggregate(monitorId, result);
+    updateAggregate(monitorId, result);
 
     const row = getDb().prepare('SELECT * FROM service_monitor_history WHERE id = ?').get(id) as HistoryRow;
     return rowToHistory(row);
@@ -36,7 +36,7 @@ export async function recordCheck(monitorId: string, result: MonitorCheckResult)
 /**
  * Get recent checks for a monitor (for degraded calculation).
  */
-export async function getRecentChecks(monitorId: string, count: number = 5): Promise<MonitorHistoryEntry[]> {
+export function getRecentChecks(monitorId: string, count: number = 5): MonitorHistoryEntry[] {
     const rows = getDb().prepare(`
         SELECT * FROM service_monitor_history 
         WHERE monitor_id = ? 
@@ -49,7 +49,7 @@ export async function getRecentChecks(monitorId: string, count: number = 5): Pro
 /**
  * Get check history for a monitor (paginated).
  */
-export async function getCheckHistory(monitorId: string, limit: number = 100, offset: number = 0): Promise<MonitorHistoryEntry[]> {
+export function getCheckHistory(monitorId: string, limit: number = 100, offset: number = 0): MonitorHistoryEntry[] {
     const rows = getDb().prepare(`
         SELECT * FROM service_monitor_history 
         WHERE monitor_id = ? 
@@ -62,7 +62,7 @@ export async function getCheckHistory(monitorId: string, limit: number = 100, of
 /**
  * Prune old history (keep last 7 days).
  */
-export async function pruneOldHistory(daysToKeep: number = 7): Promise<number> {
+export function pruneOldHistory(daysToKeep: number = 7): number {
     const cutoff = Math.floor(Date.now() / 1000) - (daysToKeep * 24 * 60 * 60);
     const result = getDb().prepare('DELETE FROM service_monitor_history WHERE checked_at < ?').run(cutoff);
     if (result.changes > 0) {

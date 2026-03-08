@@ -14,13 +14,9 @@ export interface BackupListResponse {
     count: number;
 }
 
-export interface ScheduleConfig {
-    enabled: boolean;
-    frequency: 'daily' | 'weekly' | 'monthly';
-    dayOfWeek?: number;
-    hour: number;
-    maxBackups: number;
-}
+// Re-export canonical ScheduleConfig from settings domain (single source of truth)
+export type { ScheduleConfig } from '../../settings/backup/types';
+import type { ScheduleConfig } from '../../settings/backup/types';
 
 export interface ScheduleResponse {
     success: boolean;

@@ -14,13 +14,7 @@ interface AuthenticatedUser {
 export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
     const user = (req as Request & { user?: AuthenticatedUser }).user;
     if (!user) {
-        res.status(401).json({
-            success: false,
-            error: {
-                code: 'UNAUTHORIZED',
-                message: 'Authentication required'
-            }
-        });
+        res.status(401).json({ error: 'Authentication required' });
         return;
     }
     next();

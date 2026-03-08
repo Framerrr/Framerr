@@ -138,7 +138,6 @@ export const queryKeys = {
         all: ['system'] as const,
         config: () => [...queryKeys.system.all, 'config'] as const,
         tabGroups: () => [...queryKeys.system.all, 'tabGroups'] as const,
-        permissionGroups: () => [...queryKeys.system.all, 'permissionGroups'] as const,
         health: () => [...queryKeys.system.all, 'health'] as const,
         debug: () => [...queryKeys.system.all, 'debug'] as const,
         logs: () => [...queryKeys.system.all, 'logs'] as const,

@@ -1,6 +1,6 @@
 import React, { useMemo, ReactNode, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAppData } from '../../../context/AppDataContext';
+import { useAppBranding } from '../../../app/providers/AppBrandingProvider';
 import { useNotifications } from '../../../context/NotificationContext';
 import { renderIcon } from '../../../utils/iconUtils';
 
@@ -67,7 +67,7 @@ export function useSharedSidebar() {
     const ui = useSidebarUI();
     const tabsCtx = useSidebarTabs();
     const nav = useSidebarNavigation();
-    const { userSettings } = useAppData();
+    const { serverName, serverIcon } = useAppBranding();
     const { unreadCount } = useNotifications();
 
     // Groups now come from SidebarTabsContext (per-user tab groups)
@@ -128,8 +128,9 @@ export function useSharedSidebar() {
         location: nav.location,
         dashboardEdit: nav.dashboardEdit,
 
-        // From AppDataContext (pass-through)
-        userSettings,
+        // From AppBrandingProvider (branding data)
+        serverName,
+        serverIcon,
         groups,
 
         // From NotificationContext (pass-through)
@@ -137,7 +138,7 @@ export function useSharedSidebar() {
 
         // Utility
         renderIcon: renderIconCallback,
-    }), [ui, tabsCtx, nav, userSettings, groups, unreadCount, renderIconCallback, handleOpenNotificationCenter]);
+    }), [ui, tabsCtx, nav, serverName, serverIcon, groups, unreadCount, renderIconCallback, handleOpenNotificationCenter]);
 }
 
 // Dummy context for type compatibility (not actually used as we compose sub-contexts)

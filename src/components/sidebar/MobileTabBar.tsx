@@ -4,8 +4,8 @@ import { Menu, X, LayoutDashboard, ChevronUp, LogOut, UserCircle, Mail, LayoutGr
 import { useSharedSidebar } from './SharedSidebarContext';
 import { sidebarSpring } from './types';
 import MenuContentShell from './MenuContentShell';
-import NotificationCenter, { type NotificationFilterType } from '../notifications/NotificationCenter';
-import NotificationCenterHeader from '../notifications/NotificationCenterHeader';
+import { NotificationCenter, NotificationCenterHeader } from '../../features/notifications';
+import type { NotificationFilterType } from '../../features/notifications';
 import { triggerHaptic } from '../../utils/haptics';
 
 /**
@@ -20,7 +20,8 @@ export function MobileTabBar() {
         currentUser,
         showNotificationCenter,
         setShowNotificationCenter,
-        userSettings,
+        serverName,
+        serverIcon,
         unreadCount,
         dashboardEdit,
         handleNavigation,
@@ -364,8 +365,8 @@ export function MobileTabBar() {
                     tabsHeader={
                         <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-theme">
                             <div className="flex items-center gap-3 text-accent font-bold text-xl">
-                                {renderIcon(userSettings?.serverIcon, 24)}
-                                <span className="gradient-text">{userSettings?.serverName || 'Dashboard'}</span>
+                                {renderIcon(serverIcon, 24)}
+                                <span className="gradient-text">{serverName || 'Dashboard'}</span>
                             </div>
                         </div>
                     }

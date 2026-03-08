@@ -8,7 +8,6 @@ export * from '../../shared/types';
 
 // Context types
 export * from './context/auth';
-export * from './context/appData';
 export * from './context/layout';
 export * from './context/theme';
 export * from './context/notification';

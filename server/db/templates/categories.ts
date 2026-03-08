@@ -17,7 +17,7 @@ import type { CategoryRow, TemplateCategory } from '../templates.types';
 /**
  * Get all categories
  */
-export async function getCategories(): Promise<TemplateCategory[]> {
+export function getCategories(): TemplateCategory[] {
     try {
         const rows = getDb().prepare('SELECT * FROM template_categories ORDER BY name ASC').all() as CategoryRow[];
         return rows.map(rowToCategory);
@@ -30,7 +30,7 @@ export async function getCategories(): Promise<TemplateCategory[]> {
 /**
  * Create a category (admin only - checked at route level)
  */
-export async function createCategory(name: string, createdBy: string): Promise<TemplateCategory> {
+export function createCategory(name: string, createdBy: string): TemplateCategory {
     const id = uuidv4();
 
     try {
@@ -53,7 +53,7 @@ export async function createCategory(name: string, createdBy: string): Promise<T
 /**
  * Delete a category (moves templates to uncategorized)
  */
-export async function deleteCategory(id: string): Promise<boolean> {
+export function deleteCategory(id: string): boolean {
     try {
         // Templates will have category_id set to NULL due to ON DELETE SET NULL
         const result = getDb().prepare('DELETE FROM template_categories WHERE id = ?').run(id);

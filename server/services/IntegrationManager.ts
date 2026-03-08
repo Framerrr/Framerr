@@ -15,6 +15,7 @@
  */
 
 import logger from '../utils/logger';
+import { yieldToEventLoop } from '../utils/eventLoopYield';
 import { hasUsers } from '../db/users';
 
 // Service imports
@@ -88,12 +89,18 @@ export async function startAllServices(): Promise<void> {
         logger.error(`[IntegrationManager] Failed to start service poller: error="${(error as Error).message}"`);
     }
 
+    // Yield to let cron heartbeat timers (registered by poller) fire on time
+    await yieldToEventLoop();
+
     // Start media cache cleanup job
     try {
         startCleanupJob();
     } catch (error) {
         logger.error(`[IntegrationManager] Failed to start cache cleanup job: error="${(error as Error).message}"`);
     }
+
+    // Yield between service inits
+    await yieldToEventLoop();
 
     // Initialize backup scheduler
     try {
@@ -102,12 +109,18 @@ export async function startAllServices(): Promise<void> {
         logger.error(`[IntegrationManager] Failed to start backup scheduler: error="${(error as Error).message}"`);
     }
 
+    // Yield between service inits
+    await yieldToEventLoop();
+
     // Initialize metric history service (reads DB config, starts recording if enabled)
     try {
         await metricHistoryService.initialize();
     } catch (error) {
         logger.error(`[IntegrationManager] Failed to start metric history: error="${(error as Error).message}"`);
     }
+
+    // Yield between service inits
+    await yieldToEventLoop();
 
     // Start periodic library sync job (every 6 hours)
     try {

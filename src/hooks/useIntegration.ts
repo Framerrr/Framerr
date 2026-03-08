@@ -1,7 +1,5 @@
-import { useContext } from 'react';
-import { AppDataContext } from '../context/AppDataContext';
-import type { BaseIntegration, IntegrationsMap } from '../../shared/types/integration';
-import type { AppDataContextValue } from '../types/context/appData';
+import { useIntegrationData } from '../app/providers/IntegrationDataProvider';
+import type { BaseIntegration } from '../../shared/types/integration';
 
 /**
  * Default disabled integration config
@@ -16,8 +14,7 @@ const defaultIntegration: BaseIntegration = {
  * Hook to get a specific integration config
  */
 export const useIntegration = (integrationKey: string): BaseIntegration => {
-    const context = useContext(AppDataContext) as AppDataContextValue | null;
-    const integrations = context?.integrations;
+    const { integrations } = useIntegrationData();
 
     // Return the specific integration config or a default disabled config
     return integrations?.[integrationKey] || defaultIntegration;

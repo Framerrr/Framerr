@@ -72,7 +72,7 @@ interface CountResult {
 /**
  * Create a notification
  */
-export async function createNotification(notificationData: NotificationData): Promise<Notification> {
+export function createNotification(notificationData: NotificationData): Notification {
     const notification: Notification = {
         id: uuidv4(),
         userId: notificationData.userId,
@@ -123,7 +123,7 @@ export async function createNotification(notificationData: NotificationData): Pr
 /**
  * Get notifications for a user
  */
-export async function getNotifications(userId: string, filters: NotificationFilters = {}): Promise<NotificationsResult> {
+export function getNotifications(userId: string, filters: NotificationFilters = {}): NotificationsResult {
     try {
         const offset = parseInt(String(filters.offset)) || 0;
         const limit = parseInt(String(filters.limit)) || 50;
@@ -193,7 +193,7 @@ export async function getNotifications(userId: string, filters: NotificationFilt
 /**
  * Mark notification as read
  */
-export async function markAsRead(notificationId: string, userId: string): Promise<Notification | null> {
+export function markAsRead(notificationId: string, userId: string): Notification | null {
     try {
         const update = getDb().prepare(`
             UPDATE notifications
@@ -245,7 +245,7 @@ export async function markAsRead(notificationId: string, userId: string): Promis
 /**
  * Delete notification
  */
-export async function deleteNotification(notificationId: string, userId: string): Promise<boolean> {
+export function deleteNotification(notificationId: string, userId: string): boolean {
     try {
         const deleteStmt = getDb().prepare(`
             DELETE FROM notifications
@@ -280,7 +280,7 @@ export async function deleteNotification(notificationId: string, userId: string)
 /**
  * Mark all notifications as read for a user
  */
-export async function markAllAsRead(userId: string): Promise<number> {
+export function markAllAsRead(userId: string): number {
     try {
         const update = getDb().prepare(`
             UPDATE notifications
@@ -314,7 +314,7 @@ export async function markAllAsRead(userId: string): Promise<number> {
 /**
  * Clear all notifications for a user
  */
-export async function clearAll(userId: string): Promise<number> {
+export function clearAll(userId: string): number {
     try {
         const deleteStmt = getDb().prepare(`
             DELETE FROM notifications
@@ -347,7 +347,7 @@ export async function clearAll(userId: string): Promise<number> {
 /**
  * Get a single notification by ID
  */
-export async function getNotificationById(notificationId: string, userId: string): Promise<Notification | null> {
+export function getNotificationById(notificationId: string, userId: string): Notification | null {
     try {
         const notification = getDb().prepare(
             'SELECT * FROM notifications WHERE id = ? AND user_id = ?'
@@ -388,6 +388,6 @@ export async function getNotificationById(notificationId: string, userId: string
 /**
  * Clean up expired notifications (no-op in current implementation)
  */
-export async function cleanupExpiredNotifications(): Promise<void> {
+export function cleanupExpiredNotifications(): void {
     logger.debug('cleanupExpiredNotifications called (no-op in SQLite implementation)');
 }

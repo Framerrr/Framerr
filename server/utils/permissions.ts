@@ -1,6 +1,6 @@
 import { getSystemConfig } from '../db/systemConfig';
 import logger from './logger';
-import type { PermissionGroup } from '../types/config';
+import type { PermissionGroup } from '../db/systemConfig.types';
 
 interface User {
     username: string;

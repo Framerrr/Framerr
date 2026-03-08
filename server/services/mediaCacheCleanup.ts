@@ -9,6 +9,7 @@
  */
 
 import logger from '../utils/logger';
+import { yieldToEventLoop } from '../utils/eventLoopYield';
 import { cleanupStaleEntries as cleanupDbEntries, getCacheStats } from '../db/mediaCache';
 import { cleanupOldImages, getCacheStats as getImageStats } from './imageCache';
 import { registerJob, unregisterJob } from './jobScheduler';
@@ -20,18 +21,21 @@ const MAX_AGE_DAYS = 30;
 const JOB_ID = 'media-cache-cleanup';
 
 /**
- * Run cleanup
+ * Run cleanup with event-loop yields between heavy sync operations.
  */
-function runCleanup(): void {
+async function runCleanup(): Promise<void> {
     logger.debug('[MediaCacheCleanup] Starting cleanup job');
 
-    // Cleanup database entries
+    // Yield before sync DB cleanup
+    await yieldToEventLoop();
     const dbDeleted = cleanupDbEntries(MAX_AGE_DAYS);
 
-    // Cleanup image files
+    // Yield before sync FS cleanup
+    await yieldToEventLoop();
     const { deleted: imagesDeleted, freed } = cleanupOldImages(MAX_AGE_DAYS);
 
-    // Log stats
+    // Yield before sync stats reads
+    await yieldToEventLoop();
     const dbStats = getCacheStats();
     const imageStats = getImageStats();
 
@@ -62,6 +66,6 @@ export function stopCleanupJob(): void {
 /**
  * Manually trigger cleanup
  */
-export function triggerCleanup(): void {
-    runCleanup();
+export async function triggerCleanup(): Promise<void> {
+    await runCleanup();
 }

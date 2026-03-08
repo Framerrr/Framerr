@@ -32,10 +32,6 @@ export interface Widget {
     config?: WidgetConfig;
 }
 
-export interface DashboardLayout {
-    widgets: Widget[];
-}
-
 export interface UpdateWidgetData {
     type?: string;
     layout?: WidgetLayout;
@@ -73,17 +69,6 @@ export const widgetsApi = {
     saveAll: (data: SaveWidgetsData) =>
         api.put<void>('/api/widgets', data),
 
-    /**
-     * Get dashboard layout with all widgets (legacy)
-     */
-    getDashboard: () =>
-        api.get<DashboardLayout>('/api/dashboard'),
-
-    /**
-     * Save entire dashboard layout (legacy)
-     */
-    saveDashboard: (layout: DashboardLayout) =>
-        api.put<ApiResponse<void>>('/api/dashboard', layout),
 
     /**
      * Add widget to dashboard

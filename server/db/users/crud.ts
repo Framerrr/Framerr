@@ -20,7 +20,7 @@ const DEFAULT_PREFS = {
 /**
  * Get user by username
  */
-export async function getUser(username: string): Promise<User | null> {
+export function getUser(username: string): User | null {
     try {
         const user = getDb().prepare(`
             SELECT id, username, email, password as passwordHash, username as displayName,
@@ -48,7 +48,7 @@ export async function getUser(username: string): Promise<User | null> {
 /**
  * Get user by ID
  */
-export async function getUserById(userId: string): Promise<User | null> {
+export function getUserById(userId: string): User | null {
     try {
         const user = getDb().prepare(`
             SELECT id, username, email, password as passwordHash, username as displayName,
@@ -77,7 +77,7 @@ export async function getUserById(userId: string): Promise<User | null> {
  * Get user by email (case-insensitive)
  * Used as login fallback when username lookup fails
  */
-export async function getUserByEmail(email: string): Promise<User | null> {
+export function getUserByEmail(email: string): User | null {
     try {
         const user = getDb().prepare(`
             SELECT id, username, email, password as passwordHash, username as displayName,
@@ -195,9 +195,9 @@ export async function createUser(userData: CreateUserData): Promise<Omit<User, '
 /**
  * Update user
  */
-export async function updateUser(userId: string, updates: UpdateUserData): Promise<Omit<User, 'passwordHash'>> {
+export function updateUser(userId: string, updates: UpdateUserData): Omit<User, 'passwordHash'> {
     try {
-        const currentUser = await getUserById(userId);
+        const currentUser = getUserById(userId);
         if (!currentUser) {
             throw new Error('User not found');
         }
@@ -267,7 +267,7 @@ export async function updateUser(userId: string, updates: UpdateUserData): Promi
 
         stmt.run(...values);
 
-        const updatedUser = await getUserById(userId);
+        const updatedUser = getUserById(userId);
         if (!updatedUser) throw new Error('User not found after update');
 
         const { passwordHash, ...userWithoutPassword } = updatedUser;
@@ -281,9 +281,9 @@ export async function updateUser(userId: string, updates: UpdateUserData): Promi
 /**
  * Delete user
  */
-export async function deleteUser(userId: string): Promise<boolean> {
+export function deleteUser(userId: string): boolean {
     try {
-        const user = await getUserById(userId);
+        const user = getUserById(userId);
         if (!user) return false;
 
         const db = getDb();
@@ -313,7 +313,7 @@ export async function deleteUser(userId: string): Promise<boolean> {
  * Includes profilePicture from user_config preferences via JOIN
  * Includes groupIds from user_group_members via subquery
  */
-export async function listUsers(): Promise<(Omit<User, 'passwordHash'> & { profilePictureUrl?: string; groupIds: string[] })[]> {
+export function listUsers(): (Omit<User, 'passwordHash'> & { profilePictureUrl?: string; groupIds: string[] })[] {
     try {
         interface UserWithExtrasRow extends UserRow {
             profilePictureUrl?: string;
@@ -359,7 +359,7 @@ export async function listUsers(): Promise<(Omit<User, 'passwordHash'> & { profi
 /**
  * Get all users (including password hashes for backend use)
  */
-export async function getAllUsers(): Promise<User[]> {
+export function getAllUsers(): User[] {
     try {
         const users = getDb().prepare(`
             SELECT id, username, email, password as passwordHash, username as displayName,

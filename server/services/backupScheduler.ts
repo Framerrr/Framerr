@@ -6,6 +6,7 @@
  */
 
 import logger from '../utils/logger';
+import { yieldToEventLoop } from '../utils/eventLoopYield';
 import { createBackup, cleanupOldBackups } from '../utils/backup';
 import { getSystemConfig, updateSystemConfig, BackupScheduleConfig } from '../db/systemConfig';
 import { broadcast } from './sseStreamService';
@@ -73,12 +74,14 @@ export async function executeScheduledBackup(): Promise<void> {
 
         logger.info(`[BackupScheduler] Scheduled backup complete: file=${result.filename} size=${result.size}`);
 
-        // Get config for cleanup
-        const config = await getSystemConfig();
+        // Yield before sync DB config read
+        await yieldToEventLoop();
+        const config = getSystemConfig();
         const scheduleConfig = config.backupSchedule;
 
         if (scheduleConfig) {
-            // Run auto-cleanup
+            // Yield before sync FS cleanup
+            await yieldToEventLoop();
             const deleted = cleanupOldBackups(scheduleConfig.maxBackups);
             if (deleted > 0) {
                 logger.info(`[BackupScheduler] Cleaned up old backups: deleted=${deleted}`);
@@ -141,7 +144,8 @@ export async function initializeBackupScheduler(): Promise<void> {
     logger.info('[BackupScheduler] Initializing...');
 
     try {
-        const config = await getSystemConfig();
+        await yieldToEventLoop();
+        const config = getSystemConfig();
         const scheduleConfig = config.backupSchedule;
 
         if (scheduleConfig?.enabled) {

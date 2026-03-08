@@ -1,202 +1,30 @@
+/**
+ * System Configuration Persistence Engine
+ *
+ * Core read/write/cache logic for the system_config SQLite table.
+ * Types and defaults are extracted to separate modules for single-responsibility.
+ */
+
 import { getDb } from '../database/db';
 import logger from '../utils/logger';
+import { DEFAULT_CONFIG } from './systemConfig.defaults';
+import type {
+    SystemConfigRow,
+    AuthConfig,
+    IntegrationConfig,
+    IntegrationsMap,
+    FullSystemConfig,
+    MonitorDefaultsConfig,
+    MetricHistoryDefaultsConfig,
+} from './systemConfig.types';
+
+// Re-export types and defaults for backward compatibility
+export * from './systemConfig.types';
+export { DEFAULT_CONFIG } from './systemConfig.defaults';
 
 // In-memory cache to prevent repeated database queries
 let configCache: FullSystemConfig | null = null;
 let cacheTimestamp: number | null = null;
-
-interface SystemConfigRow {
-    key: string;
-    value: string;
-}
-
-interface IntegrationConfig {
-    enabled: boolean;
-    webhookConfig?: Record<string, unknown>;
-    [key: string]: unknown;
-}
-
-interface IntegrationsMap {
-    [key: string]: IntegrationConfig;
-}
-
-interface AuthConfig {
-    local: { enabled: boolean };
-    proxy: {
-        enabled: boolean;
-        headerName: string;
-        emailHeaderName: string;
-        whitelist: string[];
-        overrideLogout: boolean;
-        logoutUrl: string;
-    };
-    iframe: {
-        enabled: boolean;
-        endpoint: string;
-        clientId: string;
-        redirectUri: string;
-        scopes: string;
-    };
-    session: { timeout: number };
-}
-
-interface PermissionGroup {
-    id: string;
-    name: string;
-    description?: string;
-    permissions: string[];
-    locked?: boolean;
-}
-
-interface TabGroup {
-    id: string;
-    name: string;
-    order: number;
-}
-
-interface FaviconConfig {
-    enabled: boolean;
-    htmlSnippet?: string;
-}
-
-interface ServerConfig {
-    port: number;
-    name: string;
-}
-
-export interface BackupScheduleConfig {
-    enabled: boolean;
-    frequency: 'daily' | 'weekly';
-    dayOfWeek?: number;  // 0-6 (Sunday-Saturday), only for weekly
-    hour: number;        // 0-23
-    maxBackups: number;  // 1-10
-    lastBackup?: string; // ISO timestamp
-    nextBackup?: string; // ISO timestamp
-}
-
-export interface MonitorDefaultsConfig {
-    intervalSeconds: number;         // Default check interval
-    timeoutSeconds: number;          // Default request timeout
-    retriesBeforeDown: number;       // Retries before marking "down"
-    degradedThresholdMs: number;     // Response time threshold for "degraded"
-    expectedStatusCodes: string[];   // Default expected HTTP status codes
-}
-
-export interface MetricHistoryDefaultsConfig {
-    mode: 'auto' | 'internal' | 'external'; // Default source mode (excludes 'off')
-    retentionDays: number;                   // Default retention period (1-30)
-}
-
-export interface MetricHistoryIntegrationConfig {
-    mode: 'auto' | 'internal' | 'external' | 'off';
-    retentionDays: number; // 1-30, default 3
-}
-
-export interface MetricHistoryConfig {
-    enabled: boolean; // Global kill switch
-    integrations?: Record<string, MetricHistoryIntegrationConfig>;
-}
-
-// Standalone FullSystemConfig - not extending external types to avoid conflicts
-interface FullSystemConfig {
-    server: ServerConfig;
-    auth: AuthConfig;
-    integrations: IntegrationsMap;
-    groups: PermissionGroup[];
-    tabGroups: TabGroup[];
-    defaultGroup?: string;
-    debug?: Record<string, unknown>;
-    favicon?: FaviconConfig;
-    plexSSO?: Record<string, unknown>;
-    webhookBaseUrl?: string;
-    vapidKeys?: Record<string, string>;
-    webPushEnabled?: boolean;
-    backupSchedule?: BackupScheduleConfig;
-    monitorDefaults?: MonitorDefaultsConfig;
-    metricHistoryDefaults?: MetricHistoryDefaultsConfig;
-    /** Theme preset shown on the login page — auto-synced when admin changes theme */
-    loginTheme?: string;
-    /** Metric history recording — experimental feature */
-    metricHistory?: MetricHistoryConfig;
-}
-
-// Default system configuration
-const DEFAULT_CONFIG: FullSystemConfig = {
-    server: {
-        port: 3001,
-        name: 'Framerr'
-    },
-    auth: {
-        local: { enabled: true },
-        proxy: {
-            enabled: false,
-            headerName: '',
-            emailHeaderName: '',
-            whitelist: [],
-            overrideLogout: false,
-            logoutUrl: ''
-        },
-        iframe: {
-            enabled: false,
-            endpoint: '',
-            clientId: '',
-            redirectUri: '',
-            scopes: 'openid profile email'
-        },
-        session: { timeout: 86400000 }
-    } as AuthConfig,
-    integrations: {
-        plex: { enabled: false },
-        sonarr: { enabled: false },
-        radarr: { enabled: false },
-        overseerr: { enabled: false },
-        qbittorrent: { enabled: false }
-    } as IntegrationsMap,
-    groups: [
-        {
-            id: 'admin',
-            name: 'Administrators',
-            description: 'Full system access',
-            permissions: ['*'],
-            locked: true
-        },
-        {
-            id: 'user',
-            name: 'Users',
-            description: 'Personal customization',
-            permissions: ['view_dashboard', 'manage_widgets'],
-            locked: true
-        },
-        {
-            id: 'guest',
-            name: 'Guests',
-            description: 'View only',
-            permissions: ['view_dashboard'],
-            locked: true
-        }
-    ],
-    defaultGroup: 'user',
-    tabGroups: [
-        { id: 'media', name: 'Media', order: 0 },
-        { id: 'downloads', name: 'Downloads', order: 1 },
-        { id: 'system', name: 'System', order: 2 }
-    ],
-    webPushEnabled: true,
-    monitorDefaults: {
-        intervalSeconds: 60,
-        timeoutSeconds: 10,
-        retriesBeforeDown: 3,
-        degradedThresholdMs: 2000,
-        expectedStatusCodes: ['200-299'],
-    },
-    metricHistoryDefaults: {
-        mode: 'auto',
-        retentionDays: 3,
-    },
-    metricHistory: {
-        enabled: false,
-    },
-};
 
 /**
  * Helper: Rebuild nested config object from flattened key-value pairs
@@ -279,7 +107,7 @@ function buildConfigFromKeyValues(rows: SystemConfigRow[]): FullSystemConfig {
 /**
  * Read system configuration from SQLite (with in-memory caching)
  */
-export async function getSystemConfig(): Promise<FullSystemConfig> {
+export function getSystemConfig(): FullSystemConfig {
     try {
         // Return cached config if available
         if (configCache !== null) {
@@ -342,8 +170,8 @@ function deepMergeIntegrations(
 /**
  * Update system configuration in SQLite
  */
-export async function updateSystemConfig(updates: Partial<FullSystemConfig>): Promise<FullSystemConfig> {
-    const currentConfig = await getSystemConfig();
+export function updateSystemConfig(updates: Partial<FullSystemConfig>): FullSystemConfig {
+    const currentConfig = getSystemConfig();
 
     // VALIDATION: Prevent modification/deletion of system groups
     if (updates.groups) {
@@ -480,16 +308,14 @@ export function invalidateConfigCache(): void {
     logger.info('[SystemConfig] Cache invalidated');
 }
 
-export { DEFAULT_CONFIG };
-
 /** Get current monitor defaults (from config or fallback) */
-export async function getMonitorDefaults(): Promise<MonitorDefaultsConfig> {
-    const config = await getSystemConfig();
+export function getMonitorDefaults(): MonitorDefaultsConfig {
+    const config = getSystemConfig();
     return config.monitorDefaults ?? DEFAULT_CONFIG.monitorDefaults!;
 }
 
 /** Get current metric history defaults (from config or fallback) */
-export async function getMetricHistoryDefaults(): Promise<MetricHistoryDefaultsConfig> {
-    const config = await getSystemConfig();
+export function getMetricHistoryDefaults(): MetricHistoryDefaultsConfig {
+    const config = getSystemConfig();
     return config.metricHistoryDefaults ?? DEFAULT_CONFIG.metricHistoryDefaults!;
 }
