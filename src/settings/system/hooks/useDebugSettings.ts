@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { systemApi } from '@/api';
-import { useDebugConfig, useLogs, useSetLogLevel, useClearLogs, useUpdateDebugConfig } from '../../../api/hooks';
+import { useDebugConfig, useLogs, useSetLogLevel, useClearLogs, useUpdateDebugConfig } from '../../../api/hooks/useDashboard';
 import logger from '../../../utils/logger';
 import type { LogLevel, FilterLevel, LogEntry } from '../types';
 

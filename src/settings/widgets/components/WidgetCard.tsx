@@ -1,6 +1,6 @@
 import React, { ChangeEvent } from 'react';
 import { getWidgetMetadata, getWidgetIconName, getWidgetConfigConstraints } from '../../../widgets/registry';
-import { useWidgetConfigUI } from '../../../shared/widgets';
+import { useWidgetConfigUI } from '../../../shared/widgets/hooks/useWidgetConfigUI';
 import IconPicker from '../../../components/IconPicker';
 import { Input } from '@/shared/ui';
 import { Button, ConfirmButton } from '../../../shared/ui';

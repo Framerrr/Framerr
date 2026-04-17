@@ -9,7 +9,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { widgetsApi, integrationsApi } from '../../../api/endpoints';
-import { useWidgets } from '../../../api/hooks';
+import { useWidgets } from '../../../api/hooks/useDashboard';
 import logger from '../../../utils/logger';
 import { useNotifications } from '../../../context/notification';
 import { useAuth } from '../../../context/AuthContext';
@@ -17,7 +17,7 @@ import { useLayout } from '../../../context/LayoutContext';
 import { isAdmin } from '../../../utils/permissions';
 import { getWidgetsByCategory, getWidgetMetadata, WidgetMetadata } from '../../../widgets/registry';
 import { useWidgetSharing } from '@/shared/hooks/useWidgetSharing';
-import { useWidgetData } from '../../../shared/widgets';
+import { useWidgetData } from '../../../shared/widgets/hooks/useWidgetData';
 // Note: SSE permission subscription is now centralized in useWidgetData
 import { GRID_COLS } from '../../../constants/gridConfig';
 import { Widget, IntegrationConfig, SharedIntegration } from '../types';

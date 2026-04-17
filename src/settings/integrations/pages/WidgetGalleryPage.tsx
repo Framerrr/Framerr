@@ -9,7 +9,7 @@
 import React, { ChangeEvent } from 'react';
 import { Search, Share2 } from 'lucide-react';
 import { useWidgetGallery } from '../../widgets/hooks/useWidgetGallery';
-import { WidgetCard } from '../../../shared/widgets';
+import { WidgetCard } from '../../../shared/widgets/WidgetCard';
 import { LoadingSpinner } from '@/shared/ui';
 import { Select } from '../../../shared/ui';
 import { SettingsPage, SettingsSection, EmptyState } from '../../../shared/ui/settings';
