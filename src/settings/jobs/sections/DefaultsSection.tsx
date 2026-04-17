@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { SlidersHorizontal, Save, RotateCcw, Loader2, Activity, Zap, HardDrive, Globe } from 'lucide-react';
-import Input from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { SettingsSection } from '../../../shared/ui/settings';
 import { Select } from '../../../shared/ui';
 import { Slider } from '../../../shared/ui/Slider';

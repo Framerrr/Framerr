@@ -35,12 +35,11 @@ const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
     // Track if Step2 is ready (grid initialized)
     const [isReady, setIsReady] = useState(false);
 
-    // Reset ready state when modal opens/closes
-    useEffect(() => {
-        if (!isOpen) {
-            setIsReady(false);
-        }
-    }, [isOpen]);
+    // Reset ready state when modal closes (replaces useEffect)
+    const handleClose = useCallback(() => {
+        setIsReady(false);
+        onClose();
+    }, [onClose]);
 
     // Lock body scroll when modal is open
     useEffect(() => {
@@ -92,7 +91,7 @@ const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.2 }}
                         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                        onClick={onClose}
+                        onClick={handleClose}
                     />
 
                     {/* Modal */}
@@ -113,7 +112,7 @@ const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
                                 )}
                             </div>
                             <button
-                                onClick={onClose}
+                                onClick={handleClose}
                                 className="p-2 rounded-lg text-theme-secondary hover:text-theme-primary hover:bg-theme-tertiary transition-colors"
                             >
                                 <X size={20} />
@@ -138,7 +137,7 @@ const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
                                 <Button
                                     variant="secondary"
                                     onClick={() => {
-                                        onClose();
+                                        handleClose();
                                         onEdit(template);
                                     }}
                                 >
@@ -149,7 +148,7 @@ const TemplatePreviewModal: React.FC<TemplatePreviewModalProps> = ({
                             <Button
                                 variant="primary"
                                 onClick={() => {
-                                    onClose();
+                                    handleClose();
                                     onApply(template);
                                 }}
                             >

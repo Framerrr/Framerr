@@ -6,7 +6,7 @@
 
 import { useState, useCallback, FormEvent } from 'react';
 import logger from '../../../utils/logger';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { useAuth } from '../../../context/AuthContext';
 import { usersApi, extractErrorMessage } from '../../../api';
 import { useUsers, useUserGroupsList } from '../../../api/hooks';

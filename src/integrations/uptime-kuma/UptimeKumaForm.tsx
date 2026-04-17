@@ -10,10 +10,10 @@
  * Moved to features/integrations/uptime-kuma/ during Phase 1.5.3 refactor.
  */
 
-import React, { useState, useEffect, useCallback, forwardRef, useImperativeHandle, useRef } from 'react';
-import { Link2, AlertCircle, Loader, Check, Server, RefreshCw, Download, ChevronDown } from 'lucide-react';
-import { Button } from '../../shared/ui';
-import { Popover } from '../../shared/ui';
+import React, { useState, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { Link2, AlertCircle, Loader, Check, Server, RefreshCw } from 'lucide-react';
+import { Button, Select } from '../../shared/ui';
+import api from '../../api/client';
 import StandardIntegrationForm from '../_core/StandardIntegrationForm';
 import { getIntegrationIcon } from '../_core/iconMapping';
 import { IntegrationConfig, ServiceDefinition } from '../_core/definitions';
@@ -43,8 +43,6 @@ const UptimeKumaForm = forwardRef<UptimeKumaFormRef, UptimeKumaFormProps>((
     const [fetching, setFetching] = useState(false);
     const [fetchError, setFetchError] = useState<string | null>(null);
     const [hasFetched, setHasFetched] = useState(false);
-    const [addDropdownOpen, setAddDropdownOpen] = useState(false);
-    const addTriggerRef = useRef<HTMLButtonElement>(null);
 
     // Get schema from API for StandardIntegrationForm
     const { data: schemas } = useIntegrationSchemas();
@@ -72,17 +70,12 @@ const UptimeKumaForm = forwardRef<UptimeKumaFormRef, UptimeKumaFormProps>((
 
         try {
             // Test connection and fetch monitors in one call
-            const response = await fetch('/api/integrations/test', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Framerr-Client': '1' },
-                body: JSON.stringify({
-                    service: 'uptimekuma',
-                    config: { url: formUrl, apiKey: formApiKey },
-                    instanceId: instanceId || undefined
-                })
+            const data = await api.post<{ success: boolean; error?: string }>('/api/integrations/test', {
+                service: 'uptimekuma',
+                config: { url: formUrl, apiKey: formApiKey },
+                instanceId: instanceId || undefined
             });
 
-            const data = await response.json();
             if (!data.success) {
                 setFetchError(data.error || 'Failed to connect');
                 return;
@@ -90,20 +83,14 @@ const UptimeKumaForm = forwardRef<UptimeKumaFormRef, UptimeKumaFormProps>((
 
             // Now fetch the actual monitor list via a direct call
             // (test just verifies connection, we need the list)
-            const listResponse = await fetch('/api/integrations/uptimekuma/monitors-preview', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Framerr-Client': '1' },
-                body: JSON.stringify({ url: formUrl, apiKey: formApiKey, instanceId: instanceId || undefined })
-            });
-
-            if (!listResponse.ok) {
+            try {
+                const listData = await api.post<{ monitors?: UKMonitor[] }>('/api/integrations/uptimekuma/monitors-preview', {
+                    url: formUrl, apiKey: formApiKey, instanceId: instanceId || undefined
+                });
+                setAvailableMonitors(listData.monitors || []);
+            } catch {
                 // Fallback: use the test result if it worked
-                setHasFetched(true);
-                return;
             }
-
-            const listData = await listResponse.json();
-            setAvailableMonitors(listData.monitors || []);
             setHasFetched(true);
         } catch (err) {
             setFetchError(err instanceof Error ? err.message : 'Connection failed');
@@ -203,71 +190,41 @@ const UptimeKumaForm = forwardRef<UptimeKumaFormRef, UptimeKumaFormProps>((
             {/* Monitor selection - Dropdown + Selected list with delete */}
             {availableMonitors.length > 0 && (
                 <div className="space-y-4">
-                    {/* Dropdown to add monitors */}
                     <div>
                         <label className="block text-sm font-medium text-theme-secondary mb-2">
                             Add Monitors
                         </label>
-                        <div className="relative">
-                            <Popover open={addDropdownOpen} onOpenChange={setAddDropdownOpen} closeOnScroll={false}>
-                                <Popover.Trigger asChild>
-                                    <button
-                                        ref={addTriggerRef}
-                                        disabled={availableMonitors.filter(m => !selectedMonitorIds.includes(m.id)).length === 0}
-                                        className={`
-                                            w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm
-                                            border border-theme transition-colors
-                                            ${availableMonitors.filter(m => !selectedMonitorIds.includes(m.id)).length === 0
-                                                ? 'bg-theme-tertiary text-theme-tertiary cursor-not-allowed'
-                                                : 'bg-theme-secondary text-theme-primary hover:bg-theme-hover cursor-pointer'
-                                            }
-                                        `}
-                                    >
-                                        <span className="flex items-center gap-2">
-                                            <Download size={16} />
-                                            {availableMonitors.filter(m => !selectedMonitorIds.includes(m.id)).length === 0
-                                                ? 'All monitors added'
-                                                : 'Select a monitor to add...'
-                                            }
-                                        </span>
-                                        <ChevronDown size={16} className={`transition-transform ${addDropdownOpen ? 'rotate-180' : ''}`} />
-                                    </button>
-                                </Popover.Trigger>
-                                <Popover.Content align="start" sideOffset={4} className="p-0 min-w-[300px]">
-                                    <div
-                                        className="max-h-64 overflow-y-scroll overscroll-contain"
-                                    >
-                                        {availableMonitors
-                                            .filter(m => !selectedMonitorIds.includes(m.id))
-                                            .map((monitor, index) => (
-                                                <button
-                                                    key={`uk-monitor-${monitor.id}-${index}`}
-                                                    onClick={() => {
-                                                        onFieldChange(instanceId, 'selectedMonitorIds', JSON.stringify([...selectedMonitorIds, monitor.id]));
-                                                        setAddDropdownOpen(false);
-                                                    }}
-                                                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-theme-hover transition-colors text-left"
-                                                >
-                                                    <div className="w-8 h-8 rounded-lg bg-theme-tertiary flex items-center justify-center">
-                                                        <Server size={16} className="text-theme-secondary" />
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="font-medium text-theme-primary truncate">
-                                                            {monitor.name}
-                                                        </p>
-                                                        <p className="text-xs text-theme-tertiary truncate">
-                                                            {monitor.type} • {monitor.url || '—'}
-                                                        </p>
-                                                    </div>
-                                                    <span className={`text-xs px-2 py-0.5 rounded flex-shrink-0 ${monitor.active ? 'bg-success/20 text-success' : 'bg-theme-tertiary/30 text-theme-tertiary'}`}>
-                                                        {monitor.active ? 'Active' : 'Paused'}
-                                                    </span>
-                                                </button>
-                                            ))}
-                                    </div>
-                                </Popover.Content>
-                            </Popover>
-                        </div>
+                        <Select
+                            key={selectedMonitorIds.length}
+                            value=""
+                            onValueChange={(monitorId) => {
+                                onFieldChange(instanceId, 'selectedMonitorIds', JSON.stringify([...selectedMonitorIds, monitorId]));
+                            }}
+                            disabled={availableMonitors.filter(m => !selectedMonitorIds.includes(m.id)).length === 0}
+                        >
+                            <Select.Trigger className="w-full" size="md">
+                                <Select.Value placeholder={
+                                    availableMonitors.filter(m => !selectedMonitorIds.includes(m.id)).length === 0
+                                        ? 'All monitors added'
+                                        : 'Select a monitor to add...'
+                                } />
+                            </Select.Trigger>
+                            <Select.Content portal={false} fullWidth>
+                                {availableMonitors
+                                    .filter(m => !selectedMonitorIds.includes(m.id))
+                                    .map((monitor) => (
+                                        <Select.Item
+                                            key={`uk-monitor-${monitor.id}`}
+                                            value={monitor.id}
+                                            icon={<Server size={16} />}
+                                            size="lg"
+                                            description={`${monitor.type} • ${monitor.active ? 'Active' : 'Paused'}`}
+                                        >
+                                            {monitor.name}
+                                        </Select.Item>
+                                    ))}
+                            </Select.Content>
+                        </Select>
                     </div>
 
                     {/* Selected monitors list */}
@@ -324,7 +281,8 @@ const UptimeKumaForm = forwardRef<UptimeKumaFormRef, UptimeKumaFormProps>((
                         Selected monitors will be displayed in widgets using this integration.
                     </p>
                 </div>
-            )}
+            )
+            }
 
             {/* Empty state */}
             {hasFetched && availableMonitors.length === 0 && !fetchError && (
@@ -336,22 +294,24 @@ const UptimeKumaForm = forwardRef<UptimeKumaFormRef, UptimeKumaFormProps>((
             )}
 
             {/* Instructions */}
-            {!hasFetched && (
-                <div className="p-4 bg-theme-secondary/30 rounded-xl border border-theme">
-                    <h5 className="text-sm font-medium text-theme-primary mb-2 flex items-center gap-2">
-                        <Link2 size={16} />
-                        Setup Instructions
-                    </h5>
-                    <ol className="text-xs text-theme-secondary space-y-1 list-decimal list-inside">
-                        <li>Open Uptime Kuma Settings → API Keys</li>
-                        <li>Generate a new API Key</li>
-                        <li>Enter your Uptime Kuma URL and API Key above</li>
-                        <li>Click "Fetch Monitors" to load available monitors</li>
-                        <li>Select which monitors to display in Framerr</li>
-                    </ol>
-                </div>
-            )}
-        </div>
+            {
+                !hasFetched && (
+                    <div className="p-4 bg-theme-secondary/30 rounded-xl border border-theme">
+                        <h5 className="text-sm font-medium text-theme-primary mb-2 flex items-center gap-2">
+                            <Link2 size={16} />
+                            Setup Instructions
+                        </h5>
+                        <ol className="text-xs text-theme-secondary space-y-1 list-decimal list-inside">
+                            <li>Open Uptime Kuma Settings → API Keys</li>
+                            <li>Generate a new API Key</li>
+                            <li>Enter your Uptime Kuma URL and API Key above</li>
+                            <li>Click "Fetch Monitors" to load available monitors</li>
+                            <li>Select which monitors to display in Framerr</li>
+                        </ol>
+                    </div>
+                )
+            }
+        </div >
     );
 });
 

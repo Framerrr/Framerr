@@ -11,10 +11,10 @@
  */
 import React, { useState, ChangeEvent } from 'react';
 import { KeyRound, CheckCircle, AlertCircle, Copy, Check, Search, Loader, Lock } from 'lucide-react';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Switch } from '@/shared/ui';
 import { SettingsPage, SettingsSection, SettingsCard, SettingsAlert } from '../../../shared/ui/settings';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import IconPicker from '../../../components/IconPicker';
 import { useOidcSettings } from '../hooks/useOidcSettings';
 

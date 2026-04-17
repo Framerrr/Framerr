@@ -4,76 +4,20 @@ import {
     getSettingsCategories,
     getVisibleChildren,
     SidebarSettingsCategory
-} from '../../components/sidebar/settingsMenuConfig';
+} from '@/settings/navigation';
+import { getCategoryComponent } from '@/settings/navigation/settingsComponentRegistry';
 import { getLucideIcon } from '../../utils/iconUtils';
 import { motion, AnimatePresence, Transition } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useLayout } from '../../context/LayoutContext';
-import { SettingsNavProvider, useSettingsNav } from '../../context/SettingsNavContext';
+import { SettingsNavProvider, useSettingsNav } from '@/settings/navigation';
 import { SettingsAnimationProvider } from '../../context/SettingsAnimationContext';
 import { LAYOUT } from '../../constants/layout';
 import { isAdmin } from '../../utils/permissions';
 
 // Mobile-only: SettingsSidebar for full-screen navigation stack
-import { SettingsSidebar, SettingsMenuItem, SettingsMenuGroup } from '../../components/settings/SettingsSidebar';
-import '../../components/settings/SettingsLayout.css';
-
-// User Settings Components
-import { TabSettings } from '../../settings/tabs';
-import { TabGroupsSettings } from '../../settings/tabgroups';
-import CustomizationSettings from '../../settings/customization';
-import { ProfileSettings } from '../../settings/profile';
-import { NotificationSettings } from '../../settings/notifications';
-import { LinkedAccountsPage } from '../../settings/integrations/pages/LinkedAccountsPage';
-
-// Admin Settings Components
-import { UserManagementSettings } from '../../settings/users';
-import { IntegrationsSettings } from '../../settings/integrations';
-
-import { AuthSettings } from '../../settings/auth';
-import { AdvancedSettings } from '../../settings/advanced';
-import { DashboardSettings } from '../../settings/dashboard';
-
-/**
- * UserSettings - iOS-style settings page
- * 
- * Uses SettingsNavContext for path-based URL navigation:
- * - #settings                    → Shows category list (mobile) or first category (desktop)
- * - #settings/tabs               → My Tabs settings
- * - #settings/customization      → Customization settings (with sub-tabs)
- * - #settings/account/profile?source=profile → Profile settings (via profile icon)
- */
-
-
-
-// Map category ID to component
-const getCategoryComponent = (categoryId: string, hasAdminAccess: boolean, activeSubTab: string | null): React.ReactNode => {
-    switch (categoryId) {
-        case 'tabs':
-            return <TabSettings />;
-        case 'tabgroups':
-            return <TabGroupsSettings />;
-        case 'integrations':
-            return <IntegrationsSettings activeSubTab={activeSubTab} />;
-        case 'dashboard':
-            return <DashboardSettings activeSubTab={activeSubTab} />;
-        case 'customization':
-            return <CustomizationSettings activeSubTab={activeSubTab} />;
-        case 'account':
-            if (activeSubTab === 'connected') return <LinkedAccountsPage />;
-            return <ProfileSettings />;
-        case 'notifications':
-            return <NotificationSettings />;
-        case 'users':
-            return hasAdminAccess ? <UserManagementSettings activeSubTab={activeSubTab} /> : null;
-        case 'auth':
-            return hasAdminAccess ? <AuthSettings activeSubTab={activeSubTab} /> : null;
-        case 'advanced':
-            return hasAdminAccess ? <AdvancedSettings activeSubTab={activeSubTab} /> : null;
-        default:
-            return null;
-    }
-};
+import { SettingsSidebar, SettingsMenuItem, SettingsMenuGroup } from '@/settings/layout/SettingsSidebar';
+import '@/settings/layout/SettingsLayout.css';
 
 // Inner component that uses the navigation context
 const SettingsContent: React.FC = () => {

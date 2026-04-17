@@ -10,7 +10,7 @@
 
 import { useState, useCallback } from 'react';
 import { plexApi } from '@/api';
-import { usePlexOAuth, PlexUser } from '../../../hooks/usePlexOAuth';
+import { usePlexOAuth, PlexUser } from '@/settings/auth/hooks/usePlexOAuth';
 import logger from '../../../utils/logger';
 import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
 import type {

@@ -13,7 +13,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { HardDrive, AlertCircle, ChevronDown } from 'lucide-react';
-import StatusDot, { type MonitorStatus } from '../../../components/common/StatusDot';
+import { StatusDot, type MonitorStatus } from '@/shared/ui';
 import { Popover } from '../../../shared/ui';
 import type { DiskInfo } from '../types';
 

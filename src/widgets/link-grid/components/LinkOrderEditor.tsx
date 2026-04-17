@@ -4,13 +4,12 @@
  * Uses @dnd-kit (same as TabSettings / GroupSection) for reliable
  * touch + mouse drag handling without passive event listener issues.
  *
- * Replaces the live on-widget drag reordering (useDesktopDrag / useTouchDrag)
- * to eliminate gesture conflicts with the dashboard grid's drag system.
+ * Canonical link reorder interface, isolated from the dashboard grid's drag system.
  *
  * Rendered as a `component` type option in WidgetConfigModal via the plugin.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
     DndContext,
     closestCenter,
@@ -59,7 +58,7 @@ const SortableLinkItem: React.FC<SortableLinkItemProps> = ({ link }) => {
         zIndex: isDragging ? 10 : 'auto',
     } as React.CSSProperties;
 
-    const Icon = getIconComponent(link.icon);
+    const Icon = useMemo(() => getIconComponent(link.icon), [link.icon]);
 
     return (
         <div
@@ -87,6 +86,7 @@ const SortableLinkItem: React.FC<SortableLinkItemProps> = ({ link }) => {
                 <GripVertical size={14} />
             </button>
             <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+                {/* eslint-disable-next-line react-hooks/static-components -- dynamic registry lookup, component ref cached in getIconComponent */}
                 <Icon size={16} className="text-theme-secondary" />
             </div>
             <span className="text-sm text-theme-primary truncate flex-1">

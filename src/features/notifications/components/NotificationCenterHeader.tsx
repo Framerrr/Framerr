@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { ConfirmButton } from '../../../shared/ui';
 import type { NotificationFilterType } from '../types/notificationCenter.types';
 

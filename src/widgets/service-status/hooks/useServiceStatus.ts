@@ -8,10 +8,11 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useIntegrationSSE } from '../../../shared/widgets';
+import api from '../../../api/client';
 import logger from '../../../utils/logger';
 import { ServiceMonitor, MonitorStatusData, LayoutResult } from '../types';
 import { calculateOptimalLayout } from '../utils/layoutUtils';
-import { MonitorStatus } from '../../../components/common/StatusDot';
+import { type MonitorStatus } from '@/shared/ui';
 
 interface UseServiceStatusProps {
     integrationId?: string;
@@ -53,7 +54,7 @@ export function useServiceStatus({
 }: UseServiceStatusProps): UseServiceStatusReturn {
     const [monitors, setMonitors] = useState<ServiceMonitor[]>([]);
     const [statuses, setStatuses] = useState<Record<string, MonitorStatusData>>({});
-    const [sseReceivedAt, setSseReceivedAt] = useState<number>(Date.now());
+    const [sseReceivedAt, setSseReceivedAt] = useState<number>(() => Date.now());
     const [error, setError] = useState<string | null>(null);
 
     // Container measurement for adaptive layout
@@ -137,10 +138,9 @@ export function useServiceStatus({
         };
 
         // Use requestAnimationFrame for initial measurement to ensure DOM has finished layout
-        let rafId: number;
         let retryTimeoutId: ReturnType<typeof setTimeout>;
 
-        rafId = requestAnimationFrame(() => {
+        const rafId = requestAnimationFrame(() => {
             measureContainer();
 
             // If still 0, retry after a short delay (grid might still be calculating)
@@ -225,33 +225,10 @@ export function useServiceStatus({
         });
 
         try {
-            const res = await fetch(`/api/service-monitors/${monitorId}/maintenance`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Framerr-Client': '1'
-                },
-                body: JSON.stringify({ enabled })
-            });
-            if (!res.ok) {
-                // Rollback on failure - restore both maintenance and status
-                setStatuses(prev => {
-                    const current = prev[monitorId];
-                    if (!current) return prev;
-                    return {
-                        ...prev,
-                        [monitorId]: {
-                            ...current,
-                            maintenance: !enabled,
-                            status: previousStatus || current.status
-                        }
-                    };
-                });
-                logger.error('Failed to toggle maintenance - rolled back');
-            }
+            await api.post(`/api/service-monitors/${monitorId}/maintenance`, { enabled });
             // On success, SSE will confirm the change
         } catch (err) {
-            // Rollback on error - restore both maintenance and status
+            // Rollback on failure - restore both maintenance and status
             setStatuses(prev => {
                 const current = prev[monitorId];
                 if (!current) return prev;

@@ -11,7 +11,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useIntegrationSSE } from '../../../shared/widgets';
-import { widgetFetchJson } from '../../../utils/widgetFetch';
+import api from '../../../api/client';
 import type {
     CalendarMovie,
     WantedMovie,
@@ -174,9 +174,9 @@ export function useRadarrData({ integrationId, enabled }: UseRadarrDataOpts): Ra
         setMissingLoading(true);
 
         try {
-            const data = await widgetFetchJson<WantedMovieResponse>(
+            const data = await api.get<WantedMovieResponse>(
                 `/api/integrations/${integrationId}/proxy/missing?page=${page}&pageSize=${PAGE_SIZE}`,
-                'radarr'
+                { headers: { 'X-Widget-Type': 'radarr' } }
             );
 
             setMissingMovies(prev => {
@@ -241,13 +241,10 @@ export function useRadarrData({ integrationId, enabled }: UseRadarrDataOpts): Ra
         if (!integrationId) return false;
 
         try {
-            await widgetFetchJson(
+            await api.post(
                 `/api/integrations/${integrationId}/proxy/command`,
-                'radarr',
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ name: 'MoviesSearch', movieIds }),
-                }
+                { name: 'MoviesSearch', movieIds },
+                { headers: { 'X-Widget-Type': 'radarr' } }
             );
             return true;
         } catch {
@@ -258,9 +255,9 @@ export function useRadarrData({ integrationId, enabled }: UseRadarrDataOpts): Ra
     const searchReleases = useCallback(async (movieId: number): Promise<RadarrRelease[]> => {
         if (!integrationId) return [];
 
-        const data = await widgetFetchJson<RadarrRelease[]>(
+        const data = await api.get<RadarrRelease[]>(
             `/api/integrations/${integrationId}/proxy/release?movieId=${movieId}`,
-            'radarr'
+            { headers: { 'X-Widget-Type': 'radarr' } }
         );
         return data;
     }, [integrationId]);
@@ -269,13 +266,10 @@ export function useRadarrData({ integrationId, enabled }: UseRadarrDataOpts): Ra
         if (!integrationId) return false;
 
         try {
-            await widgetFetchJson(
+            await api.post(
                 `/api/integrations/${integrationId}/proxy/release`,
-                'radarr',
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ guid, indexerId, ...(shouldOverride && { shouldOverride: true }) }),
-                }
+                { guid, indexerId, ...(shouldOverride && { shouldOverride: true }) },
+                { headers: { 'X-Widget-Type': 'radarr' } }
             );
             // Suppress stale SSE data for 3s
             optimisticUntil.current = Date.now() + 3000;

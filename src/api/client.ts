@@ -8,6 +8,16 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { ApiError, statusToErrorCode } from './errors';
 
+// Extend axios config to support session verification flag
+declare module 'axios' {
+    interface InternalAxiosRequestConfig {
+        _sessionVerification?: boolean;
+    }
+    interface AxiosRequestConfig {
+        _sessionVerification?: boolean;
+    }
+}
+
 // Types for notification and logout callbacks
 type ErrorNotifyFn = (title: string, message: string) => void;
 type LogoutFn = () => void;
@@ -91,11 +101,14 @@ function createApiClient(): AxiosInstance {
             if (error.response?.status === 401) {
                 const requestUrl = error.config?.url || '';
                 const isAuthEndpoint = AUTH_ENDPOINTS.some(ep => requestUrl.includes(ep));
+                const isSessionVerification = !!error.config?._sessionVerification;
                 const isLoginPage = window.location.pathname.includes('login');
                 const isSetupPage = window.location.pathname.includes('setup');
 
-                // Show session expired only for unexpected 401s
-                if (!isAuthEndpoint && !isLoginPage && !isSetupPage && !isLoggingOut && !hasShownSessionExpiredToast) {
+                // Show session expired for:
+                // 1. Unexpected 401s on non-auth endpoints, OR
+                // 2. Session verification 401s (explicit opt-in via config flag)
+                if ((!isAuthEndpoint || isSessionVerification) && !isLoginPage && !isSetupPage && !isLoggingOut && !hasShownSessionExpiredToast) {
                     hasShownSessionExpiredToast = true;
                     showErrorFn?.('Session Expired', 'Please log in again');
                     logoutFn?.();

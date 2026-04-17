@@ -32,8 +32,8 @@ import * as RadixDropdownMenu from '@radix-ui/react-dropdown-menu';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { popIn } from '../animations';
-import { useCloseOnScroll } from '../../../hooks/useCloseOnScroll';
-import { useOverlayScrollLock } from '../../../hooks/useOverlayScrollLock';
+import { useCloseOnScroll } from '@/shared/hooks/useCloseOnScroll';
+import { useOverlayScrollLock } from '@/shared/hooks/useOverlayScrollLock';
 
 // ===========================
 // DropdownMenu Root

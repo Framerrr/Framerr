@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useIntegrationSSE } from '../../../shared/widgets';
-import { widgetFetch } from '../../../utils/widgetFetch';
+import api from '../../../api/client';
 import { useMediaServerMeta } from '../../../shared/hooks/useMediaServerMeta';
 import logger from '../../../utils/logger';
 import { getAdapter, type MediaSession, type IntegrationType } from '../adapters';
@@ -33,6 +33,8 @@ interface UseMediaStreamReturn {
     machineId: string | null;
     /** Server web URL for Jellyfin/Emby deep links */
     serverUrl: string | null;
+    /** Server identifier for Emby deep links */
+    serverId: string | null;
     lastUpdateTime: number;
     refreshSessions: () => Promise<void>;
 }
@@ -49,6 +51,7 @@ export const useMediaStream = ({
     const [sessions, setSessions] = useState<MediaSession[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [isInitializing, setIsInitializing] = useState(true);
+    // eslint-disable-next-line react-hooks/purity -- mount-time timestamp capture, identical to original behavior
     const lastUpdateRef = useRef<number>(Date.now());
     const initTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
@@ -57,9 +60,10 @@ export const useMediaStream = ({
         () => (integrationId ? [integrationId] : []),
         [integrationId]
     );
-    const { machineIds, serverUrls } = useMediaServerMeta(integrationIds, 'media-stream');
+    const { machineIds, serverUrls, serverIds } = useMediaServerMeta(integrationIds, 'media-stream');
     const machineId = integrationId ? (machineIds[integrationId] ?? null) : null;
     const serverUrl = integrationId ? (serverUrls[integrationId] ?? null) : null;
+    const serverId = integrationId ? (serverIds[integrationId] ?? null) : null;
 
     // Get the appropriate adapter for this integration type
     const adapter = getAdapter(integrationType);
@@ -177,19 +181,16 @@ export const useMediaStream = ({
         if (integrationType !== 'plex') return;
 
         try {
-            const response = await widgetFetch(
+            const result = await api.get<{ sessions?: unknown[] }>(
                 `/api/integrations/${integrationId}/proxy/sessions`,
-                'media-stream'
+                { headers: { 'X-Widget-Type': 'media-stream' } }
             );
-            if (response.ok) {
-                const result = await response.json();
-                // Normalize the raw sessions
-                const rawSessions = result.sessions || result || [];
-                const normalizedSessions = (Array.isArray(rawSessions) ? rawSessions : []).map(
-                    (raw: unknown) => adapter.normalize(raw, integrationId)
-                );
-                setSessions(normalizedSessions);
-            }
+            // Normalize the raw sessions
+            const rawSessions = result.sessions || [];
+            const normalizedSessions = (Array.isArray(rawSessions) ? rawSessions : []).map(
+                (raw: unknown) => adapter.normalize(raw, integrationId)
+            );
+            setSessions(normalizedSessions);
         } catch (err) {
             logger.error('[MediaStream] Error refreshing sessions', {
                 error: (err as Error).message,
@@ -207,6 +208,7 @@ export const useMediaStream = ({
         isInitializing,
         machineId,
         serverUrl,
+        serverId,
         lastUpdateTime: lastUpdateRef.current,
         refreshSessions,
     };

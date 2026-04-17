@@ -79,9 +79,12 @@ export const authApi = {
 
     /**
      * Verify session is still valid (lightweight check)
+     * Uses _sessionVerification flag so the interceptor treats 401 as session expiry
      */
     verifySession: () =>
-        api.get<SessionResponse>('/api/auth/me'),
+        api.get<SessionResponse>('/api/auth/me', {
+            _sessionVerification: true,
+        }),
 
     /**
      * Check if app needs initial setup
@@ -155,11 +158,48 @@ export const authApi = {
      */
     oidcDisconnect: () =>
         api.post<{ success: boolean }>('/api/auth/oidc/disconnect'),
+
+    // SSO Setup endpoints
+
+    /**
+     * Validate SSO setup token
+     */
+    ssoValidate: (token: string) =>
+        api.post<SSOValidateResponse>('/api/auth/sso-setup/validate', { token }),
+
+    /**
+     * Link SSO identity to existing Framerr account
+     */
+    ssoLinkExisting: (data: SSOLinkRequest) =>
+        api.post<{ success: boolean }>('/api/auth/sso-setup/link-existing', data),
+
+    /**
+     * Create new Framerr account linked to SSO identity
+     */
+    ssoCreateAccount: (data: SSOCreateRequest) =>
+        api.post<{ success: boolean }>('/api/auth/sso-setup/create-account', data),
 };
 
 export interface SSOConfigResponse {
     plex: { enabled: boolean };
     oidc: { enabled: boolean; displayName: string; buttonIcon: string };
+}
+
+export interface SSOValidateResponse {
+    valid: boolean;
+    provider: string;
+    ssoUser: { username: string; email: string | null; avatar: string | null };
+}
+
+export interface SSOLinkRequest {
+    setupToken: string;
+    username: string;
+    password: string;
+}
+
+export interface SSOCreateRequest {
+    setupToken: string;
+    username: string;
 }
 
 export default authApi;

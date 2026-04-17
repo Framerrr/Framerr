@@ -12,12 +12,12 @@
  * optimization when consumers are updated to import controllers directly.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useUserPreferences, useUpdateUserPreferences } from '../../../api/hooks/useDashboard';
 import { useSaveTheme } from '../../../api/hooks/useConfig';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAuth } from '../../../context/AuthContext';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { isAdmin } from '../../../utils/permissions';
 import type { SubTabId, CustomizationState } from '../types';
 import { useColorThemeController } from './useColorThemeController';
@@ -58,19 +58,11 @@ export function useCustomizationState(options: UseCustomizationStateOptions = {}
     const activeSubTab: SubTabId = (propSubTab as SubTabId) || internalSubTab;
     const setActiveSubTab = useCallback((id: SubTabId) => setInternalSubTab(id), []);
 
-    // Initialization tracking
-    const [initialized, setInitialized] = useState<boolean>(false);
+    // Initialization tracking — derived from query data availability
+    const initialized = !!userConfig;
 
     // Derived loading state
     const loading = userConfigLoading && !initialized;
-
-    // Mark initialized once userConfig loads
-    // (Controllers depend on initialized flag — set it here once)
-    useEffect(() => {
-        if (userConfig && !initialized) {
-            setInitialized(true);
-        }
-    }, [userConfig, initialized]);
 
     // ========================================================================
     // Domain Controllers

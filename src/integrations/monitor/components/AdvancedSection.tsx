@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Select } from '../../../shared/ui';
 import { AdvancedSectionProps } from '../types';
 import { api } from '../../../api';

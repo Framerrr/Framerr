@@ -42,7 +42,6 @@ export function useAdaptiveHeader({
     containerRef,
 }: UseAdaptiveHeaderProps): UseAdaptiveHeaderReturn {
     const [containerHeight, setContainerHeight] = useState(0);
-    const [, forceUpdate] = useState(0);
 
     // Get plugin constraints
     const constraints = useMemo(() =>
@@ -54,11 +53,6 @@ export function useAdaptiveHeader({
     const headerHeightMode = constraints.headerHeightMode ?? 'soft';
     const minHeightForHeader = constraints.minHeightForHeader ?? 2;
 
-    // Force a re-render after mount to ensure ref is attached
-    useLayoutEffect(() => {
-        forceUpdate(n => n + 1);
-    }, []);
-
     // Track container height with ResizeObserver - using useLayoutEffect for sync DOM access
     useLayoutEffect(() => {
         const el = containerRef.current;
@@ -66,11 +60,11 @@ export function useAdaptiveHeader({
 
         // Initial measurement
         const initialHeight = el.getBoundingClientRect().height;
-        setContainerHeight(initialHeight);
+        queueMicrotask(() => setContainerHeight(initialHeight));
 
         const observer = new ResizeObserver((entries) => {
             const height = entries[0]?.contentRect.height ?? 0;
-            setContainerHeight(height);
+            queueMicrotask(() => setContainerHeight(height));
         });
 
         observer.observe(el);

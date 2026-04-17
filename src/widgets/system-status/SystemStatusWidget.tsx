@@ -23,7 +23,7 @@ import { useIntegrationSchemas } from '../../api/hooks';
 import { useMetricHistoryStatus, useMetricHistoryConfig } from '../../api/hooks/useMetricHistoryConfig';
 import { queryKeys } from '../../api/queryKeys';
 import { useQueryClient } from '@tanstack/react-query';
-import useRealtimeSSE from '../../hooks/useRealtimeSSE';
+import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
 import MetricGraphPopover from './popovers/MetricGraphPopover';
 import NetworkMetricCard from './components/NetworkMetricCard';
 import DiskMetricCard from './components/DiskMetricCard';

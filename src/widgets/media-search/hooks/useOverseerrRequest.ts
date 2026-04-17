@@ -9,7 +9,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { widgetFetch } from '../../../utils/widgetFetch';
+import api from '../../../api/client';
 import logger from '../../../utils/logger';
 import type { OverseerrMediaResult, RequestButtonState } from '../types';
 
@@ -102,14 +102,10 @@ export function useOverseerrRequest({
 
         setServersLoading(true);
         try {
-            const response = await widgetFetch(
+            const data = await api.get<OverseerrServers>(
                 `/api/integrations/${overseerrInstanceId}/proxy/servers`,
-                'media-search'
+                { headers: { 'X-Widget-Type': 'media-search' } }
             );
-
-            if (!response.ok) throw new Error('Failed to fetch servers');
-
-            const data = await response.json() as OverseerrServers;
             serversCache.current[overseerrInstanceId] = data;
             setServers(data);
             return data;
@@ -171,14 +167,10 @@ export function useOverseerrRequest({
 
         setTvLoading(true);
         try {
-            const response = await widgetFetch(
+            const data = await api.get(
                 `/api/integrations/${overseerrInstanceId}/proxy/tv/${tmdbId}`,
-                'media-search'
+                { headers: { 'X-Widget-Type': 'media-search' } }
             );
-
-            if (!response.ok) throw new Error('Failed to fetch TV details');
-
-            const data = await response.json();
             const seasons = parseTvResponse(data);
 
             tvCache.current[tmdbId] = seasons;
@@ -215,20 +207,11 @@ export function useOverseerrRequest({
         setRequestState('loading');
 
         try {
-            const response = await widgetFetch(
+            await api.post(
                 `/api/integrations/${overseerrInstanceId}/proxy/request`,
-                'media-search',
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                }
+                payload,
+                { headers: { 'X-Widget-Type': 'media-search' } }
             );
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Request failed' })) as { error?: string };
-                throw new Error(errorData.error || `Request failed (${response.status})`);
-            }
 
             // Success
             setRequestState('success');

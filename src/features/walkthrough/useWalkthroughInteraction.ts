@@ -231,14 +231,16 @@ export function useWalkthroughInteraction({
     useEffect(() => {
         if (!isActive) {
             isDraggingRef.current = false;
-            setIsDragging(false);
-            setDragTargetEl(null);
+            queueMicrotask(() => {
+                setIsDragging(false);
+                setDragTargetEl(null);
+            });
         }
     }, [isActive]);
 
     // Reset confirmation dialog on step change
     useEffect(() => {
-        setShowEndConfirmation(false);
+        queueMicrotask(() => setShowEndConfirmation(false));
     }, [currentStep?.id]);
 
     return {

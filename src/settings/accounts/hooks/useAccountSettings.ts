@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { plexApi, linkedAccountsApi, authApi } from '../../../api/endpoints';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { useAuth } from '../../../context/AuthContext';
 import { useIntegrationData } from '../../../app/providers/IntegrationDataProvider';
-import useRealtimeSSE from '../../../hooks/useRealtimeSSE';
+import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
 import logger from '../../../utils/logger';
 import type {
     DbLinkedAccounts,

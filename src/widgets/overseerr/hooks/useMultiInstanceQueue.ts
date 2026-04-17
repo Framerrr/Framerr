@@ -130,14 +130,16 @@ export function useMultiInstanceQueue(
     // Clear stale entries when IDs change
     useEffect(() => {
         const validIds = new Set([...radarrIds, ...sonarrIds]);
-        setQueues(prev => {
-            const next = new Map<string, QueueItem[]>();
-            for (const [id, data] of prev) {
-                if (validIds.has(id)) {
-                    next.set(id, data);
+        queueMicrotask(() => {
+            setQueues(prev => {
+                const next = new Map<string, QueueItem[]>();
+                for (const [id, data] of prev) {
+                    if (validIds.has(id)) {
+                        next.set(id, data);
+                    }
                 }
-            }
-            return next;
+                return next;
+            });
         });
     }, [radarrIds.join(','), sonarrIds.join(',')]);
 

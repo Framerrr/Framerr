@@ -13,7 +13,7 @@ import { isOidcEnabled, getOidcConfig } from '../db/oidcConfig';
 import { buildAuthorizationUrl, handleCallback, OidcError } from '../auth/oidcClient';
 import { findUserByExternalId, linkAccount, unlinkAccount, getLinkedAccount } from '../db/linkedAccounts';
 import { createSSOSetupToken } from '../db/ssoSetupTokens';
-import { createUserSession } from '../auth/session';
+import { createUserSession, getSessionDurations } from '../auth/session';
 import { getUserById, hasLocalPassword } from '../db/users';
 import { getSystemConfig } from '../db/systemConfig';
 import logger from '../utils/logger';
@@ -159,16 +159,15 @@ router.get('/callback', async (req: Request, res: Response): Promise<void> => {
                 return;
             }
 
-            // Create session
-            const systemConfig = await getSystemConfig();
-            const expiresIn = systemConfig.auth?.session?.timeout || 86400000; // 24h
-            const session = await createUserSession(user, req, expiresIn);
+            // Create session — SSO users have no "Remember me" option, so always use the long duration
+            const durations = await getSessionDurations();
+            const session = await createUserSession(user, req, durations.sso);
 
             res.cookie('sessionId', session.id, {
                 httpOnly: true,
                 secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
                 sameSite: 'lax',
-                maxAge: expiresIn,
+                maxAge: durations.sso,
             });
 
             // Import SSO profile picture if user doesn't have one (awaited — ready before redirect)

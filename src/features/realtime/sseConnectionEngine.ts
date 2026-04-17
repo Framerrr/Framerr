@@ -10,7 +10,8 @@
  */
 
 import { applyPatch } from 'fast-json-patch';
-import logger from '../../utils/logger';
+import logger from '@/utils/logger';
+import api from '@/api/client';
 import type {
     RealtimeState,
     SSEConnectionState,
@@ -193,17 +194,9 @@ async function linkPushEndpoint(connectionId: string): Promise<void> {
         const subscription = await registration.pushManager.getSubscription();
         if (!subscription?.endpoint) return;
 
-        await fetch('/api/realtime/push-endpoint', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Framerr-Client': '1'
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-                connectionId,
-                pushEndpoint: subscription.endpoint
-            })
+        await api.post('/api/realtime/push-endpoint', {
+            connectionId,
+            pushEndpoint: subscription.endpoint
         });
 
         logger.debug('[SSE] Push endpoint linked to SSE connection');
@@ -529,17 +522,9 @@ export async function subscribeToTopicInternal(
 
     // Call backend to subscribe
     try {
-        await fetch('/api/realtime/subscribe', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Framerr-Client': '1'
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-                connectionId: state.connectionId,
-                topic
-            })
+        await api.post('/api/realtime/subscribe', {
+            connectionId: state.connectionId,
+            topic
         });
         logger.debug('[SSE] Subscribed to topic', { topic });
     } catch (err) {
@@ -566,17 +551,9 @@ export async function subscribeToTopicInternal(
 
                 // Call backend to unsubscribe
                 if (state.connectionId) {
-                    fetch('/api/realtime/unsubscribe', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Framerr-Client': '1'
-                        },
-                        credentials: 'include',
-                        body: JSON.stringify({
-                            connectionId: state.connectionId,
-                            topic
-                        })
+                    api.post('/api/realtime/unsubscribe', {
+                        connectionId: state.connectionId,
+                        topic
                     }).catch(err => {
                         logger.warn('[SSE] Failed to unsubscribe via API', { topic, error: err });
                     });

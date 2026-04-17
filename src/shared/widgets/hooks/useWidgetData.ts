@@ -19,7 +19,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { isAdmin } from '../../../utils/permissions';
 import { useRoleAwareIntegrations } from '../../../api/hooks/useIntegrations';
 import { useMyWidgetAccess } from '../../../api/hooks/useWidgetQueries';
-import useRealtimeSSE from '../../../hooks/useRealtimeSSE';
+import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
 import { queryKeys } from '../../../api/queryKeys';
 import logger from '../../../utils/logger';
 import type { IntegrationConfig, SharedIntegration } from '../../../settings/widgets/types';

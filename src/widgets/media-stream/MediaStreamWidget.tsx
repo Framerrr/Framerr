@@ -42,7 +42,7 @@ import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegr
 // Context & Utils
 import { useAuth } from '../../context/AuthContext';
 import { isAdmin } from '../../utils/permissions';
-import { widgetFetch } from '../../utils/widgetFetch';
+import api from '../../api/client';
 import logger from '../../utils/logger';
 
 // Styles
@@ -90,10 +90,10 @@ export const MediaStreamWidget: React.FC<MediaStreamWidgetProps> = ({
                         <div
                             className="plex-card__placeholder"
                             style={{
-                                background: 'linear-gradient(135deg, #e5a00d 0%, #cc900b 100%)',
+                                background: 'linear-gradient(135deg, var(--gradient-1), var(--gradient-2))',
                             }}
                         >
-                            <Film size={32} className="text-white" style={{ opacity: 0.7 }} />
+                            <Film size={32} className="text-theme-primary" style={{ opacity: 0.5 }} />
                         </div>
                         {/* Overlay */}
                         <div className="plex-card__overlay">
@@ -150,7 +150,7 @@ export const MediaStreamWidget: React.FC<MediaStreamWidgetProps> = ({
         integrationType === 'plex' ? 'Plex' : integrationType === 'jellyfin' ? 'Jellyfin' : 'Emby';
 
     // === Hooks ===
-    const { sessions, loading, error, isInitializing, machineId, serverUrl, lastUpdateTime, refreshSessions } = useMediaStream({
+    const { sessions, loading, error, isInitializing, machineId, serverUrl, serverId, lastUpdateTime, refreshSessions } = useMediaStream({
         integrationId,
         integrationType,
         isIntegrationBound,
@@ -227,20 +227,16 @@ export const MediaStreamWidget: React.FC<MediaStreamWidgetProps> = ({
             // Build stop payload based on raw session data
             const raw = confirmStop._raw as Record<string, unknown>;
 
-            const response = await widgetFetch(endpoint, 'media-stream', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionKey: confirmStop.sessionKey,
-                    // Plex-specific fields (ignored by other servers)
-                    sessionId: (raw.Session as { id?: string })?.id,
-                    transcodeSessionKey: (raw.TranscodeSession as { key?: string })?.key,
-                    clientIdentifier: (raw.Player as { machineIdentifier?: string })?.machineIdentifier,
-                    reason,
-                }),
+            await api.post(endpoint, {
+                sessionKey: confirmStop.sessionKey,
+                // Plex-specific fields (ignored by other servers)
+                sessionId: (raw.Session as { id?: string })?.id,
+                transcodeSessionKey: (raw.TranscodeSession as { key?: string })?.key,
+                clientIdentifier: (raw.Player as { machineIdentifier?: string })?.machineIdentifier,
+                reason,
+            }, {
+                headers: { 'X-Widget-Type': 'media-stream' }
             });
-
-            if (!response.ok) throw new Error('Failed to stop playback');
 
             setConfirmStop(null);
             await refreshSessions();
@@ -336,6 +332,7 @@ export const MediaStreamWidget: React.FC<MediaStreamWidgetProps> = ({
             integrationId={integrationId!}
             machineId={machineId}
             serverUrl={serverUrl}
+            serverId={serverId}
             lastUpdateTime={lastUpdateTime}
             userIsAdmin={userIsAdmin}
             onShowPlaybackData={setShowPlaybackData}
@@ -351,6 +348,7 @@ export const MediaStreamWidget: React.FC<MediaStreamWidgetProps> = ({
             integrationId={integrationId!}
             machineId={machineId}
             serverUrl={serverUrl}
+            serverId={serverId}
             lastUpdateTime={lastUpdateTime}
             userIsAdmin={userIsAdmin}
             onShowPlaybackData={setShowPlaybackData}

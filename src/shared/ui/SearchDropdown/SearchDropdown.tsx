@@ -34,8 +34,8 @@ import React, {
 import * as RadixPopover from '@radix-ui/react-popover';
 import { motion } from 'framer-motion';
 import { popIn } from '../animations';
-import { useCloseOnScroll } from '../../../hooks/useCloseOnScroll';
-import { useOverlayScrollLock } from '../../../hooks/useOverlayScrollLock';
+import { useCloseOnScroll } from '@/shared/hooks/useCloseOnScroll';
+import { useOverlayScrollLock } from '@/shared/hooks/useOverlayScrollLock';
 
 // ===========================
 // Context

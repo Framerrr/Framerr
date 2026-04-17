@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { getUserById, updateUser, revokeAllUserSessions, createSession } from '../db/users';
+import { getUserById, updateUser, revokeAllUserSessions } from '../db/users';
+import { createUserSession, getSessionDurations } from '../auth/session';
 import { getUserConfig, updateUserConfig } from '../db/userConfig';
 import { hashPassword, verifyPassword } from '../auth/password';
 import profileUpload from '../middleware/profileUpload';
@@ -186,15 +187,13 @@ router.put('/password', requireAuth, async (req: Request, res: Response) => {
 
         // Re-create the current session so this user stays logged in
         if (currentSessionId) {
-            const newSession = await createSession(authReq.user!.id, {
-                ipAddress: req.ip || undefined,
-                userAgent: req.headers['user-agent'] || undefined
-            });
+            const profileDurations = await getSessionDurations();
+            const newSession = await createUserSession(authReq.user!, req, profileDurations.rememberMe);
             res.cookie('sessionId', newSession.id, {
                 httpOnly: true,
                 secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
                 sameSite: 'lax',
-                maxAge: 86400000 // 24 hours
+                maxAge: profileDurations.rememberMe
             });
         }
 

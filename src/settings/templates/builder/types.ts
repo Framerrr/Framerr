@@ -5,7 +5,7 @@
  * Templates use FramerrWidget directly - same format as dashboard.
  */
 
-import type { FramerrWidget } from '../../../hooks/useDashboardLayout';
+import type { FramerrWidget } from '@/shared/grid/hooks/useDashboardLayout';
 
 export type ViewMode = 'desktop' | 'mobile';
 

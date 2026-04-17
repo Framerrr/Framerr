@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, ReactNode } from 'react';
+import React, { useEffect, useMemo, ReactNode, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -10,28 +10,29 @@ import { ThemeProvider } from './context/ThemeContext';
 import { SystemConfigProvider } from './context/SystemConfigContext';
 import { IntegrationDataProvider } from './app/providers/IntegrationDataProvider';
 import { AppBrandingProvider } from './app/providers/AppBrandingProvider';
-import { NotificationProvider } from './context/NotificationContext';
+import { NotificationProvider } from './context/notification';
 import { LayoutProvider, useLayout } from './context/LayoutContext';
 import { DashboardEditProvider } from './context/DashboardEditContext';
-import { SharedSidebarProvider, useSharedSidebar } from './components/sidebar/SharedSidebarContext';
+import { SharedSidebarProvider, useSharedSidebar } from '@/app/sidebar/SharedSidebarContext';
 import { WalkthroughProvider, WalkthroughOverlay } from './features/walkthrough';
 import { LAYOUT } from './constants/layout';
-import ProtectedRoute from './components/common/ProtectedRoute';
-import Sidebar from './components/Sidebar';
-import FaviconInjector from './components/FaviconInjector';
-import AppTitle from './components/AppTitle';
+import ProtectedRoute from '@/app/ProtectedRoute';
+import Sidebar from '@/app/Sidebar';
+import FaviconInjector from '@/app/FaviconInjector';
+import AppTitle from '@/app/AppTitle';
 import { ToastContainer } from './features/notifications';
-import { useSettingsSSE } from './hooks/useSettingsSSE';
-import { useConnectionToasts } from './hooks/useConnectionToasts';
+import { useSettingsSSE } from '@/features/realtime/useSettingsSSE';
+import { useConnectionToasts } from '@/app/useConnectionToasts';
 
-import Login from './app/login/Login';
-import PlexLoading from './app/login/PlexLoading';
-import ChangePassword from './app/change-password/ChangePassword';
-import Setup from './app/setup/Setup';
-import SSOSetup from './app/sso-setup/SSOSetup';
+const Login = React.lazy(() => import('./app/login/Login'));
+const PlexLoading = React.lazy(() => import('./app/login/PlexLoading'));
+const ChangePassword = React.lazy(() => import('./app/change-password/ChangePassword'));
+const Setup = React.lazy(() => import('./app/setup/Setup'));
+const SSOSetup = React.lazy(() => import('./app/sso-setup/SSOSetup'));
 import MainContent from './app/MainContent';
-import SafeAreaBlur from './components/common/SafeAreaBlur';
+import SafeAreaBlur from '@/app/SafeAreaBlur';
 import { initHaptics, cleanupHaptics } from './utils/haptics';
+import LoadingSpinner from './shared/ui/LoadingSpinner/LoadingSpinner';
 
 // Create React Query client with sensible defaults
 const queryClient = new QueryClient({
@@ -201,16 +202,22 @@ const App: React.FC = () => {
                                     <NotificationProvider>
                                         <LayoutProvider>
                                             <ToastContainer />
-                                            <Routes>
-                                                <Route path="/login" element={<Login />} />
-                                                <Route path="/login/plex/loading" element={<PlexLoading />} />
-                                                <Route path="/change-password" element={<ChangePassword />} />
-                                                <Route path="/setup" element={<Setup />} />
-                                                <Route path="/sso-setup" element={<SSOSetup />} />
+                                            <Suspense fallback={
+                                                <div className="flex items-center justify-center w-full h-full min-h-screen">
+                                                    <LoadingSpinner size="lg" />
+                                                </div>
+                                            }>
+                                                <Routes>
+                                                    <Route path="/login" element={<Login />} />
+                                                    <Route path="/login/plex/loading" element={<PlexLoading />} />
+                                                    <Route path="/change-password" element={<ChangePassword />} />
+                                                    <Route path="/setup" element={<Setup />} />
+                                                    <Route path="/sso-setup" element={<SSOSetup />} />
 
-                                                {/* Protected Routes with Layout-aware Wrapper */}
-                                                <Route path="/*" element={<MainLayout />} />
-                                            </Routes>
+                                                    {/* Protected Routes with Layout-aware Wrapper */}
+                                                    <Route path="/*" element={<MainLayout />} />
+                                                </Routes>
+                                            </Suspense>
                                         </LayoutProvider>
                                     </NotificationProvider>
                                 </IntegrationDataProvider>

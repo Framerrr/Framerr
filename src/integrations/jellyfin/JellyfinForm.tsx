@@ -8,10 +8,11 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Input } from '../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Button } from '../../shared/ui';
 import { LibrarySyncSection, type SyncStatus } from '../shared';
 import { Loader, CheckCircle2, AlertCircle, KeyRound } from 'lucide-react';
+import api from '../../api/client';
 
 interface JellyfinConfig {
     url?: string;
@@ -67,7 +68,7 @@ const JellyfinForm: React.FC<JellyfinFormProps> = ({
     // Pre-fill username for reauth if stored
     useEffect(() => {
         if (needsReauth && config.jellyfinUsername && !username) {
-            setUsername(config.jellyfinUsername);
+            queueMicrotask(() => setUsername(config.jellyfinUsername!));
         }
     }, [needsReauth]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -78,33 +79,26 @@ const JellyfinForm: React.FC<JellyfinFormProps> = ({
         setAuthError('');
 
         try {
-            const response = await fetch('/api/integrations/jellyfin/authenticate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Framerr-Client': '1' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    url: config.url,
-                    username,
-                    password,
-                }),
+            const data = await api.post<{ success: boolean; error?: string; accessToken?: string; userId?: string; username?: string }>('/api/integrations/jellyfin/authenticate', {
+                url: config.url,
+                username,
+                password,
             });
 
-            const data = await response.json();
-
-            if (!response.ok || !data.success) {
+            if (!data.success) {
                 setAuthState('error');
                 setAuthError(data.error || 'Authentication failed');
                 return;
             }
 
             // Set apiKey, userId, and store credentials for auto-reauth
-            onFieldChange('apiKey', data.accessToken);
-            onFieldChange('userId', data.userId);
+            onFieldChange('apiKey', data.accessToken || '');
+            onFieldChange('userId', data.userId || '');
             onFieldChange('jellyfinUsername', username);
             onFieldChange('jellyfinPassword', password);
             onFieldChange('needsReauth', false);
             setPendingSave(true);
-            setConnectedUser(data.username);
+            setConnectedUser(data.username || '');
             setAuthState('success');
         } catch (err) {
             setAuthState('error');

@@ -435,7 +435,7 @@ router.delete('/search-history/:widgetId', requireAuth, (req: Request, res: Resp
  * Query params:
  * - integrations: Comma-separated integration IDs
  */
-router.get('/web-urls', requireAuth, (req: Request, res: Response) => {
+router.get('/web-urls', requireAuth, async (req: Request, res: Response) => {
     try {
         const { integrations } = req.query;
 
@@ -448,6 +448,7 @@ router.get('/web-urls', requireAuth, (req: Request, res: Response) => {
         const db = getDb();
 
         const webUrls: Record<string, string> = {};
+        const serverIds: Record<string, string> = {};
 
         for (const integrationId of integrationIds) {
             const instance = getInstanceById(integrationId);
@@ -459,10 +460,44 @@ router.get('/web-urls', requireAuth, (req: Request, res: Response) => {
                     // Remove trailing slash for consistent URL building
                     webUrls[integrationId] = (webUrl as string).replace(/\/$/, '');
                 }
+
+                // Emby serverId — needed for deep links to avoid blank pages
+                if (instance.type === 'emby') {
+                    const existingServerId = instance.config.serverId as string | undefined;
+                    if (existingServerId) {
+                        serverIds[integrationId] = existingServerId;
+                    } else {
+                        // Lazy-fetch serverId from Emby /System/Info
+                        try {
+                            const plugin = getPlugin('emby');
+                            if (plugin?.adapter?.get) {
+                                const pluginInstance = toPluginInstance(instance);
+                                const response = await plugin.adapter.get(pluginInstance, '/System/Info');
+                                const embyServerId = response.data?.Id as string | undefined;
+                                if (embyServerId) {
+                                    serverIds[integrationId] = embyServerId;
+
+                                    // Merge-safe persistence — read fresh, merge, write
+                                    const freshInstance = getInstanceById(integrationId);
+                                    if (freshInstance) {
+                                        const { updateInstance } = await import('../db/integrationInstances');
+                                        updateInstance(integrationId, {
+                                            config: { ...freshInstance.config, serverId: embyServerId },
+                                        });
+                                        logger.info(`[Media] Emby serverId self-healed for ${integrationId}`);
+                                    }
+                                }
+                            }
+                        } catch (err) {
+                            // Degraded-success: omit serverId, don't fail the request
+                            logger.warn(`[Media] Failed to fetch Emby serverId for ${integrationId}: ${(err as Error).message}`);
+                        }
+                    }
+                }
             }
         }
 
-        res.json({ webUrls });
+        res.json({ webUrls, serverIds });
     } catch (error) {
         logger.error(`[Media] Get web URLs failed: error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Failed to get web URLs' });

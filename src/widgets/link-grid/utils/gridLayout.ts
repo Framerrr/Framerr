@@ -39,7 +39,7 @@ export function calculateGridMetrics(
     const maxRowsForHeight = Math.max(1, Math.floor((availableHeight + gridGap) / (TARGET_CELL_SIZE + gridGap)));
 
     // Step 3: Calculate rows needed to fit all links (fill first row first, overflow to next)
-    let rows = Math.min(Math.ceil(totalCellUnits / cols), maxRowsForHeight);
+    const rows = Math.min(Math.ceil(totalCellUnits / cols), maxRowsForHeight);
 
     // Recalculate columns if we hit row limit (need more columns per row)
     if (rows < Math.ceil(totalCellUnits / cols)) {

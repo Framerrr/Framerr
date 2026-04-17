@@ -2,7 +2,7 @@ import React from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import ToastNotification from './ToastNotification';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 
 /**
  * ToastContainer Component

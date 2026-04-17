@@ -57,7 +57,7 @@
 import React, { forwardRef, useState, createContext, useContext, useCallback } from 'react';
 import { Search, Plus, Check } from 'lucide-react';
 import { Popover } from '../Popover/Popover';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui/Input/Input';
 
 // ============================================================================
 // Context

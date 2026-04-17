@@ -1,6 +1,3 @@
-// Import axios setup FIRST to register interceptors before any API calls
-import './utils/axiosSetup';
-
 // Suppress Recharts dimension warning (cosmetic - chart renders fine once container has size)
 const originalWarn = console.warn;
 console.warn = (...args: unknown[]) => {

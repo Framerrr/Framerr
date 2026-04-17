@@ -10,9 +10,9 @@ import React, { ChangeEvent } from 'react';
 import { Search, Share2 } from 'lucide-react';
 import { useWidgetGallery } from '../hooks/useWidgetGallery';
 import { WidgetCard } from '../../../shared/widgets';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import { Select } from '../../../shared/ui';
-import WidgetShareModal from '../../../components/modals/WidgetShareModal';
+import WidgetShareModal from '@/shared/widgets/modals/WidgetShareModal';
 import { useSettingsAnimationClass } from '../../../context/SettingsAnimationContext';
 
 /**

@@ -25,6 +25,7 @@ import { initializeBackupScheduler, shutdownBackupScheduler } from './backupSche
 import { startCleanupJob, stopCleanupJob } from './mediaCacheCleanup';
 import { startLibrarySyncJob, stopLibrarySyncJob } from './librarySync';
 import { metricHistoryService } from './MetricHistoryService';
+import { startPlexTokenKeepalive, stopPlexTokenKeepalive } from './plexTokenKeepalive';
 
 // State management
 import {
@@ -129,6 +130,16 @@ export async function startAllServices(): Promise<void> {
         logger.error(`[IntegrationManager] Failed to start library sync job: error="${(error as Error).message}"`);
     }
 
+    // Yield between service inits
+    await yieldToEventLoop();
+
+    // Start Plex token keepalive (pings plex.tv to prevent token expiry)
+    try {
+        startPlexTokenKeepalive();
+    } catch (error) {
+        logger.error(`[IntegrationManager] Failed to start Plex token keepalive: error="${(error as Error).message}"`);
+    }
+
     setServicesStarted(true);
     logger.info('[IntegrationManager] All services started');
 }
@@ -148,6 +159,7 @@ export function shutdownIntegrationManager(): void {
     shutdownBackupScheduler();
     stopCleanupJob();
     stopLibrarySyncJob();
+    stopPlexTokenKeepalive();
 
     setServicesStarted(false);
     setManagerInitialized(false);

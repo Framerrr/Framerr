@@ -20,6 +20,7 @@ interface SessionCardProps {
     integrationId: string;
     machineId: string | null;
     serverUrl: string | null;
+    serverId: string | null;
     lastUpdateTime: number;
     userIsAdmin: boolean;
     onShowPlaybackData: (session: MediaSession) => void;
@@ -32,6 +33,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
     integrationId,
     machineId,
     serverUrl,
+    serverId,
     lastUpdateTime,
     userIsAdmin,
     onShowPlaybackData,
@@ -52,7 +54,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({
         deepLink,
         externalLinkTitle,
         userName,
-    } = useSessionCardData({ session, integrationId, machineId, serverUrl, lastUpdateTime });
+    } = useSessionCardData({ session, integrationId, machineId, serverUrl, serverId, lastUpdateTime });
 
     // Toggle controls on tap (mobile), set on hover (desktop)
     const handleImageClick = () => {

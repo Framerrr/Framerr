@@ -12,7 +12,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Plus, ChevronDown, Server } from 'lucide-react';
 import ServiceSettingsGrid from './components/ServiceSettingsGrid';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import { SettingsPage, SettingsSection } from '../../shared/ui/settings';
 import { Button, DropdownMenu } from '../../shared/ui';
 import PlexForm from '../../integrations/plex/PlexForm';
@@ -25,8 +25,8 @@ import { useIntegrationSettings } from './hooks/useIntegrationSettings';
 import { useWalkthrough } from '../../features/walkthrough/WalkthroughContext';
 import { useIntegrationSchemas } from '../../api/hooks';
 import { useAdminNotificationConfig } from '../../api/hooks/useSettings';
-import { useRealtimeSSE, type LibrarySyncProgressEvent } from '../../hooks/useRealtimeSSE';
-import { widgetFetch } from '../../utils/widgetFetch';
+import { useRealtimeSSE, type LibrarySyncProgressEvent } from '@/features/realtime/useRealtimeSSE';
+import api from '../../api/client';
 import logger from '../../utils/logger';
 import type { PlexConfig } from './types';
 
@@ -126,12 +126,12 @@ const IntegrationSettings: React.FC = () => {
     // Fetch sync status for a media integration
     const fetchMediaSyncStatus = useCallback(async (instanceId: string): Promise<SyncStatus | null> => {
         try {
-            const response = await widgetFetch(`/api/media/sync/status/${instanceId}`, 'media-library-sync');
-            if (response.ok) {
-                const data = await response.json() as SyncStatus;
-                setMediaSyncStatus(prev => ({ ...prev, [instanceId]: data }));
-                return data;
-            }
+            const data = await api.get<SyncStatus>(
+                `/api/media/sync/status/${instanceId}`,
+                { headers: { 'X-Widget-Type': 'media-library-sync' } }
+            );
+            setMediaSyncStatus(prev => ({ ...prev, [instanceId]: data }));
+            return data;
         } catch (error) {
             // Silently fail - status will just not be shown
             logger.debug('[IntegrationSettings] Failed to fetch sync status:', error);
@@ -190,7 +190,11 @@ const IntegrationSettings: React.FC = () => {
         }));
 
         try {
-            await widgetFetch(`/api/media/sync/start/${instanceId}`, 'media-library-sync', { method: 'POST' });
+            await api.post(
+                `/api/media/sync/start/${instanceId}`,
+                null,
+                { headers: { 'X-Widget-Type': 'media-library-sync' } }
+            );
             // SSE will automatically receive progress updates
         } catch (error) {
             logger.error('[IntegrationSettings] Failed to start sync:', error);
@@ -211,7 +215,7 @@ const IntegrationSettings: React.FC = () => {
         if (activeModal && activeModal !== newInstanceId) {
             const instance = instances.find((inst) => inst.id === activeModal);
             if (instance && MEDIA_SYNC_TYPES.includes(instance.type)) {
-                fetchMediaSyncStatus(activeModal);
+                queueMicrotask(() => fetchMediaSyncStatus(activeModal));
             }
         }
     }, [activeModal, instances, newInstanceId, fetchMediaSyncStatus]);

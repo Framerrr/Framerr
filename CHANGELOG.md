@@ -2,6 +2,31 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.2.0] - 2026-04-17
+
+### Added
+- **Encrypted Backups** — AES-256-GCM password encryption for backups. Enable in Settings → Advanced → Backup
+- **OpenID Connect SSO** — connect any OIDC-compatible IdP (Authentik, Authelia, Keycloak, etc.) as a login method. Setup in Settings → Auth → OpenID Connect. Supports PKCE, auto-create users, and full error surface on the login page
+- **SSO Profile Picture Import** — Framerr imports your profile picture from OIDC (`picture` claim) or Plex (`thumb`) on first login or account link. Does not overwrite a manually uploaded picture
+- **Customizable OIDC Login Button** — admin can set the icon and label of the OIDC button on the login page (all icon types supported)
+- **Branded Plex Login Button** — Plex button now shows the Plex logo
+
+### Fixed
+- **Emby deep links** — opening links to Emby content no longer opens a blank page. Fixes [#31](https://github.com/Framerrr/Framerr/issues/31)
+- **Plex WebSocket 401 after ~7 days** — added a keepalive ping every 6 hours to prevent Plex token expiry on long-running connections
+- **Jellyfin/Emby reauth loop** — concurrent API calls could cause all sessions to be invalidated. Fixed with a per-instance reauth mutex
+- **Popovers clipped in modals on iOS Safari** — fixed scroll-lock coordination between Radix Popover and Dialog
+- **SSO-only users seeing "Password Required" on Plex login**
+- **Plex disconnect blocked when Overseerr is linked** — Overseerr is a service link, not an auth method; it no longer blocks disconnect
+- **Session duration inconsistencies** between all login paths (local, Plex, OIDC, SSO setup, proxy); fixed a bug where post-forced-reset DB expiry and cookie `maxAge` were mismatched
+
+### Changed
+- **Metric graph time ranges** — time range buttons (1h, 6h, 1d, etc.) are now generated from actual stored data span instead of being hardcoded
+- **Session defaults** — default session 7 days; Remember Me / SSO sessions 30 days; Remember Me pre-checked on login
+- **Metric History Recording toggle** — moved from Advanced → Experimental to Advanced → System
+
+---
+
 ## [0.1.11] - 2026-03-08
 
 ### Fixed

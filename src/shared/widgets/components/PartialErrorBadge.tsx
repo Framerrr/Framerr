@@ -8,7 +8,7 @@
 import React from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Popover } from '../../ui';
-import { usePopoverState } from '../../../hooks/usePopoverState';
+import { usePopoverState } from '@/shared/hooks/usePopoverState';
 
 export interface ErroredInstance {
     id: string;

@@ -5,7 +5,7 @@
 
 import React, { ChangeEvent } from 'react';
 import { Lock, Loader, ExternalLink, Check } from 'lucide-react';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Switch, Button } from '@/shared/ui';
 import { SettingsPage, SettingsSection, SettingsCard } from '../../../shared/ui/settings';
 

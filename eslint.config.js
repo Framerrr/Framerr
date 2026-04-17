@@ -17,6 +17,7 @@ export default tseslint.config(
             'docs-site/**',
             '*.config.js',
             'develop-server/**',
+            'prototypes/**',
         ],
     },
 
@@ -46,6 +47,9 @@ export default tseslint.config(
         rules: {
             // React Hooks rules
             ...reactHooks.configs.recommended.rules,
+
+            // Disable React Compiler diagnostic (we don't use the React Compiler)
+            'react-hooks/preserve-manual-memoization': 'off',
 
             // React Refresh rules
             'react-refresh/only-export-components': [
@@ -105,6 +109,43 @@ export default tseslint.config(
         ],
         rules: {
             'no-restricted-imports': 'off',
+        },
+    },
+
+    // Override: Service worker globals for public/sw.js (S-T-LINT-02)
+    {
+        files: ['public/sw.js'],
+        languageOptions: {
+            globals: {
+                ...globals.serviceworker,
+            },
+        },
+        rules: {
+            'no-unused-vars': 'off',
+            '@typescript-eslint/no-unused-vars': 'off',
+        },
+    },
+
+    // Override: Node globals + CJS for scripts (S-T-LINT-02)
+    {
+        files: ['scripts/**/*.js'],
+        languageOptions: {
+            globals: {
+                ...globals.node,
+            },
+        },
+        rules: {
+            '@typescript-eslint/no-require-imports': 'off',
+            'no-unused-vars': 'off',
+            '@typescript-eslint/no-unused-vars': 'off',
+        },
+    },
+
+    // Override: Suppress no-unused-vars for TypeScript scripts (S-T-LINT-02)
+    {
+        files: ['scripts/**/*.ts'],
+        rules: {
+            '@typescript-eslint/no-unused-vars': 'off',
         },
     },
 );

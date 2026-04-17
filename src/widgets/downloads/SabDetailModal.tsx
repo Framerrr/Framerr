@@ -11,6 +11,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import api from '../../api/client';
 import {
     Play, Pause, Trash2, FileText, Info
 } from 'lucide-react';
@@ -118,11 +119,8 @@ const SabDetailModal: React.FC<SabDetailModalProps> = ({
         setTab('overview');
         setDeleteConfirm(false);
 
-        fetch(`/api/integrations/${integrationId}/proxy/sab/general/${item.nzo_id}`, {
-            credentials: 'include',
-        })
-            .then(r => r.ok ? r.json() : Promise.reject(new Error('Failed to load')))
-            .then((d: SabGeneralData) => setData(d))
+        api.get<SabGeneralData>(`/api/integrations/${integrationId}/proxy/sab/general/${item.nzo_id}`)
+            .then((d) => setData(d))
             .catch(() => { /* silently fail, show basic info from item prop */ })
             .finally(() => setDataLoading(false));
     }, [open, item.nzo_id, integrationId]);
@@ -133,12 +131,7 @@ const SabDetailModal: React.FC<SabDetailModalProps> = ({
         action: string,
         body: Record<string, unknown>,
     ) => {
-        await fetch(`/api/integrations/${integrationId}/proxy/sab/${action}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Framerr-Client': '1' },
-            credentials: 'include',
-            body: JSON.stringify(body),
-        });
+        await api.post(`/api/integrations/${integrationId}/proxy/sab/${action}`, body);
     }, [integrationId]);
 
     const handlePause = async () => {

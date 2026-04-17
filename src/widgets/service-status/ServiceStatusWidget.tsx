@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { isAdmin } from '../../utils/permissions';
 import { WidgetStateMessage } from '../../shared/widgets';
 import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
-import StatusDot from '../../components/common/StatusDot';
+import { StatusDot } from '@/shared/ui';
 import MonitorPopover from './popovers/MonitorPopover';
 import { useServiceStatus } from './hooks/useServiceStatus';
 import { useServiceLayout } from './hooks/useServiceLayout';

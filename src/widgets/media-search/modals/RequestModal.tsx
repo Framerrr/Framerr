@@ -14,6 +14,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Film, Tv, Star, Loader2 } from 'lucide-react';
 import { Modal, Button, Select, MultiSelectDropdown } from '../../../shared/ui';
 import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
+import api from '../../../api/client';
 import type { OverseerrMediaResult } from '../types';
 import {
     useOverseerrRequest,
@@ -83,8 +84,7 @@ export const RequestModal: React.FC<RequestModalProps> = ({
         // Fetch IMDB ID for external link
         if (item.id) {
             const mediaTypeParam = isTv ? 'tv' : 'movie';
-            fetch(`/api/media/external-ids?tmdbId=${item.id}&mediaType=${mediaTypeParam}`, { credentials: 'include' })
-                .then(r => r.ok ? r.json() : null)
+            api.get<{ imdbId?: string }>(`/api/media/external-ids?tmdbId=${item.id}&mediaType=${mediaTypeParam}`)
                 .then(data => { if (data?.imdbId) setImdbId(data.imdbId); })
                 .catch(() => { });
         }

@@ -35,6 +35,7 @@ interface UseSessionCardDataProps {
     integrationId: string;
     machineId: string | null;
     serverUrl: string | null;
+    serverId: string | null;
     lastUpdateTime: number;
 }
 
@@ -47,6 +48,7 @@ export function useSessionCardData({
     integrationId,
     machineId,
     serverUrl,
+    serverId,
     lastUpdateTime,
 }: UseSessionCardDataProps): SessionCardData {
     const adapter = getAdapter(session.integrationType);
@@ -99,7 +101,7 @@ export function useSessionCardData({
     const deepLink = getMediaDeepLink(
         session.integrationType as IntegrationType,
         session.ratingKey || '',
-        { machineId: machineId || undefined, serverUrl: serverUrl || undefined }
+        { machineId: machineId || undefined, serverUrl: serverUrl || undefined, serverId: serverId || undefined }
     );
 
     // Button title for "Open in [App]"

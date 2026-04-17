@@ -29,7 +29,7 @@ const mockOnSettingsInvalidate = vi.fn((cb: (event: { entity: string }) => void)
     return vi.fn(); // unsubscribe
 });
 
-vi.mock('@/hooks/useRealtimeSSE', () => ({
+vi.mock('@/features/realtime/useRealtimeSSE', () => ({
     default: () => ({
         onSettingsInvalidate: mockOnSettingsInvalidate,
     }),
@@ -81,7 +81,7 @@ vi.mock('@/api/endpoints/integrations', () => ({
 
 import { IntegrationDataProvider, useIntegrationData } from '../IntegrationDataProvider';
 import type { IntegrationDataContextValue } from '../IntegrationDataProvider';
-import { useIntegration } from '../../../hooks/useIntegration';
+import { useIntegration } from '@/shared/hooks/useIntegration';
 
 // ============================================================================
 // HELPERS

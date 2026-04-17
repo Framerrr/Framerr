@@ -21,7 +21,7 @@ import {
     useDeleteIntegration,
 } from '../../../api/hooks/useIntegrations';
 import logger from '../../../utils/logger';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
 import { useConnectionTesting } from './useConnectionTesting';
 import { usePlexIntegration } from './usePlexIntegration';

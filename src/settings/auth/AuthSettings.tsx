@@ -11,7 +11,7 @@
 import React, { MutableRefObject } from 'react';
 import { Save, Loader } from 'lucide-react';
 import { Button } from '../../shared/ui';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import { useAuthSettings } from './hooks/useAuthSettings';
 import { ProxyPage } from './pages/ProxyPage';
 import { PlexPage } from './pages/PlexPage';

@@ -116,24 +116,18 @@ export const PushProvider = ({ children }: PushProviderProps): React.JSX.Element
     const { isAuthenticated, user } = useAuth();
     const { showToastForNotification } = useNotificationCenter();
 
-    // Web Push state
-    const [pushSupported, setPushSupported] = useState<boolean>(false);
-    const [pushPermission, setPushPermission] = useState<NotificationPermission>('default');
+    // Web Push state — lazy initializers replace effect-based detection
+    const [pushSupported] = useState<boolean>(() =>
+        'serviceWorker' in navigator && 'PushManager' in window
+    );
+    const [pushPermission, setPushPermission] = useState<NotificationPermission>(() =>
+        ('serviceWorker' in navigator && 'PushManager' in window) ? Notification.permission : 'default'
+    );
     const [pushEnabled, setPushEnabled] = useState<boolean>(false);
     const [pushSubscriptions, setPushSubscriptions] = useState<PushSubscriptionRecord[]>([]);
     const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
     const [currentEndpoint, setCurrentEndpoint] = useState<string | null>(null);
     const [globalPushEnabled, setGlobalPushEnabled] = useState<boolean>(true);
-
-    // Check if Web Push is supported
-    useEffect(() => {
-        const isSupported = 'serviceWorker' in navigator && 'PushManager' in window;
-        setPushSupported(isSupported);
-
-        if (isSupported) {
-            setPushPermission(Notification.permission);
-        }
-    }, []);
 
     // Register Service Worker on mount
     useEffect(() => {
@@ -308,11 +302,15 @@ export const PushProvider = ({ children }: PushProviderProps): React.JSX.Element
     // Load push subscriptions and global status when authenticated
     useEffect(() => {
         if (isAuthenticated && user) {
-            fetchPushSubscriptions();
-            fetchGlobalPushStatus();
+            queueMicrotask(() => {
+                fetchPushSubscriptions();
+                fetchGlobalPushStatus();
+            });
         } else {
-            setPushSubscriptions([]);
-            setGlobalPushEnabled(true);
+            queueMicrotask(() => {
+                setPushSubscriptions([]);
+                setGlobalPushEnabled(true);
+            });
         }
     }, [isAuthenticated, user, fetchPushSubscriptions, fetchGlobalPushStatus]);
 

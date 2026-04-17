@@ -278,8 +278,8 @@ router.post('/:id/proxy/terminate', requireAuth, async (req: Request, res: Respo
 
     try {
         const { transcodeSessionKey, clientIdentifier, sessionId, reason } = req.body;
-        // URL-encode the reason message for Plex API
-        const terminateReason = encodeURIComponent(reason || 'The server owner has ended this stream');
+        // Pass reason directly — axios params serializer handles URL-encoding automatically
+        const terminateReason = reason || 'The server owner has ended this stream';
         logger.info(`[Plex Proxy] Terminate body received: sessionKey=${sessionKey} sessionId=${sessionId || 'none'} transcodeSessionKey=${transcodeSessionKey || 'none'} clientIdentifier=${clientIdentifier || 'none'} reason="${reason || '(default)'}"`);
 
 

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { useThemeQuery, useSaveTheme, useUserConfigQuery } from '../api/hooks/useConfig';
-import { useRealtimeSSE } from '../hooks/useRealtimeSSE';
+import { useRealtimeSSE } from '@/features/realtime/useRealtimeSSE';
 import logger from '../utils/logger';
 import type { ThemeContextValue, ThemeOption } from '../types/context/theme';
 
@@ -52,14 +52,19 @@ export const ThemeProvider = ({ children }: ThemeProviderProps): React.JSX.Eleme
         return localStorage.getItem('framerr-theme') || 'dark-pro';
     });
 
-    // Sync local theme with server data when it loads
-    useEffect(() => {
-        if (themeData?.theme?.preset) {
-            setLocalTheme(themeData.theme.preset);
-            // Persist to localStorage so splash screen uses correct theme on refresh
-            localStorage.setItem('framerr-theme', themeData.theme.preset);
+    // Sync local theme with server data (render-time ref-guarded — no effect needed)
+    const serverTheme = themeData?.theme?.preset;
+    const lastSyncedRef = useRef<string | undefined>(undefined);
+
+    if (serverTheme && serverTheme !== lastSyncedRef.current) {
+        lastSyncedRef.current = serverTheme;
+        if (serverTheme !== localTheme) {
+            queueMicrotask(() => {
+                setLocalTheme(serverTheme);
+                localStorage.setItem('framerr-theme', serverTheme);
+            });
         }
-    }, [themeData]);
+    }
 
     // Ref to skip SSE updates briefly after local changes (prevents self-bounce)
     const skipSSEUntilRef = useRef<number>(0);

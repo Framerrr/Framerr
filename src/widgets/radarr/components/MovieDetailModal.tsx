@@ -138,42 +138,26 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
     const [searchingText, setSearchingText] = useState('Searching indexers…');
     const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Reset state when modal opens/closes or movie changes
-    useEffect(() => {
-        if (open) {
-            setView('info');
-            setAutoSearchState('idle');
-            setReleases([]);
-            setGrabbingGuid(null);
-            setGrabSuccess(null);
-            setOverrideGuid(null);
-            setOverrideSuccess(null);
-            setSearchError(null);
-            setSearchingText('Searching indexers…');
-            if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-        }
-    }, [open, movie?.id]);
+    // Reset all modal state (called on open via handleOpenChange)
+    const resetModalState = useCallback(() => {
+        setView('info');
+        setAutoSearchState('idle');
+        setReleases([]);
+        setGrabbingGuid(null);
+        setGrabSuccess(null);
+        setOverrideGuid(null);
+        setOverrideSuccess(null);
+        setSearchError(null);
+        setSearchingText('Searching indexers…');
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    }, []);
 
-    // 15-second "still searching" text swap
-    useEffect(() => {
-        if (view === 'searching') {
-            setSearchingText('Searching indexers…');
-            searchTimerRef.current = setTimeout(() => {
-                setSearchingText('Still searching…');
-            }, 15000);
-        } else {
-            if (searchTimerRef.current) {
-                clearTimeout(searchTimerRef.current);
-                searchTimerRef.current = null;
-            }
+    const handleOpenChange = useCallback((newOpen: boolean) => {
+        if (newOpen) {
+            resetModalState();
         }
-        return () => {
-            if (searchTimerRef.current) {
-                clearTimeout(searchTimerRef.current);
-                searchTimerRef.current = null;
-            }
-        };
-    }, [view]);
+        onOpenChange(newOpen);
+    }, [onOpenChange, resetModalState]);
 
     // ---------- Actions ----------
 
@@ -198,6 +182,13 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
         setView('searching');
         setSearchError(null);
         setReleases([]);
+        setSearchingText('Searching indexers…');
+
+        // Start the 15-second "still searching" timer
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = setTimeout(() => {
+            setSearchingText('Still searching…');
+        }, 15000);
 
         try {
             const results = await searchReleases(movie.id);
@@ -206,6 +197,12 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
         } catch {
             setSearchError('Failed to search for releases');
             setView('results');
+        }
+
+        // Clear timer when search completes
+        if (searchTimerRef.current) {
+            clearTimeout(searchTimerRef.current);
+            searchTimerRef.current = null;
         }
     }, [movie, searchReleases]);
 
@@ -239,6 +236,10 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
         setView('info');
         setReleases([]);
         setSearchError(null);
+        if (searchTimerRef.current) {
+            clearTimeout(searchTimerRef.current);
+            searchTimerRef.current = null;
+        }
     }, []);
 
     // ---------- Derived ----------
@@ -271,7 +272,7 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
         : baseStatus;
 
     return (
-        <Modal open={open} onOpenChange={onOpenChange} size="lg" fixedHeight>
+        <Modal open={open} onOpenChange={handleOpenChange} size="lg" fixedHeight>
             {/* Compact close-only header — no title bar, just X */}
             <Modal.Header closeOnly />
 

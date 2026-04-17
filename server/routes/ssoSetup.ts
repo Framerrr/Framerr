@@ -14,7 +14,7 @@ import {
 } from '../db/users';
 import { linkAccount, findUserByExternalId } from '../db/linkedAccounts';
 import { verifyPassword } from '../auth/password';
-import { createUserSession } from '../auth/session';
+import { createUserSession, getSessionDurations } from '../auth/session';
 import logger from '../utils/logger';
 import { importSsoProfilePicture } from '../utils/importSsoProfilePicture';
 
@@ -138,14 +138,15 @@ router.post('/link-existing', async (req: Request, res: Response): Promise<void>
 
         // Token already consumed atomically above
 
-        // Create session
-        const session = await createUserSession(user, req, 86400000);
+        // Create session — SSO users have no duration choice, always use long duration
+        const linkDurations = await getSessionDurations();
+        const session = await createUserSession(user, req, linkDurations.sso);
 
         res.cookie('sessionId', session.id, {
             httpOnly: true,
             secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
             sameSite: 'lax',
-            maxAge: 86400000
+            maxAge: linkDurations.sso
         });
 
         logger.info(`[SSOSetup] Linked to existing: user=${user.id} username="${user.username}" provider="${tokenData.provider}" external="${tokenData.externalUsername}"`);
@@ -244,13 +245,14 @@ router.post('/create-account', async (req: Request, res: Response): Promise<void
             throw new Error('Failed to retrieve created user');
         }
 
-        const session = await createUserSession(fullUser, req, 86400000);
+        const createDurations = await getSessionDurations();
+        const session = await createUserSession(fullUser, req, createDurations.sso);
 
         res.cookie('sessionId', session.id, {
             httpOnly: true,
             secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
             sameSite: 'lax',
-            maxAge: 86400000
+            maxAge: createDurations.sso
         });
 
         logger.info(`[SSOSetup] Created new account: user=${user.id} username="${user.username}" provider="${tokenData.provider}" external="${tokenData.externalUsername}"`);

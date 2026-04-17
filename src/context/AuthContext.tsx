@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { authApi } from '../api/endpoints';
+import { authApi, themeApi } from '../api/endpoints';
 import { setLogoutFunction } from '../api/client';
 import logger from '../utils/logger';
 import { showLogoutSplash, showLoginSplash } from '../utils/splash';
-import useRealtimeSSE, { initializeSSE, disconnectSSE } from '../hooks/useRealtimeSSE';
+import useRealtimeSSE, { initializeSSE, disconnectSSE } from '@/features/realtime/useRealtimeSSE';
 import type { User, LoginResult } from '../../shared/types/user';
 import type { AuthContextValue } from '../types/context/auth';
 
@@ -32,8 +32,7 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
     // Logout function - shows splash overlay, transitions theme, then navigates
     const logout = useCallback((): void => {
         // Fetch the admin's login page theme, then show splash with cross-fade
-        fetch('/api/theme/default')
-            .then(r => r.json())
+        themeApi.getDefaultTheme()
             .then(data => data.theme || 'dark-pro')
             .catch(() => 'dark-pro')
             .then(loginTheme => {

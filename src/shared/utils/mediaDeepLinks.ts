@@ -12,6 +12,7 @@ export type MediaServerType = 'plex' | 'jellyfin' | 'emby';
 export interface MediaServerMeta {
     machineId?: string;  // Plex only
     serverUrl?: string;  // Jellyfin/Emby only
+    serverId?: string;   // Emby only — unique server identifier for deep links
 }
 
 // ============================================================================
@@ -42,10 +43,12 @@ export function getJellyfinDeepLink(itemId: string, serverUrl: string): string {
  * Generate an Emby Web URL for a media item.
  * @param itemId - Item ID
  * @param serverUrl - Emby server base URL
+ * @param serverId - Optional Emby server identifier (prevents blank page)
  */
-export function getEmbyDeepLink(itemId: string, serverUrl: string): string {
+export function getEmbyDeepLink(itemId: string, serverUrl: string, serverId?: string): string {
     const baseUrl = serverUrl.replace(/\/$/, '');
-    return `${baseUrl}/web/index.html#!/item?id=${itemId}`;
+    const url = `${baseUrl}/web/index.html#!/item?id=${itemId}`;
+    return serverId ? `${url}&serverId=${serverId}` : url;
 }
 
 // ============================================================================
@@ -69,7 +72,7 @@ export function getMediaDeepLink(
         case 'jellyfin':
             return meta.serverUrl ? getJellyfinDeepLink(itemId, meta.serverUrl) : null;
         case 'emby':
-            return meta.serverUrl ? getEmbyDeepLink(itemId, meta.serverUrl) : null;
+            return meta.serverUrl ? getEmbyDeepLink(itemId, meta.serverUrl, meta.serverId) : null;
         default:
             return null;
     }

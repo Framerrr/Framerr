@@ -200,9 +200,7 @@ interface RadarrConfig {
     [key: string]: unknown;
 }
 
-export interface RadarrWidgetProps extends WidgetProps {
-    // No additional props needed
-}
+export type RadarrWidgetProps = WidgetProps;
 
 const RadarrWidget = ({ widget, previewMode = false }: RadarrWidgetProps): React.JSX.Element => {
     // Preview mode: skip all data fetching and show mock data

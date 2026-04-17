@@ -146,3 +146,23 @@ export type { NotificationMode, NotificationEvent, NotificationConfigData } from
 
 // CodeEditor - Lightweight syntax-highlighted code editor
 export { CodeEditor } from './CodeEditor';
+
+// Card - Glass container card with optional header
+export { Card, CardHeader } from './Card';
+export type { CardProps, CardHeaderProps } from './Card';
+
+// ColorPicker - Premium color picker with glassmorphism design
+export { ColorPicker } from './ColorPicker';
+export type { ColorPickerProps } from './ColorPicker';
+
+// Input - Form input and textarea with consistent styling
+export { Input, Textarea } from './Input';
+export type { InputProps, TextareaProps } from './Input';
+
+// LoadingSpinner - Animated loading indicator
+export { LoadingSpinner } from './LoadingSpinner';
+export type { LoadingSpinnerProps } from './LoadingSpinner';
+
+// StatusDot - Status indicator dot with pulse animation
+export { StatusDot } from './StatusDot';
+export type { StatusDotProps, MonitorStatus } from './StatusDot';

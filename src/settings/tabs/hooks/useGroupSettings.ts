@@ -11,7 +11,7 @@
 import { useState, useCallback, FormEvent } from 'react';
 import { arrayMove } from '@dnd-kit/sortable';
 import { DragEndEvent } from '@dnd-kit/core';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { useTabGroupsList, useUpdateTabGroups, TabGroup } from '../../../api/hooks/useSettings';
 import type { TabGroupFormData, ModalMode } from '../types';
 

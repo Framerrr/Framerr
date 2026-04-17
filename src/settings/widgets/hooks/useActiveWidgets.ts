@@ -12,7 +12,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useWidgets, useSaveWidgets } from '../../../api/hooks/useDashboard';
 import logger from '../../../utils/logger';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { useLayout } from '../../../context/LayoutContext';
 import type { Widget, WidgetConfig, ViewMode, WidgetStats } from '../types';
 import type { MobileLayoutMode } from '../../../api/endpoints';

@@ -57,10 +57,6 @@ export function WalkthroughProvider({
     const enterDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const exitDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Update role if it changes
-    useEffect(() => {
-        setState(prev => ({ ...prev, role: userRole }));
-    }, [userRole]);
 
     // Get filtered steps (respecting conditions) for current flow
     // Re-evaluates when stepData changes so conditions can branch on runtime data
@@ -71,9 +67,9 @@ export function WalkthroughProvider({
 
         return allSteps.filter(step => {
             if (!step.condition) return true;
-            return step.condition({ role: state.role, stepData: state.stepData });
+            return step.condition({ role: userRole, stepData: state.stepData });
         });
-    }, [state.flowId, state.role, state.stepData]);
+    }, [state.flowId, userRole, state.stepData]);
 
     // Current step
     const currentStep = useMemo((): WalkthroughStep | null => {
@@ -108,13 +104,13 @@ export function WalkthroughProvider({
 
         if (delay > 0) {
             // Start in entering phase, transition to active after delay
-            setState(prev => ({ ...prev, stepPhase: 'entering' }));
+            queueMicrotask(() => setState(prev => ({ ...prev, stepPhase: 'entering' })));
             enterDelayTimerRef.current = setTimeout(() => {
                 setState(prev => ({ ...prev, stepPhase: 'active' }));
             }, delay);
         } else {
             // No delay — go directly to active
-            setState(prev => ({ ...prev, stepPhase: 'active' }));
+            queueMicrotask(() => setState(prev => ({ ...prev, stepPhase: 'active' })));
         }
     }, [state.isActive, state.currentStepIndex, currentStep]);
 
@@ -184,7 +180,7 @@ export function WalkthroughProvider({
             // Filter steps for the user's role
             const visibleSteps = steps.filter(step => {
                 if (!step.condition) return true;
-                return step.condition({ role: prev.role, stepData: prev.stepData });
+                return step.condition({ role: userRole, stepData: prev.stepData });
             });
 
             // Current step's exitDelay
@@ -196,7 +192,7 @@ export function WalkthroughProvider({
             const nextIndex = currentIdx + 1;
 
             logger.debug(`[Walkthrough] advance: currentIdx=${currentIdx}, nextIndex=${nextIndex}, visibleSteps=${visibleSteps.length}, ids=[${visibleSteps.map(s => s.id).join(',')}]`);
-            logger.debug(`[Walkthrough] advance: current step="${visibleSteps[currentIdx]?.id}", next step="${visibleSteps[nextIndex]?.id ?? 'END'}", role=${prev.role}, widgetType=${prev.stepData.widgetType}`);
+            logger.debug(`[Walkthrough] advance: current step="${visibleSteps[currentIdx]?.id}", next step="${visibleSteps[nextIndex]?.id ?? 'END'}", role=${userRole}, widgetType=${prev.stepData.widgetType}`);
 
             const doAdvance = () => {
                 if (nextIndex >= visibleSteps.length) {
@@ -288,7 +284,7 @@ export function WalkthroughProvider({
 
             const visibleSteps = steps.filter(step => {
                 if (!step.condition) return true;
-                return step.condition({ role: prev.role, stepData: prev.stepData });
+                return step.condition({ role: userRole, stepData: prev.stepData });
             });
 
             const step = visibleSteps[prev.currentStepIndex];

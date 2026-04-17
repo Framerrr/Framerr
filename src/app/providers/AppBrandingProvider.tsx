@@ -1,16 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { configApi } from '../../api/endpoints';
 import logger from '../../utils/logger';
-import useRealtimeSSE from '../../hooks/useRealtimeSSE';
-
-// ============================================================================
-// Types
-// ============================================================================
-
-interface AppBrandingResponse {
-    name?: string;
-    icon?: string;
-}
+import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
 
 export interface AppBrandingContextValue {
     /** Server display name (e.g. 'Framerr' or user-configured name) */
@@ -49,22 +41,21 @@ export const AppBrandingProvider = ({ children }: AppBrandingProviderProps): Rea
 
         try {
             // Fetch app branding (public endpoint - works for all users)
-            let appBranding: AppBrandingResponse = { name: 'Framerr', icon: 'Server' };
+            let appBranding: { name?: string; icon?: string } = { name: 'Framerr', icon: 'Server' };
             try {
-                const brandingRes = await fetch('/api/config/app-name');
-                if (brandingRes.ok) {
-                    appBranding = await brandingRes.json();
-                }
+                appBranding = await configApi.getAppName();
             } catch (brandingError) {
                 logger.debug('App branding not available, using defaults');
             }
 
-            setServerName(appBranding.name || 'Framerr');
-            setServerIcon(appBranding.icon || 'Server');
-            setBrandingLoaded(true);
+            queueMicrotask(() => {
+                setServerName(appBranding.name || 'Framerr');
+                setServerIcon(appBranding.icon || 'Server');
+                setBrandingLoaded(true);
+            });
         } catch (error) {
             logger.error('Failed to fetch app branding', { error: (error as Error).message });
-            setBrandingLoaded(true);
+            queueMicrotask(() => setBrandingLoaded(true));
         }
     }, [isAuthenticated]);
 

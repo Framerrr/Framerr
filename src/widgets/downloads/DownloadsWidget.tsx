@@ -12,6 +12,7 @@
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import api from '../../api/client';
 import { CheckCircle2, Download } from 'lucide-react';
 import { WidgetStateMessage } from '../../shared/widgets';
 import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
@@ -269,46 +270,32 @@ const DownloadsWidget: React.FC<WidgetProps> = ({ widget, previewMode = false })
         try {
             if (isQbt) {
                 const action = wasPausing ? 'pause' : 'resume';
-                const resp = await fetch(`/api/integrations/${integrationId}/proxy/torrents/${action}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-Framerr-Client': '1' },
-                    credentials: 'include',
-                    body: JSON.stringify({ hashes: ['all'] }),
-                });
-                if (resp.ok) {
-                    optimisticUntil.current = Date.now() + 1500;
-                    setTorrents(prev => prev.map(t => ({
-                        ...t,
-                        state: wasPausing
-                            ? (t.state.includes('DL') ? 'pausedDL' : 'pausedUP')
-                            : (t.progress < 1 ? 'downloading' : 'uploading'),
-                        dlspeed: wasPausing ? 0 : t.dlspeed,
-                        upspeed: wasPausing ? 0 : t.upspeed,
-                    })));
-                }
+                await api.post(`/api/integrations/${integrationId}/proxy/torrents/${action}`, { hashes: ['all'] });
+                optimisticUntil.current = Date.now() + 1500;
+                setTorrents(prev => prev.map(t => ({
+                    ...t,
+                    state: wasPausing
+                        ? (t.state.includes('DL') ? 'pausedDL' : 'pausedUP')
+                        : (t.progress < 1 ? 'downloading' : 'uploading'),
+                    dlspeed: wasPausing ? 0 : t.dlspeed,
+                    upspeed: wasPausing ? 0 : t.upspeed,
+                })));
             } else {
                 const action = wasPausing ? 'pause' : 'resume';
-                const resp = await fetch(`/api/integrations/${integrationId}/proxy/sab/${action}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-Framerr-Client': '1' },
-                    credentials: 'include',
-                    body: JSON.stringify({}),
-                });
-                if (resp.ok) {
-                    optimisticUntil.current = Date.now() + 1500;
-                    // Flip the queueInfo paused flag immediately
-                    setSabQueueInfo(prev => prev ? { ...prev, paused: wasPausing, speed: wasPausing ? 0 : prev.speed } : prev);
-                    // Also flip individual item statuses so cards show yellow/green
-                    setSabQueue(prev => prev.map(item => {
-                        if (wasPausing && item.status === 'Downloading') {
-                            return { ...item, status: 'Paused' };
-                        }
-                        if (!wasPausing && item.status === 'Paused') {
-                            return { ...item, status: 'Downloading' };
-                        }
-                        return item;
-                    }));
-                }
+                await api.post(`/api/integrations/${integrationId}/proxy/sab/${action}`, {});
+                optimisticUntil.current = Date.now() + 1500;
+                // Flip the queueInfo paused flag immediately
+                setSabQueueInfo(prev => prev ? { ...prev, paused: wasPausing, speed: wasPausing ? 0 : prev.speed } : prev);
+                // Also flip individual item statuses so cards show yellow/green
+                setSabQueue(prev => prev.map(item => {
+                    if (wasPausing && item.status === 'Downloading') {
+                        return { ...item, status: 'Paused' };
+                    }
+                    if (!wasPausing && item.status === 'Paused') {
+                        return { ...item, status: 'Downloading' };
+                    }
+                    return item;
+                }));
             }
         } catch {
             // SSE will show the actual state shortly

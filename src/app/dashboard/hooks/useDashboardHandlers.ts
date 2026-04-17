@@ -13,7 +13,7 @@ import { triggerHaptic } from '../../../utils/haptics';
 import { widgetsApi } from '../../../api/endpoints/widgets';
 import { useRoleAwareIntegrations } from '../../../api/hooks/useIntegrations';
 import type { FramerrWidget } from '../../../../shared/types/widget';
-import type { LayoutItem } from '../../../hooks/useDashboardLayout/types';
+import type { LayoutItem } from '@/shared/grid/hooks/useDashboardLayout/types';
 import type { WidgetApiResponse } from '../types';
 
 interface DashboardEditContextType {

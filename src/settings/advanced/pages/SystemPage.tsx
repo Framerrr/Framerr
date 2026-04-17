@@ -1,9 +1,10 @@
 import React from 'react';
 import { RefreshCw } from 'lucide-react';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import { useSystemSettings } from '../../system/hooks/useSystemSettings';
 import { InfoSection } from '../../system/sections/InfoSection';
 import { DiagnosticsSection } from '../../system/sections/DiagnosticsSection';
+import { MetricHistorySection } from '../../system/sections/MetricHistorySection';
 import { SettingsPage } from '../../../shared/ui/settings';
 
 /**
@@ -84,6 +85,8 @@ export const SystemPage = (): React.JSX.Element => {
                 onRefreshDiagnostics={handleRefreshDiagnostics}
                 getStatusColor={getStatusColor}
             />
+
+            <MetricHistorySection />
         </SettingsPage>
     );
 };

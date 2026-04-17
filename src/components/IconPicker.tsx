@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Upload, ChevronDown, LucideIcon } from 'lucide-react';
 import * as Icons from 'lucide-react';
+import api from '../api/client';
 import logger from '../utils/logger';
 import { getIconComponent, POPULAR_ICONS } from '../utils/iconUtils';
-import { useNotifications } from '../context/NotificationContext';
+import { useNotifications } from '../context/notification';
 import { Popover, ConfirmButton } from '../shared/ui';
 
 interface UploadedIcon {
@@ -59,15 +60,10 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
     const fetchUploadedIcons = async (): Promise<void> => {
         try {
             setLoadingIcons(true);
-            const response = await fetch('/api/custom-icons', {
-                credentials: 'include'
-            });
-            if (response.ok) {
-                const data = await response.json();
-                // Filter out old system icons (is_system=1) — we use the new system now
-                const userIcons = (data.icons || []).filter((i: UploadedIcon) => !i.isSystem);
-                setUploadedIcons(userIcons);
-            }
+            const data = await api.get<{ icons?: UploadedIcon[] }>('/api/custom-icons');
+            // Filter out old system icons (is_system=1) — we use the new system now
+            const userIcons = (data.icons || []).filter((i: UploadedIcon) => !i.isSystem);
+            setUploadedIcons(userIcons);
         } catch (error) {
             logger.error('Failed to fetch uploaded icons:', { error });
         } finally {
@@ -77,11 +73,8 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
 
     const fetchSystemIcons = async (): Promise<void> => {
         try {
-            const response = await fetch('/api/icons/system');
-            if (response.ok) {
-                const data = await response.json();
-                setSystemIcons(data.icons || []);
-            }
+            const data = await api.get<{ icons?: SystemIcon[] }>('/api/icons/system');
+            setSystemIcons(data.icons || []);
         } catch (error) {
             logger.error('Failed to fetch system icons:', { error });
         }
@@ -89,11 +82,8 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
 
     const fetchCdnCatalog = async (): Promise<void> => {
         try {
-            const response = await fetch('/api/icons/catalog');
-            if (response.ok) {
-                const data = await response.json();
-                setCdnCatalog(data.icons || []);
-            }
+            const data = await api.get<{ icons?: string[] }>('/api/icons/catalog');
+            setCdnCatalog(data.icons || []);
         } catch (error) {
             logger.error('Failed to fetch CDN catalog:', { error });
         }
@@ -162,23 +152,14 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
         formData.append('icon', file);
 
         try {
-            const response = await fetch('/api/custom-icons', {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'X-Framerr-Client': '1' },
-                body: formData
+            const data = await api.post<{ icon: { id: string } }>('/api/custom-icons', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
-
-            if (response.ok) {
-                const data = await response.json();
-                // Set the newly uploaded icon as selected
-                onChange(`custom:${data.icon.id}`);
-                // Refresh the icons list
-                await fetchUploadedIcons();
-                setIsOpen(false);
-            } else {
-                showError('Upload Failed', 'Failed to upload icon');
-            }
+            // Set the newly uploaded icon as selected
+            onChange(`custom:${data.icon.id}`);
+            // Refresh the icons list
+            await fetchUploadedIcons();
+            setIsOpen(false);
         } catch (error) {
             logger.error('Failed to upload icon:', { error });
             showError('Upload Failed', 'Failed to upload icon');
@@ -190,21 +171,12 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
 
     const handleDeleteIcon = async (iconId: string): Promise<void> => {
         try {
-            const response = await fetch(`/api/custom-icons/${iconId}`, {
-                method: 'DELETE',
-                credentials: 'include',
-                headers: { 'X-Framerr-Client': '1' }
-            });
-
-            if (response.ok) {
-                // Refresh the icon list
-                await fetchUploadedIcons();
-                // If the deleted icon was selected, clear selection
-                if (value === `custom:${iconId}`) {
-                    onChange('Server');
-                }
-            } else {
-                showError('Delete Failed', 'Failed to delete icon');
+            await api.delete(`/api/custom-icons/${iconId}`);
+            // Refresh the icon list
+            await fetchUploadedIcons();
+            // If the deleted icon was selected, clear selection
+            if (value === `custom:${iconId}`) {
+                onChange('Server');
             }
         } catch (error) {
             logger.error('Failed to delete icon:', { error });
@@ -238,12 +210,6 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
                 align="start"
                 sideOffset={8}
                 className="w-[min(calc(100vw-48px),24rem)] min-w-[280px] max-w-[24rem] max-h-[min(400px,calc(100vh-200px))] p-0 flex flex-col"
-                onPointerDownOutside={(e) => {
-                    // On iOS, tapping inputs inside portal content can trigger false 
-                    // "outside" dismissals. Prevent automatic dismiss — the IconPicker 
-                    // closes via the X button or icon selection instead.
-                    e.preventDefault();
-                }}
             >
                 {/* Header - fixed */}
                 <div className="flex items-center justify-between px-4 py-2 border-b border-theme flex-shrink-0">

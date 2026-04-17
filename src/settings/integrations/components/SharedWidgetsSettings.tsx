@@ -18,7 +18,7 @@ import { SettingsPage, SettingsSection, EmptyState } from '../../../shared/ui/se
 import { useAllWidgetShares, useUsersAndGroups, useRevokeAllShares } from '../../../api/hooks/useWidgetQueries';
 import { useIntegrations } from '../../../api/hooks/useIntegrations';
 import { getShareableWidgets, getWidgetsByCategory } from '../../../widgets/registry';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import WidgetShareCard from './WidgetShareCard';
 
 // Types

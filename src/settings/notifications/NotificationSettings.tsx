@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import { SettingsPage } from '../../shared/ui/settings';
 import { useNotificationSettings } from './hooks/useNotificationSettings';
 import { GeneralSection } from './sections/GeneralSection';

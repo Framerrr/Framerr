@@ -29,8 +29,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ChevronDown } from 'lucide-react';
 import { popIn } from '../animations';
 import { formSizeClasses, type FormSize } from '../formSizeClasses';
-import { useCloseOnScroll } from '../../../hooks/useCloseOnScroll';
-import { useOverlayScrollLock } from '../../../hooks/useOverlayScrollLock';
+import { useCloseOnScroll } from '@/shared/hooks/useCloseOnScroll';
+import { useOverlayScrollLock } from '@/shared/hooks/useOverlayScrollLock';
 
 // Global tracker - when a select opens, it closes any previously open one
 let currentlyOpenSelect: { close: () => void } | null = null;
@@ -203,6 +203,8 @@ export interface SelectContentProps {
     align?: 'start' | 'center' | 'end';
     /** Set to false to render inline instead of portaling to body. Required when Select is inside a Modal. */
     portal?: boolean;
+    /** When true, content min-width matches the trigger width via Radix CSS variable. */
+    fullWidth?: boolean;
 }
 
 const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
@@ -214,6 +216,7 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
         sideOffset = 4,
         align = 'start',
         portal = true,
+        fullWidth = false,
         ...props
     }, ref) => {
         const contentRef = useRef<HTMLDivElement>(null);
@@ -245,6 +248,7 @@ const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
               p-4
               ${className}
             `}
+                    style={fullWidth ? { minWidth: 'var(--radix-select-trigger-width)' } : undefined}
                 >
                     <RadixSelect.Viewport
                         className="max-h-[300px] overflow-y-auto"
@@ -272,15 +276,27 @@ SelectContent.displayName = 'Select.Content';
 // Select.Item
 // ===========================
 
+const itemSizeClasses = {
+    sm: 'px-3 py-1.5 pr-8',
+    md: 'px-3 py-2 pr-8',
+    lg: 'px-4 py-3 pr-9',
+} as const;
+
 export interface SelectItemProps {
     value: string;
     children: React.ReactNode;
     className?: string;
     disabled?: boolean;
+    /** Optional icon rendered before the label text. Rendered outside ItemText so it won't appear in the trigger. */
+    icon?: React.ReactNode;
+    /** Item padding size. Default: 'md' */
+    size?: 'sm' | 'md' | 'lg';
+    /** Optional secondary text rendered below the label in the dropdown. Not shown in the trigger. */
+    description?: React.ReactNode;
 }
 
 const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
-    ({ value, children, className = '', disabled, ...props }, ref) => {
+    ({ value, children, className = '', disabled, icon, size = 'md', description, ...props }, ref) => {
         return (
             <RadixSelect.Item
                 ref={ref}
@@ -288,7 +304,7 @@ const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
                 disabled={disabled}
                 className={`
           relative flex items-center gap-3
-          px-3 py-2 pr-8 rounded-md
+          ${itemSizeClasses[size]} rounded-md
           text-sm text-theme-primary
           cursor-pointer
           hover:bg-theme-hover
@@ -298,7 +314,15 @@ const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
         `}
                 {...props}
             >
-                <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
+                {icon && <span className="flex-shrink-0 text-theme-secondary">{icon}</span>}
+                {description ? (
+                    <span className="flex flex-col gap-0.5 min-w-0 flex-1">
+                        <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
+                        <span className="text-xs text-theme-tertiary truncate">{description}</span>
+                    </span>
+                ) : (
+                    <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
+                )}
                 <RadixSelect.ItemIndicator className="absolute right-2">
                     <Check size={16} className="text-accent" />
                 </RadixSelect.ItemIndicator>

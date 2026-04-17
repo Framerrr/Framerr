@@ -7,7 +7,7 @@
 
 import React, { useEffect } from 'react';
 import { CheckCircle2, AlertCircle, ExternalLink, Loader, RefreshCw, Server } from 'lucide-react';
-import { Input } from '../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Select } from '../../shared/ui';
 import { PlexConfig } from '../_core/definitions';
 import { LibrarySyncSection, type SyncStatus } from '../shared';

@@ -12,7 +12,7 @@
 
 import React, { ChangeEvent } from 'react';
 import { Info, Code, Lightbulb } from 'lucide-react';
-import { Input } from '../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Switch } from '../../shared/ui';
 import { ServiceDefinition, IntegrationConfig } from './definitions';
 import { ConfigSchema, ConfigField } from '../../api/endpoints/integrations';

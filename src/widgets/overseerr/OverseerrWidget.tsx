@@ -11,9 +11,9 @@ import RequestInfoModal from './modals/RequestInfoModal';
 import type { WidgetProps, WidgetData } from '../types';
 import './styles.css';
 
-interface OverseerrWidgetProps extends WidgetProps {
-    // No additional props needed
-}
+import type { Media, MediaRequest, InstanceDownload, DownloadInfoMulti, OverseerrData } from './types';
+
+type OverseerrWidgetProps = WidgetProps;
 
 interface OverseerrIntegration {
     enabled?: boolean;
@@ -21,89 +21,15 @@ interface OverseerrIntegration {
     apiKey?: string;
 }
 
-interface Media {
-    tmdbId?: number;
-    title?: string;
-    status?: number;
-    posterPath?: string | null;
-    localPosterPath?: string | null;
-    backdropPath?: string | null;
-    overview?: string | null;
-    releaseDate?: string | null;
-    voteAverage?: number | null;
-}
-
-interface RequestedBy {
-    displayName?: string;
-}
-
-interface MediaRequest {
-    id: number;
-    status: number;
-    type: 'movie' | 'tv';
-    media?: Media;
-    requestedBy?: RequestedBy;
-}
-
-// Download info for a request - per-instance array (Phase 7)
-interface InstanceDownload {
-    integrationId: string;
-    displayName: string;      // Framerr user-defined name for this instance
-    progress: number;         // 0-100
-    timeLeft?: string;        // e.g., "1:23:45"
-    episodeCount?: number;    // For TV shows: how many episodes downloading
-}
-
-interface DownloadInfoMulti {
-    isDownloading: boolean;
-    downloads: InstanceDownload[];
-}
-
-interface OverseerrData {
-    results?: MediaRequest[];
-    _meta?: {
-        perUserFiltering?: boolean;
-        userMatched?: boolean;
-        linkedUsername?: string;
-    };
-}
-
 // Preview mode mock requests data with distinct poster gradient colors
 const PREVIEW_REQUESTS = [
-    { title: 'Dune: Part Two', status: 'Downloading', color: 'var(--info)', gradient: 'linear-gradient(135deg, #2d5a87 0%, #1a3b5c 100%)' },
-    { title: 'Oppenheimer', status: 'Available', color: 'var(--success)', gradient: 'linear-gradient(135deg, #4a3728 0%, #2d2118 100%)' },
-    { title: 'The Bear S4', status: 'Requested', color: 'var(--warning)', gradient: 'linear-gradient(135deg, #6b4423 0%, #3d2614 100%)' },
-    { title: 'Barbie', status: 'Available', color: 'var(--success)', gradient: 'linear-gradient(135deg, #d35b8d 0%, #a33d6a 100%)' },
+    { title: 'Dune: Part Two', status: 'Downloading', color: 'var(--info)', gradient: 'linear-gradient(135deg, var(--gradient-1), var(--gradient-2))' },
+    { title: 'Oppenheimer', status: 'Available', color: 'var(--success)', gradient: 'linear-gradient(135deg, var(--gradient-2), var(--gradient-3))' },
+    { title: 'The Bear S4', status: 'Requested', color: 'var(--warning)', gradient: 'linear-gradient(135deg, var(--gradient-3), var(--gradient-4))' },
+    { title: 'Barbie', status: 'Available', color: 'var(--success)', gradient: 'linear-gradient(135deg, var(--gradient-4), var(--gradient-1))' },
 ];
 
 const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode = false }) => {
-    // Preview mode: render mock request cards without hooks
-    if (previewMode) {
-        return (
-            <div className="flex flex-col h-full overflow-hidden">
-                <div className="flex justify-between items-center h-8 mb-3">
-                    <span className="text-sm font-semibold text-theme-primary">Recent Requests</span>
-                </div>
-                <div className="flex gap-3 flex-1 overflow-hidden">
-                    {PREVIEW_REQUESTS.map((req, i) => (
-                        <div key={i} className="relative h-full flex-shrink-0 rounded-xl overflow-hidden shadow-medium" style={{ aspectRatio: '2/3' }}>
-                            <div className="w-full h-full flex items-center justify-center" style={{ background: req.gradient }}>
-                                <Film size={24} className="text-white opacity-40" />
-                            </div>
-                            <div className="absolute top-2 right-2 px-2 py-1 rounded-md text-[10px] font-bold uppercase backdrop-blur-md"
-                                style={{ background: 'rgba(0,0,0,0.8)', color: req.color }}>
-                                {req.status}
-                            </div>
-                            <div className="absolute inset-x-0 bottom-0 py-3 px-2 bg-gradient-to-t from-black/95 to-transparent">
-                                <div className="font-semibold text-xs text-white text-center">{req.title}</div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        );
-    }
-
     // Get auth state to determine admin status
     const { user } = useAuth();
     const userIsAdmin = isAdmin(user);
@@ -141,12 +67,13 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
         : configViewMode;
 
     // Use unified access hook for widget + integration access
+    // In preview mode, pass undefined for widgetId to prevent persistence side effects
     const {
         effectiveIntegrationId,
         effectiveDisplayName,
         status: accessStatus,
         loading: accessLoading,
-    } = useWidgetIntegration('overseerr', configuredIntegrationId, widget.id);
+    } = useWidgetIntegration('overseerr', previewMode ? undefined : configuredIntegrationId, previewMode ? undefined : widget.id);
 
     // Use the effective integration ID (may be fallback)
     const integrationId = effectiveIntegrationId || undefined;
@@ -257,8 +184,8 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
     const { loading, isConnected } = useIntegrationSSE<OverseerrData>({
         integrationType: 'overseerr',
         subtype: 'requests',
-        integrationId,
-        enabled: isIntegrationBound,
+        integrationId: previewMode ? undefined : integrationId,
+        enabled: !previewMode && isIntegrationBound,
         onData: (data) => {
             setRequestsData(data);
             setError(null);
@@ -334,6 +261,33 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
     }, [expandedCardId]);
 
     // NOW we can have early returns (after all hooks have been called)
+
+    // Preview mode: render mock request cards
+    if (previewMode) {
+        return (
+            <div className="flex flex-col h-full overflow-hidden">
+                <div className="flex justify-between items-center h-8 mb-3">
+                    <span className="text-sm font-semibold text-theme-primary">Recent Requests</span>
+                </div>
+                <div className="flex gap-3 flex-1 overflow-hidden">
+                    {PREVIEW_REQUESTS.map((req, i) => (
+                        <div key={i} className="relative h-full flex-shrink-0 rounded-xl overflow-hidden shadow-medium" style={{ aspectRatio: '2/3' }}>
+                            <div className="w-full h-full flex items-center justify-center" style={{ background: req.gradient }}>
+                                <Film size={24} className="text-theme-primary opacity-50" />
+                            </div>
+                            <div className="absolute top-2 right-2 px-2 py-1 rounded-md text-[10px] font-bold uppercase backdrop-blur-md"
+                                style={{ background: 'rgba(0,0,0,0.8)', color: req.color }}>
+                                {req.status}
+                            </div>
+                            <div className="absolute inset-x-0 bottom-0 py-3 px-2 bg-gradient-to-t from-black/95 to-transparent">
+                                <div className="font-semibold text-xs text-white text-center">{req.title}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
 
     // Handle access loading state
     if (accessLoading) {

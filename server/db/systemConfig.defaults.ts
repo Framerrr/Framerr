@@ -34,7 +34,7 @@ export const DEFAULT_CONFIG: FullSystemConfig = {
             redirectUri: '',
             scopes: 'openid profile email'
         },
-        session: { timeout: 86400000 }
+        session: { timeout: 604800000, rememberMeDuration: 2592000000 }
     } as AuthConfig,
     integrations: {
         plex: { enabled: false },

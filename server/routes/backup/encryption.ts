@@ -1,9 +1,9 @@
 /**
  * Backup Encryption Routes
  *
- * Encryption management: status, enable, disable, change password.
+ * Encryption management: status, enable, disable, reset password.
  * All endpoints require admin authentication.
- * Includes the rewriteBackupHeaders helper for password change operations.
+ * Includes the rewriteBackupHeaders helper for password reset operations.
  */
 
 import { Router, Request, Response } from 'express';
@@ -12,14 +12,13 @@ import {
     isBackupEncryptionEnabled,
     enableBackupEncryption,
     disableBackupEncryption,
-    changeBackupPassword,
-    getBackupEncryption,
+    resetBackupPassword,
+    getServerMBK,
 } from '../../db/backupEncryption';
 import {
+    generateSalt,
     deriveKEK,
     wrapKey,
-    unwrapKey,
-    generateSalt,
     CRYPTO_CONSTANTS,
 } from '../../utils/backupCrypto';
 import {
@@ -189,7 +188,7 @@ router.post('/encryption/disable', requireAdmin, async (req: Request, res: Respo
     } catch (error) {
         const message = (error as Error).message;
         if (message === 'Incorrect password') {
-            res.status(401).json({ error: message });
+            res.status(403).json({ error: message });
         } else if (message === 'Backup encryption is not enabled') {
             res.status(404).json({ error: message });
         } else {
@@ -200,54 +199,37 @@ router.post('/encryption/disable', requireAdmin, async (req: Request, res: Respo
 });
 
 /**
- * POST /api/backup/encryption/change-password
- * Change the backup encryption password and rewrite server backup headers
+ * POST /api/backup/encryption/reset-password
+ * Reset the backup encryption password (no old password needed) and rewrite server backup headers
  */
-router.post('/encryption/change-password', requireAdmin, async (req: Request, res: Response) => {
+router.post('/encryption/reset-password', requireAdmin, async (req: Request, res: Response) => {
     try {
-        const { oldPassword, newPassword } = req.body;
+        const { newPassword } = req.body;
 
-        if (!oldPassword || !newPassword) {
-            res.status(400).json({ error: 'Both old and new passwords are required' });
+        if (!newPassword) {
+            res.status(400).json({ error: 'New password is required' });
             return;
         }
 
         if (typeof newPassword !== 'string' || newPassword.length < 8) {
-            res.status(400).json({ error: 'New password must be at least 8 characters' });
+            res.status(400).json({ error: 'Password must be at least 8 characters' });
             return;
         }
 
-        // Get encryption config to unwrap MBK before changing password
-        const config = getBackupEncryption();
-        if (!config) {
-            res.status(404).json({ error: 'Backup encryption is not enabled' });
-            return;
-        }
+        // Unwrap MBK via server key (no old password needed)
+        const mbk = getServerMBK();
 
-        // Unwrap MBK with old password (verifies it's correct)
-        const oldSalt = Buffer.from(config.kekSalt, 'base64');
-        const oldKek = deriveKEK(oldPassword, oldSalt, config.kdfIterations);
-        const wrappedMbk = Buffer.from(config.mbkPassword, 'base64');
-
-        let mbk: Buffer;
-        try {
-            mbk = unwrapKey(wrappedMbk, oldKek);
-        } catch {
-            res.status(401).json({ error: 'Incorrect current password' });
-            return;
-        }
-
-        // Change password in DB
-        changeBackupPassword(oldPassword, newPassword);
+        // Update password wrapping in DB
+        resetBackupPassword(newPassword);
 
         // Rewrite headers on server-stored backups
         const rewriteErrors = rewriteBackupHeaders(mbk, newPassword);
 
         const authReq = req as AuthenticatedRequest;
-        logger.info(`[Backup] Password changed: admin="${authReq.user!.username}" rewriteErrors=${rewriteErrors.length}`);
+        logger.info(`[Backup] Password reset: admin="${authReq.user!.username}" rewriteErrors=${rewriteErrors.length}`);
 
         const response: { message: string; rewriteErrors?: string[] } = {
-            message: 'Backup password changed. Server backups updated.',
+            message: 'Backup password reset. Server backups updated.',
         };
         if (rewriteErrors.length > 0) {
             response.rewriteErrors = rewriteErrors;
@@ -256,13 +238,11 @@ router.post('/encryption/change-password', requireAdmin, async (req: Request, re
         res.json(response);
     } catch (error) {
         const message = (error as Error).message;
-        if (message === 'Incorrect current password') {
-            res.status(401).json({ error: message });
-        } else if (message === 'Backup encryption is not enabled') {
+        if (message === 'Backup encryption is not enabled') {
             res.status(404).json({ error: message });
         } else {
-            logger.error(`[Backup] Failed to change password: error="${message}"`);
-            res.status(500).json({ error: 'Failed to change backup password' });
+            logger.error(`[Backup] Failed to reset password: error="${message}"`);
+            res.status(500).json({ error: 'Failed to reset backup password' });
         }
     }
 });

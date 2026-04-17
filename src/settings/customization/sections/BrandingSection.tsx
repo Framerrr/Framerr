@@ -6,7 +6,7 @@
 
 import React, { ChangeEvent } from 'react';
 import { Palette, Save } from 'lucide-react';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Button } from '../../../shared/ui';
 import { SettingsSection } from '../../../shared/ui/settings';
 import IconPicker from '../../../components/IconPicker';

@@ -8,7 +8,7 @@
 import React, { FormEvent, ChangeEvent } from 'react';
 import { Save } from 'lucide-react';
 import { Modal } from '@/shared/ui';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Button } from '../../../shared/ui';
 import type { TabGroup, TabGroupFormData, ModalMode } from '../types';
 

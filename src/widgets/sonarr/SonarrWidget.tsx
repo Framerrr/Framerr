@@ -202,9 +202,7 @@ interface SonarrConfig {
     [key: string]: unknown;
 }
 
-export interface SonarrWidgetProps extends WidgetProps {
-    // No additional props needed
-}
+export type SonarrWidgetProps = WidgetProps;
 
 const SonarrWidget = ({ widget, previewMode = false }: SonarrWidgetProps): React.JSX.Element => {
     // Preview mode: skip all data fetching and show mock data

@@ -10,7 +10,7 @@ import { useBackupSettings } from '../../backup/hooks/useBackupSettings';
 import {
     StatsSection,
     CreateBackupSection,
-    // EncryptionSection, // DISABLED: Hidden until 0.20 release
+    EncryptionSection,
     ScheduleSection,
     BackupListSection,
     BackupInfoSection
@@ -50,12 +50,12 @@ export const BackupPage = (): React.JSX.Element => {
         handleToggleSchedule,
         updateSchedule,
 
-        // Encryption — DISABLED: Hidden until 0.20 release
-        // encryptionEnabled,
-        // encryptionLoading,
-        // handleEnableEncryption,
-        // handleDisableEncryption,
-        // handleChangePassword,
+        // Encryption
+        encryptionEnabled,
+        encryptionLoading,
+        handleEnableEncryption,
+        handleDisableEncryption,
+        handleResetPassword,
     } = useBackupSettings();
 
     return (
@@ -86,15 +86,14 @@ export const BackupPage = (): React.JSX.Element => {
                 onCreateBackup={handleCreateBackup}
             />
 
-            {/* DISABLED: Encryption section hidden until 0.20 release
+            {/* Backup Encryption */}
             <EncryptionSection
                 encryptionEnabled={encryptionEnabled}
                 encryptionLoading={encryptionLoading}
                 onEnable={handleEnableEncryption}
                 onDisable={handleDisableEncryption}
-                onChangePassword={handleChangePassword}
+                onResetPassword={handleResetPassword}
             />
-            */}
 
             {/* Scheduled Backups */}
             <ScheduleSection

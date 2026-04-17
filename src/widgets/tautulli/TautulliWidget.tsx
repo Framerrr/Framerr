@@ -435,9 +435,7 @@ const PREVIEW_STATS: TautulliStatCategory[] = [
 // MAIN WIDGET COMPONENT
 // ============================================================================
 
-export interface TautulliWidgetProps extends WidgetProps {
-    // No additional props
-}
+export type TautulliWidgetProps = WidgetProps;
 
 const TautulliWidget = ({ widget, previewMode = false }: TautulliWidgetProps): React.JSX.Element => {
 

@@ -28,7 +28,7 @@ const mockOnSettingsInvalidate = vi.fn((cb: (event: { entity: string }) => void)
     return vi.fn(); // unsubscribe
 });
 
-vi.mock('@/hooks/useRealtimeSSE', () => ({
+vi.mock('@/features/realtime/useRealtimeSSE', () => ({
     default: () => ({
         onSettingsInvalidate: mockOnSettingsInvalidate,
     }),
@@ -53,11 +53,14 @@ vi.mock('@/utils/logger', () => ({
     },
 }));
 
-// Global fetch mock for branding endpoint
-const mockFetchBranding = vi.fn().mockResolvedValue({
-    ok: true,
-    json: () => Promise.resolve({ name: 'TestServer', icon: 'TestIcon' }),
-});
+// Mock configApi — provider uses configApi.getAppName(), not raw fetch
+const mockGetAppName = vi.fn().mockResolvedValue({ name: 'TestServer', icon: 'TestIcon' });
+
+vi.mock('@/api/endpoints', () => ({
+    configApi: {
+        getAppName: (...args: unknown[]) => mockGetAppName(...args),
+    },
+}));
 
 // ============================================================================
 // IMPORTS (after mocks)
@@ -84,18 +87,12 @@ beforeEach(() => {
     vi.clearAllMocks();
     mockSettingsInvalidateCallback = null;
 
-    // Mock global fetch for branding
-    vi.stubGlobal('fetch', mockFetchBranding);
-
-    // Reset mock implementations to defaults
-    mockFetchBranding.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ name: 'TestServer', icon: 'TestIcon' }),
-    });
+    // Reset mock implementation to default success response
+    mockGetAppName.mockResolvedValue({ name: 'TestServer', icon: 'TestIcon' });
 });
 
 afterEach(() => {
-    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
 });
 
 // ============================================================================
@@ -146,17 +143,17 @@ describe('BL-BR-3: Event refresh triggers', () => {
         });
 
         await waitFor(() => {
-            expect(mockFetchBranding).toHaveBeenCalledTimes(1);
+            expect(mockGetAppName).toHaveBeenCalledTimes(1);
         });
 
-        const initialCallCount = mockFetchBranding.mock.calls.length;
+        const initialCallCount = mockGetAppName.mock.calls.length;
 
         act(() => {
             window.dispatchEvent(new Event('systemConfigUpdated'));
         });
 
         await waitFor(() => {
-            expect(mockFetchBranding.mock.calls.length).toBeGreaterThan(initialCallCount);
+            expect(mockGetAppName.mock.calls.length).toBeGreaterThan(initialCallCount);
         });
     });
 });
@@ -173,13 +170,13 @@ describe('BL-BR-4: SSE app-config invalidation', () => {
 
         // Wait for initial load
         await waitFor(() => {
-            expect(mockFetchBranding).toHaveBeenCalledTimes(1);
+            expect(mockGetAppName).toHaveBeenCalledTimes(1);
         });
 
         // onSettingsInvalidate should have been called with a callback
         expect(mockOnSettingsInvalidate).toHaveBeenCalled();
 
-        const initialCallCount = mockFetchBranding.mock.calls.length;
+        const initialCallCount = mockGetAppName.mock.calls.length;
 
         // Trigger SSE invalidation
         act(() => {
@@ -189,7 +186,7 @@ describe('BL-BR-4: SSE app-config invalidation', () => {
         });
 
         await waitFor(() => {
-            expect(mockFetchBranding.mock.calls.length).toBeGreaterThan(initialCallCount);
+            expect(mockGetAppName.mock.calls.length).toBeGreaterThan(initialCallCount);
         });
     });
 
@@ -199,10 +196,10 @@ describe('BL-BR-4: SSE app-config invalidation', () => {
         });
 
         await waitFor(() => {
-            expect(mockFetchBranding).toHaveBeenCalledTimes(1);
+            expect(mockGetAppName).toHaveBeenCalledTimes(1);
         });
 
-        const callCountBefore = mockFetchBranding.mock.calls.length;
+        const callCountBefore = mockGetAppName.mock.calls.length;
 
         act(() => {
             if (mockSettingsInvalidateCallback) {
@@ -215,7 +212,7 @@ describe('BL-BR-4: SSE app-config invalidation', () => {
             await new Promise(r => setTimeout(r, 50));
         });
 
-        expect(mockFetchBranding.mock.calls.length).toBe(callCountBefore);
+        expect(mockGetAppName.mock.calls.length).toBe(callCountBefore);
     });
 });
 
@@ -232,10 +229,10 @@ describe('BL-BR-5: Visibility refresh', () => {
         });
 
         await waitFor(() => {
-            expect(mockFetchBranding).toHaveBeenCalledTimes(1);
+            expect(mockGetAppName).toHaveBeenCalledTimes(1);
         });
 
-        const initialCallCount = mockFetchBranding.mock.calls.length;
+        const initialCallCount = mockGetAppName.mock.calls.length;
 
         // Simulate hiding the tab
         Object.defineProperty(document, 'hidden', { value: true, writable: true, configurable: true });
@@ -249,7 +246,7 @@ describe('BL-BR-5: Visibility refresh', () => {
         document.dispatchEvent(new Event('visibilitychange'));
 
         await waitFor(() => {
-            expect(mockFetchBranding.mock.calls.length).toBeGreaterThan(initialCallCount);
+            expect(mockGetAppName.mock.calls.length).toBeGreaterThan(initialCallCount);
         });
 
         vi.useRealTimers();
@@ -262,7 +259,7 @@ describe('BL-BR-5: Visibility refresh', () => {
 
 describe('BL-BR-6: Fallback defaults on endpoint failure', () => {
     it('returns Framerr/Server defaults when fetch throws', async () => {
-        mockFetchBranding.mockRejectedValue(new Error('Network error'));
+        mockGetAppName.mockRejectedValue(new Error('Network error'));
 
         const { result } = renderHook(() => useAppBranding(), {
             wrapper: createWrapper(),
@@ -276,11 +273,8 @@ describe('BL-BR-6: Fallback defaults on endpoint failure', () => {
         expect(result.current.serverIcon).toBe('Server');
     });
 
-    it('returns Framerr/Server defaults when fetch returns non-OK', async () => {
-        mockFetchBranding.mockResolvedValue({
-            ok: false,
-            json: () => Promise.resolve({}),
-        });
+    it('returns Framerr/Server defaults when API returns error', async () => {
+        mockGetAppName.mockRejectedValue(new Error('Not Found'));
 
         const { result } = renderHook(() => useAppBranding(), {
             wrapper: createWrapper(),

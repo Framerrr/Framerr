@@ -1,7 +1,7 @@
 import React, { ChangeEvent } from 'react';
 import { X, User, Lock, AlertCircle, Loader, Link2 } from 'lucide-react';
 import { Button } from '../../../shared/ui';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 
 interface OverseerrLinkModalProps {
     isOpen: boolean;

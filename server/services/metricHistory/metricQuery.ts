@@ -21,6 +21,17 @@ import type { HistoryDataPoint, HistoryResponse } from './types';
 // ============================================================================
 
 /**
+ * Compute an availableRange string from the oldest stored timestamp.
+ * @param oldestTs - Unix seconds (from metric_history.timestamp)
+ */
+function deriveAvailableRange(oldestTs: number): string {
+    const spanSeconds = Math.floor(Date.now() / 1000) - oldestTs;
+    const spanDays = Math.ceil(spanSeconds / 86400);
+    if (spanDays <= 0) return '0d';
+    return `${spanDays}d`;
+}
+
+/**
  * Get history data for a specific integration and metric.
  * Checks per-integration mode and source resolution:
  * - If mode is 'off', returns empty data
@@ -92,8 +103,8 @@ export async function queryHistory(
         return { t: row.timestamp * 1000, v: row.value ?? 0 };
     });
 
-    const retentionDays = integrationConfig.retentionDays;
-    const availableRange = `${retentionDays}d`;
+    const oldestTs = metricHistoryDb.getOldestTimestamp(integrationId, metricKey);
+    const availableRange = oldestTs !== null ? deriveAvailableRange(oldestTs) : '0d';
 
     return {
         data,
@@ -147,7 +158,7 @@ async function fetchExternalHistory(
         });
 
         if (response.status !== 200 || !response.data) {
-            return { data: [], availableRange: range, resolution: 'raw', source: 'external' };
+            return { data: [], availableRange: '0d', resolution: 'raw', source: 'external' };
         }
 
         // Normalize external response to HistoryDataPoint[]
@@ -162,9 +173,22 @@ async function fetchExternalHistory(
             }))
             : [];
 
+        // Derive availableRange from data timestamps if external source doesn't report it
+        let availableRange: string;
+        if (rawData.availableRange) {
+            availableRange = rawData.availableRange;
+        } else if (data.length > 0) {
+            const oldestT = data.reduce((min, d) => d.t < min ? d.t : min, data[0].t); // d.t is in ms
+            const spanMs = Date.now() - oldestT;
+            const spanDays = Math.ceil(spanMs / (24 * 60 * 60 * 1000));
+            availableRange = spanDays > 0 ? `${spanDays}d` : '0d';
+        } else {
+            availableRange = '0d';
+        }
+
         return {
             data,
-            availableRange: rawData.availableRange ?? range,
+            availableRange,
             resolution: rawData.resolution ?? 'raw',
             source: 'external',
         };
@@ -187,18 +211,36 @@ async function fetchExternalHistory(
  */
 export function resolveRangeParams(range: string): { resolution: string; durationMs: number } {
     const rangeMap: Record<string, { resolution: string; durationMs: number }> = {
-        '5m': { resolution: 'raw', durationMs: 5 * 60 * 1000 },
-        '15m': { resolution: 'raw', durationMs: 15 * 60 * 1000 },
-        '30m': { resolution: 'raw', durationMs: 30 * 60 * 1000 },
-        '1h': { resolution: 'raw', durationMs: 60 * 60 * 1000 },
-        '3h': { resolution: '1min', durationMs: 3 * 60 * 60 * 1000 },
-        '6h': { resolution: '1min', durationMs: 6 * 60 * 60 * 1000 },
-        '12h': { resolution: '5min', durationMs: 12 * 60 * 60 * 1000 },
-        '1d': { resolution: '5min', durationMs: 24 * 60 * 60 * 1000 },
-        '3d': { resolution: '5min', durationMs: 3 * 24 * 60 * 60 * 1000 },
-        '7d': { resolution: '5min', durationMs: 7 * 24 * 60 * 60 * 1000 },
-        '30d': { resolution: '5min', durationMs: 30 * 24 * 60 * 60 * 1000 },
+        '5m':  { resolution: 'raw',   durationMs: 5  * 60 * 1000 },
+        '15m': { resolution: 'raw',   durationMs: 15 * 60 * 1000 },
+        '30m': { resolution: 'raw',   durationMs: 30 * 60 * 1000 },
+        '1h':  { resolution: 'raw',   durationMs: 60 * 60 * 1000 },
+        '3h':  { resolution: '1min',  durationMs: 3  * 60 * 60 * 1000 },
+        '6h':  { resolution: '1min',  durationMs: 6  * 60 * 60 * 1000 },
+        '12h': { resolution: '5min',  durationMs: 12 * 60 * 60 * 1000 },
+        '1d':  { resolution: '5min',  durationMs: 24 * 60 * 60 * 1000 },
+        '3d':  { resolution: '5min',  durationMs: 3  * 24 * 60 * 60 * 1000 },
+        '7d':  { resolution: '5min',  durationMs: 7  * 24 * 60 * 60 * 1000 },
+        '30d': { resolution: '5min',  durationMs: 30 * 24 * 60 * 60 * 1000 },
     };
 
-    return rangeMap[range] ?? rangeMap['1h'];
+    // Static known ranges (exact match first)
+    if (rangeMap[range]) return rangeMap[range];
+
+    // Dynamic Xd ranges (e.g. '5d', '14d', '21d') — use 5min aggregated resolution
+    const dayMatch = range.match(/^(\d+)d$/);
+    if (dayMatch) {
+        const days = parseInt(dayMatch[1], 10);
+        return { resolution: '5min', durationMs: days * 24 * 60 * 60 * 1000 };
+    }
+
+    // Dynamic Xh ranges
+    const hourMatch = range.match(/^(\d+)h$/);
+    if (hourMatch) {
+        const hours = parseInt(hourMatch[1], 10);
+        const resolution = hours <= 1 ? 'raw' : hours <= 6 ? '1min' : '5min';
+        return { resolution, durationMs: hours * 60 * 60 * 1000 };
+    }
+
+    return rangeMap['1h']; // final safety fallback
 }

@@ -47,9 +47,7 @@ interface LocationResponse {
     city?: string;
 }
 
-interface WeatherWidgetProps extends WidgetProps {
-    // No additional props needed - uses base WidgetProps
-}
+type WeatherWidgetProps = WidgetProps;
 
 // Static preview weather data for template builder
 const PREVIEW_WEATHER: WeatherData = {

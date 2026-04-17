@@ -6,7 +6,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { Input } from '../../components/common/Input';
+import { Input } from '@/shared/ui';
 import CardHeader from './components/CardHeader';
 import MaintenanceSection from './components/MaintenanceSection';
 import AdvancedSection from './components/AdvancedSection';

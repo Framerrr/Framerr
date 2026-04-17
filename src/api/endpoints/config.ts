@@ -161,7 +161,7 @@ export const configApi = {
      * Get app name for browser tab title
      */
     getAppName: () =>
-        api.get<{ name?: string }>('/api/config/app-name'),
+        api.get<{ name?: string; icon?: string }>('/api/config/app-name'),
 };
 
 export default configApi;

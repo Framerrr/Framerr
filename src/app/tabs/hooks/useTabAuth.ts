@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, MutableRefObject } from 'react';
+import { useState, useEffect, useRef, useCallback, MutableRefObject } from 'react';
 import { configApi } from '../../../api/endpoints';
 import logger from '../../../utils/logger';
 import { useSystemConfig } from '../../../context/SystemConfigContext';
 import { detectAuthNeed, isAuthDetectionEnabled, getSensitivity, getUserAuthPatterns, AuthDetectionResult } from '../../../utils/authDetection';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import type { Tab } from '../types';
 
 interface UseTabAuthOptions {
@@ -66,6 +66,44 @@ export function useTabAuth({ tabs, loadedTabs, reloadTab }: UseTabAuthOptions): 
         return () => window.removeEventListener('authSettingsUpdated', handleAuthSettingsUpdated);
     }, []);
 
+    const handleAuthComplete = useCallback((slug: string): void => {
+        logger.info(`Auth window closed for ${slug}, reloading iframe`);
+
+        if (authWindowRefs.current[slug] && !authWindowRefs.current[slug]?.closed) {
+            authWindowRefs.current[slug]?.close();
+        }
+        window.focus();
+
+        setIsReloading(prev => ({ ...prev, [slug]: true }));
+        setNeedsAuth(prev => ({ ...prev, [slug]: false }));
+
+        setTimeout(() => {
+            reloadTab(slug);
+            setTimeout(() => {
+                setIsReloading(prev => ({ ...prev, [slug]: false }));
+
+                const iframe = iframeRefs.current[slug];
+                if (iframe) {
+                    try {
+                        const currentSrc = iframe.src;
+                        const tab = tabs.find(t => t.slug === slug);
+                        if (tab) {
+                            const sensitivity = getSensitivity(systemConfig as Parameters<typeof getSensitivity>[0]);
+                            const userPatterns = getUserAuthPatterns(systemConfig as Parameters<typeof getUserAuthPatterns>[0]);
+                            const detection = detectAuthNeed(currentSrc, tab.url, userPatterns, sensitivity);
+                            if (detection.needsAuth) {
+                                setNeedsAuth(prev => ({ ...prev, [slug]: true }));
+                                setAuthDetectionInfo(prev => ({ ...prev, [slug]: detection }));
+                            }
+                        }
+                    } catch (e) {
+                        // Cross-origin - can't read src
+                    }
+                }
+            }, 500);
+        }, 500);
+    }, [reloadTab, tabs, systemConfig]);
+
     // Listen for auth-complete messages from login-complete page
     useEffect(() => {
         const handleAuthMessage = (event: MessageEvent): void => {
@@ -95,7 +133,7 @@ export function useTabAuth({ tabs, loadedTabs, reloadTab }: UseTabAuthOptions): 
 
         window.addEventListener('message', handleAuthMessage);
         return () => window.removeEventListener('message', handleAuthMessage);
-    }, []);
+    }, [handleAuthComplete]);
 
     // Auto-detect authentication requirements
     useEffect(() => {
@@ -176,44 +214,6 @@ export function useTabAuth({ tabs, loadedTabs, reloadTab }: UseTabAuthOptions): 
                     handleAuthComplete(slug);
                 }
             }
-        }, 500);
-    };
-
-    const handleAuthComplete = (slug: string): void => {
-        logger.info(`Auth window closed for ${slug}, reloading iframe`);
-
-        if (authWindowRefs.current[slug] && !authWindowRefs.current[slug]?.closed) {
-            authWindowRefs.current[slug]?.close();
-        }
-        window.focus();
-
-        setIsReloading(prev => ({ ...prev, [slug]: true }));
-        setNeedsAuth(prev => ({ ...prev, [slug]: false }));
-
-        setTimeout(() => {
-            reloadTab(slug);
-            setTimeout(() => {
-                setIsReloading(prev => ({ ...prev, [slug]: false }));
-
-                const iframe = iframeRefs.current[slug];
-                if (iframe) {
-                    try {
-                        const currentSrc = iframe.src;
-                        const tab = tabs.find(t => t.slug === slug);
-                        if (tab) {
-                            const sensitivity = getSensitivity(systemConfig as Parameters<typeof getSensitivity>[0]);
-                            const userPatterns = getUserAuthPatterns(systemConfig as Parameters<typeof getUserAuthPatterns>[0]);
-                            const detection = detectAuthNeed(currentSrc, tab.url, userPatterns, sensitivity);
-                            if (detection.needsAuth) {
-                                setNeedsAuth(prev => ({ ...prev, [slug]: true }));
-                                setAuthDetectionInfo(prev => ({ ...prev, [slug]: detection }));
-                            }
-                        }
-                    } catch (e) {
-                        // Cross-origin - can't read src
-                    }
-                }
-            }, 500);
         }, 500);
     };
 

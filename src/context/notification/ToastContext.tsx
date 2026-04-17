@@ -6,7 +6,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
-import { setNotificationFunctions } from '../../utils/axiosSetup';
+import { setNotificationFunctions } from '../../api/client';
 import logger from '../../utils/logger';
 import type {
     Toast,
@@ -111,7 +111,7 @@ export const ToastProvider = ({ children }: ToastProviderProps): React.JSX.Eleme
 
     // Configure axios interceptor with notification functions
     useEffect(() => {
-        setNotificationFunctions({ error });
+        setNotificationFunctions(error);
     }, [error]);
 
     // Memoize context value

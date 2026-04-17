@@ -12,6 +12,4 @@ export interface IframeConfig {
 }
 
 // Extends canonical WidgetProps
-export interface IframeWidgetProps extends WidgetProps {
-    // No additional props needed
-}
+export type IframeWidgetProps = WidgetProps;

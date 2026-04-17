@@ -22,6 +22,7 @@ interface StackedCardProps {
     integrationId: string;
     machineId: string | null;
     serverUrl: string | null;
+    serverId: string | null;
     lastUpdateTime: number;
     userIsAdmin: boolean;
     onShowPlaybackData: (session: MediaSession) => void;
@@ -38,6 +39,7 @@ export const StackedCard: React.FC<StackedCardProps> = ({
     integrationId,
     machineId,
     serverUrl,
+    serverId,
     lastUpdateTime,
     userIsAdmin,
     onShowPlaybackData,
@@ -57,7 +59,7 @@ export const StackedCard: React.FC<StackedCardProps> = ({
         deepLink,
         externalLinkTitle,
         userName,
-    } = useSessionCardData({ session, integrationId, machineId, serverUrl, lastUpdateTime });
+    } = useSessionCardData({ session, integrationId, machineId, serverUrl, serverId, lastUpdateTime });
 
     return (
         <div

@@ -25,7 +25,7 @@
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import useRealtimeSSE from '../../../hooks/useRealtimeSSE';
+import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
 import logger from '../../../utils/logger';
 
 export interface UseIntegrationSSEOptions<T> {

@@ -9,7 +9,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { widgetFetch } from '../../utils/widgetFetch';
+import api from '../../api/client';
+import { apiClient } from '../../api/client';
 import logger from '../../utils/logger';
 
 // ============================================================================
@@ -21,6 +22,8 @@ interface UseMediaServerMetaReturn {
     machineIds: Record<string, string>;
     /** Jellyfin/Emby server web URLs keyed by integrationId */
     serverUrls: Record<string, string>;
+    /** Emby server identifiers keyed by integrationId */
+    serverIds: Record<string, string>;
 }
 
 // ============================================================================
@@ -39,6 +42,7 @@ export function useMediaServerMeta(
 ): UseMediaServerMetaReturn {
     const [machineIds, setMachineIds] = useState<Record<string, string>>({});
     const [serverUrls, setServerUrls] = useState<Record<string, string>>({});
+    const [serverIds, setServerIds] = useState<Record<string, string>>({});
 
     // Stable key for dependency tracking
     const idsKey = integrationIds.join(',');
@@ -56,16 +60,17 @@ export function useMediaServerMeta(
 
             await Promise.all(plexIds.map(async (integrationId) => {
                 try {
-                    const response = await widgetFetch(
+                    const response = await apiClient.get(
                         `/api/integrations/${integrationId}/proxy/machineId`,
-                        widgetName
-                    );
-                    if (response.ok) {
-                        const xml = await response.text();
-                        const match = xml.match(/machineIdentifier="([^"]+)"/);
-                        if (match) {
-                            result[integrationId] = match[1];
+                        {
+                            headers: { 'X-Widget-Type': widgetName },
+                            responseType: 'text',
                         }
+                    );
+                    const xml = response.data as string;
+                    const match = xml.match(/machineIdentifier="([^"]+)"/);
+                    if (match) {
+                        result[integrationId] = match[1];
                     }
                 } catch (err) {
                     logger.error(`[${widgetName}] Error fetching machine ID`, {
@@ -91,15 +96,15 @@ export function useMediaServerMeta(
 
         const fetchWebUrls = async () => {
             try {
-                const response = await widgetFetch(
+                const data = await api.get<{ webUrls?: Record<string, string>; serverIds?: Record<string, string> }>(
                     `/api/media/web-urls?integrations=${integrationIds.join(',')}`,
-                    widgetName
+                    { headers: { 'X-Widget-Type': widgetName } }
                 );
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.webUrls) {
-                        setServerUrls(data.webUrls);
-                    }
+                if (data.webUrls) {
+                    setServerUrls(data.webUrls);
+                }
+                if (data.serverIds) {
+                    setServerIds(data.serverIds);
                 }
             } catch (err) {
                 logger.error(`[${widgetName}] Error fetching server URLs`, {
@@ -112,5 +117,5 @@ export function useMediaServerMeta(
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [idsKey, widgetName]);
 
-    return { machineIds, serverUrls };
+    return { machineIds, serverUrls, serverIds };
 }

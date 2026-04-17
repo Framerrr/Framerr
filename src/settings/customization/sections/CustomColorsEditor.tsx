@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Paintbrush, ChevronDown } from 'lucide-react';
-import ColorPicker from '../../../components/common/ColorPicker';
+import { ColorPicker } from '@/shared/ui';
 import { Switch } from '../../../shared/ui';
 import { SettingsSection, SettingsItem } from '../../../shared/ui/settings';
 import type { CustomColors } from '../types';

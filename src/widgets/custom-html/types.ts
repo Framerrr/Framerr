@@ -11,7 +11,5 @@ export interface CustomHTMLConfig {
 }
 
 // Extends canonical WidgetProps
-export interface CustomHTMLWidgetProps extends WidgetProps {
-    // No additional props needed
-}
+export type CustomHTMLWidgetProps = WidgetProps;
 

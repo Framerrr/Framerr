@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Loader, CheckCircle2, Unlink, ExternalLink, AlertCircle } from 'lucide-react';
 import { Button } from '../../../shared/ui';
 import { getIconComponent } from '../../../utils/iconUtils';
@@ -29,11 +29,12 @@ export const OidcSection: React.FC<OidcSectionProps> = ({
     onConnect,
     onDisconnect
 }) => {
-    const IconComponent = getIconComponent(oidcButtonIcon);
+    const IconComponent = useMemo(() => getIconComponent(oidcButtonIcon), [oidcButtonIcon]);
     return (
         <div className="bg-theme-tertiary rounded-lg p-4 sm:p-6 border border-theme">
             <div className="flex items-start gap-3 sm:gap-4">
                 <div className={`p-2 sm:p-3 rounded-lg flex-shrink-0 ${isOidcLinked ? 'bg-success/20' : 'bg-theme-tertiary'}`}>
+                    {/* eslint-disable-next-line react-hooks/static-components -- dynamic registry lookup, component ref cached in getIconComponent */}
                     <IconComponent className={isOidcLinked ? 'text-success' : 'text-theme-secondary'} size={20} />
                 </div>
 

@@ -5,7 +5,7 @@
 
 import React, { ChangeEvent } from 'react';
 import { Shield } from 'lucide-react';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Switch } from '@/shared/ui';
 import { SettingsPage, SettingsSection } from '../../../shared/ui/settings';
 

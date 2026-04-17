@@ -9,7 +9,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useAuth } from '../AuthContext';
 import { useToasts } from './ToastContext';
 import logger from '../../utils/logger';
-import { useRealtimeSSE, type NotificationEvent } from '../../hooks/useRealtimeSSE';
+import { useRealtimeSSE, type NotificationEvent } from '@/features/realtime/useRealtimeSSE';
 import { notificationsApi } from '../../api/endpoints/notifications';
 import { unlockAudio, playNotificationSound } from '../../utils/notificationSound';
 import { useNotificationPreferences } from '../../api/hooks/useSettings';

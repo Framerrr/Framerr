@@ -19,7 +19,7 @@ import {
 } from '../../../api/hooks/useMetricHistoryConfig';
 import { queryKeys } from '../../../api/queryKeys';
 import { Slider } from '../../../shared/ui/Slider';
-import useRealtimeSSE from '../../../hooks/useRealtimeSSE';
+import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
 
 interface MetricHistorySectionProps {
     integrationId: string;
@@ -72,8 +72,10 @@ const MetricHistorySection = forwardRef<MetricHistorySectionHandle, MetricHistor
         // Sync local state when server data loads (or when SSE refreshes it)
         useEffect(() => {
             if (data?.config && !isDirty) {
-                setLocalMode(data.config.mode);
-                setLocalRetentionDays(data.config.retentionDays);
+                queueMicrotask(() => {
+                    setLocalMode(data.config.mode);
+                    setLocalRetentionDays(data.config.retentionDays);
+                });
             }
         }, [data?.config, isDirty]);
 

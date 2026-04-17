@@ -78,3 +78,6 @@ export type { UserShareState, UserData, GroupData, UsersAndGroupsResponse, Exist
 
 export { adminOidcApi } from './adminOidc';
 export type { OidcConfigResponse, OidcConfigUpdateData, OidcDiscoveryResult } from './adminOidc';
+
+export { serviceMonitorsApi } from './serviceMonitors';
+export type { MonitorListResponse, MonitorStatusResponse, MonitorTestResponse, MonitorSaveResponse, MonitorTestPayload, MonitorCreatePayload, MonitorUpdatePayload } from './serviceMonitors';

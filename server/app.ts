@@ -18,7 +18,7 @@ import logger from './utils/logger';
 import { getSystemConfig } from './db/systemConfig';
 import { getUser, createUser, getUserById } from './db/users';
 import { getUserConfig } from './db/userConfig';
-import { validateSession, createUserSession } from './auth/session';
+import { validateSession, createUserSession, getSessionDurations } from './auth/session';
 import { validateProxyWhitelist } from './middleware/proxyWhitelist';
 import { csrfProtection } from './middleware/csrfProtection';
 import { authRateLimit, standardRateLimit } from './middleware/rateLimit';
@@ -160,14 +160,13 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
                 // Create a persistent session if one doesn't exist yet
                 // This ensures the user stays logged in if proxy auth is disabled
                 if (!req.cookies?.sessionId) {
-                    const authConfig = systemConfig?.auth;
-                    const expiresIn = authConfig?.session?.timeout || 86400000; // 24h default
-                    const session = await createUserSession(user, req, expiresIn);
+                    const appDurations = await getSessionDurations();
+                    const session = await createUserSession(user, req, appDurations.default);
                     res.cookie('sessionId', session.id, {
                         httpOnly: true,
                         secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
                         sameSite: 'lax',
-                        maxAge: expiresIn
+                        maxAge: appDurations.default
                     });
                 }
 
