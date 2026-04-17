@@ -44,7 +44,7 @@ export interface AuthConfig {
         redirectUri: string;
         scopes: string;
     };
-    session: { timeout: number };
+    session: { timeout: number; rememberMeDuration?: number };
 }
 
 export interface PermissionGroup {
