@@ -10,7 +10,7 @@
 import React, { useRef, useCallback, useLayoutEffect } from 'react';
 import { Download, ArrowDown, ArrowUp, Pause, Play } from 'lucide-react';
 import { Popover } from '@/shared/ui';
-import { usePopoverState } from '../../hooks/usePopoverState';
+import { usePopoverState } from '@/shared/hooks/usePopoverState';
 import { formatSpeed, formatBytes } from './utils';
 import type { ClientType } from './utils';
 

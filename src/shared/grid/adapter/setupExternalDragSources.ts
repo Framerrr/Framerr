@@ -134,7 +134,7 @@ export function setupExternalDragSources(
 
             // Read widget dimensions from data attributes
             let gsW = parseInt(item.dataset.gsW || item.getAttribute('data-gs-w') || '6', 10);
-            let gsH = parseInt(item.dataset.gsH || item.getAttribute('data-gs-h') || '4', 10);
+            const gsH = parseInt(item.dataset.gsH || item.getAttribute('data-gs-h') || '4', 10);
             const widgetType = item.dataset.widgetType || 'Widget';
 
             // Clamp widget width to the grid's column count.

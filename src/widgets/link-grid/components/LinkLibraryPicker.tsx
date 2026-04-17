@@ -9,7 +9,8 @@
 
 import React, { useState } from 'react';
 import { BookOpen } from 'lucide-react';
-import { ActionSelect, ConfirmButton } from '../../../shared/ui';
+import { ActionSelect } from '../../../shared/ui/ActionSelect/ActionSelect';
+import { ConfirmButton } from '../../../shared/ui';
 import { getIconComponent } from '../../../utils/iconUtils';
 import type { Link } from '../types';
 

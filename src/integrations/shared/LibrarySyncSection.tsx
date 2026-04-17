@@ -74,10 +74,10 @@ export const LibrarySyncSection: React.FC<LibrarySyncSectionProps> = ({
 
         if (currentStatus === 'completed' && prevStatus === 'syncing') {
             // Live transition: user watched it finish → show badge
-            setShowComplete(true);
+            queueMicrotask(() => setShowComplete(true));
             timerRef.current = setTimeout(() => setShowComplete(false), COMPLETE_BADGE_DURATION);
         } else if (currentStatus !== 'completed') {
-            setShowComplete(false);
+            queueMicrotask(() => setShowComplete(false));
         }
         return () => {
             if (timerRef.current) clearTimeout(timerRef.current);

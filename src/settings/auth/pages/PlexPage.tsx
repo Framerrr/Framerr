@@ -11,12 +11,12 @@
 import React, { useState, useEffect } from 'react';
 import { plexApi } from '../../../api/endpoints';
 import { usePlexSSOConfig } from '../../../api/hooks/useSettings';
-import { usePlexOAuth, PlexUser } from '../../../hooks/usePlexOAuth';
+import { usePlexOAuth, PlexUser } from '@/settings/auth/hooks/usePlexOAuth';
 import { Tv, Loader, RefreshCw, CheckCircle, AlertCircle, ExternalLink, Settings2 } from 'lucide-react';
 import { Switch, Select } from '@/shared/ui';
 import { SettingsPage, SettingsSection } from '../../../shared/ui/settings';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
-import { useNotifications } from '../../../context/NotificationContext';
+import { LoadingSpinner } from '@/shared/ui';
+import { useNotifications } from '../../../context/notification';
 import logger from '../../../utils/logger';
 import type { PlexConfig, PlexServer, PlexAuthSettingsProps } from '../types';
 

@@ -49,7 +49,7 @@ export function LayoutProvider({ children }: LayoutProviderProps): React.JSX.Ele
         // Immediately set the correct mode on mount (handles SSR mismatch)
         const correctMode: LayoutMode = window.innerWidth < LAYOUT.MOBILE_THRESHOLD ? 'mobile' : 'desktop';
         if (correctMode !== mode) {
-            setMode(correctMode);
+            queueMicrotask(() => setMode(correctMode));
         }
 
         let timeoutId: ReturnType<typeof setTimeout>;

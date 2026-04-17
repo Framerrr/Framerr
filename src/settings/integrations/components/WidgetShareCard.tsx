@@ -14,7 +14,7 @@ import { Checkbox, UserAvatar, Button, ConfirmButton, IntegrationDropdown } from
 import { getWidgetMetadata, getWidgetIcon } from '../../../widgets/registry';
 import { widgetSharesApi } from '../../../api/endpoints/widgetShares';
 import { useSaveWidgetShares, useRevokeWidgetShares } from '../../../api/hooks/useWidgetQueries';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import logger from '../../../utils/logger';
 
 // ============================================================================

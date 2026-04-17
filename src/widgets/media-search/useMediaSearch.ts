@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { widgetFetch } from '../../utils/widgetFetch';
+import api from '../../api/client';
 import { useMediaServerMeta } from '../../shared/hooks/useMediaServerMeta';
 import logger from '../../utils/logger';
 import type { MediaItem, SearchResults, OverseerrMediaResult, OverseerrSearchResults } from './types';
@@ -102,6 +102,7 @@ interface UseMediaSearchReturn {
     // Open in app
     machineIds: Record<string, string>;
     serverUrls: Record<string, string>;
+    serverIds: Record<string, string>;
     // Pagination
     loadMore: (integrationId: string) => void;
     isLoadingMore: boolean;
@@ -128,7 +129,7 @@ export function useMediaSearch({
     const [offsets, setOffsets] = useState<Record<string, number>>({});
 
     // Shared hook for machineId (Plex) and serverUrl (Jellyfin/Emby)
-    const { machineIds, serverUrls } = useMediaServerMeta(integrationIds, 'media-search');
+    const { machineIds, serverUrls, serverIds } = useMediaServerMeta(integrationIds, 'media-search');
 
     // Overseerr search state
     const [overseerrResults, setOverseerrResults] = useState<OverseerrSearchResults | null>(null);
@@ -149,11 +150,11 @@ export function useMediaSearch({
 
         const fetchHistory = async () => {
             try {
-                const response = await widgetFetch(`/api/media/search-history/${widgetId}`, 'media-search');
-                if (response.ok) {
-                    const data = await response.json() as { history: RecentSearch[] };
-                    setRecentSearches(data.history);
-                }
+                const data = await api.get<{ history: RecentSearch[] }>(
+                    `/api/media/search-history/${widgetId}`,
+                    { headers: { 'X-Widget-Type': 'media-search' } }
+                );
+                setRecentSearches(data.history);
             } catch {
                 // Ignore errors - just means no history
             }
@@ -167,20 +168,18 @@ export function useMediaSearch({
         if (!searchQuery.trim() || !widgetId) return;
 
         try {
-            const response = await widgetFetch(`/api/media/search-history/${widgetId}`, 'media-search', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: searchQuery.trim() })
-            });
+            await api.post(
+                `/api/media/search-history/${widgetId}`,
+                { query: searchQuery.trim() },
+                { headers: { 'X-Widget-Type': 'media-search' } }
+            );
 
-            if (response.ok) {
-                // Refetch full history to get accurate state
-                const historyResponse = await widgetFetch(`/api/media/search-history/${widgetId}`, 'media-search');
-                if (historyResponse.ok) {
-                    const data = await historyResponse.json() as { history: RecentSearch[] };
-                    setRecentSearches(data.history);
-                }
-            }
+            // Refetch full history to get accurate state
+            const data = await api.get<{ history: RecentSearch[] }>(
+                `/api/media/search-history/${widgetId}`,
+                { headers: { 'X-Widget-Type': 'media-search' } }
+            );
+            setRecentSearches(data.history);
         } catch {
             // Ignore errors
         }
@@ -191,9 +190,10 @@ export function useMediaSearch({
         if (!widgetId) return;
 
         try {
-            await widgetFetch(`/api/media/search-history/${widgetId}`, 'media-search', {
-                method: 'DELETE'
-            });
+            await api.delete(
+                `/api/media/search-history/${widgetId}`,
+                { headers: { 'X-Widget-Type': 'media-search' } }
+            );
             setRecentSearches([]);
         } catch {
             // Ignore errors
@@ -229,20 +229,10 @@ export function useMediaSearch({
 
         for (const id of integrationIds) {
             try {
-                const response = await widgetFetch(`/api/media/sync/status/${id}`, 'media-search');
-                if (response.ok) {
-                    statuses[id] = await response.json() as SyncStatus;
-                } else {
-                    statuses[id] = {
-                        integrationInstanceId: id,
-                        totalItems: 0,
-                        indexedItems: 0,
-                        lastSyncStarted: null,
-                        lastSyncCompleted: null,
-                        syncStatus: 'idle',
-                        errorMessage: null
-                    };
-                }
+                statuses[id] = await api.get<SyncStatus>(
+                    `/api/media/sync/status/${id}`,
+                    { headers: { 'X-Widget-Type': 'media-search' } }
+                );
             } catch {
                 statuses[id] = {
                     integrationInstanceId: id,
@@ -280,13 +270,10 @@ export function useMediaSearch({
                 integrations: integrationIds.join(',')
             });
 
-            const response = await widgetFetch(`/api/media/search?${params}`, 'media-search');
-
-            if (!response.ok) {
-                throw new Error('Search failed');
-            }
-
-            const data = await response.json() as ApiSearchResponse;
+            const data = await api.get<ApiSearchResponse>(
+                `/api/media/search?${params}`,
+                { headers: { 'X-Widget-Type': 'media-search' } }
+            );
 
             // Convert API response to widget format
             const formattedResults: SearchResults = {};
@@ -383,34 +370,39 @@ export function useMediaSearch({
                         page: '1',
                     });
 
-                    const fetchOnce = async (): Promise<Response> =>
-                        widgetFetch(
+                    const fetchOnce = async () =>
+                        api.get<{
+                            results: OverseerrMediaResult[];
+                            pageInfo?: { pages: number; page: number; results: number };
+                        }>(
                             `/api/integrations/${instanceId}/proxy/search?${params}`,
-                            'media-search',
-                            { signal: abortController.signal }
+                            {
+                                headers: { 'X-Widget-Type': 'media-search' },
+                                signal: abortController.signal,
+                            }
                         );
 
-                    let response = await fetchOnce();
-
-                    // Retry once on 429 (Too Many Requests) with backoff
-                    if (response.status === 429) {
-                        const retryAfter = parseInt(response.headers.get('Retry-After') || '2', 10);
-                        const delayMs = Math.min(retryAfter, 10) * 1000; // Cap at 10s
-                        logger.debug(`[useMediaSearch] Overseerr 429 — retrying in ${delayMs}ms`);
-                        await new Promise(r => setTimeout(r, delayMs));
-                        if (abortController.signal.aborted) return;
-                        response = await fetchOnce();
-                    }
-
-                    if (!response.ok) {
-                        const errorBody = await response.json().catch(() => ({})) as { error?: string };
-                        throw new Error(`HTTP ${response.status}: ${errorBody.error || response.statusText}`);
-                    }
-
-                    const data = await response.json() as {
+                    let data: {
                         results: OverseerrMediaResult[];
                         pageInfo?: { pages: number; page: number; results: number };
                     };
+
+                    try {
+                        data = await fetchOnce();
+                    } catch (fetchErr: unknown) {
+                        // Retry once on 429 (Too Many Requests) with backoff
+                        const axiosErr = fetchErr as { response?: { status: number; headers?: Record<string, string> } };
+                        if (axiosErr.response?.status === 429) {
+                            const retryAfter = parseInt(axiosErr.response.headers?.['retry-after'] || '2', 10);
+                            const delayMs = Math.min(retryAfter, 10) * 1000;
+                            logger.debug(`[useMediaSearch] Overseerr 429 — retrying in ${delayMs}ms`);
+                            await new Promise(r => setTimeout(r, delayMs));
+                            if (abortController.signal.aborted) return;
+                            data = await fetchOnce();
+                        } else {
+                            throw fetchErr;
+                        }
+                    }
 
                     // Filter results based on hideOverseerrAvailable setting
                     let filteredItems = data.results || [];
@@ -558,10 +550,10 @@ export function useMediaSearch({
                 offsets: JSON.stringify({ [integrationId]: newOffset })
             });
 
-            const response = await widgetFetch(`/api/media/search?${params}`, 'media-search');
-            if (!response.ok) throw new Error('Load more failed');
-
-            const data = await response.json() as ApiSearchResponse;
+            const data = await api.get<ApiSearchResponse>(
+                `/api/media/search?${params}`,
+                { headers: { 'X-Widget-Type': 'media-search' } }
+            );
             const result = data.results[integrationId];
 
             if (result?.status === 'ready' && result.items && result.items.length > 0) {
@@ -634,6 +626,8 @@ export function useMediaSearch({
         machineIds,
         // Server URLs for Open in App (Jellyfin/Emby)
         serverUrls,
+        // Server IDs for Open in App (Emby deep links)
+        serverIds,
         // Pagination
         loadMore,
         isLoadingMore,

@@ -11,7 +11,7 @@ import { configApi } from '../../../api/endpoints';
 import logger from '../../../utils/logger';
 import { Button, ConfirmButton, Switch } from '../../../shared/ui';
 import { SettingsPage, SettingsSection, SettingsItem, SettingsAlert } from '../../../shared/ui/settings';
-import { Textarea } from '../../../components/common/Input';
+import { Textarea } from '@/shared/ui';
 
 interface LocalFaviconConfig {
     enabled: boolean;

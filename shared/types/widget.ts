@@ -8,21 +8,25 @@
  */
 export type WidgetTypeKey =
     | 'system-status'
-    | 'plex'
     | 'sonarr'
     | 'radarr'
     | 'overseerr'
-    | 'qbittorrent'
+    | 'downloads'
     | 'weather'
     | 'calendar'
     | 'custom-html'
     | 'link-grid'
-    | 'clock';
+    | 'clock'
+    | 'tautulli'
+    | 'service-status'
+    | 'media-stream'
+    | 'media-search'
+    | 'iframe';
 
 /**
  * Widget category for grouping in widget picker
  */
-export type WidgetCategory = 'system' | 'media' | 'downloads' | 'utility' | 'other';
+export type WidgetCategory = 'system' | 'media' | 'downloads' | 'utility';
 
 /**
  * Layout position for a widget at a specific breakpoint

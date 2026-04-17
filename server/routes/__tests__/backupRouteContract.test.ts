@@ -37,14 +37,14 @@ vi.mock('../../db/users', () => ({
 const mockIsBackupEncryptionEnabled = vi.fn();
 const mockEnableBackupEncryption = vi.fn();
 const mockDisableBackupEncryption = vi.fn();
-const mockChangeBackupPassword = vi.fn();
-const mockGetBackupEncryption = vi.fn();
+const mockResetBackupPassword = vi.fn();
+const mockGetServerMBK = vi.fn();
 vi.mock('../../db/backupEncryption', () => ({
     isBackupEncryptionEnabled: (...args: unknown[]) => mockIsBackupEncryptionEnabled(...args),
     enableBackupEncryption: (...args: unknown[]) => mockEnableBackupEncryption(...args),
     disableBackupEncryption: (...args: unknown[]) => mockDisableBackupEncryption(...args),
-    changeBackupPassword: (...args: unknown[]) => mockChangeBackupPassword(...args),
-    getBackupEncryption: (...args: unknown[]) => mockGetBackupEncryption(...args),
+    resetBackupPassword: (...args: unknown[]) => mockResetBackupPassword(...args),
+    getServerMBK: (...args: unknown[]) => mockGetServerMBK(...args),
 }));
 
 // --- Utility mocks ---
@@ -195,12 +195,6 @@ describe('BL-BACKUP-1: Route Registration Matrix', () => {
         mockGetUserConfig.mockResolvedValue({ dashboard: {}, tabs: {}, theme: {}, sidebar: {} });
         mockGetAllUsers.mockResolvedValue([]);
         mockIsBackupEncryptionEnabled.mockReturnValue(false);
-        // Provide encryption config to prevent change-password from returning 404 (business logic 404, not route 404)
-        mockGetBackupEncryption.mockReturnValue({
-            kekSalt: Buffer.from('test').toString('base64'),
-            kdfIterations: 100000,
-            mbkPassword: Buffer.from('test').toString('base64'),
-        });
     });
 
     // --- Archive routes ---
@@ -280,10 +274,10 @@ describe('BL-BACKUP-1: Route Registration Matrix', () => {
         expect(res.status).not.toBe(404);
     });
 
-    it('POST /api/backup/encryption/change-password → registered (not 404)', async () => {
+    it('POST /api/backup/encryption/reset-password → registered (not 404)', async () => {
         const res = await request(app)
-            .post('/api/backup/encryption/change-password')
-            .send({ oldPassword: 'oldpass123', newPassword: 'newpass1234' });
+            .post('/api/backup/encryption/reset-password')
+            .send({ newPassword: 'newpass1234' });
         expect(res.status).not.toBe(404);
     });
 });
@@ -388,10 +382,10 @@ describe('BL-BACKUP-2: Auth Guard Enforcement', () => {
         expect(res.status).toBe(403);
     });
 
-    it('POST /encryption/change-password → blocked for non-admin (403)', async () => {
+    it('POST /encryption/reset-password → blocked for non-admin (403)', async () => {
         const res = await request(app)
-            .post('/api/backup/encryption/change-password')
-            .send({ oldPassword: 'oldpass123', newPassword: 'newpass1234' });
+            .post('/api/backup/encryption/reset-password')
+            .send({ newPassword: 'newpass1234' });
         expect(res.status).toBe(403);
     });
 });

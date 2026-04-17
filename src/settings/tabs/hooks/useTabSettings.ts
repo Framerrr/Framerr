@@ -12,7 +12,7 @@ import { useTabsList, useCreateTab, useUpdateTab, useDeleteTab, useReorderTabs, 
 import { arrayMove } from '@dnd-kit/sortable';
 import { DragEndEvent } from '@dnd-kit/core';
 import logger from '../../../utils/logger';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import type { Tab, TabGroup, TabFormData, ModalMode } from '../types';
 
 /** Default form values for creating a new tab */

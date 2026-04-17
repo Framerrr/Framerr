@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useRef, MutableRefObject } from 'react';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { useAuthConfig, useUpdateAuthConfig } from '../../../api/hooks/useSettings';
 import { extractErrorMessage } from '../../../api/errors';
 import type { TabId, OriginalSettings } from '../types';

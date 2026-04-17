@@ -8,7 +8,7 @@
 import React, { ChangeEvent, FormEvent, useMemo } from 'react';
 import { Save } from 'lucide-react';
 import { Modal, MultiSelectDropdown, Button, Select } from '../../../shared/ui';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import type { UserFormData, ModalMode } from '../types';
 import type { UserGroup } from '../hooks/useUserGroups';
 

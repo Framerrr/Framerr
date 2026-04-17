@@ -15,9 +15,9 @@ import TemplateCard, { Template } from './TemplateCard';
 import TemplatePreviewModal from './TemplatePreviewModal';
 import { ConfirmDialog, Select } from '../../../shared/ui';
 import { Button } from '../../../shared/ui';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import logger from '../../../utils/logger';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { useLayout } from '../../../context/LayoutContext';
 import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
 

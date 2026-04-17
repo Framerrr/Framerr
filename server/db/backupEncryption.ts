@@ -168,41 +168,22 @@ export function disableBackupEncryption(password: string): void {
 }
 
 /**
- * Change the backup encryption password.
+ * Reset the backup encryption password using the server key.
  *
- * Unwraps MBK with old password, re-wraps with new password.
+ * Unwraps MBK via server key (no old password needed), re-wraps with new password.
  * The MBK itself doesn't change — only the password wrapping.
- * Server-wrapped MBK is unchanged.
  *
- * @param oldPassword - Current backup password
  * @param newPassword - New backup password (min 8 chars enforced by route)
  * @throws Error if encryption is not enabled
- * @throws Error if old password is incorrect
+ * @throws Error if server key decryption fails
  */
-export function changeBackupPassword(oldPassword: string, newPassword: string): void {
-    const config = getBackupEncryption();
-    if (!config) {
-        throw new Error('Backup encryption is not enabled');
-    }
+export function resetBackupPassword(newPassword: string): void {
+    const mbk = getServerMBK();
 
-    // Unwrap MBK with old password
-    const oldSalt = Buffer.from(config.kekSalt, 'base64');
-    const oldKek = deriveKEK(oldPassword, oldSalt, config.kdfIterations);
-    const wrappedMbk = Buffer.from(config.mbkPassword, 'base64');
-
-    let mbk: Buffer;
-    try {
-        mbk = unwrapKey(wrappedMbk, oldKek);
-    } catch {
-        throw new Error('Incorrect current password');
-    }
-
-    // Re-wrap MBK with new password
     const newSalt = generateSalt();
     const newKek = deriveKEK(newPassword, newSalt, CRYPTO_CONSTANTS.PBKDF2_ITERATIONS);
     const newWrappedMbk = wrapKey(mbk, newKek);
 
-    // Update DB
     getDb().prepare(`
         UPDATE backup_encryption SET
             mbk_password = ?,
@@ -216,7 +197,7 @@ export function changeBackupPassword(oldPassword: string, newPassword: string): 
         CRYPTO_CONSTANTS.PBKDF2_ITERATIONS,
     );
 
-    logger.info('[BackupEncryption] Password changed — MBK re-wrapped with new KEK');
+    logger.info('[BackupEncryption] Password reset — MBK re-wrapped with new KEK via server key');
 }
 
 /**

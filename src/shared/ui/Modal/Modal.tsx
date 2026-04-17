@@ -25,6 +25,7 @@
  */
 
 import React, { createContext, useContext, forwardRef } from 'react';
+// NOTE: createContext is still used by ModalContext (internal state sharing)
 import * as Dialog from '@radix-ui/react-dialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -51,16 +52,21 @@ function useModalContext() {
 }
 
 // ===========================
-// Context for Portal-aware children (e.g. Popover)
-// When inside a Modal, Popovers should NOT portal to body
-// so they stay within react-remove-scroll's scope.
+// Inside-modal signal
 // ===========================
+// Lightweight context that tells child primitives (Popover, etc.) they are
+// rendered inside a Modal.  Popover uses this to set modal={true} on its
+// Radix root, which activates its own RemoveScroll and avoids the scroll-
+// blocking conflict with Dialog's RemoveScroll.
 
 const InsideModalContext = createContext(false);
 
+/** Returns true when the calling component is rendered inside a <Modal>. */
 export function useInsideModal() {
     return useContext(InsideModalContext);
 }
+
+
 
 // ===========================
 // Size Variants
@@ -112,6 +118,7 @@ export function Modal({
     return (
         <ModalContext.Provider value={{ open, onOpenChange }}>
             <InsideModalContext.Provider value={true}>
+
                 <Dialog.Root open={open} onOpenChange={onOpenChange}>
                     {skipExitAnimation ? (
                         /* Instant mount/unmount — no exit animation.
@@ -185,6 +192,7 @@ export function Modal({
                         </AnimatePresence>
                     )}
                 </Dialog.Root>
+
             </InsideModalContext.Provider>
         </ModalContext.Provider>
     );

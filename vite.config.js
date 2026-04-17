@@ -1,6 +1,7 @@
 import { defineConfig, createLogger } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { visualizer } from 'rollup-plugin-visualizer';
 
 // Custom Framerr-branded logger
 const framerrLogger = createLogger('info', {
@@ -36,12 +37,32 @@ function framerrBrandingPlugin() {
 }
 
 export default defineConfig({
-    plugins: [react(), framerrBrandingPlugin()],
+    plugins: [
+        react(),
+        framerrBrandingPlugin(),
+        visualizer({
+            filename: 'dist/bundle-analysis.html',
+            gzipSize: true,
+            brotliSize: true,
+        }),
+    ],
     customLogger: framerrLogger,
     build: {
         sourcemap: process.env.NODE_ENV === 'development',
         minify: process.env.NODE_ENV === 'production' ? 'esbuild' : false,
+        chunkSizeWarningLimit: 500,
         outDir: 'dist',
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (!id.includes('node_modules')) return undefined;
+                    if (id.includes('framer-motion')) return 'vendor-motion';
+                    if (id.includes('@radix-ui')) return 'vendor-radix';
+                    if (id.includes('@tanstack')) return 'vendor-query';
+                    if (id.includes('lucide-react')) return 'vendor-icons';
+                },
+            },
+        },
     },
     resolve: {
         alias: {

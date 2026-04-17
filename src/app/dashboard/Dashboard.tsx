@@ -6,17 +6,17 @@ import { getWidgetConfigConstraints } from '../../widgets/registry';
 import { useIntegrationSchemas } from '../../api/hooks';
 import { useDashboardEdit } from '../../context/DashboardEditContext';
 import { useWalkthrough } from '../../features/walkthrough';
-import DevDebugOverlay from '../../components/dev/DevDebugOverlay';
-import { useDragAutoScroll } from '../../hooks/useDragAutoScroll';
-import { useResizeHeightLock } from '../../hooks/useResizeHeightLock';
+import DevDebugOverlay from '@/app/dashboard/DevDebugOverlay';
+import { useDragAutoScroll } from '@/shared/hooks/useDragAutoScroll';
+import { useResizeHeightLock } from '@/shared/hooks/useResizeHeightLock';
 import { FramerrDashboardGrid } from '../../shared/grid';
 import '../../styles/GridLayout.css';
-import { useNotifications } from '../../context/NotificationContext';
+import { useNotifications } from '../../context/notification';
 import PullToRefresh from '../../shared/ui/PullToRefresh';
 import { getLoadingMessage } from '../../utils/greetings';
 
 // Shared layout hook
-import { useDashboardLayout } from '../../hooks/useDashboardLayout';
+import { useDashboardLayout } from '@/shared/grid/hooks/useDashboardLayout';
 
 // Dashboard-specific hooks
 import { useDashboardData } from './hooks/useDashboardData';

@@ -28,8 +28,8 @@ import '../../../styles/GridLayout.css';
 import { FramerrTemplateGrid } from '../../../shared/grid';
 
 // Shared layout hook
-import { useDashboardLayout } from '../../../hooks/useDashboardLayout';
-import type { FramerrWidget } from '../../../hooks/useDashboardLayout';
+import { useDashboardLayout } from '@/shared/grid/hooks/useDashboardLayout';
+import type { FramerrWidget } from '@/shared/grid/hooks/useDashboardLayout';
 
 // Extracted components
 import { WidgetSidebar } from './components/WidgetSidebar';

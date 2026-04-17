@@ -62,6 +62,7 @@ export function ThemePresets({
             const rippleColor = themeColors?.bg || '#0a0e1a';
 
             // Throttled ripple: only trigger if enough time has passed
+            // eslint-disable-next-line react-hooks/purity -- Date.now() for throttling inside event handler, not render
             const now = Date.now();
             if (now - lastRippleTimeRef.current >= RIPPLE_THROTTLE_MS) {
                 lastRippleTimeRef.current = now;

@@ -16,7 +16,7 @@ import {
 } from '@dnd-kit/sortable';
 import { Button } from '../../shared/ui';
 import { SettingsPage, SettingsSection } from '../../shared/ui/settings';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import { useTabSettings } from './hooks/useTabSettings';
 import { TabItem } from './components/TabItem';
 import { TabFormModal } from './components/TabFormModal';

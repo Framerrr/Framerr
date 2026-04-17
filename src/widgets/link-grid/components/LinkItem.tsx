@@ -5,7 +5,7 @@
  * Handles both regular links (open URL) and action buttons (HTTP requests).
  */
 
-import React, { CSSProperties, DragEvent, useState, useCallback } from 'react';
+import React, { CSSProperties, useState, useCallback } from 'react';
 import { Loader, CheckCircle2, XCircle } from 'lucide-react';
 import { getIconComponent } from '../../../utils/iconUtils';
 import { triggerHaptic } from '../../../utils/haptics';
@@ -19,21 +19,8 @@ interface LinkItemProps {
     cellSize: number;
     gridGap: number;
     editMode: boolean;
-    isTouchDevice: boolean;
-    dragOverLinkId: string | null;
-    touchDragLinkId: string | null;
     editingLinkId: string | null;
     onLinkClick: (linkId: string) => void;
-    // Desktop drag handlers
-    onDragStart: (e: DragEvent<HTMLAnchorElement | HTMLButtonElement>, linkId: string) => void;
-    onDragEnd: (e: DragEvent<HTMLAnchorElement | HTMLButtonElement>) => void;
-    onDragOver: (e: DragEvent<HTMLAnchorElement | HTMLButtonElement>, linkId: string) => void;
-    onDragLeave: () => void;
-    onDrop: (e: DragEvent<HTMLAnchorElement | HTMLButtonElement>, linkId: string) => void;
-    // Touch drag handlers
-    onTouchStart: (e: React.TouchEvent, linkId: string) => void;
-    onTouchMove: (e: React.TouchEvent) => void;
-    onTouchEnd: () => void;
 }
 
 export const LinkItem: React.FC<LinkItemProps> = ({
@@ -42,19 +29,8 @@ export const LinkItem: React.FC<LinkItemProps> = ({
     cellSize,
     gridGap,
     editMode,
-    isTouchDevice,
-    dragOverLinkId,
-    touchDragLinkId,
     editingLinkId,
-    onLinkClick,
-    onDragStart,
-    onDragEnd,
-    onDragOver,
-    onDragLeave,
-    onDrop,
-    onTouchStart,
-    onTouchMove,
-    onTouchEnd
+    onLinkClick
 }) => {
     // Local state for HTTP action execution
     const [linkState, setLinkState] = useState<LinkState>('idle');
@@ -172,11 +148,6 @@ export const LinkItem: React.FC<LinkItemProps> = ({
         transform: `translate(${translateX}px, ${translateY}px)`,
         width: `${width}px`,
         height: `${height}px`,
-        // Smooth transition for reordering during drag
-        ...(touchDragLinkId && {
-            transition: 'transform 200ms ease-out, opacity 100ms ease-out',
-            willChange: 'transform',
-        }),
     };
 
     // Click handler
@@ -190,29 +161,12 @@ export const LinkItem: React.FC<LinkItemProps> = ({
         }
     };
 
-    // Visual feedback for drag state
-    const isDragOver = dragOverLinkId === link.id;
-    const isTouchDragging = touchDragLinkId === link.id;
-    const dragClasses = (isDragOver && !touchDragLinkId) ? ' ring-2 ring-accent ring-offset-2 ring-offset-theme-secondary' : '';
-    const dragOpacity = isTouchDragging ? 0 : 1;
-
     // Shared props for both link and button
     // Note: edit-clickable class makes links clickable in edit mode despite global pointer-events: none
     const sharedProps = {
         'data-link-id': link.id,
-        className: `${classes} ${editMode ? 'cursor-pointer' : ''} edit-clickable${dragClasses} no-drag`,
-        style: { ...style, opacity: dragOpacity },
-        draggable: editMode && !editingLinkId && !isTouchDevice,
-        onDragStart: (e: DragEvent<HTMLAnchorElement | HTMLButtonElement>) => editMode && onDragStart(e, link.id),
-        onDragEnd,
-        onDragEnter: (e: React.DragEvent) => e.preventDefault(),
-        onDragOver: (e: DragEvent<HTMLAnchorElement | HTMLButtonElement>) => onDragOver(e, link.id),
-        onDragLeave,
-        onDrop: (e: DragEvent<HTMLAnchorElement | HTMLButtonElement>) => onDrop(e, link.id),
-        onTouchStart: (e: React.TouchEvent) => onTouchStart(e, link.id),
-        onTouchMove,
-        onTouchEnd,
-        onTouchCancel: onTouchEnd,
+        className: `${classes} ${editMode ? 'cursor-pointer' : ''} edit-clickable no-drag`,
+        style,
     };
 
     // Regular link (opens URL)

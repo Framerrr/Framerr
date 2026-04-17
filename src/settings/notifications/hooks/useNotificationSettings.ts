@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { notificationsApi } from '@/api';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { useAuth } from '../../../context/AuthContext';
 import { isAdmin } from '../../../utils/permissions';
 import { getDefaultAdminEvents, getDefaultUserEvents } from '../../../constants/notificationEvents';

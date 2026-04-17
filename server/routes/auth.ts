@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { hashPassword, verifyPassword, validatePassword, getPasswordPolicy } from '../auth/password';
-import { createUserSession, validateSession } from '../auth/session';
+import { createUserSession, validateSession, getSessionDurations } from '../auth/session';
 import { getUser, getUserById, getUserByEmail, listUsers, revokeSession, revokeAllUserSessions, createUser, updateUser, hasLocalPassword, getRequirePasswordReset, setRequirePasswordReset, createSession } from '../db/users';
 import { getUserConfig } from '../db/userConfig';
 import { getSystemConfig } from '../db/systemConfig';
@@ -86,10 +86,8 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
         }
 
         // Create session
-        const sessionConfig = authConfig.session as SessionConfig | undefined;
-        const expiresIn = rememberMe
-            ? (sessionConfig?.rememberMeDuration || 2592000000) // 30 days
-            : (sessionConfig?.timeout || 86400000); // 24 hours
+        const durations = await getSessionDurations();
+        const expiresIn = rememberMe ? durations.rememberMe : durations.default;
 
         const session = await createUserSession(user, req, expiresIn);
 
@@ -426,15 +424,15 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
             return;
         }
 
-        // Create session
-        const expiresIn = systemConfig.auth?.session?.timeout || 86400000;
-        const session = await createUserSession(user, req, expiresIn);
+        // Create session — SSO users have no "Remember me" option, so always use the long duration
+        const durations = await getSessionDurations();
+        const session = await createUserSession(user, req, durations.sso);
 
         res.cookie('sessionId', session.id, {
             httpOnly: true,
             secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
             sameSite: 'lax',
-            maxAge: expiresIn
+            maxAge: durations.sso
         });
 
         // Import Plex avatar if user doesn't have one (awaited — ready before response)
@@ -517,17 +515,14 @@ router.post('/change-password', async (req: Request, res: Response): Promise<voi
             return;
         }
 
-        const newSession = await createSession(user.id, {
-            ipAddress: req.ip || undefined,
-            userAgent: req.headers['user-agent'] || undefined
-        });
+        const forcedResetDurations = await getSessionDurations();
+        const newSession = await createUserSession(user, req, forcedResetDurations.rememberMe);
 
-        // Set new session cookie (30 day default)
         res.cookie('sessionId', newSession.id, {
             httpOnly: true,
             secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
             sameSite: 'lax',
-            maxAge: 2592000000 // 30 days
+            maxAge: forcedResetDurations.rememberMe
         });
 
         // Fetch displayName

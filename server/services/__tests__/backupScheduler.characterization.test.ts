@@ -71,14 +71,14 @@ describe('Characterization: executeScheduledBackup', () => {
             savedToServer: true,
             encrypted: false,
         });
-        vi.mocked(getSystemConfig).mockResolvedValue({
+        vi.mocked(getSystemConfig).mockReturnValue({
             backupSchedule: {
                 enabled: true,
                 frequency: 'daily',
                 hour: 3,
                 maxBackups: 5,
             },
-        } as Awaited<ReturnType<typeof getSystemConfig>>);
+        } as ReturnType<typeof getSystemConfig>);
 
         await executeScheduledBackup();
 
@@ -95,14 +95,14 @@ describe('Characterization: executeScheduledBackup', () => {
             savedToServer: true,
             encrypted: false,
         });
-        vi.mocked(getSystemConfig).mockResolvedValue({
+        vi.mocked(getSystemConfig).mockReturnValue({
             backupSchedule: {
                 enabled: true,
                 frequency: 'daily',
                 hour: 3,
                 maxBackups: 5,
             },
-        } as Awaited<ReturnType<typeof getSystemConfig>>);
+        } as ReturnType<typeof getSystemConfig>);
         vi.mocked(cleanupOldBackups).mockReturnValue(2);
 
         await executeScheduledBackup();
@@ -135,9 +135,9 @@ describe('Characterization: executeScheduledBackup', () => {
             resolveBackup = resolve;
         });
         vi.mocked(createBackup).mockReturnValue(backupPromise as ReturnType<typeof createBackup>);
-        vi.mocked(getSystemConfig).mockResolvedValue({
+        vi.mocked(getSystemConfig).mockReturnValue({
             backupSchedule: { enabled: true, frequency: 'daily', hour: 3, maxBackups: 5 },
-        } as Awaited<ReturnType<typeof getSystemConfig>>);
+        } as ReturnType<typeof getSystemConfig>);
 
         // Start first execution (won't complete yet)
         const firstRun = executeScheduledBackup();

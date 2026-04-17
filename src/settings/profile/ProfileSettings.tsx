@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import { SettingsPage } from '../../shared/ui/settings';
 import { useProfileSettings } from './hooks/useProfileSettings';
 import { PictureSection } from './sections/PictureSection';

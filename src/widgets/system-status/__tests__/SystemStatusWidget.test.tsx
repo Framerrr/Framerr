@@ -114,10 +114,19 @@ vi.mock('../../../hooks/usePopoverState', () => ({
     }),
 }));
 
-// --- widgetFetch (for MetricGraphPopover history fetch) ---
-const mockWidgetFetch = vi.fn();
-vi.mock('../../../utils/widgetFetch', () => ({
-    widgetFetch: (...args: unknown[]) => mockWidgetFetch(...args),
+// --- API client (for MetricGraphPopover history fetch) ---
+const mockApiGet = vi.fn();
+const mockApiPost = vi.fn();
+const mockApiDelete = vi.fn();
+vi.mock('../../../api/client', () => ({
+    default: {
+        get: (...args: unknown[]) => mockApiGet(...args),
+        post: (...args: unknown[]) => mockApiPost(...args),
+        delete: (...args: unknown[]) => mockApiDelete(...args),
+    },
+    apiClient: {
+        get: (...args: unknown[]) => mockApiGet(...args),
+    },
 }));
 
 // --- Logger (suppress test noise) ---
@@ -201,10 +210,7 @@ function setupLiveMocks(
 describe('SystemStatusWidget — Characterization Tests', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mockWidgetFetch.mockResolvedValue({
-            ok: true,
-            json: () => Promise.resolve({ data: [], availableRange: '3d', resolution: '15s', source: 'local' }),
-        });
+        mockApiGet.mockResolvedValue({ data: [], availableRange: '3d', resolution: '15s', source: 'local' });
     });
 
     // ========================================================================

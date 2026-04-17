@@ -104,6 +104,7 @@ export function useColorThemeController({
     const resetToThemeColors = useCallback(async (themeId: string): Promise<CustomColors> => {
         removeColorsFromDOM();
         await changeTheme(themeId);
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- forced reflow to flush CSS before reading computed colors
         document.documentElement.offsetHeight;
         await new Promise<void>(resolve => setTimeout(resolve, 500));
         const themeColors = getCurrentThemeColors();

@@ -6,11 +6,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useNotifications } from '../../context/NotificationContext';
+import { useNotifications } from '../../context/notification';
 import { showLoginSplash } from '../../utils/splash';
 import { Lock, User, AlertCircle, Loader, ArrowLeft, Link, UserPlus, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
+import { authApi } from '../../api/endpoints/auth';
 
 // Provider display configuration
 const PROVIDER_CONFIG: Record<string, { name: string; color: string; glowColor: string }> = {
@@ -75,12 +75,12 @@ const SSOSetup = (): React.JSX.Element => {
             validated.current = true;
 
             try {
-                const response = await axios.post('/api/auth/sso-setup/validate', { token });
-                if (response.data.valid) {
+                const response = await authApi.ssoValidate(token);
+                if (response.valid) {
                     setTokenValid(true);
-                    setProvider(response.data.provider);
-                    setSsoUser(response.data.ssoUser);
-                    setNewUsername(response.data.ssoUser.username || '');
+                    setProvider(response.provider);
+                    setSsoUser(response.ssoUser);
+                    setNewUsername(response.ssoUser.username || '');
                 } else {
                     setError('Invalid or expired setup token');
                 }
@@ -103,21 +103,21 @@ const SSOSetup = (): React.JSX.Element => {
         setLoading(true);
 
         try {
-            const response = await axios.post('/api/auth/sso-setup/link-existing', {
+            const response = await authApi.ssoLinkExisting({
                 setupToken: token,
                 username: linkUsername,
                 password: linkPassword
             });
 
-            if (response.data.success) {
+            if (response.success) {
                 showSuccess('Account Linked!', `Your ${providerConfig.name} account has been connected`);
                 await checkAuth();
                 showLoginSplash();
                 navigate('/', { replace: true });
             }
         } catch (err) {
-            const apiError = err as { response?: { data?: { error?: string } } };
-            setError(apiError.response?.data?.error || 'Failed to link account');
+            const message = (err as { message?: string }).message || 'Failed to link account';
+            setError(message);
         } finally {
             setLoading(false);
         }
@@ -136,20 +136,20 @@ const SSOSetup = (): React.JSX.Element => {
         setLoading(true);
 
         try {
-            const response = await axios.post('/api/auth/sso-setup/create-account', {
+            const response = await authApi.ssoCreateAccount({
                 setupToken: token,
                 username: newUsername
             });
 
-            if (response.data.success) {
+            if (response.success) {
                 showSuccess('Account Created!', `Welcome to Framerr, ${newUsername}!`);
                 await checkAuth();
                 showLoginSplash();
                 navigate('/', { replace: true });
             }
         } catch (err) {
-            const apiError = err as { response?: { data?: { error?: string } } };
-            setError(apiError.response?.data?.error || 'Failed to create account');
+            const message = (err as { message?: string }).message || 'Failed to create account';
+            setError(message);
         } finally {
             setLoading(false);
         }

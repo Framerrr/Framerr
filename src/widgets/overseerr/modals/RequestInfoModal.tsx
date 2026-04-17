@@ -1,55 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import api from '../../../api/client';
 import { Star, Calendar, Clock, User, Check, XCircle, Film, Tv } from 'lucide-react';
 import { Modal } from '../../../shared/ui';
 import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
 import { useAuth } from '../../../context/AuthContext';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { isAdmin } from '../../../utils/permissions';
-import { widgetFetch } from '../../../utils/widgetFetch';
 import logger from '../../../utils/logger';
-
-// Props from OverseerrWidget
-interface MediaRequest {
-    id: number;
-    status: number;
-    type: 'movie' | 'tv';
-    media?: {
-        tmdbId?: number;
-        title?: string;
-        status?: number;
-        posterPath?: string | null;
-        localPosterPath?: string | null;
-        overview?: string | null;
-        releaseDate?: string | null;
-        voteAverage?: number | null;
-    };
-    requestedBy?: {
-        displayName?: string;
-    };
-}
-
-// Per-instance download info (Phase 7)
-interface InstanceDownload {
-    integrationId: string;
-    displayName?: string;     // Framerr user-defined name
-    progress: number;
-    timeLeft?: string;
-    episodeCount?: number;
-}
-
-// Multi-instance download info (Phase 9)
-interface DownloadInfoMulti {
-    isDownloading: boolean;
-    downloads: InstanceDownload[];
-}
+import type { MediaRequest, InstanceDownload, DownloadInfoMulti, QueueItem } from '../types';
 
 interface RequestInfoModalProps {
     request: MediaRequest;
     downloadInfo: DownloadInfoMulti | null;
     integrationId: string;
     /** Queue data passed from parent widget for live download progress */
-    sonarrQueue?: Array<{ id?: number; progress?: number; timeleft?: string; movie?: { tmdbId?: number }; series?: { tmdbId?: number }; size?: number; sizeleft?: number }>;
-    radarrQueue?: Array<{ id?: number; progress?: number; timeleft?: string; movie?: { tmdbId?: number }; series?: { tmdbId?: number }; size?: number; sizeleft?: number }>;
+    sonarrQueue?: QueueItem[];
+    radarrQueue?: QueueItem[];
     onClose: () => void;
 }
 
@@ -172,12 +138,10 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
         const fetchDetails = async () => {
             try {
                 setLoading(true);
-                const response = await widgetFetch(
+                const data = await api.get<RequestDetails>(
                     `/api/integrations/${integrationId}/proxy/request/${request.id}/details`,
-                    'overseerr-request-info'
+                    { headers: { 'X-Widget-Type': 'overseerr-request-info' } }
                 );
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
                 setDetails(data);
                 setError(null);
             } catch (err) {
@@ -196,15 +160,7 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
         setActionLoading(true);
         try {
             // Call the action endpoint on the integration
-            const response = await fetch(`/api/integrations/${integrationId}/actions/${action}/${request.id}`, {
-                method: 'POST',
-                credentials: 'include'
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `Action failed: ${response.status}`);
-            }
+            await api.post(`/api/integrations/${integrationId}/actions/${action}/${request.id}`);
 
             // Close modal on success
             onClose();

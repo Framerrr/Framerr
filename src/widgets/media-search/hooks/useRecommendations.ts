@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { widgetFetch } from '../../../utils/widgetFetch';
+import api from '../../../api/client';
 
 // ============================================================================
 // TYPES
@@ -72,12 +72,10 @@ export function useRecommendations(integrationIds: string[]): UseRecommendations
         if (!fetchPromiseMap.has(cacheKey)) {
             const promise = (async () => {
                 try {
-                    const response = await widgetFetch(
+                    const result = await api.get<RecommendationsResponse>(
                         `/api/media/recommendations?integrationIds=${encodeURIComponent(cacheKey)}&limit=20`,
-                        'media-search'
+                        { headers: { 'X-Widget-Type': 'media-search' } }
                     );
-                    if (!response.ok) return null;
-                    const result = await response.json() as RecommendationsResponse;
                     cacheMap.set(cacheKey, result);
                     return result;
                 } catch {

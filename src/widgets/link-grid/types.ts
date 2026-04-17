@@ -92,30 +92,11 @@ export interface LinkGridWidgetProps extends WidgetProps {
     setGlobalDragEnabled?: (enabled: boolean) => void;
 }
 
-// === Internal Types for Hooks ===
-
-export interface TouchDragRef {
-    linkId: string;
-    originalIndex: number;
-    startX: number;
-    startY: number;
-    timerId: ReturnType<typeof setTimeout> | null;
-    isDragging: boolean;
-    cleanupListeners: (() => void) | null;
-    currentTargetSlot: number;
-}
-
-export interface TouchDragPosition {
-    x: number;
-    y: number;
-}
-
 // === Constants ===
 
 export const GRID_CONSTANTS = {
     MIN_CELL_SIZE: 40,
     MAX_CELL_SIZE: 80,
-    TOUCH_HOLD_THRESHOLD: 170, // ms
     getGridGap: (containerWidth: number) => containerWidth < 768 ? 4 : 8,
 } as const;
 

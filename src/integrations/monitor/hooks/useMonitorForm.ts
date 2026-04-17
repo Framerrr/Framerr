@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useIntegrationSchemas } from '../../../api/hooks/useIntegrations';
+import { serviceMonitorsApi } from '../../../api/endpoints/serviceMonitors';
 import {
     KeyboardSensor,
     PointerSensor,
@@ -17,7 +18,7 @@ import {
     arrayMove,
     sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import { Monitor, DEFAULT_MONITOR, MaintenanceSchedule, TestState, IntegrationConfig } from '../types';
+import { Monitor, DEFAULT_MONITOR, MaintenanceSchedule, TestState, IntegrationConfig, MonitorStatus } from '../types';
 import logger from '../../../utils/logger';
 
 interface UseMonitorFormProps {
@@ -93,11 +94,7 @@ export function useMonitorForm({ instanceId, integrations }: UseMonitorFormProps
         setError(null);
         try {
             // Filter by integration instance ID
-            const response = await fetch(`/api/service-monitors?instanceId=${encodeURIComponent(instanceId)}`, {
-                headers: { 'X-Framerr-Client': '1' }
-            });
-            if (!response.ok) throw new Error('Failed to fetch monitors');
-            const data = await response.json();
+            const data = await serviceMonitorsApi.list(instanceId);
             // Map backend field names to frontend Monitor interface
             const fetchedMonitors: Monitor[] = (data.monitors || []).map((m: Record<string, unknown>) => ({
                 ...m,
@@ -122,17 +119,12 @@ export function useMonitorForm({ instanceId, integrations }: UseMonitorFormProps
             const monitorsWithStatus = await Promise.all(
                 firstPartyMonitors.map(async (monitor) => {
                     try {
-                        const statusRes = await fetch(`/api/service-monitors/${monitor.id}/status`, {
-                            headers: { 'X-Framerr-Client': '1' }
-                        });
-                        if (statusRes.ok) {
-                            const statusData = await statusRes.json();
-                            return {
-                                ...monitor,
-                                status: statusData.status,
-                                response_time_ms: statusData.responseTimeMs
-                            };
-                        }
+                        const statusData = await serviceMonitorsApi.getStatus(monitor.id);
+                        return {
+                            ...monitor,
+                            status: statusData.status as MonitorStatus,
+                            response_time_ms: statusData.responseTimeMs ?? undefined
+                        };
                     } catch {
                         // Ignore status fetch errors
                     }
@@ -240,11 +232,7 @@ export function useMonitorForm({ instanceId, integrations }: UseMonitorFormProps
     // Handle delete monitor (confirmation handled by ConfirmButton in UI)
     const handleDeleteMonitor = useCallback(async (id: string) => {
         try {
-            const response = await fetch(`/api/service-monitors/${id}`, {
-                method: 'DELETE',
-                headers: { 'X-Framerr-Client': '1' }
-            });
-            if (!response.ok) throw new Error('Failed to delete monitor');
+            await serviceMonitorsApi.delete(id);
             setMonitors(prev => prev.filter(m => m.id !== id));
             setDisplayOrder(prev => prev.filter(oid => oid !== id));
             if (expandedId === id) setExpandedId(null);
@@ -263,23 +251,14 @@ export function useMonitorForm({ instanceId, integrations }: UseMonitorFormProps
         setTestStates(prev => ({ ...prev, [id]: { loading: true } }));
 
         try {
-            const response = await fetch('/api/service-monitors/test', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Framerr-Client': '1'
-                },
-                body: JSON.stringify({
-                    url: monitor.url,
-                    host: monitor.host,
-                    port: monitor.port,
-                    type: monitor.type,
-                    timeout_seconds: monitor.timeout_seconds,
-                    expected_status_codes: monitor.expected_status_codes
-                })
+            const result = await serviceMonitorsApi.test({
+                url: monitor.url,
+                host: monitor.host,
+                port: monitor.port,
+                type: monitor.type,
+                timeout_seconds: monitor.timeout_seconds,
+                expected_status_codes: monitor.expected_status_codes
             });
-
-            const result = await response.json();
             setTestStates(prev => ({
                 ...prev,
                 [id]: {
@@ -293,7 +272,7 @@ export function useMonitorForm({ instanceId, integrations }: UseMonitorFormProps
 
             // Update monitor status in UI on successful test
             if (result.success) {
-                const newStatus = result.response_time_ms > (monitor.degraded_threshold_ms || 2000) ? 'degraded' : 'up';
+                const newStatus = (result.response_time_ms ?? 0) > (monitor.degraded_threshold_ms || 2000) ? 'degraded' : 'up';
                 if (isNew) {
                     setNewMonitors(prev => prev.map(m =>
                         m.id === id ? { ...m, status: newStatus, response_time_ms: result.response_time_ms } : m
@@ -361,7 +340,7 @@ export function useMonitorForm({ instanceId, integrations }: UseMonitorFormProps
         const tempToRealId = new Map<string, string>();
         for (const newMon of monitorsToSave) {
             try {
-                const payload = {
+                const saved = await serviceMonitorsApi.create({
                     name: newMon.name,
                     url: newMon.url,
                     port: newMon.port,
@@ -376,24 +355,8 @@ export function useMonitorForm({ instanceId, integrations }: UseMonitorFormProps
                     maintenanceSchedule: newMon.maintenanceSchedule,
                     integrationInstanceId: instanceId,
                     sourceIntegrationId: newMon.sourceIntegrationId || null
-                };
-
-                const response = await fetch('/api/service-monitors', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Framerr-Client': '1'
-                    },
-                    body: JSON.stringify(payload)
                 });
-
-                if (!response.ok) {
-                    const errData = await response.json().catch(() => ({}));
-                    throw new Error(errData.error || 'Failed to save monitor');
-                }
-
-                const saved = await response.json();
-                const savedMon = saved.monitor || saved;
+                const savedMon = (saved.monitor || saved) as unknown as Monitor;
                 savedMonitors.push(savedMon);
                 tempToRealId.set(newMon.id, savedMon.id);
             } catch (err) {
@@ -441,7 +404,7 @@ export function useMonitorForm({ instanceId, integrations }: UseMonitorFormProps
             const modifiedMonitors = monitors.filter(m => modifiedIds.has(m.id));
             for (const monitor of modifiedMonitors) {
                 try {
-                    const payload = {
+                    await serviceMonitorsApi.update(monitor.id, {
                         name: monitor.name,
                         url: monitor.url,
                         port: monitor.port,
@@ -454,21 +417,7 @@ export function useMonitorForm({ instanceId, integrations }: UseMonitorFormProps
                         degradedThresholdMs: monitor.degraded_threshold_ms,
                         expectedStatusCodes: monitor.expected_status_codes,
                         maintenanceSchedule: monitor.maintenanceSchedule
-                    };
-
-                    const response = await fetch(`/api/service-monitors/${monitor.id}`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Framerr-Client': '1'
-                        },
-                        body: JSON.stringify(payload)
                     });
-
-                    if (!response.ok) {
-                        const errData = await response.json().catch(() => ({}));
-                        throw new Error(errData.error || 'Failed to update monitor');
-                    }
                 } catch (err) {
                     setError(err instanceof Error ? err.message : 'Failed to update');
                     throw err;
@@ -488,14 +437,7 @@ export function useMonitorForm({ instanceId, integrations }: UseMonitorFormProps
                         .map(id => tempToRealId.get(id) || id)
                     : displayOrder.filter(id => !id.startsWith('new-'));
 
-                await fetch('/api/service-monitors/reorder', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Framerr-Client': '1'
-                    },
-                    body: JSON.stringify({ orderedIds: finalOrderedIds })
-                });
+                await serviceMonitorsApi.reorder(finalOrderedIds);
                 setOrderModified(false);
                 logger.debug('Monitor order saved', { orderedIds: finalOrderedIds });
             } catch (err) {

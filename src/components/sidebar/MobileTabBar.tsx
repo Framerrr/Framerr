@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, LayoutDashboard, ChevronUp, LogOut, UserCircle, Mail, LayoutGrid, Settings as SettingsIcon, Undo2, Redo2, Plus, Save, Link, Unlink } from 'lucide-react';
-import { useSharedSidebar } from './SharedSidebarContext';
-import { sidebarSpring } from './types';
-import MenuContentShell from './MenuContentShell';
+import { useSharedSidebar } from '@/app/sidebar/SharedSidebarContext';
+import { sidebarSpring } from '@/app/sidebar/types';
+import MenuContentShell from '@/app/sidebar/MenuContentShell';
 import { NotificationCenter, NotificationCenterHeader } from '../../features/notifications';
 import type { NotificationFilterType } from '../../features/notifications';
-import { triggerHaptic } from '../../utils/haptics';
+import { triggerHaptic } from '@/utils/haptics';
+import { guardedNavigate } from '@/settings/navigation';
 
 /**
  * Mobile Tab Bar Component
@@ -767,12 +768,13 @@ export function MobileTabBar() {
                                         const isOnSettings = currentHash.startsWith('settings');
                                         const dest = isOnSettings ? '#settings' : (lastSettingsPath || '#settings');
 
-                                        // Check edit mode guard
-                                        if (dashboardEdit?.editMode && dashboardEdit?.hasUnsavedChanges) {
-                                            dashboardEdit.setPendingDestination(dest);
-                                        } else {
-                                            window.location.hash = dest;
+                                        // Use shared guard helper
+                                        const result = guardedNavigate(dest, dashboardEdit);
+                                        if (result === 'blocked') {
+                                            setIsMobileMenuOpen(false);
+                                            return;
                                         }
+                                        window.location.hash = dest;
                                         setIsMobileMenuOpen(false);
                                     }}
                                     className="flex flex-col items-center gap-1 transition-colors py-2 px-3 rounded-xl relative text-theme-tertiary active:text-theme-primary"

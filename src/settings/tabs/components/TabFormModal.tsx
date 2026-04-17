@@ -9,7 +9,7 @@ import React, { ChangeEvent, FormEvent } from 'react';
 import { Save } from 'lucide-react';
 import { Modal, Select, Switch } from '@/shared/ui';
 import IconPicker from '../../../components/IconPicker';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Button } from '../../../shared/ui';
 import type { TabGroup, TabFormData, ModalMode } from '../types';
 

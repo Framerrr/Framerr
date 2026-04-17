@@ -13,7 +13,7 @@ import { templatesApi, widgetsApi } from '../../../api/endpoints';
 import type { Widget } from '../../../api/endpoints/widgets';
 import { useLayout } from '../../../context/LayoutContext';
 import { useAuth } from '../../../context/AuthContext';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { readFramerrFile } from '../../../utils/templateExportImport';
 import { generateWidgetId } from '../../../shared/grid/core/ops';
 import { filterRegisteredWidgets } from '../../../widgets/registry';

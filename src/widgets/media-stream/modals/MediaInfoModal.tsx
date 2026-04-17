@@ -2,7 +2,7 @@ import React from 'react';
 import { Star, Calendar, Building2, Users } from 'lucide-react';
 import { Modal } from '../../../shared/ui';
 import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
-import { widgetFetch } from '../../../utils/widgetFetch';
+import api from '../../../api/client';
 import logger from '../../../utils/logger';
 
 // ============================================================================
@@ -113,13 +113,10 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({
         const fetchMetadata = async () => {
             try {
                 setLoading(true);
-                const response = await widgetFetch(
+                const data = await api.get<ItemMetadata>(
                     `/api/integrations/${integrationId}/item-metadata/${itemId}`,
-                    'media-info'
+                    { headers: { 'X-Widget-Type': 'media-info' } }
                 );
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-                const data: ItemMetadata = await response.json();
                 metadataCache.set(cacheKey, { data, timestamp: Date.now() });
                 setMetadata(data);
                 setError(null);
@@ -145,8 +142,7 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({
             return;
         }
 
-        fetch(`/api/media/external-ids?itemKey=${itemId}&integrationId=${integrationId}`, { credentials: 'include' })
-            .then(r => r.ok ? r.json() : null)
+        api.get<{ tmdbId: number | null; imdbId: string | null }>(`/api/media/external-ids?itemKey=${itemId}&integrationId=${integrationId}`)
             .then(data => {
                 if (data) {
                     externalIdsCache.set(cacheKey, { data, timestamp: Date.now() });

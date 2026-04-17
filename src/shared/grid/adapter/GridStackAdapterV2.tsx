@@ -524,6 +524,7 @@ function GridStackInner({
                 // Remove from engine directly if DOM element gone
                 const node = gridStack.engine.nodes.find((n: GridStackNode) => n.id === id);
                 if (node) {
+                    // eslint-disable-next-line react-hooks/immutability -- imperative GridStack engine API, necessary third-party interop
                     gridStack.engine.nodes = gridStack.engine.nodes.filter((n: GridStackNode) => n.id !== id);
                 }
             }

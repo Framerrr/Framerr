@@ -28,11 +28,8 @@ const PullToRefresh = (): React.JSX.Element | null => {
     const hapticFiredRef = useRef(false);
     const currentDistRef = useRef(0);
 
-    // Only show on touch devices
-    const [isTouchDevice, setIsTouchDevice] = useState(false);
-    useEffect(() => {
-        setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
-    }, []);
+    // Only show on touch devices — detected once at mount
+    const [isTouchDevice] = useState(() => 'ontouchstart' in window || navigator.maxTouchPoints > 0);
 
     // Dynamic thresholds based on viewport
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800;

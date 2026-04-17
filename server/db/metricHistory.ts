@@ -123,6 +123,21 @@ export function query(
 }
 
 /**
+ * Get the oldest recorded timestamp (Unix seconds) for a specific integration + metric.
+ * Returns null if no data exists yet.
+ */
+export function getOldestTimestamp(integrationId: string, metricKey: string): number | null {
+    const db = getDb();
+    const row = db.prepare(`
+        SELECT MIN(timestamp) as oldest
+        FROM metric_history
+        WHERE integration_id = ?
+          AND metric_key = ?
+    `).get(integrationId, metricKey) as { oldest: number | null };
+    return row.oldest ?? null;
+}
+
+/**
  * Get raw rows for aggregation — returns rows in a resolution tier
  * older than the specified timestamp.
  */

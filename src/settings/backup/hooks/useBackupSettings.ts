@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import logger from '../../../utils/logger';
-import { useRealtimeSSE, BackupEvent } from '../../../hooks/useRealtimeSSE';
-import { useNotification } from '../../../hooks/useNotification';
+import { useRealtimeSSE, BackupEvent } from '@/features/realtime/useRealtimeSSE';
+import { useNotification } from '@/shared/hooks/useNotification';
 import { backupApi, extractErrorMessage } from '../../../api';
 import { useBackupList, useBackupSchedule, useCreateBackup, useDeleteBackup, useUpdateBackupSchedule } from '../../../api/hooks';
 import { useBackupEncryptionStatus } from '../../../api/hooks/useSettings';
@@ -51,7 +51,7 @@ interface UseBackupSettingsReturn {
     encryptionLoading: boolean;
     handleEnableEncryption: (password: string) => Promise<void>;
     handleDisableEncryption: (password: string) => Promise<void>;
-    handleChangePassword: (oldPassword: string, newPassword: string) => Promise<void>;
+    handleResetPassword: (newPassword: string) => Promise<void>;
 }
 
 export function useBackupSettings(): UseBackupSettingsReturn {
@@ -289,19 +289,19 @@ export function useBackupSettings(): UseBackupSettingsReturn {
         }
     }, [notify, queryClient]);
 
-    const handleChangePassword = useCallback(async (oldPassword: string, newPassword: string): Promise<void> => {
+    const handleResetPassword = useCallback(async (newPassword: string): Promise<void> => {
         try {
-            const result = await withMinDelay(backupApi.encryption.changePassword(oldPassword, newPassword));
+            const result = await withMinDelay(backupApi.encryption.resetPassword(newPassword));
             let msg = result.message;
             if (result.rewriteErrors && result.rewriteErrors.length > 0) {
                 msg += ` (${result.rewriteErrors.length} file(s) could not be updated)`;
-                notify.warning('Password Changed', msg);
+                notify.warning('Password Reset', msg);
             } else {
-                notify.success('Password Changed', msg);
+                notify.success('Password Reset', msg);
             }
         } catch (err) {
             const message = extractErrorMessage(err);
-            notify.error('Change Password Failed', message);
+            notify.error('Reset Password Failed', message);
             throw err;
         }
     }, [notify]);
@@ -343,6 +343,6 @@ export function useBackupSettings(): UseBackupSettingsReturn {
         encryptionLoading,
         handleEnableEncryption,
         handleDisableEncryption,
-        handleChangePassword,
+        handleResetPassword,
     };
 }

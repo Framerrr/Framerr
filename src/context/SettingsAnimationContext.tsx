@@ -10,7 +10,7 @@
  * - Page is just being revealed (returning from Dashboard)
  */
 
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, ReactNode } from 'react';
 
 interface SettingsAnimationContextType {
     /** If true, internal animations should be skipped */
@@ -32,17 +32,17 @@ export function SettingsAnimationProvider({ children }: SettingsAnimationProvide
     const renderedCategories = useRef<Set<string>>(new Set());
 
     // Track if we're in a "reveal" state (coming back to settings)
-    const [skipAnimation, setSkipAnimation] = useState(false);
+    // Using a ref instead of state to avoid set-state-in-effect
+    const skipAnimationRef = useRef(false);
     const hasEverRendered = useRef(false);
 
-    useEffect(() => {
-        // After first render, subsequent renders are "reveals"
-        if (hasEverRendered.current) {
-            setSkipAnimation(true);
-        } else {
-            hasEverRendered.current = true;
-        }
-    }, []);
+    // After first render, subsequent renders are "reveals"
+    // Set the ref synchronously — no effect needed
+    if (hasEverRendered.current) {
+        skipAnimationRef.current = true;
+    } else {
+        hasEverRendered.current = true;
+    }
 
     const markRendered = (category: string): void => {
         renderedCategories.current.add(category);
@@ -53,7 +53,7 @@ export function SettingsAnimationProvider({ children }: SettingsAnimationProvide
     };
 
     return (
-        <SettingsAnimationContext.Provider value={{ skipAnimation, markRendered, hasRendered }}>
+        <SettingsAnimationContext.Provider value={{ skipAnimation: skipAnimationRef.current, markRendered, hasRendered }}>
             {children}
         </SettingsAnimationContext.Provider>
     );

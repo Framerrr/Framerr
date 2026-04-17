@@ -25,7 +25,7 @@ import {
     type LucideIcon
 } from 'lucide-react';
 import { Button, Popover } from '../../ui';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import './styles.css';
 
 export type WidgetStateVariant =

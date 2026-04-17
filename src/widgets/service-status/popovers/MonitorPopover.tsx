@@ -11,9 +11,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Wrench } from 'lucide-react';
 import { Popover } from '@/shared/ui';
-import { widgetFetch } from '../../../utils/widgetFetch';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
-import StatusDot from '../../../components/common/StatusDot';
+import api from '../../../api/client';
+import { LoadingSpinner } from '@/shared/ui';
+import { StatusDot } from '@/shared/ui';
 import logger from '../../../utils/logger';
 import { ServiceMonitor, MonitorStatusData, HourlyAggregate } from '../types';
 
@@ -96,11 +96,10 @@ const MonitorPopover: React.FC<MonitorPopoverProps> = ({
             const url = integrationId
                 ? `/api/integrations/${integrationId}/proxy/monitor/${monitor.id}/history?hours=24`
                 : `/api/service-monitors/${monitor.id}/aggregates?hours=24`;
-            const response = await widgetFetch(url, 'service-status-history');
-            if (response.ok) {
-                const data = await response.json();
-                setAggregates(data.aggregates || []);
-            }
+            const data = await api.get<{ aggregates?: HourlyAggregate[] }>(url, {
+                headers: { 'X-Widget-Type': 'service-status-history' }
+            });
+            setAggregates(data.aggregates || []);
         } catch (error) {
             logger.error('Failed to fetch monitor history', { error });
         } finally {

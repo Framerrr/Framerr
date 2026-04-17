@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Users as UsersIcon, Plus } from 'lucide-react';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import { Button, ConfirmDialog } from '../../shared/ui';
 import { useUserSettings } from './hooks/useUserSettings';
 import { UserTable } from './components/UserTable';

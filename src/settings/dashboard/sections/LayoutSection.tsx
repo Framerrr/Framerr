@@ -16,8 +16,8 @@ import { Button, Switch, ConfirmDialog } from '../../../shared/ui';
 import { SettingsPage, SettingsSection, SettingsItem } from '../../../shared/ui/settings';
 import { useLayout } from '../../../context/LayoutContext';
 import logger from '../../../utils/logger';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
-import { useSidebarUI } from '../../../components/sidebar/context/SidebarUIContext';
+import { LoadingSpinner } from '@/shared/ui';
+import { useSidebarUI } from '@/app/sidebar/context/SidebarUIContext';
 import { useWalkthrough } from '../../../features/walkthrough';
 
 type MobileLayoutMode = 'linked' | 'independent';

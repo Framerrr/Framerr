@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { isAdmin } from '../../utils/permissions';
 import logger from '../../utils/logger';
 import { integrationsApi } from '../../api/endpoints/integrations';
-import useRealtimeSSE from '../../hooks/useRealtimeSSE';
+import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
 import type { IntegrationsMap } from '../../../shared/types/integration';
 
 // ============================================================================
@@ -61,17 +61,25 @@ export const IntegrationDataProvider = ({ children }: IntegrationDataProviderPro
                     integrationsData.forEach(inst => {
                         keyed[inst.type] = inst;
                     });
-                    setIntegrations(keyed);
+                    queueMicrotask(() => {
+                        setIntegrations(keyed);
+                        setIntegrationsLoaded(true);
+                        setIntegrationsError(null);
+                    });
                 } else {
-                    setIntegrations((integrationsData as { integrations?: IntegrationsMap }).integrations || {});
+                    queueMicrotask(() => {
+                        setIntegrations((integrationsData as { integrations?: IntegrationsMap }).integrations || {});
+                        setIntegrationsLoaded(true);
+                        setIntegrationsError(null);
+                    });
                 }
-                setIntegrationsLoaded(true);
-                setIntegrationsError(null);
             } catch (intError) {
                 logger.debug('Full integrations not available');
-                setIntegrations({});
-                setIntegrationsLoaded(true);
-                setIntegrationsError(intError as Error);
+                queueMicrotask(() => {
+                    setIntegrations({});
+                    setIntegrationsLoaded(true);
+                    setIntegrationsError(intError as Error);
+                });
             }
         } else {
             // Non-admin: fetch shared integrations that admin has granted access to
@@ -87,15 +95,19 @@ export const IntegrationDataProvider = ({ children }: IntegrationDataProviderPro
                         ...restIntegration,
                     };
                 }
-                setIntegrations(sharedIntegrations);
-                setIntegrationsLoaded(true);
-                setIntegrationsError(null);
+                queueMicrotask(() => {
+                    setIntegrations(sharedIntegrations);
+                    setIntegrationsLoaded(true);
+                    setIntegrationsError(null);
+                });
                 logger.debug('Shared integrations loaded', { count: sharedList.length });
             } catch (sharedError) {
                 logger.debug('Shared integrations not available');
-                setIntegrations({});
-                setIntegrationsLoaded(true);
-                setIntegrationsError(sharedError as Error);
+                queueMicrotask(() => {
+                    setIntegrations({});
+                    setIntegrationsLoaded(true);
+                    setIntegrationsError(sharedError as Error);
+                });
             }
         }
     }, [isAuthenticated, user]);

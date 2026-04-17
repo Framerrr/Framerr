@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { adminOidcApi } from '../../../api/endpoints/adminOidc';
 import { useOidcConfig } from '../../../api/hooks/useSettings';
 import { queryKeys } from '../../../api/queryKeys';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { extractErrorMessage } from '../../../api/errors';
 import type { OidcConfigResponse, OidcDiscoveryResult } from '../../../api/endpoints/adminOidc';
 

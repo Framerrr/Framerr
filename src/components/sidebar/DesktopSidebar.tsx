@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, LogOut, UserCircle, Mail, LayoutGrid, Settings as SettingsIcon, PanelLeftClose } from 'lucide-react';
-import { useSharedSidebar } from './SharedSidebarContext';
-import { Highlight, HighlightItem } from './Highlight';
-import { sidebarSpring } from './types';
+import { useSharedSidebar } from '@/app/sidebar/SharedSidebarContext';
+import { Highlight, HighlightItem } from '@/app/sidebar/Highlight';
+import { sidebarSpring } from '@/app/sidebar/types';
 import { NotificationCenter } from '../../features/notifications';
-import { triggerHaptic } from '../../utils/haptics';
-import { SidebarTabsContent } from './SidebarTabsContent';
-import { SidebarSettingsContent } from './SidebarSettingsContent';
-import { BetaBadge } from '../../shared/ui/BetaBadge';
+import { triggerHaptic } from '@/utils/haptics';
+import { SidebarTabsContent } from '@/app/sidebar/SidebarTabsContent';
+import { SidebarSettingsContent } from '@/app/sidebar/SidebarSettingsContent';
+import { BetaBadge } from '@/shared/ui/BetaBadge';
+import { guardedNavigate } from '@/settings/navigation';
 
 
 /**
@@ -45,13 +46,14 @@ export function DesktopSidebar() {
         lastSettingsPath,
     } = useSharedSidebar();
 
-    // Peek state for edge-hover interaction when sidebar is hidden
-    const [isPeeking, setIsPeeking] = useState(false);
+    // Peek intent for edge-hover interaction when sidebar is hidden
+    const [peekIntent, setPeekIntent] = useState(false);
+    const isPeeking = peekIntent && isSidebarHidden;
 
     // Auto-collapse sidebar when entering edit mode
     useEffect(() => {
         if (dashboardEdit?.editMode && isExpanded) {
-            setIsExpanded(false);
+            queueMicrotask(() => setIsExpanded(false));
         }
     }, [dashboardEdit?.editMode]);
 
@@ -83,16 +85,10 @@ export function DesktopSidebar() {
     // Force sidebar visible when navigating to settings
     useEffect(() => {
         if (isOnSettingsPage && isSidebarHidden) {
-            setIsExpanded(true);
+            queueMicrotask(() => setIsExpanded(true));
         }
     }, [isOnSettingsPage, isSidebarHidden]);
 
-    // Reset peek state when auto-hide is turned off
-    useEffect(() => {
-        if (!isSidebarHidden) {
-            setIsPeeking(false);
-        }
-    }, [isSidebarHidden]);
 
     // Calculate sidebar position and scale
     // Hidden: off-screen (-96px), Peeking: 30% visible (-56px), Normal: full position (16px)
@@ -116,10 +112,10 @@ export function DesktopSidebar() {
                         pointerEvents: isExpanded ? 'none' : 'auto',
                     }}
                     onMouseEnter={() => {
-                        setIsPeeking(true);
+                        setPeekIntent(true);
                     }}
                     onMouseLeave={() => {
-                        setIsPeeking(false);
+                        setPeekIntent(false);
                     }}
                     onClick={() => {
                         if (isPeeking) {
@@ -145,7 +141,7 @@ export function DesktopSidebar() {
                             clearTimeout(hideTimeoutRef.current);
                             hideTimeoutRef.current = null;
                         }
-                        setIsPeeking(true);
+                        setPeekIntent(true);
                         setIsExpanded(true);
                     }}
                 />
@@ -173,7 +169,7 @@ export function DesktopSidebar() {
                         // Mouse left the gap — start hide timer
                         hideTimeoutRef.current = setTimeout(() => {
                             setIsExpanded(false);
-                            setIsPeeking(false);
+                            setPeekIntent(false);
                             hideTimeoutRef.current = null;
                         }, 300);
                     }}
@@ -240,7 +236,7 @@ export function DesktopSidebar() {
                         // Debounce auto-hide to prevent flicker during animation
                         hideTimeoutRef.current = setTimeout(() => {
                             setIsExpanded(false);
-                            setIsPeeking(false);
+                            setPeekIntent(false);
                             hideTimeoutRef.current = null;
                         }, 100);
                     } else if (!showNotificationCenter && !isOnSettingsPage) {
@@ -319,7 +315,7 @@ export function DesktopSidebar() {
                                         if (!isSidebarHidden) {
                                             // Hiding: collapse and hide
                                             setIsExpanded(false);
-                                            setIsPeeking(false);
+                                            setPeekIntent(false);
                                         }
                                     }}
                                 >
@@ -564,17 +560,9 @@ export function DesktopSidebar() {
 
                                     const destination = lastSettingsPath || '#settings/tabs';
 
-                                    // Edit mode guard - same logic as handleNavigation
-                                    if (dashboardEdit?.editMode) {
-                                        if (dashboardEdit.hasUnsavedChanges) {
-                                            // Block navigation as show warning popup
-                                            dashboardEdit.setPendingDestination(destination);
-                                            return;
-                                        } else {
-                                            // Exit edit mode first
-                                            dashboardEdit.handlers?.handleCancel();
-                                        }
-                                    }
+                                    // Use shared guard helper
+                                    const result = guardedNavigate(destination, dashboardEdit);
+                                    if (result === 'blocked') return;
 
                                     // Navigate to last settings path or default to /tabs
                                     setSidebarMode('settings');

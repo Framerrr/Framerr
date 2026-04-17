@@ -11,7 +11,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useIntegrationSSE } from '../../../shared/widgets';
-import { widgetFetchJson } from '../../../utils/widgetFetch';
+import api from '../../../api/client';
 import type {
     CalendarEpisode,
     WantedEpisode,
@@ -168,9 +168,9 @@ export function useSonarrData({ integrationId, enabled }: UseSonarrDataOpts): So
         setMissingLoading(true);
 
         try {
-            const data = await widgetFetchJson<WantedResponse>(
+            const data = await api.get<WantedResponse>(
                 `/api/integrations/${integrationId}/proxy/missing?page=${page}&pageSize=${PAGE_SIZE}`,
-                'sonarr'
+                { headers: { 'X-Widget-Type': 'sonarr' } }
             );
 
             setMissingEpisodes(prev => {
@@ -235,13 +235,10 @@ export function useSonarrData({ integrationId, enabled }: UseSonarrDataOpts): So
         if (!integrationId) return false;
 
         try {
-            await widgetFetchJson(
+            await api.post(
                 `/api/integrations/${integrationId}/proxy/command`,
-                'sonarr',
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ name: 'EpisodeSearch', episodeIds }),
-                }
+                { name: 'EpisodeSearch', episodeIds },
+                { headers: { 'X-Widget-Type': 'sonarr' } }
             );
             return true;
         } catch {
@@ -252,9 +249,9 @@ export function useSonarrData({ integrationId, enabled }: UseSonarrDataOpts): So
     const searchReleases = useCallback(async (episodeId: number): Promise<SonarrRelease[]> => {
         if (!integrationId) return [];
 
-        const data = await widgetFetchJson<SonarrRelease[]>(
+        const data = await api.get<SonarrRelease[]>(
             `/api/integrations/${integrationId}/proxy/release?episodeId=${episodeId}`,
-            'sonarr'
+            { headers: { 'X-Widget-Type': 'sonarr' } }
         );
         return data;
     }, [integrationId]);
@@ -263,13 +260,10 @@ export function useSonarrData({ integrationId, enabled }: UseSonarrDataOpts): So
         if (!integrationId) return false;
 
         try {
-            await widgetFetchJson(
+            await api.post(
                 `/api/integrations/${integrationId}/proxy/release`,
-                'sonarr',
-                {
-                    method: 'POST',
-                    body: JSON.stringify({ guid, indexerId, ...(shouldOverride && { shouldOverride: true }) }),
-                }
+                { guid, indexerId, ...(shouldOverride && { shouldOverride: true }) },
+                { headers: { 'X-Widget-Type': 'sonarr' } }
             );
             // Suppress stale SSE data for 3s
             optimisticUntil.current = Date.now() + 3000;

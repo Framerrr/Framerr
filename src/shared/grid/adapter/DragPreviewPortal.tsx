@@ -179,7 +179,7 @@ interface PreviewWidgetProps {
  * Renders a single preview widget into its portal container.
  */
 function PreviewWidget({ preview, previewMode, getIntegrationBinding, renderWidget, transformScale }: PreviewWidgetProps) {
-    const Component = getWidgetComponent(preview.widgetType);
+    const Component = useMemo(() => getWidgetComponent(preview.widgetType), [preview.widgetType]);
     const metadata = getWidgetMetadata(preview.widgetType);
 
     // Get all integrations from React Query cache (no new API calls)
@@ -260,6 +260,7 @@ function PreviewWidget({ preview, previewMode, getIntegrationBinding, renderWidg
             }}
         >
             <div style={{ width: '100%', height: '100%' }}>
+                {/* eslint-disable-next-line react-hooks/static-components -- dynamic registry lookup, component ref stable via useMemo */}
                 <Component
                     widget={widgetData}
                     previewMode={previewMode}

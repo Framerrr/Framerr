@@ -4,7 +4,7 @@
  * Type definitions for the service monitoring widget.
  */
 
-import { MonitorStatus } from '../../components/common/StatusDot';
+import { type MonitorStatus } from '@/shared/ui';
 import type { WidgetProps } from '../types';
 
 // ============================================================================

@@ -11,7 +11,7 @@ import { useState, useRef, useCallback, useMemo } from 'react';
 import { useProfile, useUpdateProfile, useChangePassword, useUploadProfilePicture, useRemoveProfilePicture } from '../../../api/hooks';
 import imageCompression from 'browser-image-compression';
 import logger from '../../../utils/logger';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import { useAuth } from '../../../context/AuthContext';
 import {
     ProfileData,
@@ -60,6 +60,7 @@ export function useProfileSettings(): UseProfileSettingsReturn {
     // Profile picture with cache-busting
     const profilePicture = useMemo(() => {
         const pic = profileData?.profilePicture;
+        // eslint-disable-next-line react-hooks/purity -- cache-buster intentionally needs unique value per picture change
         return pic ? `${pic}?t=${Date.now()}` : null;
     }, [profileData?.profilePicture]);
 

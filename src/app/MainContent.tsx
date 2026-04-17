@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { useState, useEffect, useCallback, ReactNode, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
 import Dashboard from './dashboard/Dashboard';
 import TabContainer from './tabs/TabContainer';
-import WidgetStateTestPage from './dev/WidgetStateTestPage';
-import SettingsPage from './settings/SettingsPage';
-import { useSharedSidebar } from '../components/sidebar/SharedSidebarContext';
+const WidgetStateTestPage = React.lazy(() => import('./dev/WidgetStateTestPage'));
+const SettingsPage = React.lazy(() => import('./settings/SettingsPage'));
+import LoadingSpinner from '@/shared/ui/LoadingSpinner/LoadingSpinner';
+import { useSharedSidebar } from '@/app/sidebar/SharedSidebarContext';
 import { useLayout } from '../context/LayoutContext';
 import { LAYOUT } from '../constants/layout';
 import { signalAppReady } from '../utils/splash';
@@ -175,7 +176,15 @@ const MainContent = (): React.JSX.Element => {
 
     // Dev pages are rendered conditionally (not keep-alive)
     if (currentPage === 'dev/widget-states') {
-        return <WidgetStateTestPage />;
+        return (
+            <Suspense fallback={
+                <div className="flex items-center justify-center w-full h-full">
+                    <LoadingSpinner size="lg" />
+                </div>
+            }>
+                <WidgetStateTestPage />
+            </Suspense>
+        );
     }
 
     return (
@@ -213,7 +222,13 @@ const MainContent = (): React.JSX.Element => {
                     scrollable={true}
                     paddingLeft={settingsExtraPadding}
                 >
-                    <SettingsPage />
+                    <Suspense fallback={
+                        <div className="flex items-center justify-center w-full h-full">
+                            <LoadingSpinner size="lg" />
+                        </div>
+                    }>
+                        <SettingsPage />
+                    </Suspense>
                 </PageLayer>
             )}
         </div>

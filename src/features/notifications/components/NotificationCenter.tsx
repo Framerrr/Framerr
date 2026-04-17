@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Info } from 'lucide-react';
-import { useNotifications } from '../../../context/NotificationContext';
+import { useNotifications } from '../../../context/notification';
 import SwipeableNotification from './SwipeableNotification';
 import NotificationGroup from './NotificationGroup';
 import { NotificationCardContent } from './NotificationCard';

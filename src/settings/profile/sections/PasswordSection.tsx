@@ -8,7 +8,7 @@
 
 import React, { ChangeEvent } from 'react';
 import { Lock } from 'lucide-react';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Button } from '../../../shared/ui';
 import { SettingsSection, SettingsAlert } from '../../../shared/ui/settings';
 import { PasswordFormData } from '../types';

@@ -1,7 +1,7 @@
 /**
  * Backup Encryption DB Layer — Unit Tests
  *
- * Tests the backup encryption database functions (enable, disable, change password, getServerMBK).
+ * Tests the backup encryption database functions (enable, disable, reset password, getServerMBK).
  * Mocks the database and crypto modules to test logic in isolation.
  */
 
@@ -46,7 +46,7 @@ import {
     isBackupEncryptionEnabled,
     enableBackupEncryption,
     disableBackupEncryption,
-    changeBackupPassword,
+    resetBackupPassword,
     getServerMBK,
 } from '../db/backupEncryption';
 import { wrapKey, deriveKEK, generateKey, generateSalt, CRYPTO_CONSTANTS } from '../utils/backupCrypto';
@@ -204,20 +204,21 @@ describe('disableBackupEncryption', () => {
     });
 });
 
-describe('changeBackupPassword', () => {
+describe('resetBackupPassword', () => {
     beforeEach(() => vi.clearAllMocks());
 
-    it('re-wraps MBK with new password', () => {
-        const oldPassword = 'old-password-123';
+    it('re-wraps MBK with new password via server key', () => {
+        const originalPassword = 'old-password-123';
         const newPassword = 'new-password-456';
-        const { row } = createMockRow(oldPassword);
+        const { row } = createMockRow(originalPassword);
 
+        // getServerMBK reads config, then resetBackupPassword updates
         const mockGet = vi.fn(() => row);
         const mockRun = vi.fn();
-        mockPrepare.mockReturnValueOnce({ get: mockGet }); // SELECT for getBackupEncryption
+        mockPrepare.mockReturnValueOnce({ get: mockGet }); // SELECT for getServerMBK → getBackupEncryption
         mockPrepare.mockReturnValueOnce({ run: mockRun }); // UPDATE
 
-        changeBackupPassword(oldPassword, newPassword);
+        resetBackupPassword(newPassword);
 
         expect(mockRun).toHaveBeenCalledTimes(1);
         const args = mockRun.mock.calls[0];
@@ -226,13 +227,6 @@ describe('changeBackupPassword', () => {
         expect(args[0]).not.toBe(row.mbk_password);
         // New salt should be different from old
         expect(args[1]).not.toBe(row.kek_salt);
-    });
-
-    it('throws on incorrect old password', () => {
-        const { row } = createMockRow('real-password');
-        mockPrepare.mockReturnValue({ get: vi.fn(() => row) });
-
-        expect(() => changeBackupPassword('wrong-password', 'new-pass')).toThrow('Incorrect current password');
     });
 });
 

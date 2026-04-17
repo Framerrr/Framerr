@@ -68,7 +68,7 @@ const ToastNotification = ({
     const [isDragging, setIsDragging] = useState<boolean>(false);
     const isPausedRef = useRef<boolean>(false);
     const elapsedRef = useRef<number>(0);
-    const lastTickRef = useRef<number>(Date.now());
+    const lastTickRef = useRef<number>(0);
     const rafRef = useRef<number | null>(null);
     const controls = useAnimation();
 
@@ -98,6 +98,7 @@ const ToastNotification = ({
         }
 
         lastTickRef.current = now;
+        // eslint-disable-next-line react-hooks/immutability -- self-referencing RAF loop, valid JS closure
         rafRef.current = requestAnimationFrame(tick);
     }, [id, duration, onDismiss]);
 

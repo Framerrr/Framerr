@@ -16,7 +16,5 @@ export interface ClockConfig extends Partial<ClockPreferences> {
 }
 
 // Extends canonical WidgetProps
-export interface ClockWidgetProps extends WidgetProps {
-    // No additional props needed - uses base WidgetProps
-}
+export type ClockWidgetProps = WidgetProps;
 

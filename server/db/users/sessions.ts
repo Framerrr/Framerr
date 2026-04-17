@@ -12,7 +12,7 @@ import type { Session, SessionRow, SessionData } from './types';
 /**
  * Create a session
  */
-export function createSession(userId: string, sessionData: SessionData, expiresIn: number = 86400000): Session {
+export function createSession(userId: string, sessionData: SessionData, expiresIn: number = 604800000): Session {
     try {
         const token = uuidv4();
         const createdAt = Math.floor(Date.now() / 1000);

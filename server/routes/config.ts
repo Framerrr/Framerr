@@ -8,7 +8,7 @@ import upload from '../middleware/upload';
 import AdmZip from 'adm-zip';
 import fs from 'fs/promises';
 import path from 'path';
-import { createUserSession } from '../auth/session';
+import { createUserSession, getSessionDurations } from '../auth/session';
 import { invalidateSystemSettings } from '../utils/invalidateUserSettings';
 
 const router = Router();
@@ -192,18 +192,15 @@ router.put('/auth', requireAdmin, async (req: Request, res: Response) => {
             logger.info(`[Config] Proxy auth disabled - creating local session: user=${req.user!.id} username="${req.user!.username}"`);
 
             // Create a session for the proxy-authenticated user
-            const session = await createUserSession(
-                req.user!,
-                req,
-                currentConfig.auth?.session?.timeout || 86400000
-            );
+            const configDurations = await getSessionDurations();
+            const session = await createUserSession(req.user!, req, configDurations.default);
 
             // Set session cookie
             res.cookie('sessionId', session.id, {
                 httpOnly: true,
                 secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
                 sameSite: 'lax',
-                maxAge: currentConfig.auth?.session?.timeout || 86400000
+                maxAge: configDurations.default
             });
 
             logger.info(`[Config] Local session created for proxy user: user=${req.user!.id} session=${session.id}`);

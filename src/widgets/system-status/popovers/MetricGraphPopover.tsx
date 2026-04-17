@@ -27,16 +27,16 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import logger from '../../../utils/logger';
-import { widgetFetch } from '../../../utils/widgetFetch';
-import { usePopoverState } from '../../../hooks/usePopoverState';
+import api from '../../../api/client';
+import { usePopoverState } from '@/shared/hooks/usePopoverState';
 import '../styles.css';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-/** Time range options for the graph */
-type TimeRange = '1h' | '6h' | '1d' | '3d' | '7d' | '30d';
+/** Template-literal type covering any valid range string (e.g. '1h', '6h', '14d', '21d'). */
+type TimeRange = `${number}h` | `${number}d` | `${number}m`;
 
 /** Metric display configuration */
 interface MetricConfig {
@@ -101,29 +101,109 @@ const DEFAULT_METRIC_CONFIG: MetricConfig = {
     unit: '%',
 };
 
-/** All possible time ranges in order */
-const ALL_RANGES: TimeRange[] = ['1h', '6h', '1d', '3d', '7d', '30d'];
-
-/** Duration in ms for each range */
-const RANGE_DURATION: Record<TimeRange, number> = {
-    '1h': 60 * 60 * 1000,
-    '6h': 6 * 60 * 60 * 1000,
-    '1d': 24 * 60 * 60 * 1000,
-    '3d': 3 * 24 * 60 * 60 * 1000,
-    '7d': 7 * 24 * 60 * 60 * 1000,
-    '30d': 30 * 24 * 60 * 60 * 1000,
-};
-
 /** Parse a range string like '3d', '1h' into ms */
 function parseRangeToMs(range: string): number {
     const match = range.match(/^(\d+)([hdm])$/);
-    if (!match) return RANGE_DURATION['3d']; // fallback
+    if (!match) return 3 * 24 * 60 * 60 * 1000; // fallback: 3d
     const num = parseInt(match[1], 10);
     const unit = match[2];
     if (unit === 'h') return num * 60 * 60 * 1000;
     if (unit === 'd') return num * 24 * 60 * 60 * 1000;
     if (unit === 'm') return num * 60 * 1000;
-    return RANGE_DURATION['3d'];
+    return 3 * 24 * 60 * 60 * 1000;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Fixed base buttons — always shown when data supports their duration. */
+const BASE_RANGES: TimeRange[] = ['1h', '6h', '1d', '3d'];
+
+/**
+ * Candidate milestones for snapping the maximum day button to a clean value.
+ * All day buttons produced by generateRanges come from this set.
+ */
+const SNAP_MILESTONES = [5, 7, 10, 14, 21, 30];
+
+/**
+ * Intermediate milestones always included as buttons when the snapped max exceeds them.
+ * 5 and 10 are excluded because they appear only AS the snapped max, never as intermediates.
+ */
+const WEEK_MILESTONES = [7, 14, 21];
+
+/**
+ * Snap maxDays UP to the nearest SNAP_MILESTONE within `threshold` days above.
+ * If none close enough, returns the largest milestone at or below maxDays.
+ * All returned values come from the curated milestone list — never raw/rounded.
+ */
+function snapUpToMilestone(maxDays: number, milestones: number[], threshold: number): number {
+    for (const m of milestones) {
+        if (m >= maxDays && m - maxDays <= threshold) return m;
+    }
+    for (let i = milestones.length - 1; i >= 0; i--) {
+        if (milestones[i] <= maxDays) return milestones[i];
+    }
+    return 0;
+}
+
+/**
+ * Generate the ordered list of time range buttons for a given available range.
+ *
+ * 1. Include base ranges (1h, 6h, 1d, 3d) whose duration fits within availableRange.
+ * 2. If data span > 3 days: snap maxDays to nearest curated milestone (within 2 days up,
+ *    or largest milestone below as fallback). Add WEEK_MILESTONES < snapMax, then snapMax.
+ *
+ * Examples:
+ *   '5d'  → ['1h','6h','1d','3d','5d']
+ *   '14d' → ['1h','6h','1d','3d','7d','14d']
+ *   '30d' → ['1h','6h','1d','3d','7d','14d','21d','30d']
+ *   '2d'  → ['1h','6h','1d']
+ *   '0d'  → []
+ */
+function generateRanges(availableRange: string): TimeRange[] {
+    const maxMs = parseRangeToMs(availableRange);
+    if (maxMs <= 0) return [];
+
+    const maxDays = maxMs / DAY_MS;
+    const base = BASE_RANGES.filter(r => parseRangeToMs(r) <= maxMs);
+
+    if (maxDays <= 3) return base;
+
+    const snapMax = snapUpToMilestone(maxDays, SNAP_MILESTONES, 2);
+    if (snapMax === 0) return base;
+
+    const dayButtons: TimeRange[] = [];
+    for (const m of WEEK_MILESTONES) {
+        if (m < snapMax) dayButtons.push(`${m}d` as TimeRange);
+    }
+    dayButtons.push(`${snapMax}d` as TimeRange);
+
+    return [...base, ...dayButtons];
+}
+
+/** Get the date-fns format string for chart data point labels for a given range. */
+function getTimeFormat(range: string): string {
+    if (range === '1h') return 'h:mm a';
+    if (range === '6h') return 'h a';
+    if (range === '1d') return 'ha';
+    return 'MMM d';
+}
+
+/** Get the X-axis tick interval in ms for a given range. */
+function getTickInterval(range: string): number {
+    if (range === '1h') return 15 * 60 * 1000;
+    if (range === '6h') return 60 * 60 * 1000;
+    if (range === '1d') return 4 * 60 * 60 * 1000;
+    if (range === '3d') return 12 * 60 * 60 * 1000;
+    return 24 * 60 * 60 * 1000;
+}
+
+/** Get the date-fns format string for X-axis ticks for a given range. */
+function getTickFormat(range: string): string {
+    if (range === '1h') return 'h:mm a';
+    if (range === '6h') return 'h a';
+    if (range === '1d') return 'ha';
+    if (range === '3d') return 'MMM d ha';
+    return 'MMM d';
 }
 
 // ============================================================================
@@ -162,9 +242,17 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
 
     // Compute available time range buttons based on availableRange
     const availableRanges = useMemo((): TimeRange[] => {
-        const maxMs = parseRangeToMs(availableRange);
-        return ALL_RANGES.filter(r => RANGE_DURATION[r] <= maxMs);
+        return generateRanges(availableRange);
     }, [availableRange]);
+
+    // Clamp currentRange when availableRange shrinks and the selection is no longer available.
+    // Resets to the largest available range to maximize data visibility.
+    useEffect(() => {
+        if (availableRanges.length > 0 && !availableRanges.includes(currentRange)) {
+            setCurrentRange(availableRanges[availableRanges.length - 1]);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [availableRanges]);
 
     // Fetch data from internal history API when popover opens or range changes
     const fetchData = useCallback(async () => {
@@ -172,9 +260,9 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
         setLoading(true);
         try {
             const endpoint = `/api/metric-history/${integrationId}?metric=${metric}&range=${currentRange}`;
-            const res = await widgetFetch(endpoint, 'metric-history');
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const json: HistoryResponse = await res.json();
+            const json = await api.get<HistoryResponse>(endpoint, {
+                headers: { 'X-Widget-Type': 'metric-history' }
+            });
             setApiData(json.data || []);
             if (json.availableRange) {
                 setAvailableRange(json.availableRange);
@@ -197,22 +285,13 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
 
     // Transform API data for Recharts
     const chartData: ChartDataPoint[] = useMemo(() => {
-        const timeFormats: Record<TimeRange, string> = {
-            '1h': 'h:mm a',
-            '6h': 'h a',
-            '1d': 'ha',
-            '3d': 'MMM d',
-            '7d': 'MMM d',
-            '30d': 'MMM d',
-        };
-
         return apiData
             .map(d => ({
                 timestamp: d.t,
                 value: d.avg ?? d.v ?? 0,
                 min: d.min,
                 max: d.max,
-                formattedTime: format(new Date(d.t), timeFormats[currentRange] || 'MMM d'),
+                formattedTime: format(new Date(d.t), getTimeFormat(currentRange)),
             }))
             .filter(p => Number.isFinite(p.value))
             .sort((a, b) => a.timestamp - b.timestamp);
@@ -226,28 +305,10 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
 
     // Generate nice rounded tick values for X-axis
     const { niceTicks, formatTick } = useMemo(() => {
-        const tickIntervals: Record<TimeRange, number> = {
-            '1h': 15 * 60 * 1000,         // 15 minutes
-            '6h': 60 * 60 * 1000,         // 1 hour
-            '1d': 4 * 60 * 60 * 1000,     // 4 hours
-            '3d': 12 * 60 * 60 * 1000,    // 12 hours
-            '7d': 24 * 60 * 60 * 1000,    // 1 day
-            '30d': 5 * 24 * 60 * 60 * 1000, // 5 days
-        };
-
-        const tickFormats: Record<TimeRange, string> = {
-            '1h': 'h:mm a',
-            '6h': 'h a',
-            '1d': 'ha',
-            '3d': 'MMM d ha',
-            '7d': 'MMM d',
-            '30d': 'MMM d',
-        };
-
         const now = Date.now();
-        const cutoff = now - RANGE_DURATION[currentRange];
-        const interval = tickIntervals[currentRange];
-        const tickFormat = tickFormats[currentRange];
+        const cutoff = now - parseRangeToMs(currentRange);
+        const interval = getTickInterval(currentRange);
+        const tickFormat = getTickFormat(currentRange);
 
         // Round cutoff UP to next interval
         const firstTick = Math.ceil(cutoff / interval) * interval;

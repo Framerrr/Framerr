@@ -42,7 +42,5 @@ export interface StatusData {
 }
 
 // Extends canonical WidgetProps
-export interface SystemStatusWidgetProps extends WidgetProps {
-    // No additional props needed
-}
+export type SystemStatusWidgetProps = WidgetProps;
 

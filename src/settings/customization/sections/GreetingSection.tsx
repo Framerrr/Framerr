@@ -12,7 +12,7 @@
 import { ChangeEvent } from 'react';
 import { MessageSquare, Wand2, Type, Save, RotateCcw } from 'lucide-react';
 import { SettingsSection, SettingsItem } from '../../../shared/ui/settings';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Switch, Button } from '../../../shared/ui';
 
 const TONE_OPTIONS = [

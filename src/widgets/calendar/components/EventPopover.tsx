@@ -8,7 +8,7 @@
 import React from 'react';
 import { Popover } from '@/shared/ui';
 import { Tv, Film } from 'lucide-react';
-import { usePopoverState } from '../../../hooks/usePopoverState';
+import { usePopoverState } from '@/shared/hooks/usePopoverState';
 import type { CalendarEvent } from '../calendar.types';
 
 interface EventPopoverProps {

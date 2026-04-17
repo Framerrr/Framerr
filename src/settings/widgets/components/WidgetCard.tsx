@@ -2,7 +2,7 @@ import React, { ChangeEvent } from 'react';
 import { getWidgetMetadata, getWidgetIconName, getWidgetConfigConstraints } from '../../../widgets/registry';
 import { useWidgetConfigUI } from '../../../shared/widgets';
 import IconPicker from '../../../components/IconPicker';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Button, ConfirmButton } from '../../../shared/ui';
 import { Switch } from '@/shared/ui';
 import type { Widget, WidgetConfig } from '../types';

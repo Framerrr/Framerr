@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import api from '../../api/client';
 import {
     Play, Pause, RefreshCw, Trash2, FastForward, FileText, Radio, Info
 } from 'lucide-react';
@@ -153,11 +154,8 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
         setTab('overview');
         setDeleteConfirm(false);
 
-        fetch(`/api/integrations/${integrationId}/proxy/torrents/${torrent.hash}/general`, {
-            credentials: 'include',
-        })
-            .then(r => r.ok ? r.json() : Promise.reject(new Error('Failed to load')))
-            .then((d: GeneralData) => setData(d))
+        api.get<GeneralData>(`/api/integrations/${integrationId}/proxy/torrents/${torrent.hash}/general`)
+            .then((d) => setData(d))
             .catch(() => { /* silently fail, show basic info from torrent prop */ })
             .finally(() => setDataLoading(false));
     }, [open, torrent.hash, integrationId]);
@@ -169,12 +167,7 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
         endpoint: string,
         body: Record<string, unknown>,
     ) => {
-        await fetch(`/api/integrations/${integrationId}/proxy/torrents/${endpoint}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Framerr-Client': '1' },
-            credentials: 'include',
-            body: JSON.stringify(body),
-        });
+        await api.post(`/api/integrations/${integrationId}/proxy/torrents/${endpoint}`, body);
     }, [integrationId]);
 
     const handlePause = async () => {

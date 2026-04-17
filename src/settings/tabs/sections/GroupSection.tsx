@@ -23,7 +23,7 @@ import {
 } from '@dnd-kit/sortable';
 import { Button } from '../../../shared/ui';
 import { SettingsPage, SettingsSection } from '../../../shared/ui/settings';
-import LoadingSpinner from '../../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import { useGroupSettings } from '../hooks/useGroupSettings';
 import { GroupItem } from '../components/GroupItem';
 import { GroupFormModal } from '../components/GroupFormModal';

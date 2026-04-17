@@ -12,9 +12,9 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { plexApi } from '../../api/endpoints/plex';
-import LoadingSpinner from '../../components/common/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui';
 import logger from '../../utils/logger';
-import { PLEX_PIN_KEY, PLEX_ORIGIN_KEY, PlexUser } from '../../hooks/usePlexOAuth';
+import { PLEX_PIN_KEY, PLEX_ORIGIN_KEY, PlexUser } from '@/settings/auth/hooks/usePlexOAuth';
 
 type LoadingState = 'redirecting' | 'completing' | 'error';
 

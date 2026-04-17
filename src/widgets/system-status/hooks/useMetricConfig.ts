@@ -295,60 +295,26 @@ export function useMetricConfig({ widgetId, config, widgetH, showHeader, integra
         return missing.length > 0 ? [...savedOrder, ...missing] : savedOrder;
     }, [availableMetrics, config]);
 
-    // Local state for responsive editing (persisted debounced)
-    const [localOrder, setLocalOrder] = useState<string[]>(reconcileOrder(configOrder));
-    const [localSpans, setLocalSpans] = useState<Record<string, number>>(
-        configSpans || Object.fromEntries(METRIC_REGISTRY.map(m => [m.key, m.defaultSpan]))
+    // Derived local values (always reflect latest config — no intermediate stale frame)
+    const localOrder = useMemo(() => reconcileOrder(configOrder), [configOrder, reconcileOrder]);
+    const localSpans = useMemo(
+        () => configSpans || Object.fromEntries(METRIC_REGISTRY.map(m => [m.key, m.defaultSpan])),
+        [configSpans]
     );
-
-    // Sync from config when it changes externally (e.g., config modal save, integration switch)
-    const prevConfigRef = useRef<string>('');
-    useEffect(() => {
-        const configFingerprint = JSON.stringify({
-            integrationType,
-            order: configOrder,
-            spans: configSpans,
-            showCpu: config?.showCpu,
-            showMemory: config?.showMemory,
-            showTemperature: config?.showTemperature,
-            showUptime: config?.showUptime,
-            showDiskUsage: config?.showDiskUsage,
-            showNetworkUp: config?.showNetworkUp,
-            showNetworkDown: config?.showNetworkDown,
-            diskCollapsed: config?.diskCollapsed,
-            diskSelection: config?.diskSelection,
-            diskMetricOrder: config?.diskMetricOrder,
-            diskMetricSpans: config?.diskMetricSpans,
-        });
-        if (configFingerprint !== prevConfigRef.current) {
-            prevConfigRef.current = configFingerprint;
-            // Always sync — use fallbacks when config values are undefined
-            setLocalOrder(reconcileOrder(configOrder));
-            setLocalSpans(
-                configSpans || Object.fromEntries(METRIC_REGISTRY.map(m => [m.key, m.defaultSpan]))
-            );
-        }
-    }, [config, configOrder, configSpans, integrationType, reconcileOrder]);
 
     // Track which metrics have ever reported non-null data (sticky — never revert)
     // This prevents cards from flickering when values are briefly null between polls
-    const [seenMetrics, setSeenMetrics] = useState<Set<string>>(new Set());
+    // Ref-based: never needs to trigger re-render by itself (consumed inside useMemo with statusData dep)
+    const seenMetricsRef = useRef<Set<string>>(new Set());
 
-    // Update the "ever seen" set when statusData changes (effect — not during render)
-    useEffect(() => {
-        if (!statusData) return;
-        setSeenMetrics(prev => {
-            let changed = false;
-            const next = new Set(prev);
-            for (const key of Object.keys(statusData) as (keyof StatusData)[]) {
-                if (statusData[key] !== null && statusData[key] !== undefined && !prev.has(key)) {
-                    next.add(key);
-                    changed = true;
-                }
+    // Mutate ref in render body (safe for refs that don't affect output directly)
+    if (statusData) {
+        for (const key of Object.keys(statusData) as (keyof StatusData)[]) {
+            if (statusData[key] !== null && statusData[key] !== undefined) {
+                seenMetricsRef.current.add(key);
             }
-            return changed ? next : prev;
-        });
-    }, [statusData]);
+        }
+    }
 
     const visibleMetrics = useMemo(() => {
         const base = localOrder
@@ -383,7 +349,7 @@ export function useMetricConfig({ widgetId, config, widgetH, showHeader, integra
                 // Once a metric has been seen, it stays visible (sticky)
                 if (statusData && !m.key.startsWith('disk-')) {
                     const value = statusData[m.key as keyof StatusData];
-                    const everSeen = seenMetrics.has(m.key);
+                    const everSeen = seenMetricsRef.current.has(m.key);
                     if ((value === null || value === undefined) && !everSeen) return false;
                 }
                 return true;
@@ -446,7 +412,7 @@ export function useMetricConfig({ widgetId, config, widgetH, showHeader, integra
         }
 
         return base;
-    }, [localOrder, config, availableKeys, statusData, integrationType, seenMetrics]);
+    }, [localOrder, config, availableKeys, statusData, integrationType]);
 
     // Pack metrics into grid
     const allPackedMetrics = useMemo(() => packMetrics(visibleMetrics, localSpans), [visibleMetrics, localSpans]);

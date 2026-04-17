@@ -10,12 +10,15 @@
 
 import { LazyExoticComponent, ComponentType } from 'react';
 import { LucideIcon } from 'lucide-react';
+import type { WidgetCategory } from '../../shared/types/widget';
 
 // ============================================================================
 // WIDGET CATEGORIES
 // ============================================================================
 
-export type WidgetCategory = 'system' | 'media' | 'downloads' | 'utility';
+// WidgetCategory is imported from shared/types/widget.ts (canonical source)
+// Re-export for backwards compatibility
+export type { WidgetCategory } from '../../shared/types/widget';
 
 // ============================================================================
 // SIZING

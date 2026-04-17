@@ -142,14 +142,14 @@ export const CornerResizeIndicators: React.FC<CornerResizeIndicatorsProps> = ({
         observerRef.current = new ResizeObserver((entries) => {
             for (const entry of entries) {
                 const height = entry.contentRect.height;
-                setContainerHeight(height);
+                queueMicrotask(() => setContainerHeight(height));
             }
         });
 
         observerRef.current.observe(container);
 
         // Get initial height
-        setContainerHeight(container.getBoundingClientRect().height);
+        queueMicrotask(() => setContainerHeight(container.getBoundingClientRect().height));
 
         return () => {
             observerRef.current?.disconnect();

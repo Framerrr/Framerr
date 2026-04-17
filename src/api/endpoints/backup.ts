@@ -83,8 +83,8 @@ export const backupApi = {
         disable: (password: string) =>
             api.post<{ enabled: false; message: string }>('/api/backup/encryption/disable', { password }),
 
-        changePassword: (oldPassword: string, newPassword: string) =>
-            api.post<{ message: string; rewriteErrors?: string[] }>('/api/backup/encryption/change-password', { oldPassword, newPassword }),
+        resetPassword: (newPassword: string) =>
+            api.post<{ message: string; rewriteErrors?: string[] }>('/api/backup/encryption/reset-password', { newPassword }),
     },
 };
 

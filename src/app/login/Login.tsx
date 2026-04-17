@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { plexApi, themeApi, authApi } from '../../api/endpoints';
 import { resetSessionExpiredFlag } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
-import { useNotifications } from '../../context/NotificationContext';
+import { useNotifications } from '../../context/notification';
 import { Lock, User, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Checkbox } from '../../shared/ui';
@@ -20,7 +20,7 @@ const Login = (): React.JSX.Element => {
     const [username, setUsername] = useState<string>('');
     const [password, setPassword] = useState<string>('');
     const [showPassword, setShowPassword] = useState(false);
-    const [rememberMe, setRememberMe] = useState<boolean>(false);
+    const [rememberMe, setRememberMe] = useState<boolean>(true);
     const [error, setError] = useState<string>('');
     const [loading, setLoading] = useState<boolean>(false);
     const [plexSSOEnabled, setPlexSSOEnabled] = useState<boolean>(false);

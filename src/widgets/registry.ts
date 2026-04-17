@@ -25,10 +25,7 @@ const pluginModules = import.meta.glob<{ plugin: WidgetPlugin }>(
 
 // Build registry map from discovered plugins
 const widgetPluginMap = new Map<string, WidgetPlugin>();
-for (const [path, module] of Object.entries(pluginModules)) {
-    // Skip _core folder
-    if (path.includes('/_core/')) continue;
-
+for (const [, module] of Object.entries(pluginModules)) {
     const plugin = module.plugin;
     if (plugin?.id) {
         widgetPluginMap.set(plugin.id, plugin);

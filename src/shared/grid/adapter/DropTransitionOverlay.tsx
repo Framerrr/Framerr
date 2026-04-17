@@ -150,6 +150,7 @@ export function DropTransitionOverlay({ renderWidget, transformScale = 1 }: Drop
 
             const executeCrossfade = () => {
                 // Reveal the grid cell content (both opacity and visibility)
+                // eslint-disable-next-line react-hooks/immutability -- imperative DOM mutation for FLIP crossfade animation
                 event.contentEl.style.visibility = 'visible';
                 event.contentEl.style.opacity = '1';
 

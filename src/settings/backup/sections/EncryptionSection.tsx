@@ -11,7 +11,7 @@
 import React, { useState } from 'react';
 import { Lock, Loader2, KeyRound } from 'lucide-react';
 import { Button, Switch, Modal } from '../../../shared/ui';
-import { Input } from '../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { SettingsSection } from '../../../shared/ui/settings';
 
 interface EncryptionSectionProps {
@@ -19,17 +19,17 @@ interface EncryptionSectionProps {
     encryptionLoading: boolean;
     onEnable: (password: string) => Promise<void>;
     onDisable: (password: string) => Promise<void>;
-    onChangePassword: (oldPassword: string, newPassword: string) => Promise<void>;
+    onResetPassword: (newPassword: string) => Promise<void>;
 }
 
-type ModalType = null | 'enable' | 'disable' | 'change';
+type ModalType = null | 'enable' | 'disable' | 'reset';
 
 export const EncryptionSection = ({
     encryptionEnabled,
     encryptionLoading,
     onEnable,
     onDisable,
-    onChangePassword,
+    onResetPassword,
 }: EncryptionSectionProps): React.JSX.Element => {
     const [modal, setModal] = useState<ModalType>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,13 +38,11 @@ export const EncryptionSection = ({
     // Password fields
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [oldPassword, setOldPassword] = useState('');
 
     const resetAndClose = () => {
         setModal(null);
         setPassword('');
         setConfirmPassword('');
-        setOldPassword('');
         setError('');
     };
 
@@ -57,7 +55,6 @@ export const EncryptionSection = ({
         setError('');
         setPassword('');
         setConfirmPassword('');
-        setOldPassword('');
     };
 
     // ── Enable ──
@@ -102,28 +99,24 @@ export const EncryptionSection = ({
         }
     };
 
-    // ── Change Password ──
-    const handleSubmitChange = async () => {
-        if (!oldPassword) {
-            setError('Current password is required');
-            return;
-        }
+    // ── Reset Password ──
+    const handleSubmitReset = async () => {
         if (password.length < 8) {
-            setError('New password must be at least 8 characters');
+            setError('Password must be at least 8 characters');
             return;
         }
         if (password !== confirmPassword) {
-            setError('New passwords do not match');
+            setError('Passwords do not match');
             return;
         }
         setIsSubmitting(true);
         setError('');
         try {
-            await onChangePassword(oldPassword, password);
+            await onResetPassword(password);
             resetAndClose();
         } catch (err) {
             const error = err as { response?: { data?: { error?: string } } };
-            setError(error.response?.data?.error || 'Failed to change password');
+            setError(error.response?.data?.error || 'Failed to reset password');
         } finally {
             setIsSubmitting(false);
         }
@@ -149,17 +142,16 @@ export const EncryptionSection = ({
                     encryptionEnabled ? (
                         <Button
                             onClick={() => {
-                                setModal('change');
+                                setModal('reset');
                                 setError('');
                                 setPassword('');
                                 setConfirmPassword('');
-                                setOldPassword('');
                             }}
                             variant="secondary"
                             size="sm"
                             icon={KeyRound}
                         >
-                            Change Password
+                            Reset Password
                         </Button>
                     ) : undefined
                 }
@@ -188,7 +180,10 @@ export const EncryptionSection = ({
                 <Modal.Header title="Enable Backup Encryption" />
                 <Modal.Body>
                     <p className="text-sm text-theme-secondary mb-4">
-                        Choose a strong password to encrypt your backups. You'll need this password to restore encrypted backups.
+                        Choose a strong password to encrypt your backups.
+                    </p>
+                    <p className="text-sm text-warning/90 bg-warning/10 border border-warning/20 rounded-lg px-3 py-2 mb-4">
+                        Write this password down — you'll need it to restore backups on a different server. You can reset it later from this page, but downloaded backup files will always require the password they were created with.
                     </p>
                     <Input
                         label="Password"
@@ -268,23 +263,16 @@ export const EncryptionSection = ({
                 </Modal.Footer>
             </Modal>
 
-            {/* ═══ Change Password Modal ═══ */}
-            <Modal open={modal === 'change'} onOpenChange={(open) => !open && resetAndClose()} size="sm">
-                <Modal.Header title="Change Encryption Password" />
+            {/* ═══ Reset Password Modal ═══ */}
+            <Modal open={modal === 'reset'} onOpenChange={(open) => !open && resetAndClose()} size="sm">
+                <Modal.Header title="Reset Encryption Password" />
                 <Modal.Body>
                     <p className="text-sm text-theme-secondary mb-4">
-                        Server-stored backups will be updated to use the new password. Previously downloaded backups keep their original password.
+                        Set a new password for backup encryption. Server-stored backups will be updated automatically.
                     </p>
-                    <Input
-                        label="Current Password"
-                        type="password"
-                        value={oldPassword}
-                        onChange={(e) => setOldPassword(e.target.value)}
-                        placeholder="Enter current password"
-                        disabled={isSubmitting}
-                        autoFocus
-                        autoComplete="current-password"
-                    />
+                    <p className="text-sm text-warning/90 bg-warning/10 border border-warning/20 rounded-lg px-3 py-2 mb-4">
+                        Previously downloaded backup files will still require whatever password was set when they were downloaded. Write this password down — you'll need it to restore backups on a different server.
+                    </p>
                     <Input
                         label="New Password"
                         type="password"
@@ -292,14 +280,15 @@ export const EncryptionSection = ({
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Min 8 characters"
                         disabled={isSubmitting}
+                        autoFocus
                         autoComplete="new-password"
                     />
                     <Input
-                        label="Confirm New Password"
+                        label="Confirm Password"
                         type="password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Re-enter new password"
+                        placeholder="Re-enter password"
                         disabled={isSubmitting}
                         autoComplete="new-password"
                     />
@@ -311,13 +300,13 @@ export const EncryptionSection = ({
                             Cancel
                         </Button>
                         <Button
-                            onClick={handleSubmitChange}
-                            disabled={isSubmitting || !oldPassword || !password || !confirmPassword}
+                            onClick={handleSubmitReset}
+                            disabled={isSubmitting || !password || !confirmPassword}
                             variant="primary"
                             size="sm"
                             loading={isSubmitting}
                         >
-                            {isSubmitting ? 'Changing...' : 'Change Password'}
+                            {isSubmitting ? 'Resetting...' : 'Reset Password'}
                         </Button>
                     </div>
                 </Modal.Footer>

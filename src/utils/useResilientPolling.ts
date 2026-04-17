@@ -67,6 +67,7 @@ export function useResilientPolling<T>({
             if (retriesLeft > 0) {
                 logger.debug(`[${name}] Fetch failed, retrying in ${retryDelay}ms (${retriesLeft} retries left)`);
                 await new Promise(resolve => setTimeout(resolve, retryDelay));
+                // eslint-disable-next-line react-hooks/immutability -- self-referencing recursive retry, valid JS closure
                 return fetchWithRetry(retriesLeft - 1);
             }
 

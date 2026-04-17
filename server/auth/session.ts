@@ -1,5 +1,6 @@
 import { Request } from 'express';
 import { createSession, getSession } from '../db/users';
+import { getSystemConfig } from '../db/systemConfig';
 import logger from '../utils/logger';
 
 interface User {
@@ -14,6 +15,31 @@ interface Session {
     userAgent: string | null;
     createdAt: number;
     expiresAt: number;
+}
+
+/**
+ * Named session durations resolved from system config.
+ * All callsites use this instead of hardcoding millisecond values so that
+ * future per-user duration preferences only need to change this one function.
+ */
+export interface SessionDurations {
+    /** Local login without "Remember me", proxy auth session handoff */
+    default: number;
+    /** Local login with "Remember me" checked */
+    rememberMe: number;
+    /** SSO logins (Plex, OIDC, SSO setup) — user has no duration choice */
+    sso: number;
+}
+
+export async function getSessionDurations(): Promise<SessionDurations> {
+    const config = await getSystemConfig();
+    const session = config.auth?.session;
+    const rememberMe = session?.rememberMeDuration ?? 2592000000; // 30 days
+    return {
+        default: session?.timeout ?? 604800000,  // 7 days
+        rememberMe,
+        sso: rememberMe,
+    };
 }
 
 /**

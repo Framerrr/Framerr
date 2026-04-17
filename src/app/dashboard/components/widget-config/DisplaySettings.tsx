@@ -9,7 +9,7 @@ import React from 'react';
 import { Switch } from '../../../../shared/ui';
 import { getWidgetIconName } from '../../../../widgets/registry';
 import IconPicker from '../../../../components/IconPicker';
-import { Input } from '../../../../components/common/Input';
+import { Input } from '@/shared/ui';
 import { Settings } from 'lucide-react';
 import type { WidgetConfigUIState } from './types';
 

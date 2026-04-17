@@ -14,7 +14,7 @@
  */
 
 import React, { useRef } from 'react';
-import { Card } from '../../components/common/Card';
+import { Card } from '@/shared/ui';
 import WidgetActionsPopover from '../../app/dashboard/components/WidgetActionsPopover';
 import { canWidgetShowHeader, getWidgetContentPadding } from '../../widgets/registry';
 import { CornerResizeIndicators } from './CornerResizeIndicators';

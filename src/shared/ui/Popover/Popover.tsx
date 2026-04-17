@@ -25,9 +25,10 @@ import * as RadixPopover from '@radix-ui/react-popover';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { popIn } from '../animations';
-import { useCloseOnScroll } from '../../../hooks/useCloseOnScroll';
-import { useOverlayScrollLock } from '../../../hooks/useOverlayScrollLock';
+import { useCloseOnScroll } from '@/shared/hooks/useCloseOnScroll';
+import { useOverlayScrollLock } from '@/shared/hooks/useOverlayScrollLock';
 import { useInsideModal } from '../Modal/Modal';
+
 
 // ===========================
 // Popover Root
@@ -53,6 +54,7 @@ export function Popover({
     ...props
 }: PopoverProps) {
     const [isOpen, setIsOpen] = useState(props.open ?? props.defaultOpen ?? false);
+    const insideModal = useInsideModal();
 
     // Guard against trigger-click reopening immediately after close.
     // On desktop, clicking the trigger while open fires: close (pointer-down-outside) → reopen (trigger click).
@@ -62,7 +64,7 @@ export function Popover({
     // Sync internal state with controlled prop
     useEffect(() => {
         if (props.open !== undefined) {
-            setIsOpen(props.open);
+            queueMicrotask(() => setIsOpen(props.open!));
         }
     }, [props.open]);
 
@@ -89,9 +91,17 @@ export function Popover({
         () => handleOpenChange(false)
     );
 
+    // When inside a Modal, set modal={true} so Radix Popover activates its
+    // own RemoveScroll.  This stacks on top of Dialog's RemoveScroll and
+    // correctly allows scrolling inside the popover while keeping the page
+    // locked.  Without this, Dialog's RemoveScroll blocks all scroll events
+    // on the portaled popover because it's outside Dialog.Content's DOM tree.
+    const resolvedModal = insideModal ? true : props.modal;
+
     return (
         <RadixPopover.Root
             {...props}
+            modal={resolvedModal}
             open={isOpen}
             onOpenChange={handleOpenChange}
         >
@@ -168,12 +178,6 @@ const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
 
         // Prevent touch scroll from bleeding through to the page behind
         useOverlayScrollLock(true, contentRef);
-
-        const insideModal = useInsideModal();
-
-        // When inside a modal, render WITHOUT portal so content stays within
-        // react-remove-scroll's scope (Dialog.Content) and scrolling works.
-        // When outside a modal, portal to body to escape overflow:hidden on widgets/cards.
         const content = (
             <RadixPopover.Content
                 ref={ref}
@@ -223,10 +227,11 @@ const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
             </RadixPopover.Content>
         );
 
-        if (insideModal) {
-            return content;
-        }
-
+        // Always portal to <body> to escape overflow clipping in containers
+        // (e.g. Modal.Body's overflow-y-auto which clips on iOS Safari).
+        // Scroll safety is handled by two independent mechanisms:
+        // 1. react-remove-scroll (via Radix Dialog) supports portal shards
+        // 2. useOverlayScrollLock intercepts touch/wheel events at boundaries
         return (
             <RadixPopover.Portal>
                 {content}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, RefObject } from 'react';
+import { tabsApi } from '../../../api/endpoints';
 import logger from '../../../utils/logger';
 import type { Tab, TabsApiResponse } from '../types';
 
@@ -111,17 +112,7 @@ export function useTabData(singleTabSlug?: string): UseTabDataReturn {
             setLoading(true);
             setError(null);
 
-            const response = await fetch('/api/tabs', {
-                credentials: 'include'
-            });
-
-            if (!response.ok) {
-                setError('Failed to load tabs');
-                setLoading(false);
-                return;
-            }
-
-            const data = await response.json() as TabsApiResponse;
+            const data = await tabsApi.getAll() as TabsApiResponse;
             const fetchedTabs = (data.tabs || []).filter(t => t.enabled !== false);
             setTabs(fetchedTabs);
             setError(null);
