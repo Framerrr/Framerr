@@ -47,6 +47,7 @@ backups/
 temp/
 tmp/
 *.tmp
+tmp-*.json
 
 # Lock files (keep package-lock.json for consistency)
 # But ignore others

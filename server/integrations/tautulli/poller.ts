@@ -39,6 +39,7 @@ export interface TautulliStatItem {
     lastPlay?: number;
     sectionId?: number;
     grandparentThumb?: string;
+    art?: string;            // Landscape backdrop when present
     userThumb?: string;      // User avatar for top_users
     friendlyName?: string;   // Username for top_users
 }
@@ -66,13 +67,14 @@ export interface TautulliRecentItem {
     mediaIndex?: number;        // Episode number
     libraryName: string;
     sectionId: string;
+    art?: string;                // Backdrop path (parent show's art for episodes)
 }
 
 // ============================================================================
 // HELPER — call Tautulli API via adapter
 // ============================================================================
 
-async function callTautulli(
+export async function callTautulli(
     instance: PluginInstance,
     adapter: PluginAdapter,
     cmd: string,
@@ -132,22 +134,20 @@ export async function poll(instance: PluginInstance, adapter: PluginAdapter): Pr
 }
 
 // ============================================================================
-// STATS SUBTYPE (5 min)
+// STATS — On-demand only (see server/routes/integrations/tautulli/proxy.ts)
 // ============================================================================
-
-export const statsIntervalMs = 300000; // 5 minutes
+// No longer an SSE subtype: `time_range` must be per-widget-configurable
+// (Tautulli aggregates get_home_stats server-side by this window, so it can't
+// be re-sliced from already-fetched data), and Framerr's SSE poller model
+// broadcasts one shared result per integration to every subscribed widget —
+// it has no per-widget parameter slot. mapStatsCategories() is the shared
+// row-mapping logic, reused by the on-demand REST route.
 
 /**
- * Poll Tautulli for home stats (top movies, TV, users, etc.).
- * Trims response to only fields the frontend needs.
+ * Map a raw Tautulli get_home_stats response into the lean shape the
+ * frontend needs. Pure function — no network calls.
  */
-export async function pollStats(instance: PluginInstance, adapter: PluginAdapter): Promise<TautulliStatCategory[]> {
-    const data = await callTautulli(instance, adapter, 'get_home_stats', {
-        stats_count: 20,
-        time_range: 30,
-        stats_type: 'plays',
-    });
-
+export function mapStatsCategories(data: unknown): TautulliStatCategory[] {
     if (!Array.isArray(data)) return [];
 
     return data.map((category: Record<string, unknown>) => ({
@@ -165,6 +165,7 @@ export async function pollStats(instance: PluginInstance, adapter: PluginAdapter
             lastPlay: item.last_play ? Number(item.last_play) : undefined,
             sectionId: item.section_id ? Number(item.section_id) : undefined,
             grandparentThumb: item.grandparent_thumb ? String(item.grandparent_thumb) : undefined,
+            art: item.art ? String(item.art) : undefined,
             userThumb: item.user_thumb ? String(item.user_thumb) : undefined,
             friendlyName: item.friendly_name ? String(item.friendly_name) : undefined,
         })),
@@ -181,8 +182,8 @@ export const recentIntervalMs = 300000; // 5 minutes
  * Poll Tautulli for recently added items.
  */
 export async function pollRecent(instance: PluginInstance, adapter: PluginAdapter): Promise<TautulliRecentItem[]> {
-    const data = await callTautulli(instance, adapter, 'get_recently_added', {
-        count: 20,
+        const data = await callTautulli(instance, adapter, 'get_recently_added', {
+        count: 55, // enough for featured band (≤5) + list up to 50
     });
 
     const items = (data as { recently_added?: Record<string, unknown>[] })?.recently_added;
@@ -203,6 +204,7 @@ export async function pollRecent(instance: PluginInstance, adapter: PluginAdapte
         mediaIndex: item.media_index ? Number(item.media_index) : undefined,
         libraryName: String(item.library_name || ''),
         sectionId: String(item.section_id || ''),
+        art: item.art ? String(item.art) : undefined,
     }));
 }
 
@@ -211,10 +213,6 @@ export async function pollRecent(instance: PluginInstance, adapter: PluginAdapte
 // ============================================================================
 
 export const subtypes = {
-    stats: {
-        intervalMs: statsIntervalMs,
-        poll: pollStats,
-    },
     recent: {
         intervalMs: recentIntervalMs,
         poll: pollRecent,

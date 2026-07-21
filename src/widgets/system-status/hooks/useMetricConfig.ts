@@ -67,6 +67,72 @@ export const SS_COMPACT_WEIGHT = 0.6;
 /** Keys that use compact (shorter) row height */
 const COMPACT_KEYS = new Set(['uptime']);
 
+/** Minimum column span (of 4) required to render a circular gauge */
+export const GAUGE_MIN_SPAN = 2;
+/** Height-budget weight of a packing row that contains at least one gauge (standard bar row = 1) */
+export const GAUGE_ROW_WEIGHT = 2;
+
+const GAUGE_ELIGIBLE_KEYS = new Set(['cpu', 'memory', 'temperature', 'diskUsage']);
+
+export function isGaugeEligible(metricKey: string): boolean {
+    if (metricKey.startsWith('disk-')) return true;
+    return GAUGE_ELIGIBLE_KEYS.has(metricKey);
+}
+
+/**
+ * Whether a packing row should consume gauge height budget (2 units).
+ * Uses stored preference + span floor; ignores per-metric render fallbacks.
+ */
+export function packingRowWantsGauge(
+    keys: string[],
+    getSpan: (key: string) => number,
+    metricViz: Record<string, string> | undefined,
+    isInline: boolean,
+    maxFittingRows: number
+): boolean {
+    if (isInline || maxFittingRows < GAUGE_ROW_WEIGHT) return false;
+    return keys.some((key) => {
+        if (!isGaugeEligible(key)) return false;
+        if (metricViz?.[key] !== 'gauge') return false;
+        return getSpan(key) >= GAUGE_MIN_SPAN;
+    });
+}
+
+export function heightBudgetCostForRow(
+    keys: string[],
+    getSpan: (key: string) => number,
+    metricViz: Record<string, string> | undefined,
+    isInline: boolean,
+    maxFittingRows: number
+): number {
+    return packingRowWantsGauge(keys, getSpan, metricViz, isInline, maxFittingRows)
+        ? GAUGE_ROW_WEIGHT
+        : 1;
+}
+
+export function isGaugeStructurallyAllowed(
+    effectiveSpan: number,
+    isInline: boolean,
+    maxFittingRows: number = Number.POSITIVE_INFINITY
+): boolean {
+    if (isInline) return false;
+    if (maxFittingRows < GAUGE_ROW_WEIGHT) return false;
+    return effectiveSpan >= GAUGE_MIN_SPAN;
+}
+
+export function resolveMetricViz(
+    metricKey: string,
+    effectiveSpan: number,
+    isInline: boolean,
+    metricViz: Record<string, string> | undefined,
+    maxFittingRows: number = Number.POSITIVE_INFINITY
+): 'bar' | 'gauge' {
+    if (!isGaugeEligible(metricKey)) return 'bar';
+    if (metricViz?.[metricKey] !== 'gauge') return 'bar';
+    if (!isGaugeStructurallyAllowed(effectiveSpan, isInline, maxFittingRows)) return 'bar';
+    return 'gauge';
+}
+
 /**
  * Compute how many metric rows fit in a given widget height.
  * This is the core conversion: widget grid units → metric row count.
@@ -116,6 +182,10 @@ export interface PackedMetric extends MetricDef {
     rowIndex: number;
     /** Position within its row: 'left', 'right', or 'solo' */
     rowPosition: 'left' | 'right' | 'solo';
+    /** Resolved bar/gauge visualization. Only meaningful when vizType === 'progress'. */
+    viz: 'bar' | 'gauge';
+    /** CSS grid row span (2 when this packing row contains a gauge) */
+    rowSpan: number;
 }
 
 // ============================================================================
@@ -153,6 +223,8 @@ function packMetrics(metrics: MetricDef[], spans: Record<string, number>): Packe
             effectiveSpan: span,
             rowIndex,
             rowPosition: 'solo', // will be corrected
+            viz: 'bar',
+            rowSpan: 1,
         });
         rowTotal += span;
     }
@@ -197,22 +269,50 @@ function countRows(metrics: MetricDef[], spans: Record<string, number>): number 
     return rows;
 }
 
-/** Slice packed metrics to only include those from the first N rows */
-function sliceToMaxRows(packed: PackedMetric[], maxRows: number): PackedMetric[] {
-    if (maxRows <= 0) return [];
-    let currentRow = 0;
-    let rowTotal = 0;
+/** Slice packed metrics by height budget (gauge packing rows cost GAUGE_ROW_WEIGHT). */
+function slicePackedByHeightBudget(
+    packed: PackedMetric[],
+    maxBudget: number,
+    metricViz: Record<string, string> | undefined,
+    isInline: boolean
+): PackedMetric[] {
+    if (maxBudget <= 0 || packed.length === 0) return [];
+
+    const rowMap = new Map<number, PackedMetric[]>();
+    for (const m of packed) {
+        const list = rowMap.get(m.rowIndex) ?? [];
+        list.push(m);
+        rowMap.set(m.rowIndex, list);
+    }
+    const orderedRows = [...rowMap.entries()].sort((a, b) => a[0] - b[0]);
+
+    let used = 0;
     const result: PackedMetric[] = [];
-    for (const metric of packed) {
-        if (rowTotal + metric.effectiveSpan > 4 && rowTotal > 0) {
-            currentRow++;
-            rowTotal = 0;
-        }
-        if (currentRow >= maxRows) break;
-        rowTotal += metric.effectiveSpan;
-        result.push(metric);
+    for (const [, rowMetrics] of orderedRows) {
+        const cost = heightBudgetCostForRow(
+            rowMetrics.map((m) => m.key),
+            (k) => rowMetrics.find((m) => m.key === k)!.effectiveSpan,
+            metricViz,
+            isInline,
+            maxBudget
+        );
+        if (used + cost > maxBudget) break;
+        result.push(...rowMetrics);
+        used += cost;
     }
     return result;
+}
+
+/** If any metric in a packing row is a gauge, all cards in that row span 2 grid tracks. */
+function applyGaugeRowSpans(packed: PackedMetric[]): PackedMetric[] {
+    const rowHasGauge = new Set<number>();
+    for (const m of packed) {
+        if (m.viz === 'gauge') rowHasGauge.add(m.rowIndex);
+    }
+    return packed.map((m) => ({
+        ...m,
+        rowSpan: rowHasGauge.has(m.rowIndex) ? GAUGE_ROW_WEIGHT : 1,
+    }));
 }
 
 // ============================================================================
@@ -420,6 +520,7 @@ export function useMetricConfig({ widgetId, config, widgetH, showHeader, integra
     // ── Row arithmetic — pixel-based computation ──
     const { visibleRows, hiddenRows, isInline, packedMetrics, rowGroups, gridCssVars } = useMemo(() => {
         const totalPackedRows = countRows(visibleMetrics, localSpans);
+        const metricViz = config?.metricViz as Record<string, string> | undefined;
 
         // Header is visible at h>=2 when showHeader is true (matches useAdaptiveHeader)
         const headerVisible = widgetH >= 2 && showHeader;
@@ -427,28 +528,34 @@ export function useMetricConfig({ widgetId, config, widgetH, showHeader, integra
         // Pixel-based max rows computation
         const maxFittingRows = computeMaxRows(widgetH, headerVisible);
 
-        // layoutRows defaults to the natural packing count
-        const configLayoutRows = config?.layoutRows as number | undefined;
-        const layoutRows = configLayoutRows ?? totalPackedRows;
-
-        // effectiveLayout is clamped by maxFittingRows and by metric count
-        const effectiveLayout = Math.min(layoutRows, visibleMetrics.length);
-
-        // visibleRows is clamped by pixel-based max
-        const vRows = Math.max(1, Math.min(effectiveLayout, maxFittingRows));
-        const hRows = Math.max(0, effectiveLayout - vRows);
-
         // Inline mode only at h=1
         const inline = widgetH <= 1;
 
-        // Slice packed metrics to visible rows
-        const sliced = sliceToMaxRows(allPackedMetrics, vRows);
+        // Height budget is in *standard-row weight units* (same as maxFittingRows /
+        // GAUGE_ROW_WEIGHT costs). Do NOT cap by packing-row count — that mixed units
+        // and dropped network/etc. when a gauge row cost 2 even on tall widgets.
+        let heightBudget = Math.max(1, maxFittingRows);
+        const configLayoutRows = config?.layoutRows as number | undefined;
+        if (typeof configLayoutRows === 'number' && configLayoutRows > 0) {
+            // Explicit user preference still caps the budget (interpreted as weight units).
+            heightBudget = Math.min(heightBudget, configLayoutRows);
+        }
+        const sliced = slicePackedByHeightBudget(allPackedMetrics, heightBudget, metricViz, inline);
+        const slicedWithViz: PackedMetric[] = applyGaugeRowSpans(
+            sliced.map((m) => ({
+                ...m,
+                viz: resolveMetricViz(m.key, m.effectiveSpan, inline, metricViz, maxFittingRows),
+            }))
+        );
+
+        const vRows = slicedWithViz.length === 0 ? 0 : new Set(slicedWithViz.map((m) => m.rowIndex)).size;
+        const hRows = Math.max(0, totalPackedRows - vRows);
 
         // Group packed metrics into row arrays for rendering
         const groups: PackedMetric[][] = [];
         let currentGroup: PackedMetric[] = [];
         let rowTotal = 0;
-        for (const m of sliced) {
+        for (const m of slicedWithViz) {
             if (rowTotal + m.effectiveSpan > 4 && rowTotal > 0) {
                 groups.push(currentGroup);
                 currentGroup = [];
@@ -460,27 +567,30 @@ export function useMetricConfig({ widgetId, config, widgetH, showHeader, integra
         if (currentGroup.length > 0) groups.push(currentGroup);
 
         // Compute per-row heights for flexbox
-        // Compact rows (uptime-only) get COMPACT_WEIGHT of a standard row
+        // Compact rows (uptime-only) get COMPACT_WEIGHT; gauge rows get GAUGE_ROW_WEIGHT
         const widgetPx = widgetH * SS_CELL_HEIGHT - (SS_CELL_HEIGHT - 60);
         const contentPx = widgetPx - (headerVisible ? SS_HEADER_HEIGHT : 0) - (SS_GRID_PAD * 2);
         const rowCount = groups.length;
         const gapTotal = Math.max(0, rowCount - 1) * SS_ROW_GAP_MIN;
         const availableForRows = contentPx - gapTotal;
 
-        // Compute weights
         let totalWeight = 0;
-        const rowWeights = groups.map(group => {
-            const isCompact = group.every(m => COMPACT_KEYS.has(m.key));
-            const w = isCompact ? SS_COMPACT_WEIGHT : 1;
+        const rowWeights = groups.map((group) => {
+            let w = 1;
+            if (group.some((m) => m.viz === 'gauge')) {
+                w = GAUGE_ROW_WEIGHT;
+            } else if (group.every((m) => COMPACT_KEYS.has(m.key))) {
+                w = SS_COMPACT_WEIGHT;
+            }
             totalWeight += w;
             return w;
         });
 
         // Compute actual row heights (clamped)
         const unitHeight = totalWeight > 0 ? availableForRows / totalWeight : SS_ROW_MIN;
-        const rowHeights = rowWeights.map(w => {
+        const rowHeights = rowWeights.map((w) => {
             const minH = w < 1 ? SS_ROW_MIN * w : SS_ROW_MIN;
-            const maxH = w < 1 ? SS_ROW_MAX * w : SS_ROW_MAX;
+            const maxH = w < 1 ? SS_ROW_MAX * w : SS_ROW_MAX * Math.max(1, w);
             return Math.max(minH, Math.min(maxH, unitHeight * w));
         });
 
@@ -504,11 +614,11 @@ export function useMetricConfig({ widgetId, config, widgetH, showHeader, integra
             visibleRows: vRows,
             hiddenRows: hRows,
             isInline: inline,
-            packedMetrics: sliced,
+            packedMetrics: slicedWithViz,
             rowGroups: groups,
             gridCssVars: cssVars,
         };
-    }, [allPackedMetrics, visibleMetrics, localSpans, widgetH, showHeader, config?.layoutRows]);
+    }, [allPackedMetrics, visibleMetrics, localSpans, widgetH, showHeader, config?.layoutRows, config?.metricViz]);
 
     return {
         packedMetrics,

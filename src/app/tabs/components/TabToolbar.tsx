@@ -22,16 +22,16 @@ export const TabToolbar: React.FC<TabToolbarProps> = ({
     onClose,
 }) => {
     return (
-        <div className="h-12 bg-slate-800/50 border-b border-slate-700 flex items-center justify-between px-4 flex-shrink-0">
+        <div className="h-12 bg-theme-primary border-b border-theme flex items-center justify-between px-4 flex-shrink-0">
             <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-white">{tab.name}</h3>
+                <h3 className="font-semibold text-theme-primary">{tab.name}</h3>
             </div>
 
             <div className="flex items-center gap-3">
                 {iframeAuthEnabled && (
                     <button
                         onClick={onManualAuth}
-                        className="text-slate-400 hover:text-white transition-colors"
+                        className="text-theme-tertiary hover:text-theme-primary transition-colors"
                         title="Re-authenticate"
                     >
                         <Lock size={18} />
@@ -39,7 +39,7 @@ export const TabToolbar: React.FC<TabToolbarProps> = ({
                 )}
                 <button
                     onClick={onReload}
-                    className="text-slate-400 hover:text-white transition-colors"
+                    className="text-theme-tertiary hover:text-theme-primary transition-colors"
                     title="Reload"
                 >
                     <RefreshCw size={18} />
@@ -48,7 +48,7 @@ export const TabToolbar: React.FC<TabToolbarProps> = ({
                     href={tab.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-slate-400 hover:text-white transition-colors"
+                    className="text-theme-tertiary hover:text-theme-primary transition-colors"
                     title="Open in new tab"
                 >
                     <ExternalLink size={18} />
@@ -56,7 +56,7 @@ export const TabToolbar: React.FC<TabToolbarProps> = ({
                 {onClose && (
                     <button
                         onClick={onClose}
-                        className="text-slate-400 hover:text-red-400 transition-colors ml-1"
+                        className="text-theme-tertiary hover:text-error transition-colors ml-1"
                         title="Close tab"
                     >
                         <X size={18} />

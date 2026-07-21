@@ -10,7 +10,7 @@
  * Fully read-only for all users.
  */
 
-import React, { useState, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { WidgetStateMessage, PartialErrorBadge, type ErroredInstance } from '../../shared/widgets';
 import { useMultiWidgetIntegration } from '../../shared/widgets/hooks/useMultiWidgetIntegration';
@@ -24,12 +24,18 @@ import { isAdmin } from '../../utils/permissions';
 import MonthGrid from './components/MonthGrid';
 import AgendaList from './components/AgendaList';
 import type { WidgetProps } from '../types';
-import type { CalendarEvent, EventsMap, FilterType, ViewMode } from './calendar.types';
+import type { CalendarEvent, EventsMap, FilterType, MovieDatesMode, ViewMode } from './calendar.types';
 import './styles.css';
 
 // ============================================================================
 // PREVIEW MODE — Static calendar for widget picker
 // ============================================================================
+
+/** Mock preview data has no cinema/physical/all-mode concept — one representative color per mock type is sufficient. */
+const PREVIEW_PILL_COLOR: Record<'sonarr' | 'radarr', string> = {
+    sonarr: 'var(--tv)',
+    radarr: 'var(--digital)',
+};
 
 function PreviewMode(): React.JSX.Element {
     const mockEvents: Record<number, { title: string; type: 'sonarr' | 'radarr' }[]> = {
@@ -57,7 +63,11 @@ function PreviewMode(): React.JSX.Element {
                                 <div className="cal-grid-day-num">{day}</div>
                                 <div className="cal-grid-events">
                                     {dayEvents.map((ev, j) => (
-                                        <span key={j} className={`cal-event-pill ${ev.type === 'sonarr' ? 'cal-event-pill--tv' : 'cal-event-pill--movie'}`}>
+                                        <span
+                                            key={j}
+                                            className="cal-event-pill"
+                                            style={{ '--pill-color': PREVIEW_PILL_COLOR[ev.type] } as React.CSSProperties}
+                                        >
                                             {ev.title}
                                         </span>
                                     ))}
@@ -75,14 +85,48 @@ function PreviewMode(): React.JSX.Element {
 // MAIN WIDGET
 // ============================================================================
 
+/** Keep in sync with Sonarr/Radarr pollCalendar feed window. */
+const FEED_PAST_DAYS = 365;
+const FEED_FUTURE_DAYS = 730;
+const MS_DAY = 24 * 60 * 60 * 1000;
+
 interface CalendarConfig {
     sonarrIntegrationIds?: string[];
     radarrIntegrationIds?: string[];
     sonarrIntegrationId?: string;   // Legacy
     radarrIntegrationId?: string;   // Legacy
     viewMode?: ViewMode;
-    showPastEvents?: boolean;
     startWeekOnMonday?: boolean | string;
+    movieDates?: MovieDatesMode;
+    lookAheadDays?: string;
+    lookBackDays?: string;
+}
+
+function parseDayBound(raw: string | undefined, defaultVal: number | 'all'): number | 'all' {
+    if (raw === 'all') return 'all';
+    if (raw == null || raw === '') return defaultVal;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : defaultVal;
+}
+
+function filterEventsByLookWindow(
+    map: EventsMap,
+    lookBack: number | 'all',
+    lookAhead: number | 'all',
+): EventsMap {
+    const todayStr = toLocalDateStr(new Date());
+    const todayMs = new Date(`${todayStr}T00:00:00`).getTime();
+    const pastDays = lookBack === 'all' ? FEED_PAST_DAYS : lookBack;
+    const futureDays = lookAhead === 'all' ? FEED_FUTURE_DAYS : lookAhead;
+    const startStr = toLocalDateStr(new Date(todayMs - pastDays * MS_DAY));
+    const endStr = toLocalDateStr(new Date(todayMs + futureDays * MS_DAY));
+
+    const out: EventsMap = {};
+    for (const [dateStr, list] of Object.entries(map)) {
+        if (dateStr < startStr || dateStr > endStr) continue;
+        out[dateStr] = list;
+    }
+    return out;
 }
 
 const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = false }) => {
@@ -94,8 +138,10 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
     // ---- Config ----
     const config = widget.config as CalendarConfig | undefined;
     const viewMode: ViewMode = config?.viewMode ?? 'month';
-    const showPastEvents = config?.showPastEvents ?? false;
     const startWeekOnMonday = config?.startWeekOnMonday === true || config?.startWeekOnMonday === 'true';
+    const movieDates: MovieDatesMode = config?.movieDates ?? 'digital';
+    const lookAheadDays = parseDayBound(config?.lookAheadDays, 60);
+    const lookBackDays = parseDayBound(config?.lookBackDays, 30);
 
     // ---- Integration access ----
     const { data: allIntegrations } = useRoleAwareIntegrations();
@@ -153,12 +199,46 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
     const radarrDataMapRef = useRef<Map<string, CalendarEvent[]>>(new Map());
 
     // ---- Helpers ----
-    const buildEventsMap = (sonarrItems: CalendarEvent[], radarrItems: CalendarEvent[]): EventsMap => {
+
+    /**
+     * Resolve which raw date(s) a movie should be plotted under, given the movieDates
+     * config. Under 'all', a movie can produce up to 3 entries — including 2 sharing
+     * the same calendar date (e.g. digitalRelease === physicalRelease). That collision
+     * is intentional, not deduped: 'all' mode's purpose is to surface every real
+     * milestone, and two milestones landing on one day are two distinct true facts.
+     */
+    function getMovieDateEntries(
+        item: CalendarEvent,
+        mode: MovieDatesMode
+    ): Array<{ raw: string; releaseType: 'cinema' | 'digital' | 'physical' }> {
+        if (mode === 'all') {
+            const entries: Array<{ raw: string; releaseType: 'cinema' | 'digital' | 'physical' }> = [];
+            if (item.inCinemas) entries.push({ raw: item.inCinemas, releaseType: 'cinema' });
+            if (item.digitalRelease) entries.push({ raw: item.digitalRelease, releaseType: 'digital' });
+            if (item.physicalRelease) entries.push({ raw: item.physicalRelease, releaseType: 'physical' });
+            return entries;
+        }
+        if (mode === 'cinema') {
+            return item.inCinemas ? [{ raw: item.inCinemas, releaseType: 'cinema' }] : [];
+        }
+        if (mode === 'physical') {
+            return item.physicalRelease ? [{ raw: item.physicalRelease, releaseType: 'physical' }] : [];
+        }
+        // mode === 'digital' — preserves the EXACT pre-existing single-date fallback
+        // chain (physical > digital > cinema), NOT digital-only.
+        const raw = item.physicalRelease || item.digitalRelease || item.inCinemas;
+        if (!raw) return [];
+        const releaseType = item.physicalRelease ? 'physical' : item.digitalRelease ? 'digital' : 'cinema';
+        return [{ raw, releaseType }];
+    }
+
+    const buildEventsMap = (sonarrItems: CalendarEvent[], radarrItems: CalendarEvent[], movieDatesMode: MovieDatesMode): EventsMap => {
         const newEvents: EventsMap = {};
-        // Date boundaries matching the backend poller window (30 past / 60 future)
+        // Accept anything inside the shared poller feed window; widget look
+        // ahead/back knobs filter afterward.
         const now = Date.now();
-        const startBound = toLocalDateStr(new Date(now - 30 * 24 * 60 * 60 * 1000));
-        const endBound = toLocalDateStr(new Date(now + 60 * 24 * 60 * 60 * 1000));
+        const startBound = toLocalDateStr(new Date(now - FEED_PAST_DAYS * MS_DAY));
+        const endBound = toLocalDateStr(new Date(now + FEED_FUTURE_DAYS * MS_DAY));
         sonarrItems.forEach(item => {
             // Prefer airDateUtc (real UTC timestamp) for timezone-correct local grouping.
             // Fall back to airDate (date-only string) if airDateUtc is missing.
@@ -169,21 +249,21 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
                 const dateStr = raw.includes('T')
                     ? toLocalDateStr(new Date(raw))
                     : raw; // airDate is already YYYY-MM-DD, use as-is
+                if (dateStr < startBound || dateStr > endBound) return;
                 if (!newEvents[dateStr]) newEvents[dateStr] = [];
                 newEvents[dateStr].push({ ...item, type: 'sonarr' });
             }
         });
         radarrItems.forEach(item => {
-            const raw = item.physicalRelease || item.digitalRelease || item.inCinemas;
-            if (raw) {
-                const dateStr = raw.includes('T')
-                    ? toLocalDateStr(new Date(raw))
-                    : raw;
-                // Skip entries whose plotted date falls outside the calendar window
+            for (const entry of getMovieDateEntries(item, movieDatesMode)) {
+                const dateStr = entry.raw.includes('T')
+                    ? toLocalDateStr(new Date(entry.raw))
+                    : entry.raw;
+                // Skip entries whose plotted date falls outside the feed window
                 // (Radarr returns movies if ANY date overlaps the window)
-                if (dateStr < startBound || dateStr > endBound) return;
+                if (dateStr < startBound || dateStr > endBound) continue;
                 if (!newEvents[dateStr]) newEvents[dateStr] = [];
-                newEvents[dateStr].push({ ...item, type: 'radarr' });
+                newEvents[dateStr].push({ ...item, type: 'radarr', plottedReleaseType: entry.releaseType });
             }
         });
         return newEvents;
@@ -198,8 +278,16 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
     const rebuildEvents = useCallback(() => {
         const sonarrItems = flattenDataMap(sonarrDataMapRef.current);
         const radarrItems = flattenDataMap(radarrDataMapRef.current);
-        setEvents(buildEventsMap(sonarrItems, radarrItems));
-    }, []);
+        const mapped = buildEventsMap(sonarrItems, radarrItems, movieDates);
+        setEvents(filterEventsByLookWindow(mapped, lookBackDays, lookAheadDays));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [movieDates, lookAheadDays, lookBackDays]);
+
+    // Re-plot immediately when movieDates config changes, instead of waiting for the
+    // next SSE push (rebuildEvents' identity changes whenever movieDates changes).
+    useEffect(() => {
+        rebuildEvents();
+    }, [rebuildEvents]);
 
     // ---- SSE Subscriptions ----
     const { loading: sonarrLoading, isConnected: sonarrConnected, erroredInstances: sonarrErroredInstances, allErrored: sonarrAllErrored } = useMultiIntegrationSSE<{ items: CalendarEvent[]; _meta?: unknown }>({
@@ -328,7 +416,6 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
                                 hasMultipleRadarr={hasMultipleRadarr}
                                 showFilter
                                 onFilterChange={setFilter}
-                                showPastEvents={showPastEvents}
                                 showTodayButton
                             />
                         )}
@@ -349,7 +436,7 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
                             />
                         )}
 
-                        {/* Both mode — 70/30 split (calendar : agenda) */}
+                        {/* Both mode — 60/40 split (calendar : agenda) */}
                         {viewMode === 'both' && (
                             <div className="cal-split">
                                 <div className="cal-split-calendar">
@@ -375,7 +462,6 @@ const CombinedCalendarWidget: React.FC<WidgetProps> = ({ widget, previewMode = f
                                         hasMultipleRadarr={hasMultipleRadarr}
                                         showFilter={false}
                                         compact
-                                        showPastEvents={showPastEvents}
                                         scrollToMonth={`${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`}
                                     />
                                 </div>

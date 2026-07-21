@@ -19,6 +19,9 @@ import {
 import { Modal } from '@/shared/ui';
 import { Button } from '@/shared/ui/Button/Button';
 import { ExternalMediaLinks } from '@/shared/ui/ExternalMediaLinks';
+import { useAutoSearchState } from '../../radarr/hooks/useAutoSearchState';
+import { getSeasonProgress } from '../hooks/sonarrDisplayState';
+import { formatDisplayDate } from '../../_shared/media/format';
 import type { WantedEpisode, CalendarEpisode, SonarrRelease, SonarrImage } from '../sonarr.types';
 import '../styles.css';
 
@@ -44,7 +47,6 @@ interface EpisodeDetailModalProps {
 }
 
 type ModalView = 'info' | 'searching' | 'results';
-type AutoSearchState = 'idle' | 'searching' | 'success' | 'error';
 
 // ============================================================================
 // HELPERS
@@ -97,26 +99,45 @@ function getPosterUrl(
     return `/api/integrations/${integrationId}/proxy/image?url=${encodeURIComponent(imageUrl)}`;
 }
 
-/** 3-state episode status: available > upcoming > missing */
-type EpisodeStatus = 'available' | 'upcoming' | 'missing';
+/** 4-state episode status: available > upcoming > missing > cutoffUnmet */
+type EpisodeStatus = 'available' | 'upcoming' | 'missing' | 'cutoffUnmet';
 
-function getEpisodeStatus(ep: WantedEpisode | CalendarEpisode): EpisodeStatus {
-    // If Sonarr says it has a file, it's available regardless of air date
-    if (ep.hasFile) return 'available';
-
-    // Future air date → upcoming
-    const airDate = ep.airDateUtc || ep.airDate;
-    if (airDate && new Date(airDate).getTime() > Date.now()) return 'upcoming';
-
-    // Past air date + no file → missing
-    return 'missing';
+interface EpisodeStatusResult {
+    status: EpisodeStatus;
+    label: string;
+    color: string;
 }
 
-const STATUS_INFO: Record<EpisodeStatus, { label: string; color: string }> = {
-    available: { label: 'Available', color: 'var(--success)' },
-    upcoming: { label: 'Upcoming', color: 'var(--info)' },
-    missing: { label: 'Missing', color: 'var(--error)' },
-};
+/**
+ * Status chip's label/color. Unlike Radarr's movies, an episode only ever
+ * has one date field (airDateUtc/airDate), so there's no cross-type
+ * contradiction possible here — but the old "missing" label was still a
+ * bare, contextless word while its Needs Attention row pill always shows
+ * the actual air date (`getEpisodePillProps`). Enriching it here matches
+ * the same level of info as the card, mirroring the hardening applied to
+ * Radarr's MovieDetailModal.
+ */
+function resolveEpisodeStatus(ep: WantedEpisode | CalendarEpisode): EpisodeStatusResult {
+    const airDateRaw = ep.airDateUtc || ep.airDate;
+
+    // If Sonarr says it has a file, it's available — unless it's below the quality cutoff
+    if (ep.hasFile) {
+        return ep.cutoffNotMet
+            ? { status: 'cutoffUnmet', label: 'Cutoff Unmet', color: 'var(--warning)' }
+            : { status: 'available', label: 'Available', color: 'var(--success)' };
+    }
+
+    // Future air date → upcoming
+    if (airDateRaw && new Date(airDateRaw).getTime() > Date.now()) {
+        const countdown = formatCountdown(airDateRaw);
+        const label = countdown ? `Airs ${countdown}` : `Airs · ${formatDisplayDate(airDateRaw)}`;
+        return { status: 'upcoming', label, color: 'var(--info)' };
+    }
+
+    // Past air date (or none at all) + no file → missing
+    const label = airDateRaw ? `Missing · ${formatDisplayDate(airDateRaw)}` : 'Missing';
+    return { status: 'missing', label, color: 'var(--error)' };
+}
 
 // ============================================================================
 // COMPONENT
@@ -134,7 +155,7 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
     userIsAdmin = true,
 }) => {
     const [view, setView] = useState<ModalView>('info');
-    const [autoSearchState, setAutoSearchState] = useState<AutoSearchState>('idle');
+    const { state: autoSearchState, trigger: triggerAutoSearchState, reset: resetAutoSearchState } = useAutoSearchState();
     const [releases, setReleases] = useState<SonarrRelease[]>([]);
     const [grabbingGuid, setGrabbingGuid] = useState<string | null>(null);
     const [grabSuccess, setGrabSuccess] = useState<string | null>(null);
@@ -147,7 +168,7 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
     // Reset all modal state (called on open via handleOpenChange)
     const resetModalState = useCallback(() => {
         setView('info');
-        setAutoSearchState('idle');
+        resetAutoSearchState();
         setReleases([]);
         setGrabbingGuid(null);
         setGrabSuccess(null);
@@ -156,7 +177,7 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
         setSearchError(null);
         setSearchingText('Searching indexers…');
         if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    }, []);
+    }, [resetAutoSearchState]);
 
     const handleOpenChange = useCallback((newOpen: boolean) => {
         if (newOpen) {
@@ -167,20 +188,10 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
 
     // ---------- Actions ----------
 
-    const handleAutoSearch = useCallback(async () => {
-        if (!episode || autoSearchState === 'searching') return;
-
-        setAutoSearchState('searching');
-        const success = await triggerAutoSearch([episode.id]);
-
-        if (success) {
-            setAutoSearchState('success');
-            setTimeout(() => setAutoSearchState('idle'), 2500);
-        } else {
-            setAutoSearchState('error');
-            setTimeout(() => setAutoSearchState('idle'), 3000);
-        }
-    }, [episode, autoSearchState, triggerAutoSearch]);
+    const handleAutoSearch = useCallback(() => {
+        if (!episode) return;
+        triggerAutoSearchState(() => triggerAutoSearch([episode.id]));
+    }, [episode, triggerAutoSearch, triggerAutoSearchState]);
 
     const handleInteractiveSearch = useCallback(async () => {
         if (!episode) return;
@@ -250,7 +261,10 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
 
     // ---------- Derived ----------
 
-    const episodeStatus = episode ? getEpisodeStatus(episode) : 'missing';
+    const episodeStatusResult: EpisodeStatusResult = episode
+        ? resolveEpisodeStatus(episode)
+        : { status: 'missing', label: 'Missing', color: 'var(--error)' };
+    const episodeStatus = episodeStatusResult.status;
 
     // Other upcoming episodes for the same series (non-missing mode)
     const otherUpcoming = useMemo(() => {
@@ -268,7 +282,6 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
     const epCode = formatEpCode(episode);
     const airDateRaw = episode.airDateUtc || episode.airDate;
     const airDate = formatAirDate(airDateRaw);
-    const countdown = formatCountdown(airDateRaw);
     const posterUrl = getPosterUrl(episode, integrationId);
     const overview = episode.overview || series?.overview || '';
 
@@ -278,12 +291,7 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
     const tvdbId = series?.tvdbId;
     const genres = series?.genres || [];
     const network = series?.network;
-
-    // Status badge — 3-state: available / upcoming (with countdown) / missing
-    const baseStatus = STATUS_INFO[episodeStatus];
-    const statusInfo = episodeStatus === 'upcoming' && countdown
-        ? { label: `Airs ${countdown}`, color: baseStatus.color }
-        : baseStatus;
+    const seasonProgress = getSeasonProgress(series?.statistics);
 
     return (
         <Modal open={open} onOpenChange={handleOpenChange} size="lg" fixedHeight>
@@ -406,14 +414,14 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
                                     display: 'inline-block',
                                     marginTop: '0.75rem',
                                     padding: '0.25rem 0.75rem',
-                                    background: `${statusInfo.color}20`,
-                                    border: `1px solid ${statusInfo.color}40`,
+                                    background: `${episodeStatusResult.color}20`,
+                                    border: `1px solid ${episodeStatusResult.color}40`,
                                     borderRadius: '6px',
                                     fontSize: '0.85rem',
                                     fontWeight: 600,
-                                    color: statusInfo.color
+                                    color: episodeStatusResult.color
                                 }}>
-                                    {statusInfo.label}
+                                    {episodeStatusResult.label}
                                 </div>
 
                                 {/* External links — IMDB + TVDB */}
@@ -514,6 +522,28 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
                                 </div>
                             );
                         })()}
+
+                        {/* Season progress — only rendered when statistics are present */}
+                        {seasonProgress && (
+                            <div>
+                                <h4 style={{
+                                    margin: '0 0 0.5rem 0',
+                                    fontSize: '0.9rem',
+                                    fontWeight: 600,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em',
+                                    color: 'var(--text-secondary)'
+                                }}>
+                                    Season Progress
+                                </h4>
+                                <div className="snr-modal-season-progress">
+                                    <div className="snr-modal-season-progress-fill" style={{ width: `${seasonProgress.fraction * 100}%` }} />
+                                </div>
+                                <div style={{ marginTop: '0.35rem', fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                                    {seasonProgress.episodeFileCount} / {seasonProgress.episodeCount} episodes
+                                </div>
+                            </div>
+                        )}
 
                         {/* Upcoming mode: also upcoming for same series */}
                         {episodeStatus !== 'missing' && otherUpcoming.length > 0 && (

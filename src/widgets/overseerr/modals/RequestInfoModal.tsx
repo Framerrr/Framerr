@@ -346,17 +346,14 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                                 </div>
 
                                 {/* Status Badge */}
-                                <div style={{
-                                    display: 'inline-block',
-                                    marginTop: '0.75rem',
-                                    padding: '0.25rem 0.75rem',
-                                    background: `${statusInfo.color}20`,
-                                    border: `1px solid ${statusInfo.color}40`,
-                                    borderRadius: '6px',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 600,
-                                    color: statusInfo.color
-                                }}>
+                                <div
+                                    className="overseerr-status-chip"
+                                    style={{
+                                        marginTop: '0.75rem',
+                                        '--overseerr-status-color': statusInfo.color,
+                                    } as React.CSSProperties}
+                                >
+                                    <span className="overseerr-status-chip__dot" aria-hidden="true" />
                                     {statusInfo.label}
                                 </div>
 

@@ -33,6 +33,7 @@ import { crudRouter, testRouter, schemasRouter, itemMetadataRouter } from './_co
 import { plexProxyRouter } from './plex';
 import { sonarrProxyRouter } from './sonarr';
 import { radarrProxyRouter } from './radarr';
+import { prowlarrProxyRouter } from './prowlarr';
 import { qbittorrentProxyRouter } from './qbittorrent';
 import { overseerrProxyRouter, overseerrActionsRouter, overseerrServersRouter } from './overseerr';
 import { glancesProxyRouter } from './glances';
@@ -61,6 +62,7 @@ router.use('/', schemasRouter);
 router.use('/', plexProxyRouter);
 router.use('/', sonarrProxyRouter);
 router.use('/', radarrProxyRouter);
+router.use('/', prowlarrProxyRouter);
 router.use('/', qbittorrentProxyRouter);
 router.use('/', overseerrProxyRouter);
 router.use('/', glancesProxyRouter);

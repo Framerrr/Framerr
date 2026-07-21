@@ -13,7 +13,7 @@
  */
 
 import React, { useMemo, useCallback, useState } from 'react';
-import { ChevronDown, ChevronUp, Minus, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Minus, Plus, Gauge, BarChart3 } from 'lucide-react';
 import {
     DndContext,
     DragOverlay,
@@ -29,7 +29,7 @@ import {
     DragOverEvent,
     DragEndEvent,
 } from '@dnd-kit/core';
-import { METRIC_REGISTRY, getMetricDefsForIntegration, computeMaxRows } from '../hooks/useMetricConfig';
+import { METRIC_REGISTRY, getMetricDefsForIntegration, computeMaxRows, isGaugeEligible, resolveMetricViz, GAUGE_MIN_SPAN, GAUGE_ROW_WEIGHT, heightBudgetCostForRow } from '../hooks/useMetricConfig';
 import { useIntegrationSchemas } from '../../../api/hooks';
 import type { MetricDef } from '../hooks/useMetricConfig';
 
@@ -259,6 +259,83 @@ function getDef(key: string, registry: MetricDef[]): MetricDef | undefined {
     return registry.find(m => m.key === key);
 }
 
+/**
+ * Per-slot minimum width floor. Mirrors MIN_ITEM_WIDTH, elevated to
+ * GAUGE_MIN_SPAN for any slot whose stored viz preference is 'gauge'.
+ */
+export function effectiveMinWidth(key: string, metricViz: Record<string, string>): number {
+    if (isGaugeEligible(key) && metricViz[key] === 'gauge') return GAUGE_MIN_SPAN;
+    return MIN_ITEM_WIDTH;
+}
+
+/**
+ * Pure paired-row resize arithmetic — bounds check for +/-1 resize on a 2-slot row.
+ */
+export function resizePairedRow(
+    row: LayoutRow,
+    slotIndex: number,
+    delta: -1 | 1,
+    metricViz: Record<string, string>
+): LayoutRow | null {
+    if (row.length !== 2) return null;
+    const otherIndex = slotIndex === 0 ? 1 : 0;
+    const newW = row[slotIndex].w + delta;
+    const otherNewW = row[otherIndex].w - delta;
+    const minW = effectiveMinWidth(row[slotIndex].key, metricViz);
+    const otherMinW = effectiveMinWidth(row[otherIndex].key, metricViz);
+
+    if (newW < minW || newW > COLS - otherMinW) return null;
+    if (otherNewW < otherMinW || otherNewW > COLS - minW) return null;
+
+    const newRow = [...row];
+    newRow[slotIndex] = { ...newRow[slotIndex], w: newW };
+    newRow[otherIndex] = { ...newRow[otherIndex], w: otherNewW };
+    return newRow;
+}
+
+/**
+ * Pure drag-swap acceptance check — each side must satisfy its floor after the trade.
+ */
+export function canAcceptSwap(
+    fromSlot: MetricSlot,
+    toSlot: MetricSlot,
+    metricViz: Record<string, string>
+): boolean {
+    if (effectiveMinWidth(toSlot.key, metricViz) > fromSlot.w) return false;
+    if (effectiveMinWidth(fromSlot.key, metricViz) > toSlot.w) return false;
+    return true;
+}
+
+/**
+ * Pure auto-adjust for enabling gauge on a too-narrow paired slot.
+ */
+export function computeGaugeAutoAdjustRow(
+    row: LayoutRow,
+    slotIndex: number,
+    metricViz: Record<string, string>
+): LayoutRow | null {
+    const slot = row[slotIndex];
+    if (row.length !== 2 || slot.w >= GAUGE_MIN_SPAN) return null;
+    const otherIndex = slotIndex === 0 ? 1 : 0;
+    const otherMinW = effectiveMinWidth(row[otherIndex].key, metricViz);
+    const otherNewW = COLS - GAUGE_MIN_SPAN;
+    if (otherNewW < otherMinW) return null;
+    const newRow = [...row];
+    newRow[slotIndex] = { ...newRow[slotIndex], w: GAUGE_MIN_SPAN };
+    newRow[otherIndex] = { ...newRow[otherIndex], w: otherNewW };
+    return newRow;
+}
+
+/**
+ * Row-aware check for whether slotIndex's slot could become a gauge.
+ */
+export function canEnableGaugeInRow(row: LayoutRow, slotIndex: number, metricViz: Record<string, string>): boolean {
+    const slot = row[slotIndex];
+    if (slot.w >= GAUGE_MIN_SPAN) return true;
+    if (row.length === 1) return true;
+    return computeGaugeAutoAdjustRow(row, slotIndex, metricViz) !== null;
+}
+
 // ============================================================================
 // DRAGGABLE METRIC SLOT (per card)
 // ============================================================================
@@ -272,10 +349,16 @@ interface DraggableSlotProps {
     diskList?: { id: string; name: string }[];
     onRemoveMetric: (rowIndex: number, slotIndex: number) => void;
     activeId: string | null;
+    showVizToggle: boolean;
+    effectiveViz: 'bar' | 'gauge';
+    gaugeCanEnable: boolean;
+    gaugeDisabledReason: string;
+    onSetViz: (viz: 'bar' | 'gauge') => void;
 }
 
 function DraggableSlot({
     slot, slotId, rowIndex, slotIndex, registry, diskList, onRemoveMetric, activeId,
+    showVizToggle, effectiveViz, gaugeCanEnable, gaugeDisabledReason, onSetViz,
 }: DraggableSlotProps) {
     const {
         attributes,
@@ -315,13 +398,40 @@ function DraggableSlot({
                 transition: isDragging ? 'none' : 'opacity 150ms ease',
             }}
             {...attributes}
-            {...listeners}
         >
             <div className="metric-slot-card">
                 <div className="metric-slot-info">
-                    <Icon size={14} className="text-accent" />
-                    <span className="text-xs text-theme-primary font-medium">{label}</span>
-                    <span className="text-xs text-theme-tertiary ml-auto">{slot.w}/{COLS}</span>
+                    <div
+                        className="metric-slot-drag"
+                        {...listeners}
+                        title="Drag to swap"
+                    >
+                        <Icon size={14} className="text-accent" />
+                        <span className="text-xs text-theme-primary font-medium">{label}</span>
+                    </div>
+                    {showVizToggle ? (
+                        <div className="metric-viz-toggle">
+                            <button
+                                type="button"
+                                className={`metric-viz-toggle__btn ${effectiveViz !== 'gauge' ? 'metric-viz-toggle__btn--active' : ''}`}
+                                onClick={(e) => { e.stopPropagation(); onSetViz('bar'); }}
+                                title="Bar"
+                            >
+                                <BarChart3 size={14} />
+                            </button>
+                            <button
+                                type="button"
+                                className={`metric-viz-toggle__btn ${effectiveViz === 'gauge' ? 'metric-viz-toggle__btn--active' : ''}`}
+                                onClick={(e) => { e.stopPropagation(); if (gaugeCanEnable) onSetViz('gauge'); }}
+                                disabled={!gaugeCanEnable}
+                                title={gaugeCanEnable ? 'Gauge' : gaugeDisabledReason}
+                            >
+                                <Gauge size={14} />
+                            </button>
+                        </div>
+                    ) : (
+                        <span className="text-xs text-theme-tertiary ml-auto">{slot.w}/{COLS}</span>
+                    )}
                 </div>
                 <button
                     onClick={(e) => {
@@ -355,11 +465,17 @@ interface MetricRowProps {
     totalRows: number;
     onMoveRow: (rowIndex: number, direction: -1 | 1) => void;
     activeId: string | null;
+    metricViz: Record<string, string>;
+    isInline: boolean;
+    maxFittingRows: number;
+    canEnableGauge: (rowIndex: number, slotIndex: number) => boolean;
+    onVizChange: (rowIndex: number, slotIndex: number, viz: 'bar' | 'gauge') => void;
 }
 
 function MetricRow({
     row, rowIndex, isStacked, onResize, onRemoveMetric, rowHeight, hasRowBelow,
     registry, diskList, totalRows, onMoveRow, activeId,
+    metricViz, isInline, maxFittingRows, canEnableGauge, onVizChange,
 }: MetricRowProps) {
     const isFirstRow = rowIndex === 0;
     const isLastRow = rowIndex === totalRows - 1;
@@ -390,6 +506,13 @@ function MetricRow({
             <div className="metric-row-slots">
                 {row.map((slot, slotIndex) => {
                     const slotId = `${rowIndex}-${slotIndex}`;
+                    const effectiveViz = resolveMetricViz(slot.key, slot.w, isInline, metricViz, maxFittingRows);
+                    const gaugeCanEnable = !isInline && maxFittingRows >= GAUGE_ROW_WEIGHT && canEnableGauge(rowIndex, slotIndex);
+                    const gaugeDisabledReason = isInline
+                        ? 'Gauge needs a taller widget (height > 1)'
+                        : maxFittingRows < GAUGE_ROW_WEIGHT
+                            ? 'Gauge needs more widget height (2 row units)'
+                            : 'Gauge needs at least 2 columns of width';
                     return (
                         <React.Fragment key={slotId}>
                             <DraggableSlot
@@ -401,6 +524,11 @@ function MetricRow({
                                 diskList={diskList}
                                 onRemoveMetric={onRemoveMetric}
                                 activeId={activeId}
+                                showVizToggle={isGaugeEligible(slot.key)}
+                                effectiveViz={effectiveViz}
+                                gaugeCanEnable={gaugeCanEnable}
+                                gaugeDisabledReason={gaugeDisabledReason}
+                                onSetViz={(viz: 'bar' | 'gauge') => onVizChange(rowIndex, slotIndex, viz)}
                             />
 
                             {/* Resize handle between two items in paired row */}
@@ -408,7 +536,7 @@ function MetricRow({
                                 <div className="metric-resize-handle-area">
                                     <button
                                         onClick={() => onResize(rowIndex, 0, 1)}
-                                        disabled={slot.w >= COLS}
+                                        disabled={slot.w >= COLS || row[1].w <= effectiveMinWidth(row[1].key, metricViz)}
                                         className="metric-resize-btn"
                                         title="Grow left / shrink right"
                                     >
@@ -417,9 +545,9 @@ function MetricRow({
                                     <div className="metric-resize-divider" />
                                     <button
                                         onClick={() => onResize(rowIndex, 0, -1)}
-                                        disabled={slot.w <= MIN_ITEM_WIDTH}
+                                        disabled={slot.w <= effectiveMinWidth(slot.key, metricViz)}
                                         className="metric-resize-btn"
-                                        title="Shrink left / grow right"
+                                        title={metricViz[slot.key] === 'gauge' && slot.w <= GAUGE_MIN_SPAN ? 'Gauge needs at least 2 columns of width' : 'Shrink left / grow right'}
                                     >
                                         <Minus size={10} />
                                     </button>
@@ -478,6 +606,8 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
     const isStacked = config.layout === 'stacked';
     const rows = useMemo(() => buildRows(config, isStacked, availableMetrics), [config, isStacked, availableMetrics]);
     const diskList = (config._diskList as { id: string; name: string }[] | undefined) || [];
+    const isInline = (widgetHeight || 6) <= 1;
+    const metricViz = (config.metricViz as Record<string, string> | undefined) || {};
 
     const h = widgetHeight || 6;
     const showHeader = config.showHeader !== false;
@@ -527,7 +657,6 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
         if (row.length === 2) {
             const otherIndex = slotIndex === 0 ? 1 : 0;
             const newW = row[slotIndex].w + delta;
-            const otherNewW = row[otherIndex].w - delta;
 
             if (newW >= COLS) {
                 const partner = row[otherIndex];
@@ -538,16 +667,10 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
                 return;
             }
 
-            if (newW < MIN_ITEM_WIDTH || newW > COLS - MIN_ITEM_WIDTH) return;
-            if (otherNewW < MIN_ITEM_WIDTH || otherNewW > COLS - MIN_ITEM_WIDTH) return;
+            const resizedRow = resizePairedRow(row, slotIndex, delta, metricViz);
+            if (!resizedRow) return;
 
-            const newRows = rows.map((r, i) => {
-                if (i !== rowIndex) return r;
-                const newRow = [...r];
-                newRow[slotIndex] = { ...newRow[slotIndex], w: newW };
-                newRow[otherIndex] = { ...newRow[otherIndex], w: otherNewW };
-                return newRow;
-            });
+            const newRows = rows.map((r, i) => (i === rowIndex ? resizedRow : r));
             commitRows(newRows);
         } else if (row.length === 1 && delta === -1) {
             const nextRowIndex = rowIndex + 1;
@@ -557,7 +680,10 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
             const pulledCard = nextRow[0];
 
             const newRows = rows.map(r => [...r]);
-            const newW = Math.max(MIN_ITEM_WIDTH, COLS / 2);
+            const newW = Math.max(effectiveMinWidth(row[0].key, metricViz), COLS / 2);
+            const pulledMinW = effectiveMinWidth(pulledCard.key, metricViz);
+            if (COLS - newW < pulledMinW) return;
+
             newRows[rowIndex] = [
                 { key: row[0].key, w: newW },
                 { key: pulledCard.key, w: COLS - newW },
@@ -572,7 +698,7 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
 
             commitRows(newRows);
         }
-    }, [rows, commitRows]);
+    }, [rows, commitRows, metricViz]);
 
     const removeMetric = useCallback((rowIndex: number, slotIndex: number) => {
         const row = rows[rowIndex];
@@ -631,11 +757,38 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
         const fromSlot = newRows[from.rowIndex][from.slotIndex];
         const toSlot = newRows[to.rowIndex][to.slotIndex];
 
+        if (!canAcceptSwap(fromSlot, toSlot, metricViz)) return;
+
         newRows[from.rowIndex][from.slotIndex] = { key: toSlot.key, w: fromSlot.w };
         newRows[to.rowIndex][to.slotIndex] = { key: fromSlot.key, w: toSlot.w };
 
         commitRows(newRows);
-    }, [rows, commitRows]);
+    }, [rows, commitRows, metricViz]);
+
+    const canEnableGauge = useCallback((rowIndex: number, slotIndex: number): boolean => {
+        if (maxRows < GAUGE_ROW_WEIGHT) return false;
+        return canEnableGaugeInRow(rows[rowIndex], slotIndex, metricViz);
+    }, [rows, metricViz, maxRows]);
+
+    const setSlotViz = useCallback((rowIndex: number, slotIndex: number, viz: 'bar' | 'gauge') => {
+        const current = (config.metricViz as Record<string, string> | undefined) || {};
+        const row = rows[rowIndex];
+        const slot = row[slotIndex];
+
+        if (viz === 'bar') {
+            const { [slot.key]: _removed, ...rest } = current;
+            updateConfig('metricViz', Object.keys(rest).length > 0 ? rest : undefined);
+            return;
+        }
+
+        const adjustedRow = computeGaugeAutoAdjustRow(row, slotIndex, current);
+        if (adjustedRow) {
+            const newRows = rows.map((r, i) => (i === rowIndex ? adjustedRow : r));
+            commitRows(newRows);
+        }
+
+        updateConfig('metricViz', { ...current, [slot.key]: 'gauge' });
+    }, [rows, commitRows, config.metricViz, updateConfig]);
 
     const moveRow = useCallback((rowIndex: number, direction: -1 | 1) => {
         const targetIndex = rowIndex + direction;
@@ -678,9 +831,28 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
         return preview;
     }, [rows, activeId, overId]);
 
-    // Visible rows = clamped by widget height
-    const visibleRowSlice = displayRows.slice(0, maxRows);
-    const hiddenRowCount = rows.length - visibleRowSlice.length;
+    // Visible rows = clamped by widget height budget (gauge rows cost 2 units)
+    const { visibleRowSlice, budgetUsed, hiddenRowCount } = useMemo(() => {
+        let used = 0;
+        const out: LayoutRow[] = [];
+        for (const row of displayRows) {
+            const cost = heightBudgetCostForRow(
+                row.map((s) => s.key),
+                (k) => row.find((s) => s.key === k)!.w,
+                metricViz,
+                isInline,
+                maxRows
+            );
+            if (used + cost > maxRows) break;
+            out.push(row);
+            used += cost;
+        }
+        return {
+            visibleRowSlice: out,
+            budgetUsed: used,
+            hiddenRowCount: Math.max(0, displayRows.length - out.length),
+        };
+    }, [displayRows, metricViz, isInline, maxRows]);
 
     return (
         <div className="metric-layout-editor">
@@ -695,7 +867,15 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
             >
                 <div className="metric-layout-grid-wrapper rounded-lg border border-theme overflow-hidden bg-theme-primary">
                     <div className="metric-layout-rows" style={{ gap: `${rowGap}px`, padding: `${rowGap}px` }}>
-                        {visibleRowSlice.map((row: LayoutRow, rowIndex: number) => (
+                        {visibleRowSlice.map((row: LayoutRow, rowIndex: number) => {
+                            const rowCost = heightBudgetCostForRow(
+                                row.map((s) => s.key),
+                                (k) => row.find((s) => s.key === k)!.w,
+                                metricViz,
+                                isInline,
+                                maxRows
+                            );
+                            return (
                             <MetricRow
                                 key={`row-${rowIndex}`}
                                 row={row}
@@ -703,15 +883,21 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
                                 isStacked={isStacked}
                                 onResize={resizeSlot}
                                 onRemoveMetric={removeMetric}
-                                rowHeight={rowHeight}
+                                rowHeight={rowHeight * rowCost}
                                 hasRowBelow={rowIndex < rows.length - 1}
                                 registry={availableMetrics}
                                 diskList={diskList}
                                 totalRows={visibleRowSlice.length}
                                 onMoveRow={moveRow}
                                 activeId={activeId}
+                                metricViz={metricViz}
+                                isInline={isInline}
+                                maxFittingRows={maxRows}
+                                canEnableGauge={canEnableGauge}
+                                onVizChange={setSlotViz}
                             />
-                        ))}
+                            );
+                        })}
 
                         {visibleRowSlice.length === 0 && (
                             <div className="flex items-center justify-center py-8 text-sm text-theme-tertiary">
@@ -740,8 +926,8 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
             <div className="mt-1.5 text-xs text-theme-tertiary flex items-center justify-between">
                 <span>{visibleMetrics.length} of {availableMetrics.length} metrics · Drag cards to swap</span>
                 <span>
-                    {visibleRowSlice.length}/{rows.length} rows
-                    {hiddenRowCount > 0 && ` (${hiddenRowCount} hidden)`}
+                    {budgetUsed}/{maxRows} height · {visibleRowSlice.length}/{rows.length} rows
+                    {hiddenRowCount > 0 && ` (${hiddenRowCount} pushed out)`}
                 </span>
             </div>
         </div>

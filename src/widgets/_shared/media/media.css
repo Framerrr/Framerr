@@ -1,0 +1,145 @@
+/* ============================================================================
+ * SHARED MEDIA WIDGET PRIMITIVES
+ *
+ * Cross-widget visual patterns for Radarr/Sonarr/Calendar (media redesign).
+ * Release-type colors come from src/styles/media-tokens.css (theme-invariant
+ * by design — do not swap these for theme-scoped variables).
+ * ============================================================================ */
+
+/* ---- Release Pill ---- */
+
+.media-release-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    white-space: nowrap;
+    line-height: 1.4;
+    /* Size to content; never shrink/ellipsis in flex rows — titles truncate first. */
+    align-self: flex-start;
+    flex-shrink: 0;
+    max-width: none;
+}
+
+.media-release-pill--dimmed {
+    opacity: 0.45;
+}
+
+.media-release-pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.media-release-pill--cinema {
+    color: var(--cinema);
+    background: rgba(var(--cinema-rgb), 0.15);
+}
+
+.media-release-pill--cinema .media-release-pill-dot {
+    background: var(--cinema);
+}
+
+.media-release-pill--digital {
+    color: var(--digital);
+    background: rgba(var(--digital-rgb), 0.15);
+}
+
+.media-release-pill--digital .media-release-pill-dot {
+    background: var(--digital);
+}
+
+.media-release-pill--physical {
+    color: var(--physical);
+    background: rgba(var(--physical-rgb), 0.15);
+}
+
+.media-release-pill--physical .media-release-pill-dot {
+    background: var(--physical);
+}
+
+.media-release-pill--tv {
+    color: var(--tv);
+    background: rgba(var(--tv-rgb), 0.15);
+}
+
+.media-release-pill--tv .media-release-pill-dot {
+    background: var(--tv);
+}
+
+.media-release-pill--missing {
+    color: var(--missing);
+    background: rgba(var(--missing-rgb), 0.15);
+}
+
+.media-release-pill--missing .media-release-pill-dot {
+    background: var(--missing);
+}
+
+/* Labeled pills (showLabel) render both a "Type Date" and a date-only form —
+ * default to the full label, drop it once the widget's own container gets
+ * too narrow to comfortably fit the extra text. Relies on an ancestor with
+ * `container-type: inline-size` (each widget's root sets this up). */
+.media-release-pill-date--short {
+    display: none;
+}
+
+@container (max-width: 400px) {
+    .media-release-pill-date--full {
+        display: none;
+    }
+
+    .media-release-pill-date--short {
+        display: inline;
+    }
+}
+
+/* ---- Cinematic gradient overlay (artwork) ---- */
+
+.media-gradient-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.35) 55%, transparent 100%);
+}
+
+/* ---- Artwork fallback gradients ---- */
+
+.media-artwork-fallback--movie {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1a0c00 0%, #2a1800 100%);
+}
+
+.media-artwork-fallback--tv {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #0a1020 0%, #162040 100%);
+}
+
+/* ---- Progress bar ---- */
+
+.media-progress-bar {
+    position: relative;
+    width: 100%;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.08));
+    overflow: hidden;
+}
+
+.media-progress-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+    transition: width 0.3s ease;
+}
+
+/* ---- Overlay caption text (title/meta rendered directly on the gradient overlay) ---- */
+
+.media-overlay-text {
+    color: #fff;
+}

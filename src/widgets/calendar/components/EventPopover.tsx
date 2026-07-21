@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Popover } from '@/shared/ui';
-import { Tv, Film } from 'lucide-react';
+import { Tv, Film, Clapperboard, Smartphone, Disc3 } from 'lucide-react';
 import { usePopoverState } from '@/shared/hooks/usePopoverState';
 import type { CalendarEvent } from '../calendar.types';
 
@@ -18,6 +18,33 @@ interface EventPopoverProps {
     children?: React.ReactNode;
 }
 
+/** Which of the 4 shared release-type colors this event should render as. */
+export type EventTypeKey = 'tv' | 'cinema' | 'digital' | 'physical';
+
+export function getEventTypeKey(event: CalendarEvent): EventTypeKey {
+    if (event.type === 'sonarr') return 'tv';
+    // 'digital' fallback matches the historical default used elsewhere in this file
+    // for a radarr item with no plottedReleaseType set — defensive only, since every
+    // CalendarWidget.tsx-produced radarr CalendarEvent has this field set.
+    return event.plottedReleaseType ?? 'digital';
+}
+
+export const EVENT_TYPE_COLOR: Record<EventTypeKey, string> = {
+    tv: 'var(--tv)',
+    cinema: 'var(--cinema)',
+    digital: 'var(--digital)',
+    physical: 'var(--physical)',
+};
+
+/** Lucide icon suffix for the default pill trigger (never emoji). TV pills never
+ * show one — too frequent to warrant an icon on every episode. */
+export const EVENT_TYPE_ICON: Record<EventTypeKey, React.ComponentType<{ size?: number; className?: string }> | null> = {
+    tv: null,
+    cinema: Clapperboard,
+    digital: Smartphone,
+    physical: Disc3,
+};
+
 /** Get the display title for an event */
 function getDisplayTitle(event: CalendarEvent): string {
     return event.type === 'sonarr'
@@ -25,11 +52,25 @@ function getDisplayTitle(event: CalendarEvent): string {
         : (event.title || 'Unknown Movie');
 }
 
-/** Get the release/air date (and time if available) for an event */
+/** Map a plottedReleaseType to its corresponding CalendarEvent date field. */
+const RELEASE_TYPE_FIELD: Record<'cinema' | 'digital' | 'physical', 'inCinemas' | 'digitalRelease' | 'physicalRelease'> = {
+    cinema: 'inCinemas',
+    digital: 'digitalRelease',
+    physical: 'physicalRelease',
+};
+
+/** Get the release/air date (and time if available) for an event. For radarr
+ * events, reads the date field matching this specific plotted instance
+ * (event.plottedReleaseType) rather than re-deriving via the fallback chain —
+ * under movieDates: 'all' a single movie can plot as up to 3 separate events
+ * (cinema/digital/physical), each anchored to a different calendar date, and
+ * the popover must show the date matching the pill the user actually clicked. */
 function getEventDate(event: CalendarEvent): string {
     const raw = event.type === 'sonarr'
         ? (event.airDateUtc || event.airDate)
-        : (event.digitalRelease || event.physicalRelease || event.inCinemas);
+        : (event.plottedReleaseType
+            ? event[RELEASE_TYPE_FIELD[event.plottedReleaseType]]
+            : (event.digitalRelease || event.physicalRelease || event.inCinemas));
     if (!raw) return '';
     const d = new Date(raw.includes('T') ? raw : raw + 'T00:00:00');
     const datePart = d.toLocaleDateString(undefined, {
@@ -71,13 +112,18 @@ const EventPopover: React.FC<EventPopoverProps> = ({ event, showInstanceName, ch
     const posterUrl = getPosterUrl(event);
     const isTV = event.type === 'sonarr';
 
-    // Default trigger: event pill
+    // Default trigger: event pill, colored by release type via a CSS custom property
+    // rather than one modifier class per type, with a Lucide icon suffix (never emoji).
+    const typeKey = getEventTypeKey(event);
+    const TypeIcon = EVENT_TYPE_ICON[typeKey];
     const defaultTrigger = (
         <button
-            className={`cal-event-pill ${isTV ? 'cal-event-pill--tv' : 'cal-event-pill--movie'}`}
+            className="cal-event-pill"
+            style={{ '--pill-color': EVENT_TYPE_COLOR[typeKey] } as React.CSSProperties}
             title={displayTitle}
         >
-            {displayTitle}
+            {TypeIcon && <TypeIcon size={9} className="cal-event-pill-icon" />}
+            <span className="cal-event-pill-text">{displayTitle}</span>
         </button>
     );
 

@@ -275,8 +275,11 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                             <div className="w-full h-full flex items-center justify-center" style={{ background: req.gradient }}>
                                 <Film size={24} className="text-theme-primary opacity-50" />
                             </div>
-                            <div className="absolute top-2 right-2 px-2 py-1 rounded-md text-[10px] font-bold uppercase backdrop-blur-md"
-                                style={{ background: 'rgba(0,0,0,0.8)', color: req.color }}>
+                            <div
+                                className="overseerr-status-chip overseerr-status-chip--overlay"
+                                style={{ '--overseerr-status-color': req.color } as React.CSSProperties}
+                            >
+                                <span className="overseerr-status-chip__dot" aria-hidden="true" />
                                 {req.status}
                             </div>
                             <div className="absolute inset-x-0 bottom-0 py-3 px-2 bg-gradient-to-t from-black/95 to-transparent">
@@ -475,13 +478,10 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
 
                                 {/* Status Badge */}
                                 <div
-                                    className="absolute top-2 right-2 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border"
-                                    style={{
-                                        background: 'rgba(0,0,0,0.8)',
-                                        color: statusColor,
-                                        borderColor: `${statusColor}40`
-                                    }}
+                                    className="overseerr-status-chip overseerr-status-chip--overlay"
+                                    style={{ '--overseerr-status-color': statusColor } as React.CSSProperties}
                                 >
+                                    <span className="overseerr-status-chip__dot" aria-hidden="true" />
                                     {status}
                                 </div>
 
@@ -715,13 +715,10 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
 
                             {/* Status Badge */}
                             <div
-                                className="absolute top-2 right-2 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-md border"
-                                style={{
-                                    background: 'rgba(0,0,0,0.8)',
-                                    color: statusColor,
-                                    borderColor: `${statusColor}40`
-                                }}
+                                className="overseerr-status-chip overseerr-status-chip--overlay"
+                                style={{ '--overseerr-status-color': statusColor } as React.CSSProperties}
                             >
+                                <span className="overseerr-status-chip__dot" aria-hidden="true" />
                                 {status}
                             </div>
 

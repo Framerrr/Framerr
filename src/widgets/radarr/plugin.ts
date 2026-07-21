@@ -24,6 +24,8 @@ export const plugin: WidgetPlugin = {
     compatibleIntegrations: ['radarr'],
     defaultConfig: {
         viewMode: 'auto',
+        sortBy: 'nextDate',
+        lookAheadDays: '30',
     },
     configConstraints: {
         contentPadding: 'none',  // Widget handles its own padding internally
@@ -41,12 +43,46 @@ export const plugin: WidgetPlugin = {
             },
             {
                 key: 'showStatsBar',
-                label: 'Stats Bar',
+                label: 'Summary Bar',
                 type: 'buttons',
                 defaultValue: 'true',
                 choices: [
                     { value: 'true', label: 'Show' },
                     { value: 'false', label: 'Hide' },
+                ],
+            },
+            {
+                key: 'sortBy',
+                label: 'Sort By',
+                type: 'buttons',
+                defaultValue: 'nextDate',
+                choices: [
+                    { value: 'nextDate', label: 'Next Date' },
+                    { value: 'cinema', label: 'Cinema' },
+                    { value: 'digital', label: 'Digital' },
+                    { value: 'physical', label: 'Physical' },
+                ],
+            },
+            {
+                key: 'lookAheadDays',
+                label: 'Look Ahead',
+                type: 'buttons',
+                defaultValue: '30',
+                choices: [
+                    { value: '7', label: '7d' },
+                    { value: '30', label: '30d' },
+                    { value: '90', label: '90d' },
+                    { value: 'all', label: 'All' },
+                ],
+            },
+            {
+                key: 'releasePillVisibility',
+                label: 'Show Release Types',
+                type: 'toggle-buttons',
+                choices: [
+                    { value: 'showCinema', label: 'Cinema', defaultValue: true },
+                    { value: 'showDigital', label: 'Digital', defaultValue: true },
+                    { value: 'showPhysical', label: 'Physical', defaultValue: true },
                 ],
             },
         ]

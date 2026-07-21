@@ -1,5 +1,5 @@
 import { useIntegrationData } from '../../app/providers/IntegrationDataProvider';
-import type { BaseIntegration } from '@/shared/types/integration';
+import type { BaseIntegration } from '@shared/types/integration';
 
 /**
  * Default disabled integration config

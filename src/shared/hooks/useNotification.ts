@@ -1,5 +1,5 @@
 import { useNotifications } from '@/context/notification';
-import type { NotificationType, ToastOptions } from '@/shared/types/notification';
+import type { NotificationType, ToastOptions } from '@shared/types/notification';
 
 /**
  * Return type for useNotification hook

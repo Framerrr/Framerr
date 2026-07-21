@@ -32,13 +32,41 @@
 
 /* ---- Month Header ---- */
 
+/* 3-column grid (1fr auto 1fr): the title's "auto" column is sized to its own content
+ * and flanked by two EQUAL-width (1fr) side columns — this keeps the title
+ * mathematically centered on the row's true center regardless of the left/right
+ * button groups' actual content width (the right group is wider than the left because
+ * it also contains the Today button), which a plain flex layout cannot guarantee. */
 .cal-month-header {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 0.25rem;
     flex-shrink: 0;
-    position: relative;
+}
+
+.cal-month-header-side {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.cal-month-header-side--left {
+    justify-content: flex-start;
+}
+
+.cal-month-header-side--right {
+    justify-content: flex-end;
+}
+
+/* Filter chips (see MonthGrid.tsx) — spans all 3 grid columns to sit on its own full-width
+ * line below the nav row, centered the same way the title above it is. */
+.cal-month-header .cal-filter-group {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 0.35rem;
+    align-items: center;
+    justify-content: center;
 }
 
 .cal-nav-btn {
@@ -71,7 +99,6 @@
     font-weight: 600;
     color: var(--text-primary);
     text-align: center;
-    flex: 1;
     white-space: nowrap;
 }
 
@@ -85,10 +112,7 @@
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
-    position: absolute;
-    right: clamp(22px, 7cqi, 36px);
-    top: 50%;
-    transform: translateY(-50%);
+    flex-shrink: 0;
 }
 
 @media (hover: hover) {
@@ -154,12 +178,27 @@
         color: var(--text-primary);
     }
 
+    /* TV's accent matches --tv, the same shared token used for TV event pills/stripes
+     * elsewhere in this widget. Movies uses --info, matching the general "movies"
+     * filter concept even though movie pills themselves render in 3 different
+     * release-type colors (cinema/digital/physical). */
     .cal-filter-btn--tv:hover {
-        color: var(--info);
+        color: var(--tv);
     }
 
     .cal-filter-btn--movie:hover {
-        color: var(--success);
+        color: var(--info);
+    }
+
+    /* Active chips render solid-tinted (background === one of the 2 rules above's
+     * hover text color) — without this, hovering an already-active chip repaints its
+     * text to match its own background, making the label invisible. 3 combined
+     * classes = higher specificity than the 2-class rules above, so this always wins
+     * regardless of source order. */
+    .cal-filter-btn.cal-filter-btn--active:hover,
+    .cal-filter-btn--tv.cal-filter-btn--active-tv:hover,
+    .cal-filter-btn--movie.cal-filter-btn--active-movie:hover {
+        color: #fff;
     }
 }
 
@@ -169,12 +208,12 @@
 }
 
 .cal-filter-btn--active-tv {
-    background: var(--info);
+    background: var(--tv);
     color: #fff;
 }
 
 .cal-filter-btn--active-movie {
-    background: var(--success);
+    background: var(--info);
     color: #fff;
 }
 
@@ -217,6 +256,21 @@
     background: var(--widget-card-bg, rgba(255, 255, 255, 0.03));
     transition: border-color 0.2s, background 0.2s;
     min-height: 0;
+    /* Own container-query context (independent of the outer `calendar` container)
+     * so pill truncation can respond to this specific cell's width. */
+    container-type: inline-size;
+    container-name: cal-cell;
+}
+
+/* Narrow cells (small widget size): show icon-only pills, hide the title text */
+@container cal-cell (max-width: 38px) {
+    .cal-event-pill-text {
+        display: none;
+    }
+
+    .cal-event-pill {
+        min-width: 12px;
+    }
 }
 
 .cal-grid-cell--today {
@@ -251,11 +305,27 @@
     color: var(--accent);
 }
 
+/* iOS-style filled circle around today's day number. Plain white text matches the
+ * same accent-filled-badge convention used elsewhere in this codebase (e.g.
+ * .cal-today-btn:hover, .cal-filter-btn--active below) — accent background always
+ * pairs with literal white text, not a themed token. */
+.cal-grid-day-num-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(14px, 4cqi, 20px);
+    height: clamp(14px, 4cqi, 20px);
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+}
+
 /* Events in day cell */
 .cal-grid-events {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
     flex: 1;
     overflow: hidden;
 }
@@ -263,20 +333,24 @@
 /* ---- Event Pills (inside grid cells) ---- */
 
 .cal-event-pill {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     width: 100%;
     text-align: left;
-    font-size: clamp(0.38rem, 1.2cqi, 0.5rem);
-    padding: clamp(0px, 0.15cqi, 1px) clamp(2px, 0.4cqi, 4px);
-    border-radius: 2px;
+    font-size: clamp(0.58rem, 1.9cqi, 0.75rem);
+    padding: clamp(2px, 0.35cqi, 4px) clamp(4px, 0.7cqi, 7px);
+    border-radius: 4px;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
     font-weight: 600;
     cursor: pointer;
     transition: opacity 0.15s, background 0.15s;
     border: none;
-    line-height: 1.4;
+    border-left: 2px solid var(--pill-color);
+    line-height: 1.35;
+    background: color-mix(in srgb, var(--pill-color) 15%, transparent);
+    color: var(--pill-color);
 }
 
 @media (hover: hover) {
@@ -285,14 +359,16 @@
     }
 }
 
-.cal-event-pill--tv {
-    background: rgba(var(--info-rgb, 59, 130, 246), 0.15);
-    color: var(--info);
+.cal-event-pill-icon {
+    width: clamp(10px, 2.8cqi, 14px);
+    height: clamp(10px, 2.8cqi, 14px);
+    flex-shrink: 0;
 }
 
-.cal-event-pill--movie {
-    background: rgba(var(--success-rgb, 34, 197, 94), 0.15);
-    color: var(--success);
+.cal-event-pill-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* ---- Popover Styles ---- */
@@ -439,16 +515,24 @@
     font-weight: 400;
 }
 
-/* Event card — visible card background */
+/* Range chip for This Week / Next Week bucket headers (e.g. "Jul 20–25") */
+.cal-agenda-date-range {
+    font-size: 0.58rem;
+    color: var(--text-tertiary);
+    font-weight: 400;
+}
+
+/* Event card — visible card background, left-border release-type stripe */
 .cal-agenda-card {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 0.65rem;
-    padding: 0.55rem;
+    gap: 0.75rem;
+    padding: 0.7rem;
     border-radius: 0.5rem;
     background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
     border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+    border-left: 3px solid var(--stripe-color, transparent);
     cursor: pointer;
     transition: background 0.15s ease, border-color 0.15s ease;
     width: 100%;
@@ -464,8 +548,8 @@
 
 .cal-agenda-poster {
     flex-shrink: 0;
-    width: 56px;
-    height: 82px;
+    width: 66px;
+    height: 97px;
     border-radius: 0.3rem;
     overflow: hidden;
     background: var(--widget-card-bg, rgba(255, 255, 255, 0.05));
@@ -499,7 +583,7 @@
 }
 
 .cal-agenda-card-title {
-    font-size: 0.9rem;
+    font-size: 0.98rem;
     font-weight: 500;
     color: var(--text-primary);
     white-space: nowrap;
@@ -509,7 +593,7 @@
 }
 
 .cal-agenda-card-meta {
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
@@ -517,27 +601,39 @@
     line-height: 1.3;
 }
 
-/* Type badge (top-right corner) */
+/* Type badge (top-right) — same pill chrome as Radarr/Sonarr release chips */
 .cal-agenda-type-badge {
     position: absolute;
     top: 0.35rem;
     right: 0.4rem;
-    font-size: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.65rem;
     font-weight: 600;
-    padding: 0.12rem 0.3rem;
-    border-radius: 0.25rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    line-height: 1.4;
+    padding: 1px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
 }
 
 .cal-agenda-type-badge--tv {
-    background: rgba(var(--info-rgb, 59, 130, 246), 0.15);
-    color: var(--info);
+    color: var(--tv);
+    background: rgba(var(--tv-rgb), 0.15);
 }
 
 .cal-agenda-type-badge--movie {
-    background: rgba(var(--success-rgb, 34, 197, 94), 0.15);
-    color: var(--success);
+    color: var(--info);
+    background: color-mix(in srgb, var(--info) 15%, transparent);
+}
+
+/* Inline per-item date — This Week / Next Week / Later buckets only (multi-date) */
+.cal-agenda-card-date {
+    position: absolute;
+    top: 1.6rem;
+    right: 0.4rem;
+    font-size: 0.58rem;
+    color: var(--text-tertiary);
 }
 
 /* Compact mode (inside "both" split) */
@@ -546,26 +642,26 @@
 }
 
 .cal-agenda--compact .cal-agenda-card {
-    padding: 0.4rem;
-    gap: 0.5rem;
+    padding: 0.5rem;
+    gap: 0.6rem;
     align-items: flex-end;
 }
 
 .cal-agenda--compact .cal-agenda-poster {
-    width: 36px;
-    height: 52px;
+    width: 42px;
+    height: 61px;
 }
 
 .cal-agenda--compact .cal-agenda-card-title {
-    font-size: 0.75rem;
+    font-size: 0.82rem;
 }
 
 .cal-agenda--compact .cal-agenda-card-meta {
-    font-size: 0.6rem;
+    font-size: 0.66rem;
 }
 
 /* ============================================================================
- * BOTH MODE — 65/35 SPLIT (calendar : agenda)
+ * BOTH MODE — 60/40 SPLIT (calendar : agenda)
  * ============================================================================ */
 
 .cal-split {
@@ -576,7 +672,7 @@
 }
 
 .cal-split-calendar {
-    flex: 65;
+    flex: 60;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -584,7 +680,7 @@
 }
 
 .cal-split-agenda {
-    flex: 35;
+    flex: 40;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -621,7 +717,7 @@
 
 /* Compact: hide month grid filter + today button (agenda keeps its toolbar) */
 @container calendar (max-width: 280px) {
-    .cal-month .cal-filter-row {
+    .cal-month .cal-filter-group {
         display: none;
     }
 
@@ -643,7 +739,7 @@
 
 /* Short height: hide month grid filter only */
 @container calendar (max-height: 200px) {
-    .cal-month .cal-filter-row {
+    .cal-month .cal-filter-group {
         display: none;
     }
 }
@@ -655,8 +751,8 @@
     }
 
     .cal-event-pill {
-        font-size: clamp(0.45rem, 1.5cqi, 0.58rem);
-        padding: clamp(1px, 0.2cqi, 2px) clamp(3px, 0.6cqi, 5px);
+        font-size: clamp(0.62rem, 2.1cqi, 0.8rem);
+        padding: clamp(3px, 0.4cqi, 5px) clamp(5px, 0.85cqi, 8px);
     }
 }
 

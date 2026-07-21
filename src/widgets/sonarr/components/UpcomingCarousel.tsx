@@ -1,21 +1,27 @@
 /**
- * UpcomingCarousel - Upcoming episode poster display
- * 
- * Two modes:
- * - Horizontal carousel (default): scrollable poster cards with chevron nav
- * - Vertical stack (vertical=true): Overseerr-style landscape cards, stacked
+ * UpcomingCarousel - Mini poster scroll for upcoming episodes (everything
+ * after the hero item).
+ *
+ * Two layouts, mirroring radarr/components/UpcomingCarousel.tsx's final
+ * structure:
+ * - Horizontal (default): compact poster strip. Used in stacked mode.
+ * - Vertical (`vertical` prop): scrollable row list. Used in column/wide mode.
  */
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, MonitorPlay } from 'lucide-react';
+import { ReleasePill } from '../../_shared/media';
+import { getEpisodePillProps, getPremiereType } from '../hooks/sonarrDisplayState';
 import type { CalendarEpisode, SonarrImage } from '../sonarr.types';
 
 interface UpcomingCarouselProps {
     episodes: CalendarEpisode[];
     integrationId: string;
     onEpisodeClick?: (episode: CalendarEpisode) => void;
-    /** When true, render as vertical stacked cards (Overseerr stacked style) */
+    /** Render as a scrollable vertical row list instead of a horizontal strip. */
     vertical?: boolean;
+    highlightPremieres: boolean;
+    showNetwork: boolean;
 }
 
 /** Get series poster URL, proxied through backend */
@@ -30,38 +36,14 @@ function getPosterUrl(episode: CalendarEpisode, integrationId: string): string |
     return `/api/integrations/${integrationId}/proxy/image?url=${encodeURIComponent(imageUrl)}`;
 }
 
-/** Get fanart (landscape backdrop) URL, falls back to poster */
-function getFanartUrl(episode: CalendarEpisode, integrationId: string): string | null {
-    const images = episode.series?.images;
-    if (!images?.length) return null;
-
-    const fanart = images.find((img: SonarrImage) => img.coverType === 'fanart');
-    const imageUrl = fanart?.remoteUrl || fanart?.url;
-    if (imageUrl) {
-        return `/api/integrations/${integrationId}/proxy/image?url=${encodeURIComponent(imageUrl)}`;
-    }
-
-    // Fall back to poster if no fanart available
-    return getPosterUrl(episode, integrationId);
-}
-
-/** Format air date as relative or short date */
-function formatAirDate(episode: CalendarEpisode): string {
-    const dateStr = episode.airDateUtc || episode.airDate;
-    if (!dateStr) return 'TBA';
-
-    const airDate = new Date(dateStr);
-    const now = new Date();
-    const diffDays = Math.ceil((airDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Tomorrow';
-    if (diffDays > 0 && diffDays <= 7) return `${diffDays}d`;
-
-    return airDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-const UpcomingCarousel = ({ episodes, integrationId, onEpisodeClick, vertical = false }: UpcomingCarouselProps): React.JSX.Element | null => {
+const UpcomingCarousel = ({
+    episodes,
+    integrationId,
+    onEpisodeClick,
+    vertical,
+    highlightPremieres,
+    showNetwork,
+}: UpcomingCarouselProps): React.JSX.Element | null => {
     const trackRef = useRef<HTMLDivElement>(null);
     const [showLeft, setShowLeft] = useState(false);
     const [showRight, setShowRight] = useState(false);
@@ -96,43 +78,47 @@ const UpcomingCarousel = ({ episodes, integrationId, onEpisodeClick, vertical = 
 
     if (episodes.length === 0) return null;
 
-    // ── Vertical stacked mode (Overseerr-style landscape cards) ──
     if (vertical) {
         return (
-            <div className="snr-stack">
+            <div className="snr-carousel-list custom-scrollbar">
                 {episodes.map(ep => {
-                    const fanartUrl = getFanartUrl(ep, integrationId);
+                    const posterUrl = getPosterUrl(ep, integrationId);
                     const seriesTitle = ep.series?.title || ep.seriesTitle || 'Unknown';
-                    const epCode = ep.seasonNumber != null && ep.episodeNumber != null
-                        ? `S${ep.seasonNumber}E${ep.episodeNumber}`
-                        : '';
+                    const pill = getEpisodePillProps(ep);
+                    const premiereType = highlightPremieres ? getPremiereType(ep) : null;
+                    const network = showNetwork ? ep.series?.network : undefined;
 
                     return (
                         <div
-                            key={`stack-${ep.seriesId}-${ep.id}`}
-                            className="snr-stack-card"
+                            key={`cal-row-${ep.seriesId}-${ep.id}`}
+                            className="snr-carousel-row"
                             onClick={() => onEpisodeClick?.(ep)}
                         >
-                            {fanartUrl ? (
-                                <img
-                                    src={fanartUrl}
-                                    alt={seriesTitle}
-                                    className="snr-stack-poster"
-                                    loading="lazy"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                />
-                            ) : (
-                                <div className="snr-stack-poster-placeholder">
-                                    <MonitorPlay size={24} />
-                                </div>
-                            )}
-                            {/* Gradient overlay with title */}
-                            <div className="snr-stack-overlay">
-                                <div className="snr-stack-title">{seriesTitle}</div>
-                                <div className="snr-stack-subtitle">
-                                    {epCode && `${epCode} · `}{formatAirDate(ep)}
-                                </div>
+                            <div className="snr-carousel-row-poster-wrap">
+                                {posterUrl ? (
+                                    <img
+                                        src={posterUrl}
+                                        alt={seriesTitle}
+                                        className="snr-carousel-row-poster"
+                                        loading="lazy"
+                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    />
+                                ) : (
+                                    <div className="snr-carousel-row-poster-placeholder">
+                                        <MonitorPlay size={14} />
+                                    </div>
+                                )}
+                                {premiereType && (
+                                    <span className="snr-premiere-badge snr-premiere-badge--sm">
+                                        {premiereType === 'series' ? 'SERIES' : 'PREMIERE'}
+                                    </span>
+                                )}
                             </div>
+                            <div className="snr-carousel-row-info">
+                                <span className="snr-carousel-row-title">{seriesTitle}</span>
+                                <ReleasePill type={pill.type} date={pill.date} dimmed={pill.dimmed} />
+                            </div>
+                            {network && <span className="snr-network-badge">{network.slice(0, 8)}</span>}
                         </div>
                     );
                 })}
@@ -140,21 +126,20 @@ const UpcomingCarousel = ({ episodes, integrationId, onEpisodeClick, vertical = 
         );
     }
 
-    // ── Horizontal carousel mode (default) ──
     return (
         <div className="snr-carousel">
             <div ref={trackRef} className="snr-carousel-track">
                 {episodes.map(ep => {
                     const posterUrl = getPosterUrl(ep, integrationId);
                     const seriesTitle = ep.series?.title || ep.seriesTitle || 'Unknown';
-                    const epCode = ep.seasonNumber != null && ep.episodeNumber != null
-                        ? `S${ep.seasonNumber}E${ep.episodeNumber}`
-                        : '';
+                    const pill = getEpisodePillProps(ep);
+                    const premiereType = highlightPremieres ? getPremiereType(ep) : null;
 
                     return (
                         <div
                             key={`cal-${ep.seriesId}-${ep.id}`}
                             className="snr-carousel-card"
+                            title={seriesTitle}
                             onClick={() => onEpisodeClick?.(ep)}
                         >
                             {posterUrl ? (
@@ -166,15 +151,19 @@ const UpcomingCarousel = ({ episodes, integrationId, onEpisodeClick, vertical = 
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                 />
                             ) : (
-                                <div className="snr-carousel-poster-placeholder">
+                                <div className="media-artwork-fallback--tv snr-carousel-poster-placeholder">
                                     <MonitorPlay size={20} />
                                 </div>
                             )}
-                            <div className="snr-carousel-info">
+                            <div className="media-gradient-overlay" />
+                            {premiereType && (
+                                <span className="snr-premiere-badge snr-premiere-badge--sm">
+                                    {premiereType === 'series' ? 'SERIES' : 'PREMIERE'}
+                                </span>
+                            )}
+                            <div className="snr-carousel-card-content">
+                                <ReleasePill type={pill.type} date={pill.date} dimmed={pill.dimmed} />
                                 <div className="snr-carousel-title">{seriesTitle}</div>
-                                <div className="snr-carousel-subtitle">
-                                    {epCode && `${epCode} · `}{formatAirDate(ep)}
-                                </div>
                             </div>
                         </div>
                     );

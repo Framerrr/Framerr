@@ -1,0 +1,39 @@
+/**
+ * Media Widget Redesign — Theme-Invariant Color Tokens
+ *
+ * These 5 colors encode release/media *type* (cinema, digital, physical, tv,
+ * missing), not brand accent. Unlike every other token in this codebase, they
+ * are intentionally NOT scoped per-theme — a "cinema" release must look the
+ * same amber across dark-pro, nord, or any other theme, or the semantic
+ * meaning breaks. Do not move these into src/styles/themes/*.css.
+ *
+ * See docs/WIDGET_REDESIGN_MEDIA.md §0.1.
+ */
+:root {
+    --cinema: #F59E0B;
+    --digital: #3B82F6;
+    --physical: #8B5CF6;
+    --tv: #10B981;
+    --missing: #EF4444;
+
+    --cinema-rgb: 245, 158, 11;
+    --digital-rgb: 59, 130, 246;
+    --physical-rgb: 139, 92, 246;
+    --tv-rgb: 16, 185, 129;
+    --missing-rgb: 239, 68, 68;
+
+    /* Text/track rendered on the fixed dark gradient overlay (media.css's
+     * .media-gradient-overlay) atop hero/carousel artwork. Same rationale as
+     * the release-type colors above: the overlay itself is a fixed near-black
+     * gradient regardless of theme, so contrasting content must stay a fixed
+     * near-white regardless of theme too — a themed text color could lose
+     * contrast against it in some themes. */
+    --media-overlay-title: #ffffff;
+    --media-overlay-meta: rgba(255, 255, 255, 0.7);
+    --media-overlay-track: rgba(255, 255, 255, 0.2);
+
+    /* Contrast text for badges rendered directly on the fixed --cinema amber
+     * background (e.g. premiere badges) — paired non-themed value, same
+     * reasoning as --cinema itself. */
+    --cinema-contrast: #1a1300;
+}

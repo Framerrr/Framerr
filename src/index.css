@@ -7,6 +7,7 @@
 @import './styles/themes/dark-pro.css';
 @import './styles/premium-effects.css';
 @import './styles/design-system.css';
+@import './styles/media-tokens.css';
 @import './styles/animations.css';
 
 /* ===== Touch Device Globals ===== */

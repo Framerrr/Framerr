@@ -10,6 +10,7 @@ import { IntegrationPlugin } from './types';
 // Import all plugins
 import { plugin as sonarr } from './sonarr';
 import { plugin as radarr } from './radarr';
+import { plugin as prowlarr } from './prowlarr';
 import { plugin as plex } from './plex';
 import { plugin as jellyfin } from './jellyfin';
 import { plugin as emby } from './emby';
@@ -27,6 +28,7 @@ import { plugin as sabnzbd } from './sabnzbd';
 export const plugins: IntegrationPlugin[] = [
     sonarr,
     radarr,
+    prowlarr,
     plex,
     jellyfin,
     emby,

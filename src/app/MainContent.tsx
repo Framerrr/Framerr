@@ -100,7 +100,7 @@ function isTabPage(page: string): boolean {
  */
 const MainContent = (): React.JSX.Element => {
     const location = useLocation();
-    const { isExpanded } = useSharedSidebar();
+    const { isExpanded, isSidebarHidden } = useSharedSidebar();
     const { isMobile } = useLayout();
 
     // Current active page
@@ -157,6 +157,11 @@ const MainContent = (): React.JSX.Element => {
         ? LAYOUT.SIDEBAR_WIDTH_EXPANDED - LAYOUT.SIDEBAR_WIDTH
         : 0;
 
+    // Desktop tabs: inset from sidebar when it's visible; clear expanded sidebar like settings
+    const tabLeftPadding = (!isMobile && !isSidebarHidden)
+        ? LAYOUT.PAGE_MARGIN + (isExpanded ? LAYOUT.SIDEBAR_WIDTH_EXPANDED - LAYOUT.SIDEBAR_WIDTH : 0)
+        : 0;
+
     // Mobile tab bar offset
     const mobileTabBarOffset = isMobile ? LAYOUT.TABBAR_HEIGHT + LAYOUT.PAGE_MARGIN : 0;
 
@@ -205,6 +210,7 @@ const MainContent = (): React.JSX.Element => {
                     id={`tab-layer-${tabSlug}`}
                     active={currentPage === tabSlug}
                     scrollable={false}
+                    paddingLeft={tabLeftPadding}
                     bottomOffset={mobileTabBarOffset}
                 >
                     <TabContainer

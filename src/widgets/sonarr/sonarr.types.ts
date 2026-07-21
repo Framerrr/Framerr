@@ -37,6 +37,12 @@ export interface SonarrSeries {
     genres?: string[];
     /** TV network (e.g., "HBO", "Netflix") */
     network?: string;
+    /** Season/episode completion stats — only present on calendar-poller-sourced series today. */
+    statistics?: {
+        episodeCount?: number;
+        episodeFileCount?: number;
+        seasonCount?: number;
+    };
 }
 
 /** Calendar episode from SSE */
@@ -52,6 +58,8 @@ export interface CalendarEpisode {
     airDateUtc?: string;
     overview?: string;
     hasFile?: boolean;
+    /** True when this episode has a file but doesn't meet the quality cutoff. Stamped client-side on fetch — never present on raw API responses. */
+    cutoffNotMet?: boolean;
 }
 
 /** Missing/cutoff episode from proxy API */
@@ -65,6 +73,8 @@ export interface WantedEpisode {
     airDateUtc?: string;
     overview?: string;
     hasFile?: boolean;
+    /** True when this episode has a file but doesn't meet the quality cutoff. Stamped client-side on fetch — never present on raw API responses. */
+    cutoffNotMet?: boolean;
     series?: SonarrSeries;
 }
 
@@ -113,10 +123,11 @@ export interface SonarrRelease {
 export interface QueueItem {
     id: number;
     episodeId?: number;
-    movieId?: number;
     status: string;               // 'downloading' | 'delay' | 'completed' | 'failed' | etc.
     trackedDownloadStatus?: string; // 'ok' | 'warning' | 'error'
     trackedDownloadState?: string;  // 'downloading' | 'importPending' | 'importing' | 'failedPending'
+    progress?: number;
+    timeleft?: string;
 }
 
 /** Data returned by useSonarrData hook */
@@ -134,6 +145,13 @@ export interface SonarrWidgetData {
     missingHasMore: boolean;
     loadMoreMissing: () => void;
     refreshMissing: () => void;
+
+    // Cutoff-unmet list (on-demand fetch)
+    cutoffEpisodes: WantedEpisode[];
+    cutoffLoading: boolean;
+    cutoffHasMore: boolean;
+    loadMoreCutoff: () => void;
+    refreshCutoff: () => void;
 
     // Error
     error: string | null;

@@ -71,20 +71,20 @@ export function classifyError(
         if (status === 401 || status === 403) {
             return new AdapterError('AUTH_FAILED',
                 `Authentication failed for ${integrationName} (HTTP ${status})`,
-                { status, integrationName }
+                { status, integrationName, data: axiosErr.response.data }
             );
         }
 
         if (status >= 500) {
             return new AdapterError('SERVICE_ERROR',
                 `${integrationName} returned server error (HTTP ${status})`,
-                { status, integrationName }
+                { status, integrationName, data: axiosErr.response.data }
             );
         }
 
         return new AdapterError('REQUEST_ERROR',
             `${integrationName} request failed (HTTP ${status})`,
-            { status, integrationName }
+            { status, integrationName, data: axiosErr.response.data }
         );
     }
 

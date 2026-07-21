@@ -2,6 +2,22 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.2.1] - 2026-07-20
+
+### Added
+- **Prowlarr integration + widget** — indexer health, connected apps, recent activity, health messages, admin enable/disable and test actions
+- **System Status circular gauges** — switch eligible metrics (CPU, memory, temp, disk) between bar and gauge in the layout editor
+
+### Changed
+- **Sonarr and Radarr widgets** — clearer layout, item ordering, and controls
+- **Tautulli widget** — refreshed layout
+- **Calendar widget** — look-ahead / look-back ranges and a few layout refreshes
+
+### Fixed
+- Metric History settings not enabling Save when toggled in integration settings
+
+---
+
 ## [0.2.0] - 2026-04-17
 
 ### Added
