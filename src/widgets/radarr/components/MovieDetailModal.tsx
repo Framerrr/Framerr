@@ -19,7 +19,10 @@ import {
 import { Modal } from '@/shared/ui';
 import { Button } from '@/shared/ui/Button/Button';
 import { ExternalMediaLinks } from '@/shared/ui/ExternalMediaLinks';
-import type { WantedMovie, CalendarMovie, RadarrRelease, RadarrImage } from '../radarr.types';
+import { useAutoSearchState } from '../hooks/useAutoSearchState';
+import { computeMovieDisplayState, getPillDisplayProps, getAttentionReferenceDate } from '../hooks/radarrDisplayState';
+import { formatDisplayDate } from '../../_shared/media/format';
+import type { WantedMovie, CalendarMovie, RadarrRelease, RadarrImage, ReleaseTypeVisibility } from '../radarr.types';
 import '../styles.css';
 
 // ============================================================================
@@ -42,7 +45,6 @@ interface MovieDetailModalProps {
 }
 
 type ModalView = 'info' | 'searching' | 'results';
-type AutoSearchState = 'idle' | 'searching' | 'success' | 'error';
 
 // ============================================================================
 // HELPERS
@@ -90,28 +92,75 @@ function getPosterUrl(
     return `/api/integrations/${integrationId}/proxy/image?url=${encodeURIComponent(imageUrl)}`;
 }
 
-/** 3-state movie status: available > upcoming > missing */
-type MovieStatus = 'available' | 'upcoming' | 'missing';
+/** 4-state movie status: available > upcoming > missing > cutoffUnmet */
+type MovieStatus = 'available' | 'upcoming' | 'missing' | 'cutoffUnmet';
 
-function getMovieStatus(movie: WantedMovie | CalendarMovie): MovieStatus {
-    // If Radarr has the file downloaded → available
-    if (movie.hasFile) return 'available';
-
-    // Future digital release → upcoming
-    if (movie.digitalRelease && new Date(movie.digitalRelease).getTime() > Date.now()) return 'upcoming';
-
-    // No digital release announced at all → still upcoming (waiting for digital)
-    if (!movie.digitalRelease) return 'upcoming';
-
-    // Past digital release + no file → missing
-    return 'missing';
+interface MovieStatusResult {
+    status: MovieStatus;
+    label: string;
+    color: string;
 }
 
-const STATUS_INFO: Record<MovieStatus, { label: string; color: string }> = {
-    available: { label: 'Available', color: 'var(--success)' },
-    upcoming: { label: 'Upcoming', color: 'var(--info)' },
-    missing: { label: 'Missing', color: 'var(--error)' },
+/** Modal's status chip has no per-type visibility toggle — always evaluate all three. */
+const ALL_RELEASE_TYPES_VISIBLE: ReleaseTypeVisibility = { showCinema: true, showDigital: true, showPhysical: true };
+
+const RELEASE_TYPE_LABEL: Record<'cinema' | 'digital' | 'physical', string> = {
+    cinema: 'In Cinemas',
+    digital: 'Digital Release',
+    physical: 'Physical Release',
 };
+
+const RELEASE_TYPE_COLOR: Record<'cinema' | 'digital' | 'physical', string> = {
+    cinema: 'var(--cinema)',
+    digital: 'var(--digital)',
+    physical: 'var(--physical)',
+};
+
+/**
+ * Status chip's label/color, driven by the exact same 7-state release-date
+ * decision tree the Hero/carousel/attention pills use
+ * (`computeMovieDisplayState`) instead of a separately-maintained simplified
+ * check. Fixes a real contradiction: the old logic only ever looked at
+ * `digitalRelease` and defaulted to "Upcoming" whenever that one field was
+ * absent — so a movie whose only release milestone was an already-past
+ * `physicalRelease` (no digital release announced) showed "Upcoming" here
+ * while its Needs Attention pill correctly showed "Physical · [past date]".
+ */
+function resolveMovieStatus(movie: WantedMovie | CalendarMovie): MovieStatusResult {
+    // If Radarr has the file downloaded → available, unless it's below the quality cutoff
+    if (movie.hasFile) {
+        return movie.cutoffNotMet
+            ? { status: 'cutoffUnmet', label: 'Cutoff Unmet', color: 'var(--warning)' }
+            : { status: 'available', label: 'Available', color: 'var(--success)' };
+    }
+
+    const display = computeMovieDisplayState(movie, new Date(), ALL_RELEASE_TYPES_VISIBLE);
+    const pill = display ? getPillDisplayProps(display) : null;
+    if (display && pill) {
+        const typeLabel = RELEASE_TYPE_LABEL[pill.type];
+        const color = RELEASE_TYPE_COLOR[pill.type];
+        if (display.state === 3) {
+            return { status: 'upcoming', label: `${typeLabel} Now`, color };
+        }
+        const countdown = formatCountdown(display.displayDate ?? undefined);
+        const label = countdown ? `${typeLabel} ${countdown}` : `${typeLabel} · ${formatDisplayDate(display.displayDate)}`;
+        return { status: 'upcoming', label, color };
+    }
+
+    // Nothing left to anticipate (7-state tree returned null) — genuinely
+    // missing, not upcoming. Surface the same reference-date info the Needs
+    // Attention pill shows (`getAttentionReferenceDate`) instead of a bare,
+    // contextless "Missing".
+    const ref = getAttentionReferenceDate(movie);
+    if (ref) {
+        return {
+            status: 'missing',
+            label: `Missing · ${RELEASE_TYPE_LABEL[ref.type]} ${formatDisplayDate(ref.date)}`,
+            color: 'var(--error)',
+        };
+    }
+    return { status: 'missing', label: 'Missing', color: 'var(--error)' };
+}
 
 // ============================================================================
 // COMPONENT
@@ -128,7 +177,7 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
     userIsAdmin = true,
 }) => {
     const [view, setView] = useState<ModalView>('info');
-    const [autoSearchState, setAutoSearchState] = useState<AutoSearchState>('idle');
+    const { state: autoSearchState, trigger: triggerAutoSearchState, reset: resetAutoSearchState } = useAutoSearchState();
     const [releases, setReleases] = useState<RadarrRelease[]>([]);
     const [grabbingGuid, setGrabbingGuid] = useState<string | null>(null);
     const [grabSuccess, setGrabSuccess] = useState<string | null>(null);
@@ -141,7 +190,7 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
     // Reset all modal state (called on open via handleOpenChange)
     const resetModalState = useCallback(() => {
         setView('info');
-        setAutoSearchState('idle');
+        resetAutoSearchState();
         setReleases([]);
         setGrabbingGuid(null);
         setGrabSuccess(null);
@@ -150,7 +199,7 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
         setSearchError(null);
         setSearchingText('Searching indexers…');
         if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    }, []);
+    }, [resetAutoSearchState]);
 
     const handleOpenChange = useCallback((newOpen: boolean) => {
         if (newOpen) {
@@ -161,20 +210,10 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
 
     // ---------- Actions ----------
 
-    const handleAutoSearch = useCallback(async () => {
-        if (!movie || autoSearchState === 'searching') return;
-
-        setAutoSearchState('searching');
-        const success = await triggerAutoSearch([movie.id]);
-
-        if (success) {
-            setAutoSearchState('success');
-            setTimeout(() => setAutoSearchState('idle'), 2500);
-        } else {
-            setAutoSearchState('error');
-            setTimeout(() => setAutoSearchState('idle'), 3000);
-        }
-    }, [movie, autoSearchState, triggerAutoSearch]);
+    const handleAutoSearch = useCallback(() => {
+        if (!movie) return;
+        triggerAutoSearchState(() => triggerAutoSearch([movie.id]));
+    }, [movie, triggerAutoSearch, triggerAutoSearchState]);
 
     const handleInteractiveSearch = useCallback(async () => {
         if (!movie) return;
@@ -244,7 +283,10 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
 
     // ---------- Derived ----------
 
-    const movieStatus = movie ? getMovieStatus(movie) : 'missing';
+    const movieStatusResult: MovieStatusResult = movie
+        ? resolveMovieStatus(movie)
+        : { status: 'missing', label: 'Missing', color: 'var(--error)' };
+    const movieStatus = movieStatusResult.status;
 
     if (!movie) return null;
 
@@ -256,7 +298,6 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
     // Dates — digitalRelease primary, inCinemas fallback
     const primaryDate = movie.digitalRelease || movie.inCinemas;
     const displayDate = formatReleaseDate(primaryDate);
-    const countdown = formatCountdown(movie.digitalRelease || movie.inCinemas);
 
     // Metadata
     const rating = movie.ratings?.value;
@@ -264,12 +305,6 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
     const genres = movie.genres || [];
     const tmdbId = movie.tmdbId;
     const imdbId = movie.imdbId;
-
-    // Status badge
-    const baseStatus = STATUS_INFO[movieStatus];
-    const statusInfo = movieStatus === 'upcoming' && countdown
-        ? { label: `Releases ${countdown}`, color: baseStatus.color }
-        : baseStatus;
 
     return (
         <Modal open={open} onOpenChange={handleOpenChange} size="lg" fixedHeight>
@@ -393,14 +428,14 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
                                     display: 'inline-block',
                                     marginTop: '0.75rem',
                                     padding: '0.25rem 0.75rem',
-                                    background: `${statusInfo.color}20`,
-                                    border: `1px solid ${statusInfo.color}40`,
+                                    background: `${movieStatusResult.color}20`,
+                                    border: `1px solid ${movieStatusResult.color}40`,
                                     borderRadius: '6px',
                                     fontSize: '0.85rem',
                                     fontWeight: 600,
-                                    color: statusInfo.color
+                                    color: movieStatusResult.color
                                 }}>
-                                    {statusInfo.label}
+                                    {movieStatusResult.label}
                                 </div>
 
                                 {/* External links — IMDB + TMDB */}
@@ -477,8 +512,12 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
                                     {movie.inCinemas ? formatReleaseDate(movie.inCinemas) : 'TBA'}
                                 </div>
                                 <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                                    <span style={{ color: 'var(--text-secondary)', marginRight: '0.5rem' }}>Digital:</span>
+                                    <span style={{ color: 'var(--text-secondary)', marginRight: '0.5rem' }}>Digital Release:</span>
                                     {movie.digitalRelease ? formatReleaseDate(movie.digitalRelease) : 'TBA'}
+                                </div>
+                                <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                    <span style={{ color: 'var(--text-secondary)', marginRight: '0.5rem' }}>Physical Release:</span>
+                                    {movie.physicalRelease ? formatReleaseDate(movie.physicalRelease) : 'TBA'}
                                 </div>
                             </div>
                         </div>

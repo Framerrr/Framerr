@@ -87,13 +87,15 @@ export interface CalendarMovie {
 
 /**
  * Poll Radarr calendar for a specific instance.
- * Returns movies for 90-day window (30 days past, 60 days future).
+ * Wide feed window so Calendar / Radarr / Sonarr widgets can filter per-config
+ * (including look-ahead/back "all"). Keep in sync with Sonarr pollCalendar and
+ * CalendarWidget FEED_* constants: 365 days past → 730 days future.
  */
 export async function pollCalendar(instance: PluginInstance, adapter: PluginAdapter): Promise<CalendarMovie[]> {
-    // Calendar window: 30 days past → 60 days future
     const now = Date.now();
-    const startDate = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const endDate = new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const MS_DAY = 24 * 60 * 60 * 1000;
+    const startDate = new Date(now - 365 * MS_DAY).toISOString().split('T')[0];
+    const endDate = new Date(now + 730 * MS_DAY).toISOString().split('T')[0];
 
     const response = await adapter.get!(instance, '/api/v3/calendar', {
         params: { start: startDate, end: endDate, unmonitored: false },

@@ -16,7 +16,12 @@
     overflow: hidden;
 }
 
-/* 4-column grid — rows auto-created from content, each gets equal height */
+/*
+ * Shared scale tokens live on the GRID as absolute lengths (no cq units).
+ * Custom properties resolve cq* on the *using* element — if --ss-bar-h used
+ * 8cqh, Temp (tall gauge-partner cell) became thicker than Memory/Disks.
+ * @container steps below keep one shared size for every bar/label.
+ */
 .system-status-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -27,6 +32,66 @@
     padding: 8px;
     gap: 2px 0.375rem;
     overflow: hidden;
+
+    --ss-label-size: 0.75rem;
+    --ss-value-size: 1.05rem;
+    --ss-icon-size: 13px;
+    --ss-label-gap: 0.3rem;
+    --ss-stack-gap: 0.4rem;
+    --ss-bar-h: 12px;
+    --ss-bar-gap: 4px;
+}
+
+/* Taller widgets → thicker bars (same value for every card) */
+@container system-status (min-height: 280px) {
+    .system-status-grid {
+        --ss-bar-h: 14px;
+        --ss-bar-gap: 5px;
+    }
+}
+
+@container system-status (min-height: 380px) {
+    .system-status-grid {
+        --ss-bar-h: 15px;
+        --ss-label-size: 0.8rem;
+        --ss-icon-size: 14px;
+        --ss-value-size: 1.15rem;
+    }
+}
+
+@container system-status (min-height: 500px) {
+    .system-status-grid {
+        --ss-bar-h: 16px;
+        --ss-bar-gap: 6px;
+        --ss-value-size: 1.25rem;
+    }
+}
+
+@container system-status (min-height: 620px) {
+    .system-status-grid {
+        --ss-bar-h: 17px;
+    }
+}
+
+@container system-status (max-width: 279px) {
+    .system-status-grid {
+        --ss-label-size: 0.7rem;
+        --ss-icon-size: 12px;
+        --ss-bar-h: 11px;
+        --ss-value-size: 0.95rem;
+    }
+}
+
+@container system-status (max-width: 279px) and (min-height: 400px) {
+    .system-status-grid {
+        --ss-bar-h: 13px;
+    }
+}
+
+@container system-status (max-width: 279px) and (min-height: 550px) {
+    .system-status-grid {
+        --ss-bar-h: 15px;
+    }
 }
 
 /* ===== Span classes ===== */
@@ -46,6 +111,17 @@
     grid-column: span 4;
 }
 
+/* Gauge packing rows occupy 2 CSS grid tracks (taller rings; partners on same row match) */
+.metric-card--row-span-2 {
+    grid-row: span 2;
+}
+
+/* Bar cards stretched tall next to a gauge: keep content compact, don’t invent a taller bar */
+.metric-card--row-span-2:not(.metric-card--gauge):not(.metric-card--vertical) .metric-card__inner {
+    justify-content: center;
+    gap: clamp(0.25rem, 1.2cqh, 0.5rem);
+}
+
 /* ===== Metric Card ===== */
 .metric-card {
     background: transparent;
@@ -56,9 +132,11 @@
     min-height: 0;
     overflow: hidden;
     transition: background 0.15s ease;
-    container-type: inline-size;
+    /* Card size container still used by gauge ring square sizing */
+    container-type: size;
     container-name: metric;
     box-sizing: border-box;
+    /* Inherit --ss-* from .system-status-grid (absolute tokens; do not redefine per-card) */
 }
 
 /* Inner flex wrapper — this is the layout target */
@@ -92,31 +170,43 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.8rem;
+    font-size: var(--ss-label-size);
+    line-height: 1.3;
     color: var(--text-primary);
-    gap: 0.375rem;
+    gap: var(--ss-label-gap);
     min-width: 0;
+    /* Never let the gauge/body flex-shrink this — clips descenders (e.g. "y") + icons */
+    flex-shrink: 0;
     overflow: hidden;
+    /* Stay above gauge SVG overflow / stacking from neighboring cards */
+    position: relative;
+    z-index: 2;
 }
 
 .metric-card__label {
     display: flex;
     align-items: center;
-    gap: 0.375rem;
+    gap: var(--ss-label-gap);
     font-weight: 500;
+    line-height: 1.3;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    position: relative;
+    z-index: 2;
 }
 
 .metric-card__label svg {
     flex-shrink: 0;
+    overflow: visible;
+    width: var(--ss-icon-size);
+    height: var(--ss-icon-size);
     color: var(--text-secondary);
 }
 
 /* Array status badge (shown on disk card for Unraid) */
 .metric-card__badge {
-    font-size: 0.6rem;
+    font-size: clamp(0.5rem, 1.5cqmin, 0.6rem);
     font-weight: 600;
     text-transform: capitalize;
     padding: 0.05rem 0.35rem;
@@ -136,7 +226,7 @@
 }
 
 .metric-card__value {
-    font-size: 0.8rem;
+    font-size: var(--ss-label-size);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     min-width: 0;
@@ -146,15 +236,16 @@
     line-height: 1.2;
 }
 
-/* Progress bar — consistent 14px height at all sizes */
+/* Progress bar — fixed shared height (never flex-grows per card) */
 .metric-card__progress {
-    flex: 1 1 auto;
-    min-height: 14px;
-    max-height: 14px;
+    flex: 0 0 auto;
+    height: var(--ss-bar-h);
+    min-height: var(--ss-bar-h);
+    max-height: var(--ss-bar-h);
     border-radius: 9999px;
     background: var(--bg-tertiary);
     overflow: hidden;
-    margin-top: clamp(2px, 1cqb, 6px);
+    margin-top: var(--ss-bar-gap);
 }
 
 .metric-card__progress-fill {
@@ -167,9 +258,12 @@
 .metric-card__progress--labeled {
     position: relative;
     display: flex;
-    height: 14px;
-    min-height: 14px;
-    max-height: 14px;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    height: var(--ss-bar-h);
+    min-height: var(--ss-bar-h);
+    max-height: var(--ss-bar-h);
+    overflow: hidden;
 }
 
 .metric-card__progress--labeled .metric-card__progress-fill {
@@ -185,7 +279,7 @@
 }
 
 .metric-card__bar-label {
-    font-size: 0.625rem;
+    font-size: clamp(0.5rem, 1.6cqmin, 0.625rem);
     font-weight: 600;
     white-space: nowrap;
     line-height: 1;
@@ -271,16 +365,17 @@
     }
 }
 
-/* Vertical layout variant — label/icon stacked above value */
+/* Vertical layout variant — label/icon stacked above value (uptime) */
 .metric-card--vertical .metric-card__inner {
     align-items: center;
     text-align: center;
-    gap: 0;
+    gap: clamp(0.1rem, 2cqmin, 0.25rem);
 }
 
 .metric-card--vertical .metric-card__header {
     flex-direction: column;
     gap: 0;
+    align-items: center;
 }
 
 /* Tight padding for vertical cards — fits in compact spaces */
@@ -289,17 +384,20 @@
     padding-bottom: 0.125rem;
 }
 
-
+/* Same label chrome as gauge captions / bar headers */
 .metric-card--vertical .metric-card__label {
-    font-size: clamp(0.55rem, 6cqi, 0.75rem);
-    color: var(--text-secondary);
+    font-size: var(--ss-label-size);
+    font-weight: 500;
+    color: var(--text-primary);
+    justify-content: center;
 }
 
+/* Same emphasis as gauge center value */
 .metric-card--vertical .metric-card__value {
-    font-size: clamp(0.6rem, 12cqi, 1.3rem);
+    font-size: var(--ss-value-size);
     font-weight: 700;
     text-align: center;
-    line-height: 1.15;
+    line-height: 1.1;
 }
 
 /* ===== INLINE MODE: short widget (h=1) ===== */
@@ -326,13 +424,13 @@
     flex-shrink: 0;
 }
 
-/* Progress bar: fills space between label and value */
+/* Progress bar: shared height; flex only for width between label and value */
 .system-status--inline .metric-card__progress {
     order: 1;
     flex: 1 1 0;
-    height: 14px;
-    min-height: 14px;
-    max-height: 14px;
+    height: var(--ss-bar-h);
+    min-height: var(--ss-bar-h);
+    max-height: var(--ss-bar-h);
     margin-top: 0;
 }
 
@@ -549,7 +647,27 @@
     min-width: 0;
     overflow: hidden;
     pointer-events: none;
-    /* Allow drag through info area */
+    /* Drag handle + viz toggle re-enable their own pointer events below */
+}
+
+.metric-slot-drag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+    cursor: grab;
+    pointer-events: auto;
+}
+
+.metric-slot-drag:active {
+    cursor: grabbing;
+}
+
+.metric-slot-drag span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .metric-slot-remove {
@@ -784,4 +902,257 @@
 .system-status--inline .metric-card--disk .metric-card__disk-chevron {
     display: none;
     /* no room for chevron in inline */
+}
+
+/* ============================================================= */
+/* CIRCULAR GAUGE                                                 */
+/* ============================================================= */
+
+.metric-gauge {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* 90% of the slot; stroke still tracks --ss-bar-h via CircularGauge. */
+    width: min(90cqw, 90cqh);
+    height: min(90cqw, 90cqh);
+    max-width: 100%;
+    max-height: 100%;
+    aspect-ratio: 1;
+    flex: 0 0 auto;
+    min-width: 0;
+    min-height: 0;
+    /* Text scales with the ring itself, not the full metric card */
+    container-type: size;
+    container-name: gauge;
+    /* Ring-local typography (bars keep widget-scoped tokens) */
+    --ss-value-size: clamp(0.62rem, 18cqmin, 1.15rem);
+    --ss-label-size: clamp(0.58rem, 12cqmin, 0.85rem);
+    --ss-icon-size: clamp(11px, 13cqmin, 15px);
+    --ss-label-gap: clamp(0.2rem, 3.5cqmin, 0.375rem);
+    --ss-stack-gap: clamp(0.2rem, 7cqmin, 0.55rem);
+}
+
+.metric-gauge__svg {
+    width: 100%;
+    height: 100%;
+    /* Start arc at 12 o'clock; grows clockwise */
+    transform: rotate(-90deg);
+    overflow: visible;
+    position: relative;
+    z-index: 0;
+}
+
+/*
+ * Stroke width + radius come from CircularGauge (measured to match
+ * --ss-bar-h). Keep CSS free of cq-based stroke calc — invalid/tiny
+ * cqmin made stroke huge and filled the ring into a solid blob.
+ */
+.metric-gauge__track {
+    fill: none;
+    stroke: var(--bg-tertiary);
+}
+
+.metric-gauge__fill {
+    fill: none;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.4s ease, stroke 0.4s ease;
+}
+
+.metric-gauge__center {
+    position: absolute;
+    z-index: 1;
+    /* Keep text clear of the stroke; scale padding with ring size */
+    /* Keep text clear of the stroke without starving the label area */
+    inset: clamp(14%, 17cqmin, 20%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ss-stack-gap, clamp(0.2rem, 7cqmin, 0.55rem));
+    text-align: center;
+    pointer-events: none;
+    min-width: 0;
+}
+
+.metric-gauge__value {
+    font-size: var(--ss-value-size, clamp(0.6rem, 17cqmin, 1.1rem));
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary);
+    line-height: 1.05;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Match bar-card label chrome; inherits shared --ss-* from .metric-card */
+.metric-gauge__caption {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ss-label-gap, clamp(0.2rem, 3.5cqmin, 0.375rem));
+    font-size: var(--ss-label-size, clamp(0.55rem, 11cqmin, 0.8rem));
+    font-weight: 500;
+    line-height: 1.3;
+    color: var(--text-primary);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.metric-gauge__caption svg {
+    flex-shrink: 0;
+    overflow: visible;
+    width: var(--ss-icon-size, clamp(10px, 12cqmin, 14px));
+    height: var(--ss-icon-size, clamp(10px, 12cqmin, 14px));
+    color: var(--text-secondary);
+}
+
+/* Size containers so rings use the largest square that fits the slot */
+.metric-card__gauge-wrap {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 0;
+    align-self: stretch;
+    position: relative;
+    z-index: 0;
+    overflow: visible;
+    container-type: size;
+    container-name: gauge-slot;
+}
+
+/* Disk cards: ring + byte-usage caption stacked (used/free doesn't fit inside a bar-shaped label here) */
+.metric-card__gauge-row {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+    align-self: stretch;
+    container-type: size;
+    container-name: gauge-slot;
+}
+
+/* Gauge cards: ring fills the card; metric name lives inside the ring */
+.metric-card--gauge {
+    padding: 0.25rem;
+    /* Give the slot a definite size for cq min()/size queries */
+    min-height: 0;
+    overflow: visible;
+}
+
+.metric-card--gauge .metric-card__inner {
+    position: relative;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    min-height: 0;
+    height: 100%;
+}
+
+/* External header hidden — name/icon are in .metric-gauge__caption */
+.metric-card--gauge:not(.metric-card--disk) .metric-card__header {
+    display: none;
+}
+
+/* Disk gauges: keep status/chevron chrome in a corner; name is inside the ring */
+.metric-card--gauge.metric-card--disk .metric-card__header {
+    position: absolute;
+    top: 0.15rem;
+    right: 0.15rem;
+    left: auto;
+    width: auto;
+    max-width: 45%;
+    z-index: 3;
+    justify-content: flex-end;
+    overflow: visible;
+    padding: 0;
+}
+
+.metric-card--gauge.metric-card--disk .metric-card__label {
+    gap: 0.2rem;
+}
+
+/* Thin / auto-stacked widgets: tighten gauge chrome so % + title still fit */
+@container system-status (max-width: 279px) {
+    .metric-card--gauge {
+        padding: 0.15rem;
+    }
+
+    .metric-gauge__center {
+        gap: clamp(0.15rem, 5cqmin, 0.4rem);
+    }
+
+    .metric-card__gauge-caption {
+        font-size: 0.55rem;
+    }
+}
+
+/* Disk used/free caption under the ring */
+.metric-card__gauge-caption {
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    flex-shrink: 0;
+}
+
+/* ============================================================= */
+/* METRIC LAYOUT EDITOR — bar/gauge viz toggle                    */
+/* ============================================================= */
+
+.metric-viz-toggle {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+    margin-left: auto;
+    margin-right: 1.25rem; /* clear absolute × remove control on the right */
+    position: relative;
+    z-index: 2;
+    pointer-events: auto; /* parent .metric-slot-info has pointer-events: none */
+}
+
+.metric-viz-toggle__btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+@media (hover: hover) {
+    .metric-viz-toggle__btn:hover:not(:disabled) {
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+}
+
+.metric-viz-toggle__btn--active {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 15%, var(--bg-secondary));
+    color: var(--accent);
+}
+
+.metric-viz-toggle__btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
 }

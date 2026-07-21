@@ -32,6 +32,8 @@ export interface CalendarMovie {
     images?: RadarrImage[];
     hasFile?: boolean;
     status?: string; // 'released', 'announced', 'inCinemas'
+    /** Radarr's native cutoff-quality flag. Only meaningful when hasFile is true. */
+    cutoffNotMet?: boolean;
 }
 
 /** Missing/wanted movie from proxy API */
@@ -51,6 +53,8 @@ export interface WantedMovie {
     images?: RadarrImage[];
     hasFile?: boolean;
     status?: string;
+    /** Radarr's native cutoff-quality flag. True when on-disk but below target quality. */
+    cutoffNotMet?: boolean;
 }
 
 /** Paginated response from wanted/missing and wanted/cutoff */
@@ -101,12 +105,33 @@ export interface QueueItem {
     status: string;               // 'downloading' | 'delay' | 'completed' | 'failed' | etc.
     trackedDownloadStatus?: string; // 'ok' | 'warning' | 'error'
     trackedDownloadState?: string;  // 'downloading' | 'importPending' | 'importing' | 'failedPending'
+    progress?: number;
+    timeleft?: string;
+}
+
+/** 7-state release-date decision tree output (spec §1.4) */
+export type MovieDisplayState = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+export interface MovieDisplayInfo {
+    state: MovieDisplayState;
+    displayDate: string | null;
+    displayType: 'cinema' | 'digital' | 'physical' | null;
+    sortKey: number;
+}
+
+/** Config-driven release-type visibility flags (spec §1.8's `showReleasePills`, reshaped) */
+export interface ReleaseTypeVisibility {
+    showCinema: boolean;
+    showDigital: boolean;
+    showPhysical: boolean;
 }
 
 /** Data returned by useRadarrData hook */
 export interface RadarrWidgetData {
     // From SSE
     upcoming: CalendarMovie[];
+    /** Display info for each `upcoming` movie, computed once (correctly, per the active `sortBy` mode) at fetch time — keyed by movie id. Consumers (HeroCard, UpcomingCarousel) must look up here rather than recomputing, since recomputing via the 7-state tree would give the wrong answer whenever `sortBy` is a strict date-type mode. */
+    upcomingDisplay: Map<number, MovieDisplayInfo>;
     missingCounts: MissingCounts | null;
     queueItems: QueueItem[];
     calendarConnected: boolean;
@@ -118,6 +143,13 @@ export interface RadarrWidgetData {
     missingHasMore: boolean;
     loadMoreMissing: () => void;
     refreshMissing: () => void;
+
+    // Cutoff-unmet list (on-demand fetch)
+    cutoffMovies: WantedMovie[];
+    cutoffLoading: boolean;
+    cutoffHasMore: boolean;
+    loadMoreCutoff: () => void;
+    refreshCutoff: () => void;
 
     // Error
     error: string | null;

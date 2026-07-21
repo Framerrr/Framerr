@@ -109,8 +109,21 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
     monitorHasChanges
 }) => {
 
-    // Ref for MetricHistorySection dirty state — committed on modal save
-    const metricHistoryRef = useRef<MetricHistorySectionHandle>(null);
+    // Per-instance refs for MetricHistorySection — keyed by instanceId
+    const metricHistoryRefs = useRef<Map<string, MetricHistorySectionHandle>>(new Map());
+
+    // Track which instances have pending metric history changes
+    const [metricHistoryDirtyIds, setMetricHistoryDirtyIds] = useState<Set<string>>(new Set());
+
+    // Stable callback — passed as onDirtyChange to every MetricHistorySection
+    const handleMetricHistoryDirtyChange = useCallback((instanceId: string, dirty: boolean) => {
+        setMetricHistoryDirtyIds(prev => {
+            const next = new Set(prev);
+            if (dirty) next.add(instanceId);
+            else next.delete(instanceId);
+            return next;
+        });
+    }, []);
 
     // Derive service definitions from schemas prop (or fallback to empty)
     const serviceDefinitions = useMemo(() => {
@@ -149,6 +162,9 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
             onCancel(); // Refetch integrations to discard any unsaved changes
         }
         setActiveModal(null);
+        if (instanceId) {
+            metricHistoryRefs.current.get(instanceId)?.reset();
+        }
     };
 
     const handleModalSave = async (instanceId: string, overrides?: { enabled?: boolean }) => {
@@ -165,7 +181,7 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
             await onUptimeKumaSave();
         }
         // Commit metric history dirty state (no-op if nothing changed)
-        await metricHistoryRef.current?.save();
+        await metricHistoryRefs.current.get(instanceId)?.save();
         await onSave(instanceId, overrides);  // Single-instance save with optional overrides
         setActiveModal(null); // Close modal after successful save
     };
@@ -403,10 +419,11 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
                         hasUnsavedChanges={
                             instance.type === 'monitor'
                                 ? (hasInstanceChanges(instance.id) || !!monitorHasChanges)
-                                : hasInstanceChanges(instance.id)
+                                : (hasInstanceChanges(instance.id) || metricHistoryDirtyIds.has(instance.id))
                         }
                         onDiscard={() => {
                             onReset(instance.id);
+                            metricHistoryRefs.current.get(instance.id)?.reset();
                             setActiveModal(null);
                         }}
                         webhookContent={supportsWebhook ? (
@@ -458,7 +475,14 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
                         {renderFormContent(instance.type, instance.id)}
                         {/* Metric History controls for system-status integrations */}
                         {schemaInfo?.metrics && schemaInfo.metrics.length > 0 && (
-                            <MetricHistorySection ref={metricHistoryRef} integrationId={instance.id} />
+                            <MetricHistorySection
+                                ref={(el) => {
+                                    if (el) metricHistoryRefs.current.set(instance.id, el);
+                                    else metricHistoryRefs.current.delete(instance.id);
+                                }}
+                                integrationId={instance.id}
+                                onDirtyChange={handleMetricHistoryDirtyChange}
+                            />
                         )}
                     </ServiceConfigModal>
                 );

@@ -26,14 +26,27 @@ export const plugin: WidgetPlugin = {
         options: [
             {
                 key: 'itemCount',
-                label: 'Items to Show',
+                label: 'List Items',
                 type: 'buttons',
-                defaultValue: '5',
+                defaultValue: '10',
                 choices: [
                     { value: '5', label: '5' },
                     { value: '10', label: '10' },
-                    { value: '15', label: '15' },
                     { value: '20', label: '20' },
+                    { value: '50', label: '50' },
+                ],
+            },
+            {
+                key: 'statsTimeRange',
+                label: 'Stats Time Range',
+                type: 'buttons',
+                defaultValue: '90',
+                choices: [
+                    { value: '30', label: '1 Month' },
+                    { value: '90', label: '3 Months' },
+                    { value: '180', label: '6 Months' },
+                    { value: '365', label: '1 Year' },
+                    { value: '36500', label: 'All Time' },
                 ],
             },
             {

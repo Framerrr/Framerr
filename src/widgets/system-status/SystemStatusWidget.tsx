@@ -27,6 +27,7 @@ import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
 import MetricGraphPopover from './popovers/MetricGraphPopover';
 import NetworkMetricCard from './components/NetworkMetricCard';
 import DiskMetricCard from './components/DiskMetricCard';
+import CircularGauge from './components/CircularGauge';
 import { useMetricConfig, PackedMetric } from './hooks/useMetricConfig';
 import { StatusData, SystemStatusWidgetProps } from './types';
 import './styles.css';
@@ -77,6 +78,7 @@ function buildCardClasses(metric: PackedMetric, visibleCount: number): string {
     const classes = [
         'metric-card',
         `metric-card--span-${metric.effectiveSpan}`,
+        `metric-card--row-span-${metric.rowSpan || 1}`,
     ];
 
     if (metric.vizType === 'text') {
@@ -84,6 +86,10 @@ function buildCardClasses(metric: PackedMetric, visibleCount: number): string {
         if (visibleCount > 2) {
             classes.push('metric-card--borderless');
         }
+    }
+
+    if (metric.vizType === 'progress' && metric.viz === 'gauge') {
+        classes.push('metric-card--gauge');
     }
 
     return classes.filter(Boolean).join(' ');
@@ -104,6 +110,7 @@ interface MetricCardProps {
 const MetricCard: React.FC<MetricCardProps> = ({ metric, value, visibleCount, arrayStatus }) => {
     const numValue = Number(value || 0);
     const cardClasses = buildCardClasses(metric, visibleCount);
+    const isGauge = metric.vizType === 'progress' && metric.viz === 'gauge';
 
     return (
         <div className={cardClasses}>
@@ -119,20 +126,44 @@ const MetricCard: React.FC<MetricCardProps> = ({ metric, value, visibleCount, ar
                             </span>
                         )}
                     </span>
-                    <span className="metric-card__value">
-                        {formatValue(metric.key, value, metric.unit)}
-                    </span>
+                    {!isGauge && (
+                        <span className="metric-card__value">
+                            {formatValue(metric.key, value, metric.unit)}
+                        </span>
+                    )}
                 </div>
                 {metric.vizType === 'progress' && (
-                    <div className="metric-card__progress">
-                        <div
-                            className="metric-card__progress-fill"
-                            style={{
-                                width: `${getProgressWidth(metric.key, numValue)}%`,
-                                backgroundColor: getValueColor(numValue),
-                            }}
-                        />
-                    </div>
+                    isGauge ? (
+                        <div className="metric-card__gauge-wrap">
+                            <CircularGauge
+                                value={getProgressWidth(metric.key, numValue)}
+                                color={getValueColor(numValue)}
+                                label={formatValue(metric.key, value, metric.unit)}
+                                caption={
+                                    <>
+                                        <metric.icon size={14} />
+                                        {metric.label}
+                                        {metric.key === 'diskUsage' && arrayStatus && (
+                                            <span className={`metric-card__badge metric-card__badge--${arrayStatus === 'healthy' ? 'success' : 'warning'}`}>
+                                                {arrayStatus}
+                                            </span>
+                                        )}
+                                    </>
+                                }
+                                ariaLabel={`${metric.label} ${formatValue(metric.key, value, metric.unit)}`}
+                            />
+                        </div>
+                    ) : (
+                        <div className="metric-card__progress">
+                            <div
+                                className="metric-card__progress-fill"
+                                style={{
+                                    width: `${getProgressWidth(metric.key, numValue)}%`,
+                                    backgroundColor: getValueColor(numValue),
+                                }}
+                            />
+                        </div>
+                    )
                 )}
             </div>
         </div>
@@ -346,7 +377,8 @@ const SystemStatusLive: React.FC<SystemStatusLiveProps> = ({
                                             disks={selectedDisks}
                                             isAggregate={true}
                                             isInline={liveIsInline}
-                                            spanClass={`metric-card--span-${metric.effectiveSpan}`}
+                                            spanClass={`metric-card--span-${metric.effectiveSpan} metric-card--row-span-${metric.rowSpan || 1}`}
+                                            viz={metric.viz}
                                         />
                                     );
                                 }
@@ -369,7 +401,8 @@ const SystemStatusLive: React.FC<SystemStatusLiveProps> = ({
                                         disk={disk}
                                         isAggregate={false}
                                         isInline={liveIsInline}
-                                        spanClass={`metric-card--span-${metric.effectiveSpan}`}
+                                        spanClass={`metric-card--span-${metric.effectiveSpan} metric-card--row-span-${metric.rowSpan || 1}`}
+                                        viz={metric.viz}
                                     />
                                 );
                             }
@@ -387,7 +420,8 @@ const SystemStatusLive: React.FC<SystemStatusLiveProps> = ({
                                 icon={metric.icon}
                                 integrationId={integrationId}
                                 historyEnabled={historyEnabled && recordableKeys.has(metric.key)}
-                                spanClass={`metric-card--span-${metric.effectiveSpan}`}
+                                spanClass={`metric-card--span-${metric.effectiveSpan} metric-card--row-span-${metric.rowSpan || 1}`}
+                                viz={metric.viz}
                             />
                         );
                     }

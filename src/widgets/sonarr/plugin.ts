@@ -24,6 +24,7 @@ export const plugin: WidgetPlugin = {
     compatibleIntegrations: ['sonarr'],
     defaultConfig: {
         viewMode: 'auto',
+        lookAheadDays: '7',
     },
     configConstraints: {
         contentPadding: 'none',  // Widget handles its own padding internally
@@ -41,13 +42,43 @@ export const plugin: WidgetPlugin = {
             },
             {
                 key: 'showStatsBar',
-                label: 'Stats Bar',
+                label: 'Summary Bar',
                 type: 'buttons',
                 defaultValue: 'true',
                 choices: [
                     { value: 'true', label: 'Show' },
                     { value: 'false', label: 'Hide' },
                 ],
+            },
+            {
+                key: 'lookAheadDays',
+                label: 'Look Ahead',
+                type: 'buttons',
+                defaultValue: '7',
+                choices: [
+                    { value: '3', label: '3d' },
+                    { value: '7', label: '7d' },
+                    { value: '14', label: '14d' },
+                    { value: '30', label: '30d' },
+                ],
+            },
+            {
+                key: 'showNetwork',
+                label: 'Show Network',
+                type: 'toggle',
+                defaultValue: true,
+            },
+            {
+                key: 'showSeasonProgress',
+                label: 'Season Progress',
+                type: 'toggle',
+                defaultValue: true,
+            },
+            {
+                key: 'highlightPremieres',
+                label: 'Highlight Premieres',
+                type: 'toggle',
+                defaultValue: true,
             },
         ]
     },

@@ -148,6 +148,7 @@ const NetworkMetricCard: React.FC<NetworkMetricCardProps> = ({ metric, value, vi
         'metric-card',
         'metric-card--network',
         `metric-card--span-${metric.effectiveSpan}`,
+        `metric-card--row-span-${metric.rowSpan || 1}`,
     ].join(' ');
 
     // Value classes — add border indicator when showing historical data

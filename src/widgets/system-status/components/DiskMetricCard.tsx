@@ -15,6 +15,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { HardDrive, AlertCircle, ChevronDown } from 'lucide-react';
 import { StatusDot, type MonitorStatus } from '@/shared/ui';
 import { Popover } from '../../../shared/ui';
+import CircularGauge from './CircularGauge';
 import type { DiskInfo } from '../types';
 
 // ============================================================================
@@ -120,9 +121,10 @@ function getMaxTemp(disks: DiskInfo[]): number | null {
 interface DiskRowProps {
     disk: DiskInfo;
     isInline: boolean;
+    viz?: 'bar' | 'gauge';
 }
 
-const DiskRow: React.FC<DiskRowProps> = ({ disk, isInline }) => {
+const DiskRow: React.FC<DiskRowProps> = ({ disk, isInline, viz = 'bar' }) => {
     const usage = disk.usagePercent ?? 0;
     const tooltip = buildTooltip(disk, isInline); // inline: temp in tooltip
     const usedBytes = disk.fsSize !== null && disk.fsFree !== null ? disk.fsSize - disk.fsFree : null;
@@ -132,8 +134,12 @@ const DiskRow: React.FC<DiskRowProps> = ({ disk, isInline }) => {
         <div className="metric-card__inner">
             <div className="metric-card__header">
                 <span className="metric-card__label">
-                    <HardDrive size={14} />
-                    {disk.name}
+                    {viz !== 'gauge' && (
+                        <>
+                            <HardDrive size={14} />
+                            {disk.name}
+                        </>
+                    )}
                     <StatusDot status={toMonitorStatus(disk.status)} size="sm" />
                     {/* Temp shown in expanded (non-inline) view only */}
                     {!isInline && disk.temp !== null && (
@@ -142,27 +148,47 @@ const DiskRow: React.FC<DiskRowProps> = ({ disk, isInline }) => {
                         </span>
                     )}
                 </span>
-                <span className="metric-card__value">
-                    {disk.usagePercent !== null ? `${disk.usagePercent}%` : '--'}
-                </span>
+                {viz !== 'gauge' && (
+                    <span className="metric-card__value">
+                        {disk.usagePercent !== null ? `${disk.usagePercent}%` : '--'}
+                    </span>
+                )}
             </div>
             {disk.usagePercent !== null && (
-                <div className="metric-card__progress metric-card__progress--labeled" title={tooltip}>
-                    <div
-                        className="metric-card__progress-fill"
-                        style={{
-                            width: `${usage}%`,
-                            backgroundColor: getUsageColor(usage),
-                        }}
-                    >
-                        {usedBytes !== null && (
-                            <span className="metric-card__bar-label metric-card__bar-label--used">{formatBytes(usedBytes)}</span>
+                viz === 'gauge' ? (
+                    <div className="metric-card__gauge-row">
+                        <CircularGauge
+                            value={usage}
+                            color={getUsageColor(usage)}
+                            label={`${usage}%`}
+                            caption={
+                                <>
+                                    <HardDrive size={14} />
+                                    {disk.name}
+                                </>
+                            }
+                            ariaLabel={`${disk.name} usage ${usage}%`}
+                        />
+                        {tooltip && <span className="metric-card__gauge-caption">{tooltip}</span>}
+                    </div>
+                ) : (
+                    <div className="metric-card__progress metric-card__progress--labeled" title={tooltip}>
+                        <div
+                            className="metric-card__progress-fill"
+                            style={{
+                                width: `${usage}%`,
+                                backgroundColor: getUsageColor(usage),
+                            }}
+                        >
+                            {usedBytes !== null && (
+                                <span className="metric-card__bar-label metric-card__bar-label--used">{formatBytes(usedBytes)}</span>
+                            )}
+                        </div>
+                        {freeBytes !== null && freeBytes > 0 && (
+                            <span className="metric-card__bar-label metric-card__bar-label--free">{formatBytes(freeBytes)}</span>
                         )}
                     </div>
-                    {freeBytes !== null && freeBytes > 0 && (
-                        <span className="metric-card__bar-label metric-card__bar-label--free">{formatBytes(freeBytes)}</span>
-                    )}
-                </div>
+                )
             )}
         </div>
     );
@@ -228,6 +254,7 @@ export interface DiskMetricCardProps {
     isInline: boolean;
     /** Span class for grid positioning */
     spanClass: string;
+    viz?: 'bar' | 'gauge';
 }
 
 const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
@@ -236,6 +263,7 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
     isAggregate,
     isInline,
     spanClass,
+    viz = 'bar',
 }) => {
     const [popoverOpen, setPopoverOpen] = useState(false);
     const triggerRef = useRef<HTMLDivElement>(null);
@@ -251,8 +279,8 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
     // ── Individual disk card ──
     if (!isAggregate && disk) {
         return (
-            <div className={`metric-card metric-card--disk ${spanClass}`}>
-                <DiskRow disk={disk} isInline={isInline} />
+            <div className={`metric-card metric-card--disk${viz === 'gauge' ? ' metric-card--gauge' : ''} ${spanClass}`}>
+                <DiskRow disk={disk} isInline={isInline} viz={viz} />
             </div>
         );
     }
@@ -266,7 +294,7 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
 
     const cardProps = {
         ref: triggerRef,
-        className: `metric-card metric-card--disk metric-card--disk-aggregate metric-card--clickable${popoverOpen ? ' metric-card--active' : ''} ${spanClass}`,
+        className: `metric-card metric-card--disk metric-card--disk-aggregate metric-card--clickable${popoverOpen ? ' metric-card--active' : ''}${viz === 'gauge' ? ' metric-card--gauge' : ''} ${spanClass}`,
         role: 'button' as const,
         tabIndex: 0,
     };
@@ -305,8 +333,12 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
         <div className="metric-card__inner">
             <div className="metric-card__header">
                 <span className="metric-card__label">
-                    <HardDrive size={14} />
-                    Disks
+                    {viz !== 'gauge' && (
+                        <>
+                            <HardDrive size={14} />
+                            Disks
+                        </>
+                    )}
                     <DiskWarningIndicator unhealthyDisks={unhealthyDisks} />
                     {!isInline && maxTemp !== null && (
                         <span className="metric-card__disk-temp">
@@ -318,11 +350,29 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
                         className={`metric-card__disk-chevron ${popoverOpen ? 'metric-card__disk-chevron--open' : ''}`}
                     />
                 </span>
-                <span className="metric-card__value">
-                    {aggregateUsage}%
-                </span>
+                {viz !== 'gauge' && (
+                    <span className="metric-card__value">
+                        {aggregateUsage}%
+                    </span>
+                )}
             </div>
-            {progressBar}
+            {viz === 'gauge' ? (
+                <div className="metric-card__gauge-row">
+                    <CircularGauge
+                        value={aggregateUsage}
+                        color={getUsageColor(aggregateUsage)}
+                        label={`${aggregateUsage}%`}
+                        caption={
+                            <>
+                                <HardDrive size={14} />
+                                Disks
+                            </>
+                        }
+                        ariaLabel={`Disk usage ${aggregateUsage}%`}
+                    />
+                    {aggregateTooltip && <span className="metric-card__gauge-caption">{aggregateTooltip}</span>}
+                </div>
+            ) : progressBar}
         </div>
     );
 

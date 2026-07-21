@@ -29,6 +29,7 @@ import { format } from 'date-fns';
 import logger from '../../../utils/logger';
 import api from '../../../api/client';
 import { usePopoverState } from '@/shared/hooks/usePopoverState';
+import CircularGauge from '../components/CircularGauge';
 import '../styles.css';
 
 // ============================================================================
@@ -81,6 +82,38 @@ interface MetricGraphPopoverProps {
     historyEnabled?: boolean;
     /** CSS class for grid column span (e.g., 'metric-card--span-2') */
     spanClass?: string;
+    viz?: 'bar' | 'gauge';
+}
+
+function renderVizBody(
+    viz: 'bar' | 'gauge',
+    fillPct: number,
+    fillStyle: React.CSSProperties,
+    color: string,
+    config: MetricConfig,
+    value: number,
+    metric: string,
+    caption?: React.ReactNode
+) {
+    if (viz === 'gauge') {
+        const label = `${Number(value || 0).toFixed(metric === 'temperature' ? 0 : 1)}${config.unit}`;
+        return (
+            <div className="metric-card__gauge-wrap">
+                <CircularGauge
+                    value={fillPct}
+                    color={color}
+                    label={label}
+                    caption={caption}
+                    ariaLabel={`${config.label} ${label}`}
+                />
+            </div>
+        );
+    }
+    return (
+        <div className="metric-card__progress">
+            <div className="metric-card__progress-fill" style={fillStyle} />
+        </div>
+    );
 }
 
 // ============================================================================
@@ -210,7 +243,7 @@ function getTickFormat(range: string): string {
 // Component
 // ============================================================================
 
-const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, icon: Icon, integrationId, historyEnabled = true, spanClass = '' }) => {
+const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, icon: Icon, integrationId, historyEnabled = true, spanClass = '', viz = 'bar' }) => {
     const { isOpen, onOpenChange } = usePopoverState();
     const [currentRange, setCurrentRange] = useState<TimeRange>('1h');
     const [apiData, setApiData] = useState<HistoryDataPoint[]>([]);
@@ -364,23 +397,25 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
 
     // Static metric card (no popover) - used when history is disabled
     const StaticMetricBar = (
-        <div className={`metric-card ${spanClass}`}>
+        <div className={`metric-card ${spanClass}${viz === 'gauge' ? ' metric-card--gauge' : ''}`}>
             <div className="metric-card__inner">
                 <div className="metric-card__header">
                     <span className="metric-card__label">
                         <Icon size={14} />
                         {config.label}
                     </span>
-                    <span className="metric-card__value">
-                        {Number(value || 0).toFixed(metric === 'temperature' ? 0 : 1)}{config.unit}
-                    </span>
+                    {viz !== 'gauge' && (
+                        <span className="metric-card__value">
+                            {Number(value || 0).toFixed(metric === 'temperature' ? 0 : 1)}{config.unit}
+                        </span>
+                    )}
                 </div>
-                <div className="metric-card__progress">
-                    <div
-                        className="metric-card__progress-fill"
-                        style={fillStyle}
-                    />
-                </div>
+                {renderVizBody(viz, fillPct, fillStyle, getColor(value), config, value, metric, (
+                    <>
+                        <Icon size={14} />
+                        {config.label}
+                    </>
+                ))}
             </div>
         </div>
     );
@@ -395,7 +430,7 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
             <Popover.Trigger asChild>
                 <button
                     type="button"
-                    className={`metric-card metric-card--clickable${isOpen ? ' metric-card--active' : ''} ${spanClass}`}
+                    className={`metric-card metric-card--clickable${isOpen ? ' metric-card--active' : ''}${viz === 'gauge' ? ' metric-card--gauge' : ''} ${spanClass}`}
                 >
                     <div className="metric-card__inner">
                         <div className="metric-card__header">
@@ -403,16 +438,18 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
                                 <Icon size={14} />
                                 {config.label}
                             </span>
-                            <span className="metric-card__value">
-                                {Number(value || 0).toFixed(metric === 'temperature' ? 0 : 1)}{config.unit}
-                            </span>
+                            {viz !== 'gauge' && (
+                                <span className="metric-card__value">
+                                    {Number(value || 0).toFixed(metric === 'temperature' ? 0 : 1)}{config.unit}
+                                </span>
+                            )}
                         </div>
-                        <div className="metric-card__progress">
-                            <div
-                                className="metric-card__progress-fill"
-                                style={fillStyle}
-                            />
-                        </div>
+                        {renderVizBody(viz, fillPct, fillStyle, getColor(value), config, value, metric, (
+                            <>
+                                <Icon size={14} />
+                                {config.label}
+                            </>
+                        ))}
                     </div>
                 </button>
             </Popover.Trigger>

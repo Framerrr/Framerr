@@ -8,7 +8,7 @@
  * Uses dirty state — changes are local until parent calls save() via ref.
  */
 
-import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallback } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallback, useMemo } from 'react';
 import { Activity, Loader2, Globe, HardDrive, Zap } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Switch } from '../../../shared/ui/Switch/Switch';
@@ -23,12 +23,15 @@ import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
 
 interface MetricHistorySectionProps {
     integrationId: string;
+    onDirtyChange?: (integrationId: string, dirty: boolean) => void;
 }
 
 /** Imperative handle exposed via ref */
 export interface MetricHistorySectionHandle {
     /** Commit pending changes to the server. No-op if nothing changed. */
     save: () => Promise<void>;
+    /** Reset local state to uninitialized so server data re-syncs on next render. Call on modal cancel/discard. */
+    reset: () => void;
 }
 
 const MODE_OPTIONS: {
@@ -58,16 +61,22 @@ const MODE_OPTIONS: {
     ];
 
 const MetricHistorySection = forwardRef<MetricHistorySectionHandle, MetricHistorySectionProps>(
-    ({ integrationId }, ref) => {
+    ({ integrationId, onDirtyChange }, ref) => {
         const { data, isLoading } = useMetricHistoryConfig(integrationId);
         const updateConfig = useUpdateMetricHistoryConfig();
         const queryClient = useQueryClient();
         const { onSettingsInvalidate } = useRealtimeSSE();
 
-        // Local dirty state — initialized from server data, committed on save
+        // Local state — initialized from server data, committed on save
         const [localMode, setLocalMode] = useState<MetricHistoryMode | null>(null);
         const [localRetentionDays, setLocalRetentionDays] = useState<number | null>(null);
-        const [isDirty, setIsDirty] = useState(false);
+
+        // Derived dirty — true when local values differ from the last-saved server values.
+        // Returning all fields to their saved values automatically clears dirty (no manual reset needed).
+        const isDirty = useMemo(() => {
+            if (!data?.config || localMode === null || localRetentionDays === null) return false;
+            return localMode !== data.config.mode || localRetentionDays !== data.config.retentionDays;
+        }, [data?.config, localMode, localRetentionDays]);
 
         // Sync local state when server data loads (or when SSE refreshes it)
         useEffect(() => {
@@ -77,13 +86,15 @@ const MetricHistorySection = forwardRef<MetricHistorySectionHandle, MetricHistor
                     setLocalRetentionDays(data.config.retentionDays);
                 });
             }
-        }, [data?.config, isDirty]);
+        }, [data?.config, localMode, localRetentionDays, isDirty]);
 
         // SSE: Re-fetch when global metric history toggle changes
         useEffect(() => {
             const unsubscribe = onSettingsInvalidate((event) => {
                 if (event.entity === 'metric-history') {
-                    setIsDirty(false); // Reset dirty so server data takes precedence
+                    // Reset to uninitialized so sync effect re-loads from incoming server data
+                    setLocalMode(null);
+                    setLocalRetentionDays(null);
                     queryClient.invalidateQueries({ queryKey: queryKeys.metricHistory.integration(integrationId) });
                 }
             });
@@ -101,25 +112,38 @@ const MetricHistorySection = forwardRef<MetricHistorySectionHandle, MetricHistor
                     retentionDays: localRetentionDays,
                 },
             });
-            setIsDirty(false);
+            // Reset to uninitialized; when mutation completes and query refetches,
+            // sync effect will reload localMode/localRetentionDays from new server data.
+            setLocalMode(null);
+            setLocalRetentionDays(null);
         }, [isDirty, localMode, localRetentionDays, integrationId, updateConfig]);
 
-        useImperativeHandle(ref, () => ({ save }), [save]);
+        const reset = useCallback(() => {
+            // Clear local state to uninitialized.
+            // isDirty becomes false (null guard), onDirtyChange fires false via propagation effect.
+            // Sync effect reloads from server data on next render.
+            setLocalMode(null);
+            setLocalRetentionDays(null);
+        }, []);
+
+        useImperativeHandle(ref, () => ({ save, reset }), [save, reset]);
+
+        // Propagate derived isDirty upward whenever it changes
+        useEffect(() => {
+            onDirtyChange?.(integrationId, isDirty);
+        }, [isDirty, onDirtyChange, integrationId]);
 
         // ---------- Local state updaters ----------
         const handleToggle = (enabled: boolean) => {
             setLocalMode(enabled ? 'auto' : 'off');
-            setIsDirty(true);
         };
 
         const handleModeChange = (mode: MetricHistoryMode) => {
             setLocalMode(mode);
-            setIsDirty(true);
         };
 
         const handleRetentionChange = (days: number) => {
             setLocalRetentionDays(days);
-            setIsDirty(true);
         };
 
         // ---------- Render ----------

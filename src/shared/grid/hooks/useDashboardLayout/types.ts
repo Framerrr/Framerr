@@ -11,7 +11,7 @@
  * - RGL-specific conversion happens only in the adapter layer
  */
 
-import type { WidgetLayout, FramerrWidget } from '@/shared/types/widget';
+import type { WidgetLayout, FramerrWidget } from '@shared/types/widget';
 import type {
     LayoutItem,
     Breakpoint as CoreBreakpoint,

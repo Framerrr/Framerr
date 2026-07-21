@@ -12,7 +12,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useMetricConfig, METRIC_REGISTRY } from '../hooks/useMetricConfig';
+import { useMetricConfig, METRIC_REGISTRY, isGaugeEligible, isGaugeStructurallyAllowed, resolveMetricViz } from '../hooks/useMetricConfig';
 import type { StatusData } from '../types';
 
 // ============================================================================
@@ -357,5 +357,129 @@ describe('BL-4: Config round-trip', () => {
 
         expect(result.current.visibleCount).toBe(result.current.visibleMetrics.length);
         expect(result.current.visibleCount).toBe(3);
+    });
+});
+
+// ============================================================================
+// BL-5: Gauge viz resolution
+// ============================================================================
+
+describe('BL-5: Gauge viz resolution', () => {
+    it('isGaugeEligible returns true for progress metrics and disk keys, false for text metrics', () => {
+        expect(isGaugeEligible('cpu')).toBe(true);
+        expect(isGaugeEligible('memory')).toBe(true);
+        expect(isGaugeEligible('temperature')).toBe(true);
+        expect(isGaugeEligible('diskUsage')).toBe(true);
+        expect(isGaugeEligible('disk-xyz')).toBe(true);
+        expect(isGaugeEligible('uptime')).toBe(false);
+        expect(isGaugeEligible('networkUp')).toBe(false);
+        expect(isGaugeEligible('networkDown')).toBe(false);
+    });
+
+    it('isGaugeStructurallyAllowed respects span and inline gates', () => {
+        expect(isGaugeStructurallyAllowed(2, false)).toBe(true);
+        expect(isGaugeStructurallyAllowed(1, false)).toBe(false);
+        expect(isGaugeStructurallyAllowed(4, true)).toBe(false);
+    });
+
+    it('resolveMetricViz returns gauge only when eligible, preferred, and structurally allowed', () => {
+        expect(resolveMetricViz('cpu', 2, false, { cpu: 'gauge' })).toBe('gauge');
+        expect(resolveMetricViz('cpu', 1, false, { cpu: 'gauge' })).toBe('bar');
+        expect(resolveMetricViz('cpu', 2, true, { cpu: 'gauge' })).toBe('bar');
+        expect(resolveMetricViz('cpu', 2, false, undefined)).toBe('bar');
+        expect(resolveMetricViz('networkUp', 2, false, { networkUp: 'gauge' })).toBe('bar');
+        expect(resolveMetricViz('cpu', 2, false, { cpu: 'gauge' }, 1)).toBe('bar'); // height budget too small
+    });
+
+    it('hook resolves mixed gauge/bar viz from metricViz config', () => {
+        const statusData = makeStatusData({ cpu: 50, memory: 40, temperature: 45 });
+
+        const { result } = renderHook(() =>
+            useMetricConfig(makeHookOptions({
+                config: { showCpu: true, showMemory: true, metricViz: { cpu: 'gauge' } },
+                statusData,
+                widgetH: 4,
+            }))
+        );
+
+        expect(result.current.packedMetrics.find(m => m.key === 'cpu')?.viz).toBe('gauge');
+        expect(result.current.packedMetrics.find(m => m.key === 'memory')?.viz).toBe('bar');
+        // Gauge packing row spans 2 tracks for both cards on that row
+        expect(result.current.packedMetrics.find(m => m.key === 'cpu')?.rowSpan).toBe(2);
+        expect(result.current.packedMetrics.find(m => m.key === 'memory')?.rowSpan).toBe(2);
+    });
+
+    it('gauge packing row consumes 2 height units and pushes later rows out', () => {
+        const statusData = makeStatusData({
+            cpu: 50, memory: 40, temperature: 45, uptime: '1d',
+            diskUsage: 10, networkUp: 1, networkDown: 1,
+        });
+
+        // widgetH=3 typically yields a modest height budget (~2–3). With one gauge row (cost 2),
+        // later packing rows should be sliced out relative to all-bar layout.
+        const allBar = renderHook(() =>
+            useMetricConfig(makeHookOptions({
+                config: {
+                    showCpu: true, showMemory: true, showTemperature: true, showUptime: true,
+                    showDiskUsage: true, showNetworkUp: true, showNetworkDown: true,
+                },
+                statusData,
+                widgetH: 3,
+            }))
+        );
+
+        const withGauge = renderHook(() =>
+            useMetricConfig(makeHookOptions({
+                config: {
+                    showCpu: true, showMemory: true, showTemperature: true, showUptime: true,
+                    showDiskUsage: true, showNetworkUp: true, showNetworkDown: true,
+                    metricViz: { cpu: 'gauge', memory: 'gauge' },
+                },
+                statusData,
+                widgetH: 3,
+            }))
+        );
+
+        expect(withGauge.result.current.packedMetrics.length)
+            .toBeLessThanOrEqual(allBar.result.current.packedMetrics.length);
+        expect(withGauge.result.current.packedMetrics.find(m => m.key === 'cpu')?.viz).toBe('gauge');
+        expect(withGauge.result.current.packedMetrics.every(m => (m.rowSpan || 1) >= 1)).toBe(true);
+    });
+
+    it('tall widget with a gauge still includes later metrics (network) within maxFittingRows', () => {
+        const statusData = makeStatusData({
+            cpu: 50, memory: 40, temperature: 45, uptime: '1d',
+            diskUsage: 10, networkUp: 1, networkDown: 1,
+        });
+
+        const { result } = renderHook(() =>
+            useMetricConfig(makeHookOptions({
+                config: {
+                    showCpu: true, showMemory: true, showTemperature: true, showUptime: true,
+                    showDiskUsage: true, showNetworkUp: true, showNetworkDown: true,
+                    metricViz: { cpu: 'gauge' },
+                },
+                statusData,
+                widgetH: 8,
+                showHeader: true,
+            }))
+        );
+
+        const keys = result.current.packedMetrics.map((m) => m.key);
+        expect(result.current.packedMetrics.find((m) => m.key === 'cpu')?.viz).toBe('gauge');
+        expect(keys).toContain('networkUp');
+        expect(keys).toContain('networkDown');
+    });
+
+    it('hook defaults all metrics to bar when metricViz is absent', () => {
+        const statusData = makeStatusData({ cpu: 50, memory: 40, temperature: 45 });
+
+        const { result } = renderHook(() =>
+            useMetricConfig(makeHookOptions({ config: {}, statusData }))
+        );
+
+        for (const metric of result.current.packedMetrics) {
+            expect(metric.viz).toBe('bar');
+        }
     });
 });

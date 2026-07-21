@@ -539,4 +539,97 @@ describe('SystemStatusWidget — Characterization Tests', () => {
             expect(screen.getByText('Uptime')).toBeInTheDocument();
         });
     });
+
+    // ========================================================================
+    // S6 — Gauge visualization
+    // ========================================================================
+    describe('S6: Gauge visualization', () => {
+        it('renders no gauge DOM when metricViz is absent (regression)', async () => {
+            setupLiveMocks({
+                cpu: 72,
+                memory: 55,
+                temperature: 65,
+                uptime: '3d 12h',
+                diskUsage: null,
+                arrayStatus: null,
+                networkUp: null,
+                networkDown: null,
+                disks: [],
+            });
+
+            const { container } = renderWidget();
+
+            await vi.waitFor(() => {
+                expect(screen.getByText('72.0%')).toBeInTheDocument();
+            });
+
+            expect(container.querySelector('.metric-card--gauge')).toBeNull();
+        });
+
+        it('renders CPU gauge and unaffected memory bar when cpu is gauge-configured', async () => {
+            setupLiveMocks({
+                cpu: 72,
+                memory: 55,
+                temperature: 65,
+                uptime: '3d 12h',
+                diskUsage: null,
+                arrayStatus: null,
+                networkUp: null,
+                networkDown: null,
+                disks: [],
+            });
+
+            renderWidget({
+                widget: makeWidget({ config: { metricViz: { cpu: 'gauge' } } }),
+            });
+
+            await vi.waitFor(() => {
+                expect(screen.getByRole('img', { name: /CPU.*72/i })).toBeInTheDocument();
+                expect(screen.getByText('55.0%')).toBeInTheDocument();
+            });
+        });
+
+        it('never renders gauges for ineligible network/uptime keys even if config says gauge', async () => {
+            setupLiveMocks({
+                cpu: 50,
+                memory: 40,
+                temperature: 45,
+                uptime: '1d',
+                diskUsage: null,
+                arrayStatus: null,
+                networkUp: 1500,
+                networkDown: 2000,
+                disks: [],
+            });
+
+            const { container } = renderWidget({
+                widget: makeWidget({
+                    config: {
+                        metricViz: { networkUp: 'gauge', uptime: 'gauge' },
+                        showNetworkUp: true,
+                        showNetworkDown: true,
+                    },
+                }),
+            });
+
+            await vi.waitFor(() => {
+                expect(screen.getByText('50.0%')).toBeInTheDocument();
+            });
+
+            expect(container.querySelector('.metric-card--gauge')).toBeNull();
+            expect(screen.queryByRole('img', { name: /Net/i })).toBeNull();
+            expect(screen.queryByRole('img', { name: /Uptime/i })).toBeNull();
+        });
+
+        it('renders gauge in preview mode when memory is gauge-configured', () => {
+            const { container } = renderWidget({
+                previewMode: true,
+                widget: makeWidget({ config: { metricViz: { memory: 'gauge' } } }),
+            });
+
+            expect(screen.getByRole('img', { name: /Memory/i })).toBeInTheDocument();
+            expect(screen.getByText('45.0%')).toBeInTheDocument();
+            expect(container.querySelector('.metric-card--gauge')).not.toBeNull();
+        });
+    });
 });

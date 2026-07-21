@@ -2,18 +2,21 @@
  * Sonarr Widget
  * 
  * Redesigned TV show management widget with:
- * - Admin view: Stats bar + upcoming carousel + missing list
+ * - Admin view: Consolidated summary bar + Hero/mini-scroll upcoming + Needs Attention
  * - User view: Upcoming poster grid
  * - Preview mode: Mock data display
  */
 
-import React, { useState, useCallback, useRef } from 'react';
-import { CalendarDays, AlertTriangle, MonitorPlay } from 'lucide-react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
+import { CalendarDays, AlertTriangle, Circle, ArrowUpCircle, Download, MonitorPlay } from 'lucide-react';
 import { WidgetStateMessage } from '../../shared/widgets';
 import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
 import { useAuth } from '../../context/AuthContext';
 import { isAdmin } from '../../utils/permissions';
 import { useSonarrData } from './hooks/useSonarrData';
+import { getPremiereType } from './hooks/sonarrDisplayState';
+import { resolveQueueSeverity } from '../_shared/media/queueSeverity';
+import HeroCard from './components/HeroCard';
 import UpcomingCarousel from './components/UpcomingCarousel';
 import MissingList from './components/MissingList';
 import EpisodeDetailModal from './components/EpisodeDetailModal';
@@ -36,15 +39,13 @@ const PREVIEW_EPISODES = [
 function PreviewMode(): React.JSX.Element {
     return (
         <div className="snr-widget">
-            {/* Stats bar mock */}
-            <div className="snr-stats-bar">
-                <span className="snr-stats-item">
-                    <CalendarDays size={14} className="snr-stats-icon" style={{ color: 'var(--accent)' }} />
-                    <span className="snr-stats-value">5</span> upcoming
+            {/* Header chips mock */}
+            <div className="snr-header-chips">
+                <span className="snr-header-chip snr-header-chip--upcoming">
+                    <CalendarDays size={11} /> 5 upcoming
                 </span>
-                <span className="snr-stats-item">
-                    <AlertTriangle size={14} className="snr-stats-icon" style={{ color: 'var(--warning)' }} />
-                    <span className="snr-stats-value">3</span> missing
+                <span className="snr-header-chip snr-header-chip--missing">
+                    <AlertTriangle size={11} /> 3 missing
                 </span>
             </div>
 
@@ -72,7 +73,7 @@ function PreviewMode(): React.JSX.Element {
 // ============================================================================
 // USER VIEW - Stacked poster grid
 // ============================================================================
-// ADMIN VIEW - Stats bar + Carousel + Missing list
+// ADMIN VIEW - Summary bar + Hero/mini-scroll + Needs Attention
 // ============================================================================
 
 
@@ -82,9 +83,21 @@ interface AdminViewProps {
     viewMode: 'auto' | 'stacked' | 'column';
     showStatsBar: boolean;
     userIsAdmin: boolean;
+    showNetwork: boolean;
+    showSeasonProgress: boolean;
+    highlightPremieres: boolean;
 }
 
-function AdminView({ integrationId, data, viewMode: configViewMode, showStatsBar, userIsAdmin }: AdminViewProps): React.JSX.Element {
+function AdminView({
+    integrationId,
+    data,
+    viewMode: configViewMode,
+    showStatsBar,
+    userIsAdmin,
+    showNetwork,
+    showSeasonProgress,
+    highlightPremieres,
+}: AdminViewProps): React.JSX.Element {
     const [selectedEpisode, setSelectedEpisode] = useState<WantedEpisode | CalendarEpisode | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
 
@@ -93,10 +106,14 @@ function AdminView({ integrationId, data, viewMode: configViewMode, showStatsBar
         setModalOpen(true);
     }, []);
 
+    const handleQuickSearch = useCallback((episodeId: number) => {
+        return data.triggerAutoSearch([episodeId]);
+    }, [data.triggerAutoSearch]);
+
     const fetchFirstPage = useCallback(() => {
-        // Reset to page 1 (not append to current page)
         data.refreshMissing();
-    }, [data.refreshMissing]);
+        data.refreshCutoff();
+    }, [data.refreshMissing, data.refreshCutoff]);
 
     // ResizeObserver for auto layout detection (same pattern as Overseerr)
     const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
@@ -121,21 +138,49 @@ function AdminView({ integrationId, data, viewMode: configViewMode, showStatsBar
 
     const upcomingCount = data.upcoming.length;
     const missingCount = data.missingCounts?.missingCount ?? 0;
+    const cutoffUnmetCount = data.missingCounts?.cutoffUnmetCount ?? 0;
+
+    // Consolidated summary bar (matches Radarr's shipped `.rdr-header-chips`
+    // pattern) — "upcoming" always shows (even at 0); the rest are urgency
+    // signals that only appear once there's actually something to flag.
+    const premiereCount = useMemo(() => {
+        return data.upcoming.filter(ep => getPremiereType(ep) !== null).length;
+    }, [data.upcoming]);
+
+    const downloadingCount = useMemo(() => {
+        return data.queueItems.filter(q => resolveQueueSeverity(q).severity === 'downloading').length;
+    }, [data.queueItems]);
+
+    const heroEpisode = data.upcoming[0];
+    const restEpisodes = data.upcoming.slice(1);
 
     return (
         <div ref={wrapperRef} className="snr-widget">
-            {/* Stats Bar — toggleable via config */}
+            {/* Summary Bar — toggleable via config */}
             {showStatsBar && (
                 <>
-                    <div className="snr-stats-bar">
-                        <span className="snr-stats-item">
-                            <CalendarDays size={14} className="snr-stats-icon" style={{ color: 'var(--accent)' }} />
-                            <span className="snr-stats-value">{upcomingCount}</span> upcoming
+                    <div className="snr-header-chips">
+                        <span className="snr-header-chip snr-header-chip--upcoming">
+                            <CalendarDays size={11} /> {upcomingCount} upcoming
                         </span>
+                        {premiereCount > 0 && (
+                            <span className="snr-header-chip snr-header-chip--premiere">
+                                <Circle size={9} fill="currentColor" /> {premiereCount} premiering
+                            </span>
+                        )}
                         {missingCount > 0 && (
-                            <span className="snr-stats-item">
-                                <AlertTriangle size={14} className="snr-stats-icon" style={{ color: 'var(--warning)' }} />
-                                <span className="snr-stats-value">{missingCount}</span> missing
+                            <span className="snr-header-chip snr-header-chip--missing">
+                                <AlertTriangle size={11} /> {missingCount} missing
+                            </span>
+                        )}
+                        {cutoffUnmetCount > 0 && (
+                            <span className="snr-header-chip snr-header-chip--upgrade">
+                                <ArrowUpCircle size={11} /> {cutoffUnmetCount} upgrade
+                            </span>
+                        )}
+                        {downloadingCount > 0 && (
+                            <span className="snr-header-chip snr-header-chip--downloading">
+                                <Download size={11} /> {downloadingCount} downloading
                             </span>
                         )}
                     </div>
@@ -145,32 +190,50 @@ function AdminView({ integrationId, data, viewMode: configViewMode, showStatsBar
 
             {/* Body — switches between vertical stack and two-column */}
             <div className={`snr-body ${isWide ? 'snr-body--wide' : ''}`}>
-                {/* Upcoming Column */}
-                {data.upcoming.length > 0 && (
+                {/* Upcoming Column — Hero card + mini poster scroll */}
+                {data.upcoming.length > 0 && heroEpisode && (
                     <div className={`snr-body-col ${isWide ? 'snr-body-col--upcoming' : ''}`}>
                         <div className="snr-section-header">Upcoming</div>
+                        <HeroCard
+                            episode={heroEpisode}
+                            integrationId={integrationId}
+                            onClick={handleEpisodeClick}
+                            compact={!isWide}
+                            showNetwork={showNetwork}
+                            highlightPremieres={highlightPremieres}
+                            showSeasonProgress={showSeasonProgress}
+                        />
                         <UpcomingCarousel
-                            episodes={data.upcoming}
+                            episodes={restEpisodes}
                             integrationId={integrationId}
                             onEpisodeClick={handleEpisodeClick}
                             vertical={isWide}
+                            highlightPremieres={highlightPremieres}
+                            showNetwork={showNetwork}
                         />
                     </div>
                 )}
 
-                {/* Missing Column */}
+                {/* Needs Attention Column */}
                 <div className={`snr-body-col ${isWide ? 'snr-body-col--missing' : ''}`}>
-                    <div className="snr-section-header">Missing</div>
+                    <div className="snr-section-header">Needs Attention</div>
                     <MissingList
-                        episodes={data.missingEpisodes}
+                        missingEpisodes={data.missingEpisodes}
+                        cutoffEpisodes={data.cutoffEpisodes}
                         integrationId={integrationId}
-                        loading={data.missingLoading}
-                        hasMore={data.missingHasMore}
-                        onLoadMore={data.loadMoreMissing}
+                        missingLoading={data.missingLoading}
+                        cutoffLoading={data.cutoffLoading}
+                        missingHasMore={data.missingHasMore}
+                        cutoffHasMore={data.cutoffHasMore}
+                        onLoadMoreMissing={data.loadMoreMissing}
+                        onLoadMoreCutoff={data.loadMoreCutoff}
                         onEpisodeClick={handleEpisodeClick}
+                        onQuickSearch={handleQuickSearch}
                         queueItems={data.queueItems}
                         autoFetch
                         fetchFirstPage={fetchFirstPage}
+                        showNetwork={showNetwork}
+                        userIsAdmin={userIsAdmin}
                     />
                 </div>
             </div>
@@ -199,6 +262,10 @@ interface SonarrConfig {
     integrationId?: string;
     viewMode?: 'auto' | 'stacked' | 'column';
     showStatsBar?: string;
+    lookAheadDays?: string;
+    showNetwork?: boolean;
+    showSeasonProgress?: boolean;
+    highlightPremieres?: boolean;
     [key: string]: unknown;
 }
 
@@ -219,6 +286,10 @@ const SonarrWidget = ({ widget, previewMode = false }: SonarrWidgetProps): React
     const configuredIntegrationId = config?.integrationId;
     const configViewMode = config?.viewMode ?? 'auto';
     const showStatsBar = config?.showStatsBar !== 'false';
+    const lookAheadDays = Number(config?.lookAheadDays ?? '7') || 7;
+    const showNetwork = config?.showNetwork !== false;
+    const showSeasonProgress = config?.showSeasonProgress !== false;
+    const highlightPremieres = config?.highlightPremieres !== false;
 
     const {
         effectiveIntegrationId,
@@ -234,6 +305,7 @@ const SonarrWidget = ({ widget, previewMode = false }: SonarrWidgetProps): React
     const data = useSonarrData({
         integrationId,
         enabled: isIntegrationBound,
+        lookAheadDays,
     });
 
     // Handle access states
@@ -272,7 +344,18 @@ const SonarrWidget = ({ widget, previewMode = false }: SonarrWidgetProps): React
     }
 
     // Everyone sees the same view — non-admins get read-only (no click actions)
-    return <AdminView integrationId={integrationId!} data={data} viewMode={configViewMode} showStatsBar={showStatsBar} userIsAdmin={userIsAdmin} />;
+    return (
+        <AdminView
+            integrationId={integrationId!}
+            data={data}
+            viewMode={configViewMode}
+            showStatsBar={showStatsBar}
+            userIsAdmin={userIsAdmin}
+            showNetwork={showNetwork}
+            showSeasonProgress={showSeasonProgress}
+            highlightPremieres={highlightPremieres}
+        />
+    );
 };
 
 export default SonarrWidget;

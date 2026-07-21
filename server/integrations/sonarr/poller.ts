@@ -95,6 +95,7 @@ export interface CalendarEpisode {
         tvdbId?: number;
         imdbId?: string;
         images?: { coverType: string; url?: string; remoteUrl?: string }[];
+        statistics?: { episodeCount?: number; episodeFileCount?: number; seasonCount?: number };
     };
     title?: string;
     seasonNumber?: number;
@@ -108,13 +109,15 @@ export interface CalendarEpisode {
 
 /**
  * Poll Sonarr calendar for a specific instance.
- * Returns episodes for 90-day window (30 days past, 60 days future).
+ * Wide feed window so Calendar / Radarr / Sonarr widgets can filter per-config
+ * (including look-ahead/back "all"). Keep in sync with Radarr pollCalendar and
+ * CalendarWidget FEED_* constants: 365 days past → 730 days future.
  */
 export async function pollCalendar(instance: PluginInstance, adapter: PluginAdapter): Promise<CalendarEpisode[]> {
-    // Calendar window: 30 days past → 60 days future
     const now = Date.now();
-    const startDate = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const endDate = new Date(now + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const MS_DAY = 24 * 60 * 60 * 1000;
+    const startDate = new Date(now - 365 * MS_DAY).toISOString().split('T')[0];
+    const endDate = new Date(now + 730 * MS_DAY).toISOString().split('T')[0];
 
     const response = await adapter.get!(instance, '/api/v3/calendar', {
         params: { start: startDate, end: endDate, includeSeries: true },
@@ -138,6 +141,11 @@ export async function pollCalendar(instance: PluginInstance, adapter: PluginAdap
                 tvdbId: series.tvdbId as number | undefined,
                 imdbId: series.imdbId as string | undefined,
                 images: series.images as { coverType: string; url?: string; remoteUrl?: string }[],
+                statistics: series.statistics ? {
+                    episodeCount: (series.statistics as Record<string, unknown>).episodeCount as number | undefined,
+                    episodeFileCount: (series.statistics as Record<string, unknown>).episodeFileCount as number | undefined,
+                    seasonCount: (series.statistics as Record<string, unknown>).seasonCount as number | undefined,
+                } : undefined,
             } : undefined,
             title: item.title as string,
             seasonNumber: item.seasonNumber as number,

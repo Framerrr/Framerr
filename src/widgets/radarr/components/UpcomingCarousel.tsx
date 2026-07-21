@@ -1,20 +1,29 @@
 /**
- * UpcomingCarousel - Upcoming movie poster display
- * 
- * Two modes:
- * - Horizontal carousel (default): scrollable poster cards with chevron nav
- * - Vertical stack (vertical=true): landscape cards with fanart, stacked
+ * UpcomingCarousel - Mini poster scroll for upcoming movies (everything
+ * after the hero item).
+ *
+ * Two layouts, chosen by the parent based on the widget's current
+ * column/stacked mode (fine-tune iteration on top of spec §1.6):
+ * - Horizontal (default): compact poster strip. Used in stacked mode, where
+ *   the Upcoming section should stay short and leave room for Needs Attention.
+ * - Vertical (`vertical` prop): scrollable row list. Used in column/wide
+ *   mode, where the Upcoming column is narrow but full-height — a horizontal
+ *   strip would leave most of that height empty.
  */
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Film } from 'lucide-react';
-import type { CalendarMovie, RadarrImage } from '../radarr.types';
+import { ReleasePill } from '../../_shared/media';
+import { getPillDisplayProps } from '../hooks/radarrDisplayState';
+import type { CalendarMovie, MovieDisplayInfo, RadarrImage } from '../radarr.types';
 
 interface UpcomingCarouselProps {
     movies: CalendarMovie[];
+    /** Pre-computed display info per movie id, from `useRadarrData`'s `upcomingDisplay` map — never recompute locally, it must match how `movies` was filtered/sorted. */
+    displayMap: Map<number, MovieDisplayInfo>;
     integrationId: string;
     onMovieClick?: (movie: CalendarMovie) => void;
-    /** When true, render as vertical stacked cards (landscape style) */
+    /** Render as a scrollable vertical row list instead of a horizontal strip. */
     vertical?: boolean;
 }
 
@@ -30,38 +39,7 @@ function getPosterUrl(movie: CalendarMovie, integrationId: string): string | nul
     return `/api/integrations/${integrationId}/proxy/image?url=${encodeURIComponent(imageUrl)}`;
 }
 
-/** Get fanart (landscape backdrop) URL, falls back to poster */
-function getFanartUrl(movie: CalendarMovie, integrationId: string): string | null {
-    const images = movie.images;
-    if (!images?.length) return null;
-
-    const fanart = images.find((img: RadarrImage) => img.coverType === 'fanart');
-    const imageUrl = fanart?.remoteUrl || fanart?.url;
-    if (imageUrl) {
-        return `/api/integrations/${integrationId}/proxy/image?url=${encodeURIComponent(imageUrl)}`;
-    }
-
-    // Fall back to poster if no fanart available
-    return getPosterUrl(movie, integrationId);
-}
-
-/** Format release date — primarydigitalRelease, fallback to inCinemas */
-function formatReleaseDate(movie: CalendarMovie): string {
-    const dateStr = movie.digitalRelease || movie.inCinemas;
-    if (!dateStr) return 'TBA';
-
-    const releaseDate = new Date(dateStr);
-    const now = new Date();
-    const diffDays = Math.ceil((releaseDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Tomorrow';
-    if (diffDays > 0 && diffDays <= 7) return `${diffDays}d`;
-
-    return releaseDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-const UpcomingCarousel = ({ movies, integrationId, onMovieClick, vertical = false }: UpcomingCarouselProps): React.JSX.Element | null => {
+const UpcomingCarousel = ({ movies, displayMap, integrationId, onMovieClick, vertical }: UpcomingCarouselProps): React.JSX.Element | null => {
     const trackRef = useRef<HTMLDivElement>(null);
     const [showLeft, setShowLeft] = useState(false);
     const [showRight, setShowRight] = useState(false);
@@ -74,7 +52,6 @@ const UpcomingCarousel = ({ movies, integrationId, onMovieClick, vertical = fals
     }, []);
 
     useEffect(() => {
-        if (vertical) return; // No scroll buttons in vertical mode
         const el = trackRef.current;
         if (!el) return;
         updateButtons();
@@ -85,7 +62,7 @@ const UpcomingCarousel = ({ movies, integrationId, onMovieClick, vertical = fals
             el.removeEventListener('scroll', updateButtons);
             ro.disconnect();
         };
-    }, [updateButtons, movies, vertical]);
+    }, [updateButtons, movies]);
 
     const scroll = (direction: 'left' | 'right') => {
         const el = trackRef.current;
@@ -96,39 +73,36 @@ const UpcomingCarousel = ({ movies, integrationId, onMovieClick, vertical = fals
 
     if (movies.length === 0) return null;
 
-    // ── Vertical stacked mode (landscape cards) ──
     if (vertical) {
         return (
-            <div className="rdr-stack">
+            <div className="rdr-carousel-list custom-scrollbar">
                 {movies.map(movie => {
-                    const fanartUrl = getFanartUrl(movie, integrationId);
+                    const posterUrl = getPosterUrl(movie, integrationId);
                     const title = movie.title || 'Unknown';
+                    const pill = getPillDisplayProps(displayMap.get(movie.id) ?? null, { compact: true });
 
                     return (
                         <div
-                            key={`stack-${movie.id}`}
-                            className="rdr-stack-card"
+                            key={`cal-row-${movie.id}`}
+                            className="rdr-carousel-row"
                             onClick={() => onMovieClick?.(movie)}
                         >
-                            {fanartUrl ? (
+                            {posterUrl ? (
                                 <img
-                                    src={fanartUrl}
+                                    src={posterUrl}
                                     alt={title}
-                                    className="rdr-stack-poster"
+                                    className="rdr-carousel-row-poster"
                                     loading="lazy"
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                 />
                             ) : (
-                                <div className="rdr-stack-poster-placeholder">
-                                    <Film size={24} />
+                                <div className="rdr-carousel-row-poster-placeholder">
+                                    <Film size={14} />
                                 </div>
                             )}
-                            {/* Gradient overlay with title */}
-                            <div className="rdr-stack-overlay">
-                                <div className="rdr-stack-title">{title}</div>
-                                <div className="rdr-stack-subtitle">
-                                    {movie.year && `${movie.year} · `}{formatReleaseDate(movie)}
-                                </div>
+                            <div className="rdr-carousel-row-info">
+                                <span className="rdr-carousel-row-title">{title}</span>
+                                {pill && <ReleasePill type={pill.type} date={pill.date} dimmed={pill.dimmed} />}
                             </div>
                         </div>
                     );
@@ -137,18 +111,19 @@ const UpcomingCarousel = ({ movies, integrationId, onMovieClick, vertical = fals
         );
     }
 
-    // ── Horizontal carousel mode (default) ──
     return (
         <div className="rdr-carousel">
             <div ref={trackRef} className="rdr-carousel-track">
                 {movies.map(movie => {
                     const posterUrl = getPosterUrl(movie, integrationId);
                     const title = movie.title || 'Unknown';
+                    const pill = getPillDisplayProps(displayMap.get(movie.id) ?? null, { compact: true });
 
                     return (
                         <div
                             key={`cal-${movie.id}`}
                             className="rdr-carousel-card"
+                            title={title}
                             onClick={() => onMovieClick?.(movie)}
                         >
                             {posterUrl ? (
@@ -160,15 +135,14 @@ const UpcomingCarousel = ({ movies, integrationId, onMovieClick, vertical = fals
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                 />
                             ) : (
-                                <div className="rdr-carousel-poster-placeholder">
+                                <div className="media-artwork-fallback--movie rdr-carousel-poster-placeholder">
                                     <Film size={20} />
                                 </div>
                             )}
-                            <div className="rdr-carousel-info">
+                            <div className="media-gradient-overlay" />
+                            <div className="rdr-carousel-card-content">
+                                {pill && <ReleasePill type={pill.type} date={pill.date} dimmed={pill.dimmed} />}
                                 <div className="rdr-carousel-title">{title}</div>
-                                <div className="rdr-carousel-subtitle">
-                                    {movie.year && `${movie.year} · `}{formatReleaseDate(movie)}
-                                </div>
                             </div>
                         </div>
                     );

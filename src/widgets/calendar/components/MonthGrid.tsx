@@ -68,45 +68,52 @@ const MonthGrid: React.FC<MonthGridProps> = ({
 
     return (
         <div className={`cal-month ${compact ? 'cal-month--compact' : ''}`}>
-            {/* Header: month nav */}
+            {/* Consolidated control row: month nav + Today + filter chips.
+                Left/right button groups sit in equal-width (1fr) grid columns so the
+                month title is mathematically centered regardless of the groups' actual
+                content width (Today makes the right group wider than the left) — see
+                styles.css. */}
             <div className="cal-month-header">
-                <button className="cal-nav-btn" onClick={() => onChangeMonth(-1)} aria-label="Previous month">
-                    <ChevronLeft />
-                </button>
+                <div className="cal-month-header-side cal-month-header-side--left">
+                    <button className="cal-nav-btn" onClick={() => onChangeMonth(-1)} aria-label="Previous month">
+                        <ChevronLeft />
+                    </button>
+                </div>
                 <span className="cal-month-title">
                     {currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
                 </span>
-                <button className="cal-today-btn" onClick={onGoToToday}>
-                    Today
-                </button>
-                <button className="cal-nav-btn" onClick={() => onChangeMonth(1)} aria-label="Next month">
-                    <ChevronRight />
-                </button>
-            </div>
-
-            {/* Filter row */}
-            {showFilter && onFilterChange && (
-                <div className="cal-filter-row">
-                    <button
-                        onClick={() => onFilterChange('all')}
-                        className={`cal-filter-btn ${filter === 'all' ? 'cal-filter-btn--active' : ''}`}
-                    >
-                        All
+                <div className="cal-month-header-side cal-month-header-side--right">
+                    <button className="cal-today-btn" onClick={onGoToToday}>
+                        Today
                     </button>
-                    <button
-                        onClick={() => onFilterChange('tv')}
-                        className={`cal-filter-btn cal-filter-btn--tv ${filter === 'tv' ? 'cal-filter-btn--active-tv' : ''}`}
-                    >
-                        TV
-                    </button>
-                    <button
-                        onClick={() => onFilterChange('movies')}
-                        className={`cal-filter-btn cal-filter-btn--movie ${filter === 'movies' ? 'cal-filter-btn--active-movie' : ''}`}
-                    >
-                        Movies
+                    <button className="cal-nav-btn" onClick={() => onChangeMonth(1)} aria-label="Next month">
+                        <ChevronRight />
                     </button>
                 </div>
-            )}
+
+                {showFilter && onFilterChange && (
+                    <div className="cal-filter-group">
+                        <button
+                            onClick={() => onFilterChange('all')}
+                            className={`cal-filter-btn ${filter === 'all' ? 'cal-filter-btn--active' : ''}`}
+                        >
+                            All
+                        </button>
+                        <button
+                            onClick={() => onFilterChange('tv')}
+                            className={`cal-filter-btn cal-filter-btn--tv ${filter === 'tv' ? 'cal-filter-btn--active-tv' : ''}`}
+                        >
+                            TV
+                        </button>
+                        <button
+                            onClick={() => onFilterChange('movies')}
+                            className={`cal-filter-btn cal-filter-btn--movie ${filter === 'movies' ? 'cal-filter-btn--active-movie' : ''}`}
+                        >
+                            Movies
+                        </button>
+                    </div>
+                )}
+            </div>
 
             {/* Grid */}
             <div className="cal-grid">
@@ -133,7 +140,9 @@ const MonthGrid: React.FC<MonthGridProps> = ({
                             key={day}
                             className={`cal-grid-cell ${isToday ? 'cal-grid-cell--today' : ''} ${filtered.length > 0 ? 'cal-grid-cell--has-events' : ''}`}
                         >
-                            <div className="cal-grid-day-num">{day}</div>
+                            <div className="cal-grid-day-num">
+                                {isToday ? <span className="cal-grid-day-num-circle">{day}</span> : day}
+                            </div>
                             <div className="cal-grid-events">
                                 {filtered.map((ev, idx) => (
                                     <EventPopover

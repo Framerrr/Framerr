@@ -8,6 +8,9 @@ export type EventType = 'sonarr' | 'radarr';
 export type FilterType = 'all' | 'tv' | 'movies';
 export type ViewMode = 'agenda' | 'month' | 'both';
 
+/** Which movie release date field(s) to plot events under. See plugin.ts for config wiring. */
+export type MovieDatesMode = 'cinema' | 'digital' | 'physical' | 'all';
+
 export interface CalendarEvent {
     type: EventType;
     title?: string;
@@ -36,6 +39,17 @@ export interface CalendarEvent {
     instanceId?: string;
     instanceName?: string;
     runtime?: number;
+    /** For radarr events only. Identifies which specific release milestone THIS plotted
+     * instance represents. Required because under movieDates: 'all' the same source movie
+     * is spread into up to 3 independent CalendarEvent objects (one per populated date
+     * field) — normally landing in 3 different date buckets, but NOT ALWAYS: two release
+     * fields can share the same calendar date (e.g. digitalRelease === physicalRelease),
+     * in which case 2 of the 3 objects intentionally land in the SAME date bucket as
+     * separate, independently-colored entries (not deduped — see CalendarWidget.tsx's
+     * getMovieDateEntries()). This field lets the rendering layer read the correct
+     * color/type directly instead of re-deriving fallback-priority logic at every render
+     * site. */
+    plottedReleaseType?: 'cinema' | 'digital' | 'physical';
 }
 
 export interface EventsMap {
