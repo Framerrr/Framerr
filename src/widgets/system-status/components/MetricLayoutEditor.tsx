@@ -29,17 +29,26 @@ import {
     DragOverEvent,
     DragEndEvent,
 } from '@dnd-kit/core';
-import { METRIC_REGISTRY, getMetricDefsForIntegration, computeMaxRows, isGaugeEligible, resolveMetricViz, GAUGE_MIN_SPAN, GAUGE_ROW_WEIGHT, heightBudgetCostForRow } from '../hooks/useMetricConfig';
+import { getMetricDefsForIntegration, computeMaxRows, isGaugeEligible, resolveMetricViz, GAUGE_MIN_SPAN, GAUGE_ROW_WEIGHT, heightBudgetCostForRow } from '../hooks/useMetricConfig';
 import { useIntegrationSchemas } from '../../../api/hooks';
 import type { MetricDef } from '../hooks/useMetricConfig';
+import {
+    COLS,
+    MIN_ITEM_WIDTH,
+    effectiveMinWidth,
+    resizePairedRow,
+    canAcceptSwap,
+    computeGaugeAutoAdjustRow,
+    canEnableGaugeInRow,
+    type MetricSlot,
+    type LayoutRow,
+} from './metricLayoutMath';
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
-const COLS = 4;
 const MAX_ITEMS_PER_ROW = 2;
-const MIN_ITEM_WIDTH = 1;
 
 // ============================================================================
 // TYPES
@@ -50,13 +59,6 @@ interface MetricLayoutEditorProps {
     updateConfig: (key: string, value: unknown) => void;
     widgetHeight?: number;
 }
-
-interface MetricSlot {
-    key: string;
-    w: number;
-}
-
-type LayoutRow = MetricSlot[];
 
 /** Uniquely identifies a card's position */
 interface CardPosition {
@@ -257,83 +259,6 @@ function getDef(key: string, registry: MetricDef[]): MetricDef | undefined {
         return registry.find(m => m.key === 'diskUsage');
     }
     return registry.find(m => m.key === key);
-}
-
-/**
- * Per-slot minimum width floor. Mirrors MIN_ITEM_WIDTH, elevated to
- * GAUGE_MIN_SPAN for any slot whose stored viz preference is 'gauge'.
- */
-export function effectiveMinWidth(key: string, metricViz: Record<string, string>): number {
-    if (isGaugeEligible(key) && metricViz[key] === 'gauge') return GAUGE_MIN_SPAN;
-    return MIN_ITEM_WIDTH;
-}
-
-/**
- * Pure paired-row resize arithmetic — bounds check for +/-1 resize on a 2-slot row.
- */
-export function resizePairedRow(
-    row: LayoutRow,
-    slotIndex: number,
-    delta: -1 | 1,
-    metricViz: Record<string, string>
-): LayoutRow | null {
-    if (row.length !== 2) return null;
-    const otherIndex = slotIndex === 0 ? 1 : 0;
-    const newW = row[slotIndex].w + delta;
-    const otherNewW = row[otherIndex].w - delta;
-    const minW = effectiveMinWidth(row[slotIndex].key, metricViz);
-    const otherMinW = effectiveMinWidth(row[otherIndex].key, metricViz);
-
-    if (newW < minW || newW > COLS - otherMinW) return null;
-    if (otherNewW < otherMinW || otherNewW > COLS - minW) return null;
-
-    const newRow = [...row];
-    newRow[slotIndex] = { ...newRow[slotIndex], w: newW };
-    newRow[otherIndex] = { ...newRow[otherIndex], w: otherNewW };
-    return newRow;
-}
-
-/**
- * Pure drag-swap acceptance check — each side must satisfy its floor after the trade.
- */
-export function canAcceptSwap(
-    fromSlot: MetricSlot,
-    toSlot: MetricSlot,
-    metricViz: Record<string, string>
-): boolean {
-    if (effectiveMinWidth(toSlot.key, metricViz) > fromSlot.w) return false;
-    if (effectiveMinWidth(fromSlot.key, metricViz) > toSlot.w) return false;
-    return true;
-}
-
-/**
- * Pure auto-adjust for enabling gauge on a too-narrow paired slot.
- */
-export function computeGaugeAutoAdjustRow(
-    row: LayoutRow,
-    slotIndex: number,
-    metricViz: Record<string, string>
-): LayoutRow | null {
-    const slot = row[slotIndex];
-    if (row.length !== 2 || slot.w >= GAUGE_MIN_SPAN) return null;
-    const otherIndex = slotIndex === 0 ? 1 : 0;
-    const otherMinW = effectiveMinWidth(row[otherIndex].key, metricViz);
-    const otherNewW = COLS - GAUGE_MIN_SPAN;
-    if (otherNewW < otherMinW) return null;
-    const newRow = [...row];
-    newRow[slotIndex] = { ...newRow[slotIndex], w: GAUGE_MIN_SPAN };
-    newRow[otherIndex] = { ...newRow[otherIndex], w: otherNewW };
-    return newRow;
-}
-
-/**
- * Row-aware check for whether slotIndex's slot could become a gauge.
- */
-export function canEnableGaugeInRow(row: LayoutRow, slotIndex: number, metricViz: Record<string, string>): boolean {
-    const slot = row[slotIndex];
-    if (slot.w >= GAUGE_MIN_SPAN) return true;
-    if (row.length === 1) return true;
-    return computeGaugeAutoAdjustRow(row, slotIndex, metricViz) !== null;
 }
 
 // ============================================================================
@@ -605,9 +530,9 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
     );
     const isStacked = config.layout === 'stacked';
     const rows = useMemo(() => buildRows(config, isStacked, availableMetrics), [config, isStacked, availableMetrics]);
-    const diskList = (config._diskList as { id: string; name: string }[] | undefined) || [];
+    const diskList = useMemo(() => (config._diskList as { id: string; name: string }[] | undefined) || [], [config._diskList]);
     const isInline = (widgetHeight || 6) <= 1;
-    const metricViz = (config.metricViz as Record<string, string> | undefined) || {};
+    const metricViz = useMemo(() => (config.metricViz as Record<string, string> | undefined) || {}, [config.metricViz]);
 
     const h = widgetHeight || 6;
     const showHeader = config.showHeader !== false;
@@ -776,7 +701,8 @@ const MetricLayoutEditor: React.FC<MetricLayoutEditorProps> = ({ config, updateC
         const slot = row[slotIndex];
 
         if (viz === 'bar') {
-            const { [slot.key]: _removed, ...rest } = current;
+            const rest = { ...current };
+            delete rest[slot.key];
             updateConfig('metricViz', Object.keys(rest).length > 0 ? rest : undefined);
             return;
         }

@@ -215,6 +215,8 @@ export function setupExternalDragSources(
             const previewId = `drag-preview-${Date.now()}`;
             helperContent.dataset.dragPreviewType = widgetType;
             helperContent.dataset.dragPreviewId = previewId;
+            const dragSurface = (item.closest('[data-drag-surface]') as HTMLElement | null)?.dataset.dragSurface || 'dashboard';
+            helperContent.dataset.dragPreviewSurface = dragSurface;
             helperContent.dataset.morphed = 'false';
 
             helperContent.style.cssText = `
@@ -348,6 +350,8 @@ export function setupExternalDragSources(
                 const previewId = `drag-preview-${Date.now()}`;
                 helperContent.dataset.dragPreviewType = widgetType;
                 helperContent.dataset.dragPreviewId = previewId;
+                const dragSurface = (item.closest('[data-drag-surface]') as HTMLElement | null)?.dataset.dragSurface || 'dashboard';
+                helperContent.dataset.dragPreviewSurface = dragSurface;
                 helperContent.style.cssText = `
                     position: relative;
                     width: 100%;
@@ -518,44 +522,4 @@ export function setupExternalDragSources(
         isMorphed = true;
     }
 
-    /**
-     * Morph helper back to card size
-     * Sequence: Widget fades out (80ms) -> Size changes -> Card fades in
-     */
-    function morphToCard() {
-        if (!currentHelper) return;
-
-        const cardClone = currentHelper.querySelector('.morph-card-clone') as HTMLElement;
-        const portalContent = currentHelper.querySelector('.morph-content') as HTMLElement;
-
-        // Step 1: Fade out widget content
-        if (portalContent) {
-            portalContent.style.transition = 'opacity 0.15s ease-out';
-            portalContent.style.opacity = '0';
-            portalContent.dataset.morphed = 'false';
-        }
-
-        // Step 2: Start size morph while widget is fading
-        setTimeout(() => {
-            if (!currentHelper) return;
-
-            // Morph back to card size using stored dimensions
-            const cardW = parseInt(currentHelper.dataset.cardWidth || '200', 10);
-            const cardH = parseInt(currentHelper.dataset.cardHeight || '40', 10);
-
-            currentHelper.style.width = `${cardW}px`;
-            currentHelper.style.height = `${cardH}px`;
-        }, 60);
-
-        // Step 3: Fade in card after widget is gone + size transition started
-        setTimeout(() => {
-            if (!currentHelper) return;
-            if (cardClone) {
-                cardClone.style.transition = 'opacity 0.25s cubic-bezier(0.22, 1, 0.36, 1)';
-                cardClone.style.opacity = '1';
-            }
-        }, 200);
-
-        isMorphed = false;
-    }
 }

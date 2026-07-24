@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { integrationsApi, CreateIntegrationData, UpdateIntegrationData } from '../endpoints/integrations';
 import { IntegrationId } from '../types';
 import { queryKeys } from '../queryKeys';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 
 // Alias for backwards compatibility and brevity within this file
 const integrationsKeys = queryKeys.integrations;

@@ -28,7 +28,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockChangeTheme = vi.fn().mockResolvedValue(undefined);
 
-vi.mock('@/context/ThemeContext', () => ({
+vi.mock('@/context/useTheme', () => ({
     useTheme: () => ({
         theme: 'dark-pro',
         changeTheme: mockChangeTheme,
@@ -37,7 +37,7 @@ vi.mock('@/context/ThemeContext', () => ({
 }));
 
 const mockUser = { id: '1', username: 'testuser', displayName: 'Test User', role: 'admin' };
-vi.mock('@/context/AuthContext', () => ({
+vi.mock('@/context/useAuth', () => ({
     useAuth: () => ({
         user: mockUser,
         isAuthenticated: true,
@@ -50,7 +50,7 @@ vi.mock('@/context/AuthContext', () => ({
 
 const mockShowSuccess = vi.fn();
 const mockShowError = vi.fn();
-vi.mock('@/context/notification/NotificationContext', () => ({
+vi.mock('@/context/notification/useNotifications', () => ({
     useNotifications: () => ({
         success: mockShowSuccess,
         error: mockShowError,

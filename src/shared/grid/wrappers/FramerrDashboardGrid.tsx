@@ -16,7 +16,7 @@
 import React, { useMemo, useEffect, useRef, type ReactNode, type ReactElement } from 'react';
 
 import { GridStackAdapterV2, setupExternalDragSources, DragPreviewPortal, DropTransitionOverlay } from '../adapter';
-import type { FramerrWidget, GridPolicy, LayoutEvent, LayoutItem, GridEventHandlers, ExternalDropEventData } from '../core/types';
+import type { FramerrWidget, GridPolicy, LayoutEvent, GridEventHandlers, ExternalDropEventData } from '../core/types';
 import { GRID_COLS, GRID_BREAKPOINTS, ROW_HEIGHT, GRID_MARGIN, COMPACT_TYPE } from '../../../constants/gridConfig';
 
 // ============================================================================
@@ -90,7 +90,6 @@ export interface FramerrDashboardGridProps {
 export function FramerrDashboardGrid({
     widgets,
     editMode,
-    isMobile,
     currentBreakpoint,
     widgetVisibility,
     isGlobalDragEnabled,
@@ -303,9 +302,9 @@ export function FramerrDashboardGrid({
                 widgetVisibility={widgetVisibility}
             />
             {/* Drag preview portal renders React widgets into GridStack drag helpers */}
-            <DragPreviewPortal previewMode={false} renderWidget={renderWidget} />
+            <DragPreviewPortal previewMode={false} surface="dashboard" renderWidget={renderWidget} />
             {/* Drop transition overlay - seamless FLIP animation from drag to grid */}
-            <DropTransitionOverlay renderWidget={renderWidget} />
+            <DropTransitionOverlay renderWidget={renderWidget} gridSelector=".grid-stack-main" />
             {/* Empty overlay renders INSIDE grid container for proper z-index stacking */}
             {emptyOverlay}
         </div>

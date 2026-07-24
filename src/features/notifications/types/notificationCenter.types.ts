@@ -3,7 +3,7 @@ import type { Notification } from '../../../../shared/types/notification';
 // --- Types extracted from NotificationCenter.tsx ---
 
 export type NotificationType = 'success' | 'error' | 'warning' | 'info';
-export type NotificationSource = 'overseerr' | 'sonarr' | 'radarr' | 'system';
+export type NotificationSource = 'overseerr' | 'sonarr' | 'radarr' | 'lidarr' | 'system';
 export type FilterType = 'all' | 'unread' | 'read';
 
 /** Backwards-compatible alias (re-exported from barrel) */
@@ -19,6 +19,7 @@ export interface SourceGroupedNotifications {
     overseerr: Notification[];
     sonarr: Notification[];
     radarr: Notification[];
+    lidarr: Notification[];
     system: Notification[];
 }
 
@@ -38,7 +39,7 @@ export interface NotificationCenterProps {
 export interface NotificationGroupProps {
     source: NotificationSource;
     notifications: Notification[];
-    renderNotification: (notification: Notification, index: number) => React.ReactNode;
+    renderNotification: (notification: Notification) => React.ReactNode;
     onClearGroup: (source: NotificationSource) => void;
     onMarkAllAsRead: (source: NotificationSource) => void;
 }
@@ -46,7 +47,8 @@ export interface NotificationGroupProps {
 /** Source display names and colors */
 export const SOURCE_CONFIG: Record<NotificationSource, { label: string; color: string }> = {
     overseerr: { label: 'Overseerr', color: 'var(--accent)' },
-    sonarr: { label: 'Sonarr', color: '#3fc1c9' },
-    radarr: { label: 'Radarr', color: '#ffc230' },
+    sonarr: { label: 'Sonarr', color: 'var(--sonarr)' },
+    radarr: { label: 'Radarr', color: 'var(--radarr)' },
+    lidarr: { label: 'Lidarr', color: 'var(--lidarr)' },
     system: { label: 'System', color: 'var(--text-secondary)' }
 };

@@ -17,7 +17,8 @@ import { CheckCircle2, Download } from 'lucide-react';
 import { WidgetStateMessage } from '../../shared/widgets';
 import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
 import { useIntegrationSSE } from '../../shared/widgets/hooks/useIntegrationSSE';
-import { useAuth } from '../../context/AuthContext';
+import { useRetryPoll } from '../../shared/widgets/hooks';
+import { useAuth } from '../../context/useAuth';
 import { isAdmin } from '../../utils/permissions';
 import StatsBar from './StatsBar';
 import DownloadCard from './DownloadCard';
@@ -93,44 +94,38 @@ interface QBittorrentSSEData {
 // PREVIEW
 // ============================================================================
 
+const PREVIEW_TRANSFER: TransferInfo = {
+    dl_info_speed: 15_700_000,
+    up_info_speed: 2_300_000,
+    dl_info_data: 5_400_000_000,
+    up_info_data: 1_200_000_000,
+    alltime_dl: 820_000_000_000,
+    alltime_ul: 410_000_000_000,
+};
+
+const PREVIEW_TORRENTS = [
+    { id: 't1', name: 'Ubuntu.24.04.LTS.iso', status: 'downloading', progress: 0.85, size: 5_100_000_000, dlspeed: 15_700_000, upspeed: 1_200_000, eta: 180, ratio: 0.4 },
+    { id: 't2', name: 'Fedora.Workstation.41', status: 'downloading', progress: 0.42, size: 2_400_000_000, dlspeed: 8_500_000, upspeed: 600_000, eta: 420, ratio: 0.1 },
+    { id: 't3', name: 'Debian.12.iso', status: 'seeding', progress: 1, size: 3_800_000_000, dlspeed: 0, upspeed: 900_000, eta: 0, ratio: 2.3 },
+];
+
 function PreviewWidget() {
     return (
         <div className="qbt-widget">
-            <div className="qbt-stats-bar">
-                <div className="qbt-stats-item">
-                    <Download size={12} />
-                    <span className="qbt-stats-value">24</span>
-                    <span className="qbt-stats-label">downloads</span>
-                </div>
-            </div>
+            <StatsBar
+                clientType="qbittorrent"
+                itemCount={3}
+                totalDown={PREVIEW_TRANSFER.dl_info_speed ?? 0}
+                totalUp={PREVIEW_TRANSFER.up_info_speed ?? 0}
+                transferInfo={PREVIEW_TRANSFER}
+                hasActiveItems
+                isAdmin={false}
+                globalActionLoading={false}
+                onGlobalToggle={() => {}}
+            />
             <div className="qbt-torrent-list">
-                {[
-                    { name: 'Ubuntu.24.04.LTS.iso', pct: 85, speed: '15 MB/s' },
-                    { name: 'Fedora.Workstation.41', pct: 42, speed: '8.5 MB/s' },
-                    { name: 'Debian.12.iso', pct: 100, speed: '' },
-                ].map(t => (
-                    <div key={t.name} className="qbt-torrent-card">
-                        <div className="qbt-torrent-header">
-                            <div className="qbt-status-badge">
-                                <div className={`qbt-status-dot ${t.pct === 100 ? 'seeding' : 'downloading'}`} />
-                            </div>
-                            <span className="qbt-torrent-name">{t.name}</span>
-                            {t.speed && (
-                                <div className="qbt-torrent-speed">
-                                    <span className="qbt-speed-down">↓ {t.speed}</span>
-                                </div>
-                            )}
-                        </div>
-                        <div className="qbt-torrent-footer">
-                            <div className="qbt-progress-bar">
-                                <div
-                                    className={`qbt-progress-fill ${t.pct === 100 ? 'seeding' : 'downloading'}`}
-                                    style={{ width: `${t.pct}%` }}
-                                />
-                            </div>
-                            <span className="qbt-torrent-meta">{t.pct}%</span>
-                        </div>
-                    </div>
+                {PREVIEW_TORRENTS.map(t => (
+                    <DownloadCard key={t.id} {...t} clientType="qbittorrent" variant="active" />
                 ))}
             </div>
         </div>
@@ -158,7 +153,7 @@ const DownloadsWidget: React.FC<WidgetProps> = ({ widget, previewMode = false })
         status: accessStatus,
         loading: accessLoading,
         availableIntegrations,
-    } = useWidgetIntegration('downloads', configuredIntegrationId, widget.id);
+    } = useWidgetIntegration('downloads', configuredIntegrationId, previewMode ? undefined : widget.id);
 
     const integrationId = effectiveIntegrationId || undefined;
     const isIntegrationBound = !!integrationId;
@@ -171,6 +166,7 @@ const DownloadsWidget: React.FC<WidgetProps> = ({ widget, previewMode = false })
     })();
 
     const isQbt = clientType === 'qbittorrent';
+    const handleRetry = useRetryPoll(integrationId, clientType);
 
     // ---------- State ----------
     // qBittorrent state
@@ -212,7 +208,7 @@ const DownloadsWidget: React.FC<WidgetProps> = ({ widget, previewMode = false })
     const { loading, isConnected } = useIntegrationSSE<QBittorrentSSEData | SABnzbdSSEData>({
         integrationType: clientType,
         integrationId,
-        enabled: isIntegrationBound,
+        enabled: !previewMode && isIntegrationBound,
         onData: (sseData) => {
             if (!sseData) return;
             if (Date.now() < optimisticUntil.current) return;
@@ -304,7 +300,6 @@ const DownloadsWidget: React.FC<WidgetProps> = ({ widget, previewMode = false })
         }
     }, [integrationId, globalActionLoading, hasActiveItems, isQbt]);
 
-    // ---------- Early returns (after all hooks) ----------
     const serviceName = isQbt ? 'qBittorrent' : 'SABnzbd';
 
     if (accessLoading) return <WidgetStateMessage variant="loading" />;
@@ -327,6 +322,7 @@ const DownloadsWidget: React.FC<WidgetProps> = ({ widget, previewMode = false })
                 serviceName={serviceName}
                 instanceName={isServiceUnavailable ? effectiveDisplayName : undefined}
                 message={isServiceUnavailable ? undefined : error}
+                onRetry={isServiceUnavailable ? handleRetry : undefined}
             />
         );
     }

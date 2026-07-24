@@ -9,7 +9,7 @@ import React from 'react';
 import { Server } from 'lucide-react';
 import { getIconComponent } from '../../utils/iconUtils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 import { isAdmin } from '../../utils/permissions';
 import { WidgetStateMessage } from '../../shared/widgets';
 import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
@@ -166,8 +166,6 @@ const ServiceStatusWidget: React.FC<ServiceStatusWidgetProps> = ({ widget, isEdi
         effectiveIntegrationId,
         effectiveDisplayName,
         status: accessStatus,
-        isFallback,
-        isAdmin: hookIsAdmin,
         loading: accessLoading,
     } = useWidgetIntegration('service-status', configuredIntegrationId, widget.id);
 

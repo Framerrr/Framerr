@@ -105,11 +105,15 @@
 /* Legacy class-based approach (kept for backward compatibility) */
 .edit-disabled {
     pointer-events: none;
+    /* Clip inner widget scroll regions (e.g. Downloads list, Tautulli tab body) */
+    overscroll-behavior: none;
+    touch-action: none;
 }
 
 /* Exception: elements that should remain clickable in edit mode */
 .edit-disabled .edit-clickable {
     pointer-events: auto;
+    touch-action: auto;
 }
 
 /* ===== ADAPTIVE HEADER TRANSITIONS ===== */

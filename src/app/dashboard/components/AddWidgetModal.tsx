@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search } from 'lucide-react';
+import { Lightbulb, Search } from 'lucide-react';
 import { Modal, Select } from '../../../shared/ui';
 import { WidgetCard, useWidgetData } from '../../../shared/widgets';
 import { getWidgetsByCategory, WidgetMetadata } from '../../../widgets/registry';
@@ -234,8 +234,12 @@ const AddWidgetModal = ({
                 </div>
             </Modal.Body>
             <Modal.Footer className="justify-center">
-                <p className="text-xs text-theme-tertiary text-center">
-                    💡 <span className="hidden sm:inline">Tip: </span>Click "Add to Dashboard" or drag widgets directly onto your dashboard
+                <p className="inline-flex items-center justify-center gap-1.5 text-xs text-theme-tertiary text-center">
+                    <Lightbulb size={14} className="flex-shrink-0 text-theme-tertiary" aria-hidden />
+                    <span>
+                        <span className="hidden sm:inline">Tip: </span>
+                        Click "Add to Dashboard" or drag widgets directly onto your dashboard
+                    </span>
                 </p>
             </Modal.Footer>
         </Modal>

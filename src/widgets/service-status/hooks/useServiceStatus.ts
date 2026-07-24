@@ -164,7 +164,7 @@ export function useServiceStatus({
             resizeObserver.disconnect();
             observedElementRef.current = null;
         };
-    }, [loading, containerRef.current]); // Re-run when loading changes OR containerRef.current becomes available
+    }, [loading]); // Re-run when loading transition makes container available
 
     // Calculate layout based on container size and monitor count
     const layout = useMemo(() => {

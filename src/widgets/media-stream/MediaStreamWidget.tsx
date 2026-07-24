@@ -15,7 +15,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Film, Play, Pause } from 'lucide-react';
+import { Film } from 'lucide-react';
 
 // Types
 import type { MediaSession, IntegrationType } from './adapters';
@@ -40,7 +40,7 @@ import { WidgetStateMessage } from '../../shared/widgets';
 import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
 
 // Context & Utils
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 import { isAdmin } from '../../utils/permissions';
 import api from '../../api/client';
 import logger from '../../utils/logger';

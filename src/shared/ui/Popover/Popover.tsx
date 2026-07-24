@@ -22,12 +22,12 @@
 
 import React, { forwardRef, useEffect, useState, useRef } from 'react';
 import * as RadixPopover from '@radix-ui/react-popover';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { popIn } from '../animations';
 import { useCloseOnScroll } from '@/shared/hooks/useCloseOnScroll';
 import { useOverlayScrollLock } from '@/shared/hooks/useOverlayScrollLock';
-import { useInsideModal } from '../Modal/Modal';
+import { useInsideModal } from '../Modal/useInsideModal';
 
 
 // ===========================

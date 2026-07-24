@@ -237,7 +237,6 @@ function GridStackInner({
     policy,
     handlers,
     renderWidget,
-    className,
     mainGridSelector,
     mobileLayoutMode,
     pendingUnlink,
@@ -637,7 +636,7 @@ function GridStackInner({
             // Call synchronously - don't wait for RAF
             updatePortalContainersRef.current?.(widgets);
         }
-    }, [widgets, gridStack, policy.view.breakpoint, widgetVisibility, policy.interaction.canDrag, mainGridSelector]);
+    }, [widgets, gridStack, policy.view.breakpoint, widgetVisibility, policy.interaction.canDrag, mainGridSelector, getUpdatedWidgets]);
 
     // Handle breakpoint/column changes
     const prevColsRef = useRef(
@@ -731,8 +730,11 @@ function GridStackInner({
             // First, keep all existing containers that are still valid
             for (const [id, element] of prev) {
                 if (widgetIds.has(id)) {
-                    // Keep existing container if still in DOM
-                    if (document.contains(element)) {
+                    // Keep only if still in DOM and still tagged for this widget id
+                    if (
+                        document.contains(element) &&
+                        element.getAttribute('data-widget-portal') === id
+                    ) {
                         result.set(id, element);
                     } else {
                         hasChanges = true;

@@ -2,7 +2,7 @@ import React from 'react';
 import { Info, Monitor, Smartphone } from 'lucide-react';
 import { useActiveWidgets } from '../hooks/useActiveWidgets';
 import { WidgetCard } from '../components/WidgetCard';
-import { useSettingsAnimationClass } from '../../../context/SettingsAnimationContext';
+import { useSettingsAnimationClass } from '../../../context/useSettingsAnimation';
 
 /**
  * Active Widgets Section
@@ -26,7 +26,9 @@ const ActiveSection: React.FC = () => {
         handleRemove,
         handleIconSelect,
         updateWidgetConfig,
-        resizeWidget
+        resizeWidget,
+        schemas,
+        integrations,
     } = useActiveWidgets();
 
     if (loading) {
@@ -126,6 +128,8 @@ const ActiveSection: React.FC = () => {
                             onIconSelect={handleIconSelect}
                             onUpdateConfig={updateWidgetConfig}
                             onResize={resizeWidget}
+                            schemas={schemas}
+                            integrations={integrations}
                         />
                     ))}
                 </div>

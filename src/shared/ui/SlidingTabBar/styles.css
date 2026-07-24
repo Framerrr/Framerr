@@ -1,0 +1,107 @@
+/* SlidingTabBar — full-width adaptive tabs with unified selection indicator */
+
+.sliding-tab-bar {
+    display: flex;
+    gap: 0.2rem;
+    align-items: stretch;
+    flex-shrink: 0;
+    width: 100%;
+    padding: 0.15rem 0;
+}
+
+.sliding-tab-bar__tab {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.5rem;
+    padding: 0.55rem 0.5rem;
+    border: none;
+    border-radius: 0.75rem;
+    background: transparent;
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+
+.sliding-tab-bar__inner {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    max-width: 100%;
+    min-width: 0;
+    font-weight: 700;
+}
+
+.sliding-tab-bar__icon {
+    display: none;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    opacity: 0.9;
+}
+
+.sliding-tab-bar__label {
+    font-size: clamp(0.7rem, 2.1cqi, 0.84rem);
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    transition: color 0.15s ease;
+}
+
+.sliding-tab-bar__label--short {
+    display: none;
+}
+
+@media (hover: hover) {
+    .sliding-tab-bar__tab:hover .sliding-tab-bar__inner:not(.text-theme-primary) {
+        color: var(--text-primary);
+    }
+}
+
+/* Parent widget must set container-type: inline-size */
+@container (max-width: 440px) {
+    .sliding-tab-bar__tab {
+        padding: 0.5rem 0.35rem;
+        min-height: 2.4rem;
+    }
+
+    .sliding-tab-bar__icon {
+        display: block;
+    }
+
+    .sliding-tab-bar__label--full {
+        display: none;
+    }
+
+    .sliding-tab-bar__label--short {
+        display: inline;
+        font-size: clamp(0.68rem, 2.4cqi, 0.8rem);
+    }
+}
+
+@container (max-width: 300px) {
+    .sliding-tab-bar__tab {
+        padding: 0.45rem 0.25rem;
+        min-height: 2.35rem;
+    }
+
+    .sliding-tab-bar__icon {
+        display: block;
+        width: 1.15rem;
+        height: 1.15rem;
+    }
+
+    .sliding-tab-bar__label--full,
+    .sliding-tab-bar__label--short {
+        display: none;
+    }
+}

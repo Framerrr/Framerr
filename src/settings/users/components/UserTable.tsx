@@ -6,8 +6,8 @@
  */
 
 import React from 'react';
-import { Users as UsersIcon, Plus, Edit, Key, Check, X, Shield, User as UserIcon } from 'lucide-react';
-import { Button, UserAvatar } from '../../../shared/ui';
+import { Users as UsersIcon, Edit, Key, Check, X, Shield, User as UserIcon } from 'lucide-react';
+import { UserAvatar } from '../../../shared/ui';
 import { ConfirmButton } from '../../../shared/ui';
 import { TempPasswordModal } from './TempPasswordModal';
 import type { User, TempPassword } from '../types';

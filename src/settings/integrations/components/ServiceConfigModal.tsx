@@ -15,7 +15,7 @@ import { Modal } from '../../../shared/ui';
 import { Switch } from '../../../shared/ui';
 import { Button } from '../../../shared/ui';
 import { ConfirmDialog } from '../../../shared/ui';
-import { useWalkthrough } from '../../../features/walkthrough/WalkthroughContext';
+import { useWalkthrough } from '../../../features/walkthrough/useWalkthrough';
 
 /**
  * EditableName - Click-to-edit component for instance display name
@@ -149,6 +149,7 @@ const ServiceConfigModal: React.FC<ServiceConfigModalProps> = ({
         if (isOpen) {
             wasDisabledOnOpen.current = !isEnabled;
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Snapshot wasDisabledOnOpen at open only
     }, [isOpen]); // Only on open, intentionally not tracking isEnabled
 
     // Check if test button should be shown (default true)

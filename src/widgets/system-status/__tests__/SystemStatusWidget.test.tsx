@@ -15,9 +15,8 @@
  *   S5  — MetricGraphPopover opens / fetches history
  */
 
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { AllProviders } from '../../../test/providers';
 import SystemStatusWidget from '../SystemStatusWidget';
@@ -29,11 +28,11 @@ import type { StatusData, DiskInfo } from '../types';
 // ============================================================================
 
 // --- Context mocks ---
-vi.mock('../../../context/LayoutContext', () => ({
+vi.mock('../../../context/useLayout', () => ({
     useLayout: () => ({ isMobile: false }),
 }));
 
-vi.mock('../../../context/AuthContext', () => ({
+vi.mock('../../../context/useAuth', () => ({
     useAuth: () => ({ user: { role: 'admin' } }),
 }));
 

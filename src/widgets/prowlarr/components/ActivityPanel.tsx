@@ -34,7 +34,7 @@ const ActivityPanel: React.FC<ActivityPanelProps> = ({ fetchActivity, active }) 
 
     useEffect(() => {
         if (active) {
-            void load();
+            queueMicrotask(() => { void load(); });
         }
     }, [active, load]);
 

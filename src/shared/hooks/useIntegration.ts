@@ -1,4 +1,4 @@
-import { useIntegrationData } from '../../app/providers/IntegrationDataProvider';
+import { useIntegrationData } from '../../app/providers/useIntegrationData';
 import type { BaseIntegration } from '@shared/types/integration';
 
 /**

@@ -34,18 +34,8 @@ interface Step3Props {
 
 const TemplateBuilderStep3: React.FC<Step3Props> = ({
     data,
-    onSave,
-    onShare,
-    onClose,
-    isAdmin = false,
-    onSaveAction,
-    saving: externalSaving,
-    saveAction: externalSaveAction,
     onReady,
 }) => {
-    // Use external saving state if handleSave is managed by parent
-    const saving = externalSaving ?? false;
-    const saveAction = externalSaveAction ?? null;
     const [viewMode, setViewMode] = useState<ViewMode>('desktop');
 
     // Container measurement for scale calculation

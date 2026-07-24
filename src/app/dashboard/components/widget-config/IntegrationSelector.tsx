@@ -7,7 +7,7 @@
  * - Shared CompatibleIntegrationsEmpty sub-component
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Select, IntegrationDropdown, Popover } from '../../../../shared/ui';
 import { Link2, ExternalLink, Info } from 'lucide-react';
 import type { IntegrationInstance, WidgetConfigUIState } from './types';
@@ -127,27 +127,18 @@ export const SingleIntegrationSelector: React.FC<SingleIntegrationSelectorProps>
     const selectValue = isValidId ? storedId : '';
 
     /**
-     * Handle integration selection — auto-fill title and icon if not overridden.
+     * Handle integration selection — bind id only; chrome derives title/icon at render.
      */
     const handleIntegrationChange = (newId: string | undefined) => {
         updateConfig('integrationId', newId || undefined);
 
-        if (!newId) return;
-
-        const selectedIntegration = availableIntegrations.find(i => i.id === newId);
-        if (!selectedIntegration) return;
-
-        // Auto-fill title if not manually overridden
-        if (!config.titleOverridden) {
-            updateConfig('title', selectedIntegration.displayName);
-        }
-
-        // Auto-fill icon if not manually overridden
-        if (!config.iconOverridden) {
-            const intType = newId.split('-')[0];
-            const schemaIcon = schemas?.[intType]?.icon;
-            if (schemaIcon) {
-                updateConfig('customIcon', schemaIcon);
+        if (!newId) {
+            // Unbind: clear sticky auto-branding when user has not overridden
+            if (!config.titleOverridden) {
+                updateConfig('title', undefined);
+            }
+            if (!config.iconOverridden) {
+                updateConfig('customIcon', undefined);
             }
         }
     };
@@ -207,6 +198,25 @@ export const MultiIntegrationSelector: React.FC<MultiIntegrationSelectorProps> =
     compatPopoverOpen,
     setCompatPopoverOpen,
 }) => {
+    // One-shot scrub: multi widgets must not keep a singular integrationId or
+    // sticky auto-title/icon (caused Calendar tiles to show as "qBittorrent").
+    const scrubbedRef = useRef(false);
+    useEffect(() => {
+        if (scrubbedRef.current) return;
+        if (!configUI.isMultiIntegration) return;
+        scrubbedRef.current = true;
+        if (config.integrationId) {
+            updateConfig('integrationId', undefined);
+            updateConfig('forceClearIntegration', true);
+        }
+        if (config.titleOverridden !== true && config.title) {
+            updateConfig('title', undefined);
+        }
+        if (config.iconOverridden !== true && config.customIcon) {
+            updateConfig('customIcon', undefined);
+        }
+    }, [configUI.isMultiIntegration, config.integrationId, config.title, config.titleOverridden, config.customIcon, config.iconOverridden, updateConfig]);
+
     if (!configUI.isMultiIntegration || configUI.compatibleIntegrationTypes.length === 0) {
         return null;
     }
@@ -290,12 +300,12 @@ export const MultiIntegrationSelector: React.FC<MultiIntegrationSelectorProps> =
                                 integrations={dropdownIntegrations}
                                 selectedIds={currentIds}
                                 onChange={(ids) => {
-                                    // Store as array in new key
-                                    updateConfig(configKey, ids.length > 0 ? ids : undefined);
-                                    // Clear legacy key if it exists
-                                    if (config[legacyKey]) {
-                                        updateConfig(legacyKey, undefined);
-                                    }
+                                    // Always persist an array — [] means "explicitly none"
+                                    // (undefined was indistinguishable from "never configured" and
+                                    // triggered auto-fallback re-bind in useMultiWidgetIntegration).
+                                    updateConfig(configKey, ids);
+                                    // Always clear legacy singular key so it cannot revive the selection
+                                    updateConfig(legacyKey, undefined);
                                 }}
                                 size="md"
                                 placeholder={`Select ${label.toLowerCase()}...`}

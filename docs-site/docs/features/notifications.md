@@ -21,6 +21,7 @@ The notification center opens from the mail icon in the sidebar. It displays not
 - **Overseerr** — media requests, approvals, availability
 - **Sonarr** — episode grabs, downloads, health issues
 - **Radarr** — movie grabs, downloads, health issues
+- **Lidarr** — album grabs, downloads, health issues
 - **System** — service monitoring alerts, maintenance events
 
 Each notification shows a timestamp, icon, and type badge (success, error, warning, info). You can:
@@ -32,7 +33,7 @@ Each notification shows a timestamp, icon, and type badge (success, error, warni
 
 ## Event Types
 
-### Webhook Events (Overseerr, Sonarr, Radarr)
+### Webhook Events (Overseerr, Sonarr, Radarr, Lidarr)
 
 These integrations send events to Framerr via webhooks. Framerr generates a unique webhook URL for each integration instance — you paste this URL into the integration's notification settings.
 
@@ -41,6 +42,8 @@ These integrations send events to Framerr via webhooks. Framerr generates a uniq
 **[Sonarr](../integrations/sonarr#notifications)** (13 events): Episode Grabbed, Downloaded, Upgraded, Import Complete, Series Added/Deleted, Health Issue/Restored, Application Update, Manual Interaction Required, and more
 
 **[Radarr](../integrations/radarr#notifications)** (13 events): Movie Grabbed, Downloaded, Upgraded, Import Complete, Movie Added/Deleted, Health Issue/Restored, Application Update, Manual Interaction Required, and more
+
+**[Lidarr](../integrations/lidarr#notifications)** — album grabs, downloads, health issues, and more
 
 ### Service Monitoring Events (Local)
 
@@ -103,16 +106,16 @@ Each user can subscribe multiple devices. The settings panel shows all registere
 
 ## Webhook Setup
 
-For Sonarr, Radarr, and Overseerr, you need to configure webhooks in the source application.
+For Sonarr, Radarr, Lidarr, and Overseerr, you need to configure webhooks in the source application.
 
 ### Steps
 
-1. Go to **Settings → Integrations → Service Settings → [Sonarr/Radarr/Overseerr]** in Framerr
+1. Go to **Settings → Integrations → Service Settings → [Sonarr/Radarr/Lidarr/Overseerr]** in Framerr
 2. Select the desired integration (e.g., "Sonarr-4k")
 3. Enable webhook notifications with the toggle
 4. Click **Generate Webhook Token**
 5. Copy the webhook URL
-6. In Sonarr/Radarr/Overseerr, add a new **Webhook** notification connection
+6. In Sonarr/Radarr/Lidarr/Overseerr, add a new **Webhook** notification connection
 7. Paste the Framerr webhook URL
 8. Enable **all notification types** in the source application — Framerr handles filtering on its end based on your event selections
 

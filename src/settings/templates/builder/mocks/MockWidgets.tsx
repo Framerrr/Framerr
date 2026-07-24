@@ -51,9 +51,9 @@
 
 import React from 'react';
 import {
-    Film, ArrowDown, ArrowUp, Activity, Disc, Thermometer, Clock,
-    Globe, Music, Sun, Code, ChevronLeft, ChevronRight, Filter, MapPin,
-    Link, Tv
+    Film, Activity, Disc, Thermometer, Clock,
+    Globe, Sun, Code, ChevronLeft, ChevronRight, Filter, MapPin,
+    Link
 } from 'lucide-react';
 
 // =============================================================================
@@ -635,29 +635,5 @@ export const MockServiceStatusWidget: React.FC = () => {
             ))}
         </div>
     );
-};
-
-// =============================================================================
-// WIDGET TYPE MAPPING
-// =============================================================================
-export const getMockWidget = (type: string): React.FC => {
-    const widgets: Record<string, React.FC> = {
-        'media-stream': MockPlexWidget,  // New canonical widget type
-        'plex': MockPlexWidget,           // Legacy/backward compatibility
-        'radarr': MockRadarrWidget,
-        'sonarr': MockSonarrWidget,
-        'downloads': MockQBittorrentWidget,
-        'system-status': MockSystemStatusWidget,
-        'service-status': MockServiceStatusWidget,
-        'calendar': MockCalendarWidget,
-        'clock': MockClockWidget,
-        'weather': MockWeatherWidget,
-        'link-grid': MockLinkGridWidget,
-        'overseerr': MockOverseerrWidget,
-        'upcomingmedia': MockUpcomingMediaWidget,
-        'custom-html': MockCustomHTMLWidget,
-    };
-
-    return widgets[type.toLowerCase()] || (() => <MockGenericWidget type={type} />);
 };
 

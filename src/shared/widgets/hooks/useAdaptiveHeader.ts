@@ -10,7 +10,7 @@
  * - 'hard': Header visibility strictly determined by height
  */
 
-import { useState, useLayoutEffect, useMemo, RefObject, useCallback } from 'react';
+import { useState, useLayoutEffect, useMemo, RefObject } from 'react';
 import { getWidgetConfigConstraints } from '../../../widgets/registry';
 import { ROW_HEIGHT } from '../../../constants/gridConfig';
 

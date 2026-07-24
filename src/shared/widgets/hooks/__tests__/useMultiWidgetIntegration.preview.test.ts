@@ -14,11 +14,11 @@ import { renderHook } from '@testing-library/react';
 // Mocks
 // ---------------------------------------------------------------------------
 
-vi.mock('../../../../context/AuthContext', () => ({
+vi.mock('../../../../context/useAuth', () => ({
     useAuth: () => ({ user: { role: 'admin' } }),
 }));
 
-vi.mock('../../../../context/DashboardEditContext', () => ({
+vi.mock('../../../../context/useDashboardEdit', () => ({
     useDashboardEdit: () => ({ editMode: false }),
 }));
 
@@ -103,5 +103,20 @@ describe('BL-1b: Preview mode safety — useMultiWidgetIntegration', () => {
         expect(result.current.loading).toBe(false);
         expect(result.current.integrations.sonarr.effectiveId).toBe('sonarr-1');
         expect(result.current.integrations.radarr.effectiveId).toBe('radarr-1');
+    });
+
+    it('null slot means explicit none — no fallback and no persist', () => {
+        const { result } = renderHook(() =>
+            useMultiWidgetIntegration(
+                'calendar',
+                { sonarr: null, radarr: 'radarr-1' },
+                'widget-1',
+            )
+        );
+
+        expect(result.current.integrations.sonarr.effectiveId).toBeNull();
+        expect(result.current.integrations.sonarr.isFallback).toBe(false);
+        expect(result.current.integrations.radarr.effectiveId).toBe('radarr-1');
+        expect(mockUpdateWidgetConfig).not.toHaveBeenCalled();
     });
 });

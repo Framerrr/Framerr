@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, LogOut, UserCircle, Mail, LayoutGrid, Settings as SettingsIcon, PanelLeftClose } from 'lucide-react';
-import { useSharedSidebar } from '@/app/sidebar/SharedSidebarContext';
+import { useSharedSidebar } from '@/app/sidebar/context/useSharedSidebar';
 import { Highlight, HighlightItem } from '@/app/sidebar/Highlight';
 import { sidebarSpring } from '@/app/sidebar/types';
 import { NotificationCenter } from '../../features/notifications';
@@ -42,7 +42,6 @@ export function DesktopSidebar() {
         getActiveNavItem,
         sidebarMode,
         setSidebarMode,
-        shouldAutoExpand,
         lastSettingsPath,
     } = useSharedSidebar();
 
@@ -55,14 +54,11 @@ export function DesktopSidebar() {
         if (dashboardEdit?.editMode && isExpanded) {
             queueMicrotask(() => setIsExpanded(false));
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Effect must collapse only on edit-mode transition
     }, [dashboardEdit?.editMode]);
 
     // Parse current route for active state detection
     const hash = window.location.hash.slice(1);
-    const hashParts = hash.split('?');
-    const searchParams = hashParts.length > 1 ? new URLSearchParams(hashParts[1]) : new URLSearchParams();
-    const currentTab = searchParams.get('tab');
-    const source = searchParams.get('source');
 
     const activeNavItem = getActiveNavItem();
 
@@ -87,7 +83,7 @@ export function DesktopSidebar() {
         if (isOnSettingsPage && isSidebarHidden) {
             queueMicrotask(() => setIsExpanded(true));
         }
-    }, [isOnSettingsPage, isSidebarHidden]);
+    }, [isOnSettingsPage, isSidebarHidden, setIsExpanded]);
 
 
     // Calculate sidebar position and scale

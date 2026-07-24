@@ -80,9 +80,10 @@ const ENTITY_QUERY_KEYS: Record<string, (() => readonly unknown[])[]> = {
         queryKeys.config.user,
     ],
 
-    // Theme - user's theme settings
+    // Theme - user's theme settings (also on user config; settings UI reads both)
     'theme': [
         queryKeys.theme.current,
+        queryKeys.config.user,
     ],
 
     // ============================================

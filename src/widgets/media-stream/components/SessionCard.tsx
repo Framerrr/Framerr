@@ -13,7 +13,8 @@
 import React, { useState } from 'react';
 import { Film, Network, Info, ExternalLink, StopCircle, Play, Pause } from 'lucide-react';
 import { useSessionCardData } from '../hooks/useSessionCardData';
-import type { MediaSession } from '../adapters';
+import { openMediaInApp } from '../../../shared/utils/mediaDeepLinks';
+import type { MediaSession, IntegrationType } from '../adapters';
 
 interface SessionCardProps {
     session: MediaSession;
@@ -51,7 +52,6 @@ export const SessionCard: React.FC<SessionCardProps> = ({
         percent,
         playedStr,
         durationStr,
-        deepLink,
         externalLinkTitle,
         userName,
     } = useSessionCardData({ session, integrationId, machineId, serverUrl, serverId, lastUpdateTime });
@@ -114,7 +114,15 @@ export const SessionCard: React.FC<SessionCardProps> = ({
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        if (deepLink) window.open(deepLink, '_blank');
+                        openMediaInApp(
+                            session.integrationType as IntegrationType,
+                            session.ratingKey || '',
+                            {
+                                machineId: machineId || undefined,
+                                serverUrl: serverUrl || undefined,
+                                serverId: serverId || undefined,
+                            }
+                        );
                     }}
                     className="w-9 h-9 rounded-lg bg-theme-hover border border-theme flex items-center justify-center text-theme-primary hover:bg-theme-tertiary transition-colors"
                     title={externalLinkTitle}

@@ -12,7 +12,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
 import { settingsSection } from '../animations';
-import { useSettingsAnimation } from '../../../context/SettingsAnimationContext';
+import { useSettingsAnimation } from '../../../context/useSettingsAnimation';
 
 export interface SettingsSectionProps {
     /** Section title displayed in header */

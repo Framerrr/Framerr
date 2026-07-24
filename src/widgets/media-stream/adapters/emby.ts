@@ -69,7 +69,7 @@ function mapEmbyType(type?: string): MediaSession['type'] {
 // ============================================================================
 
 export const embyAdapter: SessionAdapter = {
-    normalize(raw: unknown, _integrationId: string): MediaSession {
+    normalize(raw: unknown): MediaSession {
         const session = raw as EmbyRawSession;
         const item = session.NowPlayingItem;
         const ti = session.TranscodingInfo;

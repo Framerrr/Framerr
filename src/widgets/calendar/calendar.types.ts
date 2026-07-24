@@ -4,8 +4,8 @@
  * Shared types used by CalendarWidget, MonthGrid, AgendaList, and EventPopover.
  */
 
-export type EventType = 'sonarr' | 'radarr';
-export type FilterType = 'all' | 'tv' | 'movies';
+export type EventType = 'sonarr' | 'radarr' | 'lidarr';
+export type FilterType = 'all' | 'tv' | 'movies' | 'music';
 export type ViewMode = 'agenda' | 'month' | 'both';
 
 /** Which movie release date field(s) to plot events under. See plugin.ts for config wiring. */
@@ -39,6 +39,19 @@ export interface CalendarEvent {
     instanceId?: string;
     instanceName?: string;
     runtime?: number;
+    /** For lidarr events — nested artist from calendar poller */
+    artist?: {
+        artistName?: string;
+        images?: Array<{
+            coverType: string;
+            remoteUrl?: string;
+            url?: string;
+        }>;
+    };
+    artistName?: string;
+    albumTitle?: string;
+    releaseDate?: string;
+    albumType?: string;
     /** For radarr events only. Identifies which specific release milestone THIS plotted
      * instance represents. Required because under movieDates: 'all' the same source movie
      * is spread into up to 3 independent CalendarEvent objects (one per populated date

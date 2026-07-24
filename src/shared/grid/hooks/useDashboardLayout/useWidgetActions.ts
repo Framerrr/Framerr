@@ -24,12 +24,10 @@ import type {
     FramerrWidget,
     MobileLayoutMode,
     Breakpoint,
-    LayoutState,
 } from './types';
 
 import { createLgLayoutItem, createSmLayoutItem, createLayoutsFromWidgets } from './layoutCreators';
 import { useWidgetCrud, type WidgetCrudDeps } from './useWidgetCrud';
-import type { HistoryStackName } from '@/shared/grid/core/types';
 import { updateWidgetConfig as coreUpdateWidgetConfig, resizeWidget as coreResizeWidget, deriveLinkedMobileLayout, snapshotToMobileLayout } from '@/shared/grid/core/ops';
 import { getWidgetMetadata } from '@/widgets/registry';
 

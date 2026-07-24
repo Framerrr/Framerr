@@ -39,7 +39,6 @@ interface DropdownPosition {
 }
 
 const MonitorSharingDropdown: React.FC<MonitorSharingDropdownProps> = ({
-    monitorId,
     monitorName,
     eligibleUsers,
     selectedUserIds,

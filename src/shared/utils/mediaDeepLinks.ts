@@ -15,9 +15,70 @@ export interface MediaServerMeta {
     serverId?: string;   // Emby only — unique server identifier for deep links
 }
 
+/** Delay before opening Plex Web fallback when native app does not take over (ms). */
+export const PLEX_IOS_FALLBACK_DELAY_MS = 1700;
+
+// ============================================================================
+// iOS CLIENT DETECTION
+// ============================================================================
+
+/**
+ * Detect iOS / iPadOS client (including PWA on iPad iOS 13+).
+ */
+export function isIosClient(): boolean {
+    const ua = navigator.userAgent;
+    if (/iPhone|iPod|iPad/i.test(ua)) return true;
+    if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+    return false;
+}
+
 // ============================================================================
 // URL GENERATORS
 // ============================================================================
+
+/**
+ * Generate a native Plex iOS deep link using the preplay scheme.
+ */
+export function getPlexNativeLink(ratingKey: string, machineId: string): string {
+    const encodedKey = encodeURIComponent(`/library/metadata/${ratingKey}`);
+    return `plex://preplay/?metadataKey=${encodedKey}&server=${machineId}`;
+}
+
+/**
+ * Attempt native Plex app on iOS; fall back to web URL if app does not open.
+ */
+export function openPlexNativeOrFallback(
+    ratingKey: string,
+    machineId: string,
+    webFallbackUrl: string
+): void {
+    const deepLinkUrl = getPlexNativeLink(ratingKey, machineId);
+    let resolved = false;
+
+    const resolve = (): void => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timer);
+        document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+
+    const onVisibilityChange = (): void => {
+        if (document.hidden) {
+            resolve();
+        }
+    };
+
+    const timer = setTimeout((): void => {
+        if (!resolved && !document.hidden) {
+            resolve();
+            window.open(webFallbackUrl, '_blank');
+        }
+    }, PLEX_IOS_FALLBACK_DELAY_MS);
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    window.location.href = deepLinkUrl;
+}
 
 /**
  * Generate a Plex Web URL for a media item.
@@ -87,6 +148,12 @@ export function openMediaInApp(
     itemId: string,
     meta: MediaServerMeta
 ): boolean {
+    if (type === 'plex' && meta.machineId && itemId && isIosClient()) {
+        const webUrl = getPlexDeepLink(itemId, meta.machineId);
+        openPlexNativeOrFallback(itemId, meta.machineId, webUrl);
+        return true;
+    }
+
     const url = getMediaDeepLink(type, itemId, meta);
     if (url) {
         window.open(url, '_blank');

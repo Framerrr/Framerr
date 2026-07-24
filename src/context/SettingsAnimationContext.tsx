@@ -10,7 +10,7 @@
  * - Page is just being revealed (returning from Dashboard)
  */
 
-import React, { createContext, useContext, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useRef, ReactNode } from 'react';
 
 interface SettingsAnimationContextType {
     /** If true, internal animations should be skipped */
@@ -22,6 +22,8 @@ interface SettingsAnimationContextType {
 }
 
 const SettingsAnimationContext = createContext<SettingsAnimationContextType | null>(null);
+
+export { SettingsAnimationContext };
 
 interface SettingsAnimationProviderProps {
     children: ReactNode;
@@ -57,53 +59,4 @@ export function SettingsAnimationProvider({ children }: SettingsAnimationProvide
             {children}
         </SettingsAnimationContext.Provider>
     );
-}
-
-export function useSettingsAnimation(): SettingsAnimationContextType {
-    const context = useContext(SettingsAnimationContext);
-    if (!context) {
-        // Default behavior when outside context - always animate
-        return {
-            skipAnimation: false,
-            markRendered: () => { },
-            hasRendered: () => false,
-        };
-    }
-    return context;
-}
-
-/**
- * Hook for settings pages to get animation class
- * Usage: const animClass = useSettingsAnimationClass('tabs');
- * Then: <div className={`${animClass} ...`}>
- */
-export function useSettingsAnimationClass(categoryId: string): string {
-    const { hasRendered, markRendered } = useSettingsAnimation();
-    const isFirstRender = useRef(!hasRendered(categoryId));
-
-    useEffect(() => {
-        markRendered(categoryId);
-    }, [categoryId, markRendered]);
-
-    // Only return animation class on first render
-    return isFirstRender.current ? 'fade-in' : '';
-}
-
-/**
- * Hook for shared components (SettingsPage, SettingsSection) to know if they should animate
- * Returns true if this is the first render of the category, false if already rendered (reveal)
- * 
- * Usage:
- * const shouldAnimate = useShouldAnimate('integrations');
- * <SettingsPage noAnimation={!shouldAnimate} ...>
- */
-export function useShouldAnimate(categoryId: string): boolean {
-    const { hasRendered, markRendered } = useSettingsAnimation();
-    const shouldAnimate = useRef(!hasRendered(categoryId));
-
-    useEffect(() => {
-        markRendered(categoryId);
-    }, [categoryId, markRendered]);
-
-    return shouldAnimate.current;
 }

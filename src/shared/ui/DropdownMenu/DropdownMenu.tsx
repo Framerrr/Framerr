@@ -27,7 +27,7 @@
  * </DropdownMenu>
  */
 
-import React, { forwardRef, useState, useCallback, useEffect, useRef } from 'react';
+import React, { forwardRef, useState, useCallback, useRef } from 'react';
 import * as RadixDropdownMenu from '@radix-ui/react-dropdown-menu';
 import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';

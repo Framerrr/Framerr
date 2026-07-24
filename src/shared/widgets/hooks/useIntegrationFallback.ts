@@ -15,8 +15,6 @@
  */
 
 import { useMemo, useRef } from 'react';
-import { useAuth } from '../../../context/AuthContext';
-import { isAdmin } from '../../../utils/permissions';
 import { useRoleAwareIntegrations } from '../../../api/hooks/useIntegrations';
 import logger from '../../../utils/logger';
 
@@ -58,9 +56,6 @@ export function useIntegrationFallback({
     compatibleTypes,
     widgetType = 'unknown'
 }: UseIntegrationFallbackOptions): IntegrationFallbackResult {
-    const { user } = useAuth();
-    const hasAdminAccess = isAdmin(user);
-
     // Use React Query hook for real-time reactivity (role-aware)
     // React Query keeps previous data during background refetches, so accessibleInstances
     // always has the last successful data (never empty during refetch).

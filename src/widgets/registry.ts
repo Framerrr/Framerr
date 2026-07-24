@@ -36,7 +36,6 @@ for (const [, module] of Object.entries(pluginModules)) {
 // TYPES (matching legacy API)
 // ============================================================================
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type WidgetComponent = React.ComponentType<any>;
 
 /**
@@ -197,8 +196,8 @@ export function getWidgetContentPadding(type: string): 'none' | 'sm' | 'md' | 'l
     return constraints.contentPadding || 'md';
 }
 
-// Category display order - system first, utility last
-const CATEGORY_ORDER = ['system', 'media', 'downloads', 'utility', 'other'];
+// Category display order — aligned with integration categories (+ utility for chrome-only widgets)
+const CATEGORY_ORDER = ['system', 'media', 'management', 'utility', 'other'];
 
 /**
  * Get all available widgets grouped by category
@@ -283,7 +282,7 @@ export function isRegisteredWidgetType(type: string): boolean {
  * When a widget is renamed, add a mapping here so existing dashboards/templates
  * auto-migrate instead of losing the widget.
  * 
- * Example: { 'qbittorrent': 'downloads' }
+ * Example: { 'qbittorrent': 'downloads' } // widget type id migration, not category
  */
 const WIDGET_TYPE_MIGRATIONS: Record<string, string> = {
     // Add future migrations here, e.g.:

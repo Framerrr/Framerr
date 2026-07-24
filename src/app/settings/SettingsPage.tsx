@@ -8,15 +8,13 @@ import {
 import { getCategoryComponent } from '@/settings/navigation/settingsComponentRegistry';
 import { getLucideIcon } from '../../utils/iconUtils';
 import { motion, AnimatePresence, Transition } from 'framer-motion';
-import { useAuth } from '../../context/AuthContext';
-import { useLayout } from '../../context/LayoutContext';
+import { useAuth } from '../../context/useAuth';
+import { useLayout } from '../../context/useLayout';
 import { SettingsNavProvider, useSettingsNav } from '@/settings/navigation';
 import { SettingsAnimationProvider } from '../../context/SettingsAnimationContext';
 import { LAYOUT } from '../../constants/layout';
 import { isAdmin } from '../../utils/permissions';
 
-// Mobile-only: SettingsSidebar for full-screen navigation stack
-import { SettingsSidebar, SettingsMenuItem, SettingsMenuGroup } from '@/settings/layout/SettingsSidebar';
 import '@/settings/layout/SettingsLayout.css';
 
 // Inner component that uses the navigation context
@@ -158,7 +156,6 @@ const SettingsContent: React.FC = () => {
     // Render sub-category list for categories with children (Level 2)
     const renderMobileSubCategory = (category: SidebarSettingsCategory): React.ReactNode => {
         const children = getVisibleChildren(category, hasAdminAccess);
-        const ParentIcon = getLucideIcon(category.icon);
         const iconColorClass = `settings-item__icon--${category.iconColor || 'default'}`;
 
         return (
@@ -250,9 +247,6 @@ const SettingsContent: React.FC = () => {
 
         // Render mobile content with back button header for content pages
         const renderMobileContentWithHeader = (): React.ReactNode => {
-            // Get the category label for the header
-            const categoryLabel = currentConfigCategory?.label || currentCategory;
-
             return (
                 <div>
                     {renderMobileBreadcrumbHeader()}

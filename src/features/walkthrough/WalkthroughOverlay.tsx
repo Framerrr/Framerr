@@ -15,7 +15,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { useWalkthrough } from './WalkthroughContext';
+import { useWalkthrough } from './useWalkthrough';
 import { useWalkthroughInteraction } from './useWalkthroughInteraction';
 import WalkthroughCard from './WalkthroughCard';
 import WalkthroughConfirmDialog from './WalkthroughConfirmDialog';
@@ -265,6 +265,7 @@ const WalkthroughOverlay: React.FC = () => {
 
         rafId = requestAnimationFrame(waitForStableTarget);
         return () => { cancelled = true; cancelAnimationFrame(rafId); clearTimeout(fallbackTimer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Dynamic selector resolved once per step
     }, [currentStep]);
 
     // ─── SVG spotlight + card position tracking (RAF loop) ───────────
@@ -304,7 +305,7 @@ const WalkthroughOverlay: React.FC = () => {
         update();
 
         return () => cancelAnimationFrame(rafId);
-    }, [targetEl]);
+    }, [targetEl, isCentered]);
 
     // ─── Spotlight glow ring ─────────────────────────────────────────
     useEffect(() => {
@@ -394,7 +395,7 @@ const WalkthroughOverlay: React.FC = () => {
         else if (e.key === 'Enter' && walkthrough.currentStep?.advanceOn.type === 'button') {
             walkthrough.advance();
         }
-    }, [walkthrough]);
+    }, [walkthrough, setShowEndConfirmation]);
 
     useEffect(() => {
         document.addEventListener('keydown', handleKeyDown);

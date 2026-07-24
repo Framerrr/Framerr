@@ -135,7 +135,7 @@ export function useGroupSettings(): UseGroupSettingsReturn {
             window.dispatchEvent(new Event('tabGroupsUpdated'));
             window.dispatchEvent(new Event('tabsUpdated'));
             showSuccess('Group Deleted', `Group "${group.name}" deleted`);
-        } catch (error) {
+        } catch {
             showError('Delete Failed', 'Failed to delete group');
         }
     }, [tabGroups, updateTabGroups, showSuccess, showError]);
@@ -158,7 +158,7 @@ export function useGroupSettings(): UseGroupSettingsReturn {
             await updateTabGroups.mutateAsync(reorderedGroups);
             // Notify sidebar to update group order immediately
             window.dispatchEvent(new Event('tabGroupsUpdated'));
-        } catch (error) {
+        } catch {
             // React Query will automatically refetch on error, reverting the UI
         }
     }, [tabGroups, updateTabGroups]);

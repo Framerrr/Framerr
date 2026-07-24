@@ -5,10 +5,13 @@
  * without blocking the entire widget content.
  */
 
-import React from 'react';
-import { AlertCircle } from 'lucide-react';
-import { Popover } from '../../ui';
+import React, { useEffect, useRef, useState } from 'react';
+import { AlertCircle, RotateCcw } from 'lucide-react';
+import { Button, Popover } from '../../ui';
 import { usePopoverState } from '@/shared/hooks/usePopoverState';
+
+/** Keep Retry All in loading state through server burst (5 polls × 5s). */
+const RETRY_PENDING_MS = 20_000;
 
 export interface ErroredInstance {
     id: string;
@@ -20,6 +23,8 @@ export interface PartialErrorBadgeProps {
     erroredInstances: ErroredInstance[];
     /** Optional custom class for positioning */
     className?: string;
+    /** Optional retry handler. When provided, a "Retry All" button is shown in the popover. */
+    onRetry?: () => Promise<void> | void;
 }
 
 /**
@@ -44,8 +49,35 @@ function formatErrorMessage(instances: ErroredInstance[]): string {
 export const PartialErrorBadge: React.FC<PartialErrorBadgeProps> = ({
     erroredInstances,
     className = '',
+    onRetry,
 }) => {
     const { isOpen, onOpenChange } = usePopoverState();
+    const [retrying, setRetrying] = useState(false);
+    const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (retryTimeoutRef.current) {
+                clearTimeout(retryTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    const handleRetryClick = async (): Promise<void> => {
+        if (!onRetry || retrying) return;
+        setRetrying(true);
+        try {
+            await onRetry();
+        } finally {
+            if (retryTimeoutRef.current) {
+                clearTimeout(retryTimeoutRef.current);
+            }
+            retryTimeoutRef.current = setTimeout(() => {
+                setRetrying(false);
+                retryTimeoutRef.current = null;
+            }, RETRY_PENDING_MS);
+        }
+    };
 
     // Don't render if no errors
     if (erroredInstances.length === 0) {
@@ -93,6 +125,20 @@ export const PartialErrorBadge: React.FC<PartialErrorBadgeProps> = ({
                         </div>
                     ))}
                 </div>
+                {onRetry && (
+                    <div className="mt-3 pt-2 border-t border-theme">
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={RotateCcw}
+                            loading={retrying}
+                            onClick={() => { void handleRetryClick(); }}
+                            className="w-full"
+                        >
+                            {retrying ? 'Retrying…' : 'Retry All'}
+                        </Button>
+                    </div>
+                )}
             </Popover.Content>
         </Popover>
     );

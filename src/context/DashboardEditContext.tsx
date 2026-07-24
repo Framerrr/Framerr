@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useState, useCallback, useMemo, ReactNode } from 'react';
 
 /**
  * DashboardEditContext - Central state store for dashboard editing
@@ -129,10 +129,6 @@ export function DashboardEditProvider({ children }: DashboardEditProviderProps):
             {children}
         </DashboardEditContext.Provider>
     );
-}
-
-export function useDashboardEdit(): DashboardEditContextValue | null {
-    return useContext(DashboardEditContext);
 }
 
 export default DashboardEditContext;

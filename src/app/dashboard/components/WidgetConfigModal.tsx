@@ -22,7 +22,7 @@ import { Modal } from '../../../shared/ui';
 import { getWidgetMetadata, getWidgetIcon, getWidgetConfigConstraints } from '../../../widgets/registry';
 import { useWidgetConfigUI } from '../../../shared/widgets';
 import { useRoleAwareIntegrations, useIntegrationSchemas } from '../../../api/hooks';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '../../../context/useAuth';
 import { isAdmin } from '../../../utils/permissions';
 import type { WidgetConfigOption, SearchResult } from '../../../widgets/types';
 import {
@@ -109,26 +109,10 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
     // Loading state only while initial data loads (rare, usually already cached)
     const loading = integrationsLoading;
 
-    // Initialize config from current widget config
+    // Initialize config from current widget config (chrome derives at render — do not sticky-write title/icon)
     useEffect(() => {
         if (isOpen) {
-            const newConfig = { ...currentConfig };
-
-            // Auto-fill title/icon from bound integration if not overridden
-            const integrationId = newConfig.integrationId as string | undefined;
-            if (integrationId) {
-                const boundIntegration = allIntegrations.find(i => i.id === integrationId);
-
-                // Auto-fill title from bound integration if not overridden
-                if (!newConfig.titleOverridden && boundIntegration) {
-                    const defaultTitle = metadata?.name || '';
-                    if (!newConfig.title || newConfig.title === defaultTitle) {
-                        newConfig.title = boundIntegration.displayName || boundIntegration.name || boundIntegration.type;
-                    }
-                }
-            }
-
-            setConfig(newConfig);
+            setConfig({ ...currentConfig });
             // Pre-populate search queries from stored config for search-type options
             const initialQueries: Record<string, string> = {};
             for (const option of configUI.options) {
@@ -141,7 +125,7 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
             setSearchLoading({});
             setSearchOpen({});
         }
-    }, [isOpen, currentConfig, configUI.options, allIntegrations, metadata?.name]);
+    }, [isOpen, currentConfig, configUI.options]);
 
     useEffect(() => {
         const timers = debounceTimers.current;
@@ -236,9 +220,10 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
 
     // Handle save
     const handleSave = () => {
-        // Normalize empty title to default widget name
+        // Blank title → clear override so bound displayName can show again
         if (!config.title || (config.title as string).trim() === '') {
-            config.title = metadata?.name || 'Widget';
+            delete config.title;
+            config.titleOverridden = false;
         }
 
         onSave(widgetId, config);
@@ -302,6 +287,7 @@ const WidgetConfigModal: React.FC<WidgetConfigModalProps> = ({
                         widgetType={widgetType}
                         schemas={schemas}
                         metadataName={metadata?.name}
+                        integrations={allIntegrations}
                     />
 
                     {/* Options (plugin-driven) */}

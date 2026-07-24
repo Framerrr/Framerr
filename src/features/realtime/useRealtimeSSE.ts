@@ -159,8 +159,6 @@ export function useTopicSubscription<T>(topic: string | null): T | null {
 
         subscribeToTopic(topic, (data) => {
             dataRef.current = data as T;
-            // Force re-render by triggering state update
-            // This is a simplified approach - in production might want to use a separate state
         }).then(unsub => {
             unsubscribe = unsub;
         });
@@ -172,7 +170,10 @@ export function useTopicSubscription<T>(topic: string | null): T | null {
         };
     }, [topic, connectionId, subscribeToTopic]);
 
-    return dataRef.current;
+    const subscribe = useCallback(() => () => {}, []);
+    const getSnapshot = useCallback(() => dataRef.current, []);
+
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
 export default useRealtimeSSE;

@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 import { useNotifications } from '../../context/notification';
 import { showLoginSplash } from '../../utils/splash';
 import { Lock, User, AlertCircle, Loader, ArrowLeft, Link, UserPlus, Eye, EyeOff } from 'lucide-react';
@@ -33,7 +33,7 @@ type SetupMode = 'choose' | 'link-existing' | 'create-new';
 const SSOSetup = (): React.JSX.Element => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { success: showSuccess, error: showError } = useNotifications();
+    const { success: showSuccess } = useNotifications();
     const { checkAuth } = useAuth();
 
     // Token and SSO user state

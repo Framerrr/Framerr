@@ -8,7 +8,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { notificationsApi } from '@/api';
 import { useNotifications } from '../../../context/notification';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '../../../context/useAuth';
 import { isAdmin } from '../../../utils/permissions';
 import { getDefaultAdminEvents, getDefaultUserEvents } from '../../../constants/notificationEvents';
 import {
@@ -29,7 +29,7 @@ import {
     WebhookIntegrationDef,
     VisibleIntegrationInstance
 } from '../types';
-import { Star, Film, Tv, Activity } from 'lucide-react';
+import { Star, Film, Tv, Music, Activity } from 'lucide-react';
 
 // ============================================================================
 // Webhook Integration Definitions
@@ -39,6 +39,7 @@ export const WEBHOOK_INTEGRATIONS: WebhookIntegrationDef[] = [
     { id: 'overseerr', name: 'Overseerr', description: 'Media request notifications', icon: Star },
     { id: 'sonarr', name: 'Sonarr', description: 'TV show notifications', icon: Tv },
     { id: 'radarr', name: 'Radarr', description: 'Movie notifications', icon: Film },
+    { id: 'lidarr', name: 'Lidarr', description: 'Music notifications', icon: Music },
     { id: 'servicemonitoring', name: 'Service Monitoring', description: 'Service uptime notifications', icon: Activity }
 ];
 
@@ -153,7 +154,7 @@ export function useNotificationSettings(): UseNotificationSettingsReturn {
     // Shared integrations for non-admin users (uses React Query for SSE invalidation)
     // Uses useRoleAwareIntegrations - same pattern as useWidgetData
     // This returns an array directly (already extracts .integrations)
-    const { data: allIntegrations = [], isLoading: integrationsLoading } = useRoleAwareIntegrations();
+    const { data: allIntegrations = [] } = useRoleAwareIntegrations();
 
     // For non-admin, allIntegrations IS the shared integrations list
     const sharedIntegrations: SharedIntegration[] = useMemo(() => {
@@ -165,7 +166,7 @@ export function useNotificationSettings(): UseNotificationSettingsReturn {
     const notificationsEnabled = preferencesData?.enabled ?? true;
     const notificationSound = preferencesData?.sound ?? false;
     const receiveUnmatched = preferencesData?.receiveUnmatched ?? true;
-    const userIntegrationSettings = preferencesData?.integrations ?? {};
+    const userIntegrationSettings = useMemo(() => preferencesData?.integrations ?? {}, [preferencesData]);
 
     const integrations = useMemo(() => {
         if (hasAdminAccess) {

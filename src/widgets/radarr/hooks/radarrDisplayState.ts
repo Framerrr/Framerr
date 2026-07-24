@@ -1,7 +1,7 @@
 /**
  * radarrDisplayState - 7-state release-date decision tree
  *
- * Pure, standalone functions implementing docs/WIDGET_REDESIGN_MEDIA.md §1.4.
+ * Pure, standalone functions implementing docs/private/widgets/WIDGET_REDESIGN_MEDIA.md §1.4.
  * Kept independently callable (and testable) rather than inlined into the
  * SSE `onData` callback.
  */

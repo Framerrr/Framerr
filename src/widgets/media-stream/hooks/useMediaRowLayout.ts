@@ -109,7 +109,7 @@ export function useMediaRowLayout(
             observerRef.current = null;
             observedElementRef.current = null;
         };
-    }, [containerRef.current]); // Depend on the actual element, not just the ref object
+    }, [containerRef]); // Depend on the stable ref object; observer attaches when current is populated
 
     // Calculate layout whenever dimensions or sessions change
     return useMemo((): MediaRowLayout => {

@@ -47,7 +47,7 @@ export const formatTime = (dateString: string): string => {
  */
 export const getNotificationSource = (notification: Notification): NotificationSource => {
     const service = notification.metadata?.service;
-    if (service === 'overseerr' || service === 'sonarr' || service === 'radarr') {
+    if (service === 'overseerr' || service === 'sonarr' || service === 'radarr' || service === 'lidarr') {
         return service;
     }
     return 'system';

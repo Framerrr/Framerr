@@ -1,7 +1,7 @@
 /**
  * HeroCard - Full-bleed hero treatment for the top-sorted upcoming episode
  *
- * See docs/WIDGET_REDESIGN_MEDIA.md §2.1. Mirrors radarr/components/HeroCard.tsx
+ * See docs/private/widgets/WIDGET_REDESIGN_MEDIA.md §2.1. Mirrors radarr/components/HeroCard.tsx
  * structurally, with Sonarr-specific additions: premiere badge, network badge,
  * season progress bar.
  */
@@ -23,12 +23,17 @@ interface HeroCardProps {
     showSeasonProgress: boolean;
 }
 
+/** Landscape backdrop only — never poster (cover-cropping a poster looks zoomed-in). */
 function getFanartUrl(episode: CalendarEpisode, integrationId: string): string | null {
     const images = episode.series?.images;
     if (!images?.length) return null;
 
-    const fanart = images.find((img: SonarrImage) => img.coverType === 'fanart');
-    const imageUrl = fanart?.remoteUrl || fanart?.url;
+    const type = (img: SonarrImage) => (img.coverType || '').toLowerCase();
+    const pick =
+        images.find((img) => type(img) === 'fanart')
+        || images.find((img) => type(img) === 'banner')
+        || images.find((img) => /fanart/i.test(img.remoteUrl || img.url || ''));
+    const imageUrl = pick?.remoteUrl || pick?.url;
     if (!imageUrl) return null;
 
     return `/api/integrations/${integrationId}/proxy/image?url=${encodeURIComponent(imageUrl)}`;

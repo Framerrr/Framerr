@@ -13,7 +13,7 @@ export const plugin: WidgetPlugin = {
     id: 'sonarr',
     name: 'Sonarr',
     description: 'TV show management and calendar',
-    category: 'media',
+    category: 'management',
     icon: MonitorPlay,
     sizing: {
         default: { w: 6, h: 6 },
@@ -24,7 +24,7 @@ export const plugin: WidgetPlugin = {
     compatibleIntegrations: ['sonarr'],
     defaultConfig: {
         viewMode: 'auto',
-        lookAheadDays: '7',
+        lookAheadDays: '30',
     },
     configConstraints: {
         contentPadding: 'none',  // Widget handles its own padding internally
@@ -54,12 +54,12 @@ export const plugin: WidgetPlugin = {
                 key: 'lookAheadDays',
                 label: 'Look Ahead',
                 type: 'buttons',
-                defaultValue: '7',
+                defaultValue: '30',
                 choices: [
-                    { value: '3', label: '3d' },
                     { value: '7', label: '7d' },
-                    { value: '14', label: '14d' },
                     { value: '30', label: '30d' },
+                    { value: '90', label: '90d' },
+                    { value: 'all', label: 'All' },
                 ],
             },
             {
@@ -79,6 +79,15 @@ export const plugin: WidgetPlugin = {
                 label: 'Highlight Premieres',
                 type: 'toggle',
                 defaultValue: true,
+            },
+            {
+                key: 'attentionVisibility',
+                label: 'Needs Attention',
+                type: 'toggle-buttons',
+                choices: [
+                    { value: 'showMissing', label: 'Missing', defaultValue: true },
+                    { value: 'showUpgrades', label: 'Upgrades', defaultValue: true },
+                ],
             },
         ]
     },

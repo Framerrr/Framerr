@@ -45,7 +45,6 @@ const DashboardEditBar: React.FC<DashboardEditBarProps> = ({
     onRedo,
     mobileLayoutMode,
     pendingUnlink,
-    isMobile,
     hasUnsavedChanges,
     saving,
     onAddWidget,

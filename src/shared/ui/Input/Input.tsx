@@ -111,7 +111,7 @@ export const Input = ({
                         value={value}
                         onFocus={handleFocus}
                         onBlur={handleBlur}
-                        className={`w-full rounded-lg transition-all focus:outline-none focus-visible:outline-none bg-theme-tertiary text-theme-primary ${sizeStyles.text} placeholder-theme-tertiary
+                        className={`w-full box-border rounded-lg transition-all focus:outline-none focus-visible:outline-none bg-theme-tertiary text-theme-primary ${sizeStyles.height} ${sizeStyles.text} placeholder-theme-tertiary
             ${error
                                 ? 'border-error focus:border-error'
                                 : 'border-theme focus:border-accent'

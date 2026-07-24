@@ -308,7 +308,6 @@ const WeatherWidget = ({ widget, isEditMode = false, previewMode = false }: Weat
 
     const info = getWeatherInfo(weather.code);
     const WeatherIcon = info.icon || Cloud;
-    const tempUnit = useCelsius ? '°C' : '°F';
 
     // Render success state - CSS container queries handle all responsive layouts
     return (

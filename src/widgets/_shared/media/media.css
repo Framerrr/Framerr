@@ -63,12 +63,21 @@
 }
 
 .media-release-pill--tv {
-    color: var(--tv);
-    background: rgba(var(--tv-rgb), 0.15);
+    color: var(--sonarr);
+    background: rgba(var(--sonarr-rgb), 0.15);
 }
 
 .media-release-pill--tv .media-release-pill-dot {
-    background: var(--tv);
+    background: var(--sonarr);
+}
+
+.media-release-pill--music {
+    color: var(--lidarr);
+    background: rgba(var(--lidarr-rgb), 0.15);
+}
+
+.media-release-pill--music .media-release-pill-dot {
+    background: var(--lidarr);
 }
 
 .media-release-pill--missing {
@@ -118,6 +127,12 @@
     width: 100%;
     height: 100%;
     background: linear-gradient(135deg, #0a1020 0%, #162040 100%);
+}
+
+.media-artwork-fallback--music {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #0a1a12 0%, #102a1c 100%);
 }
 
 /* ---- Progress bar ---- */

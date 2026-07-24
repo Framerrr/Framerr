@@ -1,15 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { plexApi, linkedAccountsApi, authApi } from '../../../api/endpoints';
 import { useNotifications } from '../../../context/notification';
-import { useAuth } from '../../../context/AuthContext';
-import { useIntegrationData } from '../../../app/providers/IntegrationDataProvider';
+import { useAuth } from '../../../context/useAuth';
+import { useIntegrationData } from '../../../app/providers/useIntegrationData';
 import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
 import logger from '../../../utils/logger';
 import type {
     DbLinkedAccounts,
-    PlexSSOStatusResponse,
-    PlexPinResponse,
-    PlexTokenResponse,
     UseAccountSettingsReturn
 } from '../types';
 
@@ -125,7 +122,7 @@ export function useAccountSettings(): UseAccountSettingsReturn {
         return () => {
             window.removeEventListener('linkedAccountsUpdated', handleLinkedAccountsUpdated);
         };
-    }, []);
+    }, [showError, showSuccess]);
 
     // SSE: Listen for SSO config changes (admin enables/disables Plex or OIDC)
     const { onSettingsInvalidate } = useRealtimeSSE();

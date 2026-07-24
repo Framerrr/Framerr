@@ -76,6 +76,7 @@ export function useWidgetConfigUI(
     widgetType: string,
     widgetHeight?: number
 ): WidgetConfigUIState {
+    void widgetHeight;
     return useMemo(() => {
         const constraints = getWidgetConfigConstraints(widgetType);
         const metadata = getWidgetMetadata(widgetType);
@@ -116,7 +117,7 @@ export function useWidgetConfigUI(
             options,
             constraints,
         };
-    }, [widgetType, widgetHeight]);
+    }, [widgetType]);
 }
 
 export default useWidgetConfigUI;

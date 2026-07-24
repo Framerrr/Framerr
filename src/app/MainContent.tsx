@@ -5,8 +5,8 @@ import TabContainer from './tabs/TabContainer';
 const WidgetStateTestPage = React.lazy(() => import('./dev/WidgetStateTestPage'));
 const SettingsPage = React.lazy(() => import('./settings/SettingsPage'));
 import LoadingSpinner from '@/shared/ui/LoadingSpinner/LoadingSpinner';
-import { useSharedSidebar } from '@/app/sidebar/SharedSidebarContext';
-import { useLayout } from '../context/LayoutContext';
+import { useSharedSidebar } from '@/app/sidebar/context/useSharedSidebar';
+import { useLayout } from '../context/useLayout';
 import { LAYOUT } from '../constants/layout';
 import { signalAppReady } from '../utils/splash';
 

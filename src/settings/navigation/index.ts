@@ -23,10 +23,8 @@ export type {
 } from './settingsConfig';
 
 // Navigation context
-export {
-    SettingsNavProvider,
-    useSettingsNav,
-} from './SettingsNavContext';
+export { SettingsNavProvider } from './SettingsNavContext';
+export { useSettingsNav } from './useSettingsNav';
 
 // Navigation types
 export type {

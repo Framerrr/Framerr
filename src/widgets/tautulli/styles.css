@@ -36,113 +36,7 @@
     overflow-x: hidden;
 }
 
-/* ---- Tabs — adaptive full-width bar (labels → short → icons) ---- */
-
-.tautulli-tabs {
-    display: flex;
-    gap: 0.2rem;
-    align-items: stretch;
-    flex-shrink: 0;
-    width: 100%;
-    padding: 0.15rem 0;
-}
-
-.tautulli-tab {
-    position: relative;
-    flex: 1 1 0;
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 2.5rem;
-    padding: 0.55rem 0.5rem;
-    border: none;
-    border-radius: 0.75rem;
-    background: transparent;
-    cursor: pointer;
-    transition: color 0.15s ease;
-}
-
-.tautulli-tab-inner {
-    position: relative;
-    z-index: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    max-width: 100%;
-    min-width: 0;
-}
-
-.tautulli-tab-icon {
-    display: none;
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-    opacity: 0.9;
-}
-
-.tautulli-tab-label {
-    font-size: clamp(0.7rem, 2.1cqi, 0.84rem);
-    font-weight: 700;
-    line-height: 1.2;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-    transition: color 0.15s ease;
-}
-
-.tautulli-tab-label--short {
-    display: none;
-}
-
-@media (hover: hover) {
-    .tautulli-tab:hover .tautulli-tab-inner:not(.text-accent) {
-        color: var(--text-primary);
-    }
-}
-
-/* Mid widget: icon + short labels — stops "Recently Added" from crushing */
-@container (max-width: 440px) {
-    .tautulli-tab {
-        padding: 0.5rem 0.35rem;
-        min-height: 2.4rem;
-    }
-
-    .tautulli-tab-icon {
-        display: block;
-    }
-
-    .tautulli-tab-label--full {
-        display: none;
-    }
-
-    .tautulli-tab-label--short {
-        display: inline;
-        font-size: clamp(0.68rem, 2.4cqi, 0.8rem);
-    }
-}
-
-/* Narrow widget: icon-only */
-@container (max-width: 300px) {
-    .tautulli-tab {
-        padding: 0.45rem 0.25rem;
-        min-height: 2.35rem;
-    }
-
-    .tautulli-tab-icon {
-        display: block;
-        width: 1.15rem;
-        height: 1.15rem;
-    }
-
-    .tautulli-tab-label--full,
-    .tautulli-tab-label--short {
-        display: none;
-    }
-}
+/* ---- Tab panel (bar styles live in shared SlidingTabBar) ---- */
 
 .tautulli-tab-panel {
     display: flex;
@@ -240,7 +134,7 @@
     gap: 0.35rem 0rem;
     padding: 0.65rem 1.25rem;
     border-radius: 0.5rem;
-    background: var(--bg-hover);
+    background: rgba(255, 255, 255, 0.05);
     width: fit-content;
     margin: 0 auto;
 }
@@ -345,8 +239,9 @@
     content: '';
     position: absolute;
     top: 0;
-    left: 10%;
-    right: 10%;
+    /* Match Sonarr/Radarr/Prowlarr attention hairlines (12px inset, not 10%). */
+    left: 12px;
+    right: 12px;
     height: 1px;
     background: var(--border-light);
 }

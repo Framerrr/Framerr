@@ -5,7 +5,7 @@
  */
 
 // Types
-export type WebhookService = 'overseerr' | 'sonarr' | 'radarr';
+export type WebhookService = 'overseerr' | 'sonarr' | 'radarr' | 'lidarr';
 
 export interface WebhookConfig {
     webhookEnabled?: boolean;

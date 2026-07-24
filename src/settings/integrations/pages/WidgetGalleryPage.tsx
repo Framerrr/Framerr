@@ -28,7 +28,6 @@ export const WidgetGalleryPage: React.FC = () => {
         totalVisibleWidgets,
         hasAdminAccess,
         integrations,
-        sharedIntegrations,
         shareModalOpen,
         setShareModalOpen,
         shareWidget,
@@ -42,7 +41,6 @@ export const WidgetGalleryPage: React.FC = () => {
         handleShareWidget,
         handleSaveShares,
         getSharedByInfo,
-        isIntegrationReady
     } = useWidgetGallery();
 
     if (loading) {

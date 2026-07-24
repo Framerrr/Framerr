@@ -38,7 +38,7 @@ let capturedContentStyle: React.CSSProperties | undefined;
 vi.mock('@radix-ui/react-popover', () => ({
     Root: ({ children }: { children: React.ReactNode }) =>
         React.createElement('div', { 'data-testid': 'popover-root' }, children),
-    Anchor: ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) =>
+    Anchor: ({ children }: { children: React.ReactNode; asChild?: boolean }) =>
         React.createElement('div', { 'data-testid': 'popover-anchor' }, children),
     Portal: ({ children }: { children: React.ReactNode }) =>
         React.createElement('div', null, children),

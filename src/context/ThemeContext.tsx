@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from 'react';
-import { useAuth } from './AuthContext';
+import React, { createContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from 'react';
+import { useAuth } from './useAuth';
 import { useThemeQuery, useSaveTheme, useUserConfigQuery } from '../api/hooks/useConfig';
 import { useRealtimeSSE } from '@/features/realtime/useRealtimeSSE';
 import logger from '../utils/logger';
@@ -15,6 +15,8 @@ import '../styles/themes/noir.css';
 import '../styles/themes/nebula.css';
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
+
+export { ThemeContext };
 
 interface ThemeProviderProps {
     children: ReactNode;
@@ -182,11 +184,3 @@ export const ThemeProvider = ({ children }: ThemeProviderProps): React.JSX.Eleme
     );
 };
 
-
-export const useTheme = (): ThemeContextValue => {
-    const context = useContext(ThemeContext);
-    if (!context) {
-        throw new Error('useTheme must be used within a ThemeProvider');
-    }
-    return context;
-};

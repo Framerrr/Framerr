@@ -4,7 +4,7 @@
  * Follows the PlexPage pattern — independent of the shared useAuthSettings hook.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { adminOidcApi } from '../../../api/endpoints/adminOidc';
 import { useOidcConfig } from '../../../api/hooks/useSettings';
@@ -200,7 +200,7 @@ export function useOidcSettings({ onSaveNeeded, onSave }: UseOidcSettingsOptions
         } finally {
             setSaving(false);
         }
-    }, [enabled, issuerUrl, clientId, clientSecret, hasClientSecret, displayName, buttonIcon, scopes, autoCreateUsers, showSuccess, showError, showWarning]);
+    }, [enabled, issuerUrl, clientId, clientSecret, hasClientSecret, displayName, buttonIcon, scopes, autoCreateUsers, showSuccess, showError, showWarning, queryClient]);
 
     // Register save ref for parent delegation — must update on every handleSave change
     useEffect(() => {

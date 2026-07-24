@@ -95,7 +95,7 @@ export function WebPushSection({
                                         ? 'Web Push is now enabled for all users'
                                         : 'Web Push is now disabled for all users'
                                 );
-                            } catch (err) {
+                            } catch {
                                 showError('Error', 'Failed to update Web Push setting');
                             } finally {
                                 setGlobalPushSaving(false);
@@ -250,7 +250,7 @@ export function WebPushSection({
                                                             ? 'Push notifications disabled for this device'
                                                             : 'Device removed from push notifications'
                                                         );
-                                                    } catch (err) {
+                                                    } catch {
                                                         showError('Error', 'Failed to remove device');
                                                     }
                                                 }}

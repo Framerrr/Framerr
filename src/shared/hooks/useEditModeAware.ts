@@ -1,4 +1,4 @@
-import { useDashboardEdit } from '@/context/DashboardEditContext';
+import { useDashboardEdit } from '@/context/useDashboardEdit';
 
 /**
  * useEditModeAware - Convenience hook for widgets to easily respect edit mode

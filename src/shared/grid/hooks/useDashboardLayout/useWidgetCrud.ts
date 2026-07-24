@@ -77,7 +77,6 @@ export function useWidgetCrud(deps: WidgetCrudDeps): WidgetCrudReturn {
         setLayouts,
         setHasUnsavedChanges,
         pushToStack,
-        clearStack,
     } = deps;
 
     // ========== ADD WIDGET ==========

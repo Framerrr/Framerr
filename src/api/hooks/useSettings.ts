@@ -4,8 +4,8 @@
  * Hooks for settings pages: backup, user groups, tabs, tab groups
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { backupApi, BackupListResponse, ScheduleConfig, ScheduleResponse } from '../endpoints/backup';
-import { userGroupsApi, UserGroup } from '../endpoints/userGroups';
+import { backupApi, ScheduleConfig } from '../endpoints/backup';
+import { userGroupsApi } from '../endpoints/userGroups';
 import { tabsApi } from '../endpoints/tabs';
 import { tabGroupsApi } from '../endpoints/tabGroups';
 import { configApi } from '../endpoints/config';

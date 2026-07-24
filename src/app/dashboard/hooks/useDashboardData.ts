@@ -253,7 +253,7 @@ export function useDashboardData({
                 localStorage.setItem('framerr-loading-messages', String(g.loadingMessages ?? true));
             }
         }
-    }, [userPreferencesData]);
+    }, [userPreferencesData, user?.displayName, user?.username]);
 
     // Listen for preference changes from settings page
     useEffect(() => {

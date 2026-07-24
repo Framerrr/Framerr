@@ -82,12 +82,12 @@ export function useLayoutHistory(): UseLayoutHistoryReturn {
         return { setUndo: setMobileUndo, setRedo: setMobileRedo };
     };
 
-    const getStackState = (stack: HistoryStackName): HistoryStack => {
+    const getStackState = useCallback((stack: HistoryStackName): HistoryStack => {
         if (stack === 'desktop') {
             return { undo: desktopUndo, redo: desktopRedo };
         }
         return { undo: mobileUndo, redo: mobileRedo };
-    };
+    }, [desktopUndo, desktopRedo, mobileUndo, mobileRedo]);
 
     // ========== ACTIONS ==========
 
@@ -145,7 +145,7 @@ export function useLayoutHistory(): UseLayoutHistoryReturn {
                 isOperationInProgressRef.current = false;
             }, 0);
         }
-    }, [desktopUndo, mobileUndo]);
+    }, [getStackState]);
 
     /**
      * Redo the last undone action from a specific stack.
@@ -176,7 +176,7 @@ export function useLayoutHistory(): UseLayoutHistoryReturn {
                 isOperationInProgressRef.current = false;
             }, 0);
         }
-    }, [desktopRedo, mobileRedo]);
+    }, [getStackState]);
 
     /**
      * Push current state to redo stack (before applying undo result).
@@ -223,7 +223,7 @@ export function useLayoutHistory(): UseLayoutHistoryReturn {
     const canUndo = useCallback((stack: HistoryStackName): boolean => {
         const { undo } = getStackState(stack);
         return undo.length > 0;
-    }, [desktopUndo, mobileUndo]);
+    }, [getStackState]);
 
     /**
      * Check if redo is available for a specific stack
@@ -231,7 +231,7 @@ export function useLayoutHistory(): UseLayoutHistoryReturn {
     const canRedo = useCallback((stack: HistoryStackName): boolean => {
         const { redo } = getStackState(stack);
         return redo.length > 0;
-    }, [desktopRedo, mobileRedo]);
+    }, [getStackState]);
 
     return {
         push,

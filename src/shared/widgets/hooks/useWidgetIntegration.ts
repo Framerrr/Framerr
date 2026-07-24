@@ -16,7 +16,7 @@
  */
 
 import { useMemo, useEffect, useRef } from 'react';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '../../../context/useAuth';
 import { isAdmin } from '../../../utils/permissions';
 import { useMyWidgetAccess } from '../../../api/hooks/useWidgetQueries';
 import { useIntegrationFallback } from './useIntegrationFallback';

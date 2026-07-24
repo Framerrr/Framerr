@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { tabsApi, tabGroupsApi, authApi } from '../../../api/endpoints';
 import { Tab, UserProfile, TabsResponse } from '../types';
 
@@ -38,7 +38,7 @@ export function SidebarTabsProvider({ children }: SidebarTabsProviderProps) {
         try {
             const data = await tabsApi.getAll() as TabsResponse;
             setTabs(data.tabs || []);
-        } catch (error) {
+        } catch {
             // Silent fail for tabs
         }
     }, []);
@@ -51,7 +51,7 @@ export function SidebarTabsProvider({ children }: SidebarTabsProviderProps) {
                 (a: TabGroup, b: TabGroup) => (a.order ?? 0) - (b.order ?? 0)
             );
             setGroups(sorted);
-        } catch (error) {
+        } catch {
             // Silent fail for groups
         }
     }, []);
@@ -66,7 +66,7 @@ export function SidebarTabsProvider({ children }: SidebarTabsProviderProps) {
                     ? `${data.user.profilePicture}?t=${Date.now()}`
                     : undefined
             });
-        } catch (error) {
+        } catch {
             // Silent fail for profile
         }
     }, []);
@@ -121,14 +121,6 @@ export function SidebarTabsProvider({ children }: SidebarTabsProviderProps) {
             {children}
         </SidebarTabsContext.Provider>
     );
-}
-
-export function useSidebarTabs() {
-    const context = useContext(SidebarTabsContext);
-    if (!context) {
-        throw new Error('useSidebarTabs must be used within SidebarTabsProvider');
-    }
-    return context;
 }
 
 export { SidebarTabsContext };

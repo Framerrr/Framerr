@@ -28,11 +28,11 @@ const PAGE_SIZE = 25;
 interface UseSonarrDataOpts {
     integrationId: string | undefined;
     enabled: boolean;
-    /** Max days out to show upcoming episodes. Unlike Radarr, Sonarr's config has no 'all' choice — always a finite number. */
-    lookAheadDays?: number;
+    /** Max days out to show upcoming episodes; `'all'` skips the upper bound. */
+    lookAheadDays?: number | 'all';
 }
 
-export function useSonarrData({ integrationId, enabled, lookAheadDays = 7 }: UseSonarrDataOpts): SonarrWidgetData {
+export function useSonarrData({ integrationId, enabled, lookAheadDays = 30 }: UseSonarrDataOpts): SonarrWidgetData {
     // ========================================================================
     // STATE
     // ========================================================================
@@ -125,7 +125,7 @@ export function useSonarrData({ integrationId, enabled, lookAheadDays = 7 }: Use
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const todayMs = today.getTime();
-        const lookAheadMs = lookAheadDays * 24 * 60 * 60 * 1000;
+        const lookAheadMs = lookAheadDays === 'all' ? null : lookAheadDays * 24 * 60 * 60 * 1000;
 
         return rawUpcoming
             .filter(ep => {
@@ -133,6 +133,7 @@ export function useSonarrData({ integrationId, enabled, lookAheadDays = 7 }: Use
                 if (!airDate) return false;
                 const airMs = new Date(airDate).getTime();
                 if (airMs < todayMs) return false;
+                if (lookAheadMs === null) return true;
                 return airMs - todayMs <= lookAheadMs;
             })
             .sort((a, b) => {

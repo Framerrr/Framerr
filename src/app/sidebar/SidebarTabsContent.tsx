@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
-import { useSharedSidebar } from './SharedSidebarContext';
+import { useSharedSidebar } from './context/useSharedSidebar';
 import { HighlightItem } from './Highlight';
 import { sidebarSpring, textSpring } from './types';
 
@@ -18,12 +18,10 @@ export function SidebarTabsContent() {
         renderIcon,
         toggleGroup,
         handleNavigation,
-        getActiveNavItem,
     } = useSharedSidebar();
 
     // Parse current route for active state detection
     const hash = window.location.hash.slice(1);
-    const activeNavItem = getActiveNavItem();
 
     if (!tabs || tabs.length === 0) {
         return null;

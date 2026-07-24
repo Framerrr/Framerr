@@ -17,10 +17,9 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { LayoutGrid } from 'lucide-react';
 import { useRoleAwareIntegrations } from '../../../api/hooks';
 import { getWidgetsByCategory, getWidgetIcon, getWidgetMetadata, getPreviewWidget } from '../../../widgets/registry';
-import { getMockWidget } from './mocks/MockWidgets';
+import { getMockWidget } from './mocks/getMockWidget';
 import { WidgetRenderer } from '../../../shared/widgets/WidgetRenderer';
 import { useWidgetData } from '../../../shared/widgets/hooks/useWidgetData';
-import logger from '../../../utils/logger';
 import type { TemplateData, TemplateWidget, ViewMode } from './types';
 import '../../../styles/GridLayout.css';
 
@@ -82,9 +81,9 @@ function ScaledGridContainer({ virtualWidth, scaleFactor, children }: ScaledGrid
 
         const observer = new ResizeObserver((entries) => {
             for (const entry of entries) {
-                // Get the actual content height and scale it
                 const contentHeight = entry.contentRect.height;
-                setScaledHeight(contentHeight * scaleFactor);
+                const next = contentHeight * scaleFactor;
+                setScaledHeight(prev => (prev !== undefined && Math.abs(prev - next) < 0.5) ? prev : next);
             }
         });
 
@@ -170,7 +169,6 @@ const TemplateBuilderStep2: React.FC<Step2Props> = ({ data, onChange, onDraftSav
     });
 
     const {
-        layouts,
         mobileLayoutMode,
         displayWidgets,
         gridProps,
@@ -194,7 +192,7 @@ const TemplateBuilderStep2: React.FC<Step2Props> = ({ data, onChange, onDraftSav
     const isMobileCustomMode = viewMode === 'mobile' && mobileLayoutMode === 'independent';
 
     // Derive selected widget and index from ID
-    const widgetsArray = isMobileCustomMode ? (data.mobileWidgets || []) : data.widgets;
+    const widgetsArray = useMemo(() => isMobileCustomMode ? (data.mobileWidgets || []) : data.widgets, [isMobileCustomMode, data.mobileWidgets, data.widgets]);
     const selectedWidgetIndex = useMemo(() => {
         if (selectedWidgetId === null) return null;
         const index = widgetsArray.findIndex(w => w.id === selectedWidgetId);
@@ -398,16 +396,71 @@ const TemplateBuilderStep2: React.FC<Step2Props> = ({ data, onChange, onDraftSav
     const virtualWidth = viewMode === 'mobile' ? VIRTUAL_MOBILE_WIDTH : VIRTUAL_DESKTOP_WIDTH;
     const scaleFactor = Math.min(1, (containerWidth - 32) / virtualWidth);
 
-    // Get current layout array for GridLayout
-    const currentLayoutArray = useMemo(() => {
-        const sourceLayout = viewMode === 'mobile' ? layouts.sm : layouts.lg;
-        return sourceLayout || [];
-    }, [viewMode, layouts]);
-
     // isEditable: Only allow editing on desktop, or mobile in independent mode
     // In preview mode, grid is always locked (static)
     const isEditable = !isPreviewMode && (viewMode === 'desktop' || isMobileCustomMode);
     const currentBreakpoint = viewMode === 'mobile' ? 'sm' as const : 'lg' as const;
+
+    const renderTemplateWidget = useCallback((widget: FramerrWidget) => {
+        const Icon = getWidgetIcon(widget.type);
+        const metadata = getWidgetMetadata(widget.type);
+        const templateWidget = isMobileCustomMode
+            ? data.mobileWidgets?.find(w => w.id === widget.id)
+            : data.widgets.find(w => w.id === widget.id);
+        const isLinkGrid = widget.type === 'link-grid';
+        const showHeader = !isLinkGrid && templateWidget?.config?.showHeader !== false;
+
+        const widgetIdForSelection = widget.id || `widget-${widget.id}`;
+        const isSelected = selectedWidgetId === widgetIdForSelection;
+
+        return (
+            <div
+                className={isSelected ? 'widget-selected' : ''}
+                style={{ width: '100%', height: '100%' }}
+                onMouseDown={() => isEditable && setSelectedWidgetId(widgetIdForSelection)}
+                onTouchStart={() => isEditable && setSelectedWidgetId(widgetIdForSelection)}
+            >
+                <WidgetRenderer
+                    widget={{
+                        ...widget,
+                        config: templateWidget?.config || widget.config,
+                    }}
+                    mode="preview"
+                    title={metadata?.name || widget.type}
+                    icon={Icon}
+                    showHeader={showHeader}
+                    flatten={templateWidget?.config?.flatten as boolean}
+                    editMode={isEditable}
+                    onDelete={() => handleRemoveWidget(widgetIdForSelection)}
+                >
+                    {(() => {
+                        const PreviewWidget = getPreviewWidget(widget.type);
+                        if (PreviewWidget) {
+                            return (
+                                <React.Suspense fallback={<div className="flex items-center justify-center h-full text-theme-tertiary">Loading...</div>}>
+                                    <PreviewWidget
+                                        widget={{ id: widget.id, type: widget.type, layout: widget.layout, config: templateWidget?.config || {} }}
+                                        previewMode={true}
+                                        containerHeight={(() => {
+                                            return widget.layout.h * ROW_HEIGHT - GRID_MARGIN[1];
+                                        })()}
+                                        containerWidth={(() => {
+                                            const cols = viewMode === 'mobile' ? GRID_COLS.sm : GRID_COLS.lg;
+                                            const colWidth = (virtualWidth - GRID_MARGIN[0] * 2) / cols;
+                                            return widget.layout.w * colWidth - GRID_MARGIN[0];
+                                        })()}
+                                        transformScale={scaleFactor}
+                                    />
+                                </React.Suspense>
+                            );
+                        }
+                        const MockWidget = getMockWidget(widget.type);
+                        return <MockWidget />;
+                    })()}
+                </WidgetRenderer>
+            </div>
+        );
+    }, [isMobileCustomMode, data.mobileWidgets, data.widgets, selectedWidgetId, isEditable, viewMode, virtualWidth, scaleFactor, handleRemoveWidget]);
 
     return (
         <div className={`flex flex-col h-full ${isPreviewMode ? '' : 'min-h-[400px]'}`}>
@@ -496,68 +549,7 @@ const TemplateBuilderStep2: React.FC<Step2Props> = ({ data, onChange, onDraftSav
                                         h: event.h,
                                     });
                                 }}
-                                renderWidget={(widget: FramerrWidget) => {
-                                    const Icon = getWidgetIcon(widget.type);
-                                    const metadata = getWidgetMetadata(widget.type);
-                                    // Find template widget by ID (stable lookup)
-                                    const templateWidget = isMobileCustomMode
-                                        ? data.mobileWidgets?.find(w => w.id === widget.id)
-                                        : data.widgets.find(w => w.id === widget.id);
-                                    const isLinkGrid = widget.type === 'link-grid';
-                                    const showHeader = !isLinkGrid && templateWidget?.config?.showHeader !== false;
-
-                                    // Use widget ID for stable selection
-                                    const widgetIdForSelection = widget.id || `widget-${widget.id}`;
-                                    const isSelected = selectedWidgetId === widgetIdForSelection;
-
-                                    return (
-                                        <div
-                                            className={isSelected ? 'widget-selected' : ''}
-                                            style={{ width: '100%', height: '100%' }}
-                                            onMouseDown={() => isEditable && setSelectedWidgetId(widgetIdForSelection)}
-                                            onTouchStart={() => isEditable && setSelectedWidgetId(widgetIdForSelection)}
-                                        >
-                                            <WidgetRenderer
-                                                widget={{
-                                                    ...widget,
-                                                    config: templateWidget?.config || widget.config,
-                                                }}
-                                                mode="preview"
-                                                title={metadata?.name || widget.type}
-                                                icon={Icon}
-                                                showHeader={showHeader}
-                                                flatten={templateWidget?.config?.flatten as boolean}
-                                                editMode={isEditable}
-                                                onDelete={() => handleRemoveWidget(widgetIdForSelection)}
-                                            >
-                                                {(() => {
-                                                    const PreviewWidget = getPreviewWidget(widget.type);
-                                                    if (PreviewWidget) {
-                                                        return (
-                                                            <React.Suspense fallback={<div className="flex items-center justify-center h-full text-theme-tertiary">Loading...</div>}>
-                                                                <PreviewWidget
-                                                                    widget={{ id: widget.id, type: widget.type, layout: widget.layout, config: templateWidget?.config || {} }}
-                                                                    previewMode={true}
-                                                                    containerHeight={(() => {
-                                                                        return widget.layout.h * ROW_HEIGHT - GRID_MARGIN[1];
-                                                                    })()}
-                                                                    containerWidth={(() => {
-                                                                        const cols = viewMode === 'mobile' ? GRID_COLS.sm : GRID_COLS.lg;
-                                                                        const colWidth = (virtualWidth - GRID_MARGIN[0] * 2) / cols;
-                                                                        return widget.layout.w * colWidth - GRID_MARGIN[0];
-                                                                    })()}
-                                                                    transformScale={scaleFactor}
-                                                                />
-                                                            </React.Suspense>
-                                                        );
-                                                    }
-                                                    const MockWidget = getMockWidget(widget.type);
-                                                    return <MockWidget />;
-                                                })()}
-                                            </WidgetRenderer>
-                                        </div>
-                                    );
-                                }}
+                                renderWidget={renderTemplateWidget}
                             />
 
                         </ScaledGridContainer>

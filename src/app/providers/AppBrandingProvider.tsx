@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import React, { createContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import { useAuth } from '../../context/useAuth';
 import { configApi } from '../../api/endpoints';
 import logger from '../../utils/logger';
 import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
@@ -44,7 +44,7 @@ export const AppBrandingProvider = ({ children }: AppBrandingProviderProps): Rea
             let appBranding: { name?: string; icon?: string } = { name: 'Framerr', icon: 'Server' };
             try {
                 appBranding = await configApi.getAppName();
-            } catch (brandingError) {
+            } catch {
                 logger.debug('App branding not available, using defaults');
             }
 
@@ -122,18 +122,6 @@ export const AppBrandingProvider = ({ children }: AppBrandingProviderProps): Rea
             {children}
         </AppBrandingContext.Provider>
     );
-};
-
-// ============================================================================
-// Hook
-// ============================================================================
-
-export const useAppBranding = (): AppBrandingContextValue => {
-    const context = useContext(AppBrandingContext);
-    if (!context) {
-        throw new Error('useAppBranding must be used within an AppBrandingProvider');
-    }
-    return context;
 };
 
 export { AppBrandingContext };

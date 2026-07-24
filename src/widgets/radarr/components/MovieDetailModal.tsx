@@ -186,8 +186,12 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
     const [searchError, setSearchError] = useState<string | null>(null);
     const [searchingText, setSearchingText] = useState('Searching indexers…');
     const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Bumped whenever the selected movie id changes; used to invalidate an
+    // in-flight searchReleases so a stale completion can't paint the new movie.
+    const searchGenerationRef = useRef(0);
 
-    // Reset all modal state (called on open via handleOpenChange)
+    // Reset all Interactive Search / modal UI state. Invoked by the id-change
+    // effect below (primary) and defensively by handleOpenChange(true).
     const resetModalState = useCallback(() => {
         setView('info');
         resetAutoSearchState();
@@ -200,6 +204,19 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
         setSearchingText('Searching indexers…');
         if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     }, [resetAutoSearchState]);
+
+    // Reset Interactive Search UI whenever the selected movie id changes.
+    // Deliberately keyed on the id (not `open`): a same-title close→reopen keeps
+    // the id, so search/results survive; switching to a different movie (incl.
+    // A→B→A) changes the id and resets. Bumping the generation ref also
+    // invalidates any in-flight searchReleases (see handleInteractiveSearch).
+    const movieId = movie?.id ?? null;
+    /* eslint-disable react-hooks/set-state-in-effect -- Intentional: resets Interactive Search UI when selected movie id changes (prop transition, not continuous sync) */
+    useEffect(() => {
+        searchGenerationRef.current += 1;
+        resetModalState();
+    }, [movieId, resetModalState]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     const handleOpenChange = useCallback((newOpen: boolean) => {
         if (newOpen) {
@@ -218,12 +235,13 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
     const handleInteractiveSearch = useCallback(async () => {
         if (!movie) return;
 
+        const generation = searchGenerationRef.current;
+
         setView('searching');
         setSearchError(null);
         setReleases([]);
         setSearchingText('Searching indexers…');
 
-        // Start the 15-second "still searching" timer
         if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
         searchTimerRef.current = setTimeout(() => {
             setSearchingText('Still searching…');
@@ -231,14 +249,16 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
 
         try {
             const results = await searchReleases(movie.id);
+            if (generation !== searchGenerationRef.current) return; // movie changed mid-search — drop stale results
             setReleases(results);
             setView('results');
         } catch {
+            if (generation !== searchGenerationRef.current) return; // stale error after switch
             setSearchError('Failed to search for releases');
             setView('results');
         }
 
-        // Clear timer when search completes
+        if (generation !== searchGenerationRef.current) return; // reset already cleared the timer on id change
         if (searchTimerRef.current) {
             clearTimeout(searchTimerRef.current);
             searchTimerRef.current = null;

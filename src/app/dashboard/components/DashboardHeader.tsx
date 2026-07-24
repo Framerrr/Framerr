@@ -1,11 +1,19 @@
 import React, { useMemo } from 'react';
-import { Edit } from 'lucide-react';
+import { Edit, Sparkles, type LucideIcon } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { getGreeting, getLoadingMessage } from '../../../utils/greetings';
+import { getGreeting } from '../../../utils/greetings';
 import type { GreetingTone } from '../../../utils/greetings';
-import { getIconComponent } from '../../../utils/iconUtils';
-import { Link, Unlink } from 'lucide-react';
 import type { User } from '../../../../shared/types/user';
+
+function GreetingIconBadge({ icon, iconColor }: { icon: string; iconColor: string }) {
+    const IconComponent = (LucideIcons as unknown as Record<string, LucideIcon>)[icon] ?? Sparkles;
+    return (
+        <span style={{ color: iconColor }} className="flex-shrink-0 flex items-center">
+            <IconComponent size={28} />
+        </span>
+    );
+}
 
 /**
  * DashboardHeader - Greeting, edit button, tagline, and debug badges.
@@ -54,14 +62,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     const autoGreeting = useMemo(() => {
         if (greetingMode !== 'auto') return null;
         return getGreeting(user?.displayName || user?.username || 'User', tones as GreetingTone[]);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [greetingMode, user?.displayName, user?.username, tones]);
-
-    // Resolve the greeting icon component if available
-    const GreetingIcon = useMemo(() => {
-        if (!autoGreeting?.icon) return null;
-        return getIconComponent(autoGreeting.icon);
-    }, [autoGreeting?.icon]);
 
     // Determine greeting text to display
     const username = user?.displayName || user?.username || 'User';
@@ -99,10 +100,8 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 <header className={`${taglineEnabled ? 'mb-8' : 'mb-4'}`}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            {GreetingIcon && autoGreeting?.iconColor && (
-                                <span style={{ color: autoGreeting.iconColor }} className="flex-shrink-0 flex items-center">
-                                    <GreetingIcon size={28} />
-                                </span>
+                            {autoGreeting?.icon && autoGreeting.iconColor && (
+                                <GreetingIconBadge icon={autoGreeting.icon} iconColor={autoGreeting.iconColor} />
                             )}
                             <h1 className="text-4xl font-bold gradient-text">
                                 {displayGreetingText}

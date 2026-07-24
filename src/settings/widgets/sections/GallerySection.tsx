@@ -13,7 +13,7 @@ import { WidgetCard } from '../../../shared/widgets';
 import { LoadingSpinner } from '@/shared/ui';
 import { Select } from '../../../shared/ui';
 import WidgetShareModal from '@/shared/widgets/modals/WidgetShareModal';
-import { useSettingsAnimationClass } from '../../../context/SettingsAnimationContext';
+import { useSettingsAnimationClass } from '../../../context/useSettingsAnimation';
 
 /**
  * Widget Gallery - Browse and add widgets to dashboard
@@ -33,7 +33,6 @@ const GallerySection: React.FC = () => {
         totalVisibleWidgets,
         hasAdminAccess,
         integrations,
-        sharedIntegrations,
         shareModalOpen,
         setShareModalOpen,
         shareWidget,
@@ -47,7 +46,6 @@ const GallerySection: React.FC = () => {
         handleShareWidget,
         handleSaveShares,
         getSharedByInfo,
-        isIntegrationReady
     } = useWidgetGallery();
 
     if (loading) {

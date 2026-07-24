@@ -11,7 +11,7 @@ import React from 'react';
 // User Settings Components
 import { TabSettings } from '../tabs';
 import { TabGroupsSettings } from '../tabgroups';
-import CustomizationSettings from '../customization';
+import { CustomizationSettings } from '../customization';
 import { ProfileSettings } from '../profile';
 import { NotificationSettings } from '../notifications';
 import { LinkedAccountsPage } from '../integrations/pages/LinkedAccountsPage';

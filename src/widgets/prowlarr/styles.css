@@ -375,113 +375,7 @@
     text-overflow: ellipsis;
 }
 
-/* ---- Tabs (Tautulli responsive pattern) ---- */
-
-.prwl-tabs {
-    display: flex;
-    width: 100%;
-    flex-shrink: 0;
-    gap: 0;
-}
-
-.prwl-tab {
-    position: relative;
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.55rem 0.5rem;
-    min-height: 2.5rem;
-    background: none;
-    border: none;
-    border-radius: 0.75rem;
-    cursor: pointer;
-    color: inherit;
-    font: inherit;
-    transition: color 0.15s ease;
-}
-
-.prwl-tab-inner {
-    position: relative;
-    z-index: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    max-width: 100%;
-    min-width: 0;
-}
-
-/* Wide: text only */
-.prwl-tab-icon {
-    display: none;
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-    opacity: 0.9;
-}
-
-.prwl-tab-label {
-    font-size: clamp(0.7rem, 2.1cqi, 0.84rem);
-    font-weight: 700;
-    line-height: 1.2;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-    transition: color 0.15s ease;
-}
-
-.prwl-tab-label--short {
-    display: none;
-}
-
-@media (hover: hover) {
-    .prwl-tab:hover .prwl-tab-inner:not(.text-accent) {
-        color: var(--text-primary);
-    }
-}
-
-/* Mid: icon + short labels */
-@container (max-width: 440px) {
-    .prwl-tab {
-        padding: 0.5rem 0.35rem;
-        min-height: 2.4rem;
-    }
-
-    .prwl-tab-icon {
-        display: block;
-    }
-
-    .prwl-tab-label--full {
-        display: none;
-    }
-
-    .prwl-tab-label--short {
-        display: inline;
-        font-size: clamp(0.68rem, 2.4cqi, 0.8rem);
-    }
-}
-
-/* Narrow: icon only */
-@container (max-width: 300px) {
-    .prwl-tab {
-        padding: 0.45rem 0.25rem;
-        min-height: 2.35rem;
-    }
-
-    .prwl-tab-icon {
-        display: block;
-        width: 1.15rem;
-        height: 1.15rem;
-    }
-
-    .prwl-tab-label--full,
-    .prwl-tab-label--short {
-        display: none;
-    }
-}
+/* ---- Tab panel (bar styles live in shared SlidingTabBar) ---- */
 
 .prwl-tab-body {
     display: flex;
@@ -534,8 +428,9 @@
     content: '';
     position: absolute;
     top: 0;
-    left: 10%;
-    right: 10%;
+    /* Match Sonarr/Radarr attention hairlines (12px inset, not 10%). */
+    left: 12px;
+    right: 12px;
     height: 1px;
     background: var(--border-light);
 }

@@ -10,7 +10,7 @@
 
 import React, { useMemo, useCallback } from 'react';
 import { getWidgetIcon, getWidgetMetadata, getPreviewWidget } from '../../widgets/registry';
-import { getMockWidget } from '../../settings/templates/builder/mocks/MockWidgets';
+import { getMockWidget } from '../../settings/templates/builder/mocks/getMockWidget';
 import { WidgetRenderer } from './WidgetRenderer';
 import { ROW_HEIGHT, GRID_COLS, GRID_MARGIN } from '../../constants/gridConfig';
 import { FramerrTemplateGrid } from '../grid';

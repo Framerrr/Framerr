@@ -9,12 +9,12 @@
  * All state and logic is managed by useIntegrationSettings hook.
  */
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Plus, ChevronDown, Server } from 'lucide-react';
 import ServiceSettingsGrid from './components/ServiceSettingsGrid';
 import { LoadingSpinner } from '@/shared/ui';
 import { SettingsPage, SettingsSection } from '../../shared/ui/settings';
-import { Button, DropdownMenu } from '../../shared/ui';
+import { Button, ActionSelect } from '../../shared/ui';
 import PlexForm from '../../integrations/plex/PlexForm';
 import JellyfinForm from '../../integrations/jellyfin/JellyfinForm';
 import EmbyForm from '../../integrations/emby/EmbyForm';
@@ -22,7 +22,7 @@ import { MonitorForm } from '../../integrations/monitor';
 import { UptimeKumaForm } from '../../integrations/uptime-kuma';
 import { getIntegrationIcon } from '../../integrations/_core/iconMapping';
 import { useIntegrationSettings } from './hooks/useIntegrationSettings';
-import { useWalkthrough } from '../../features/walkthrough/WalkthroughContext';
+import { useWalkthrough } from '../../features/walkthrough/useWalkthrough';
 import { useIntegrationSchemas } from '../../api/hooks';
 import { useAdminNotificationConfig } from '../../api/hooks/useSettings';
 import { useRealtimeSSE, type LibrarySyncProgressEvent } from '@/features/realtime/useRealtimeSSE';
@@ -97,7 +97,6 @@ const IntegrationSettings: React.FC = () => {
         // UptimeKuma handlers
         handleUptimeKumaFormReady,
         handleUptimeKumaSave,
-        handleUptimeKumaCancel
     } = useIntegrationSettings();
 
     // Walkthrough emit for custom-event advancement
@@ -110,15 +109,24 @@ const IntegrationSettings: React.FC = () => {
     const { data: adminNotifConfig } = useAdminNotificationConfig();
     const webhookBaseUrl = adminNotifConfig?.webhookBaseUrl;
 
-    // Transform schemas to service list for dropdown
+    // Transform schemas to service list for dropdown (A–Z by display name)
     const serviceList = useMemo(() => {
         if (!schemas) return [];
-        return Object.entries(schemas).map(([id, schema]) => ({
-            id,
-            name: schema.name,
-            icon: getIntegrationIcon(schema.icon),
-        }));
+        return Object.entries(schemas)
+            .map(([id, schema]) => ({
+                id,
+                name: schema.name,
+                icon: getIntegrationIcon(schema.icon),
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
     }, [schemas]);
+
+    const [integrationSearch, setIntegrationSearch] = useState('');
+    const filteredServiceList = useMemo(() => {
+        const q = integrationSearch.trim().toLowerCase();
+        if (!q) return serviceList;
+        return serviceList.filter((service) => service.name.toLowerCase().includes(q));
+    }, [serviceList, integrationSearch]);
 
     // Media sync status for library sync toggle (Plex, Jellyfin, Emby)
     const [mediaSyncStatus, setMediaSyncStatus] = useState<Record<string, SyncStatus>>({});
@@ -192,7 +200,7 @@ const IntegrationSettings: React.FC = () => {
         try {
             await api.post(
                 `/api/media/sync/start/${instanceId}`,
-                null,
+                {},
                 { headers: { 'X-Widget-Type': 'media-library-sync' } }
             );
             // SSE will automatically receive progress updates
@@ -314,8 +322,13 @@ const IntegrationSettings: React.FC = () => {
             title="Service Settings"
             description="Configure connections to your homelab services"
             headerAction={
-                <DropdownMenu>
-                    <DropdownMenu.Trigger asChild>
+                <ActionSelect
+                    closeOnScroll={false}
+                    onOpenChange={(open) => {
+                        if (!open) setIntegrationSearch('');
+                    }}
+                >
+                    <ActionSelect.Trigger>
                         <Button
                             variant="primary"
                             size="md"
@@ -326,25 +339,47 @@ const IntegrationSettings: React.FC = () => {
                             Add Integration
                             <ChevronDown size={14} />
                         </Button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Content align="end" sideOffset={8} className="w-56 max-h-[400px] integration-type-dropdown" data-walkthrough="integration-type-dropdown">
-                        {serviceList.map(service => {
-                            const Icon = service.icon;
-                            return (
-                                <DropdownMenu.Item
-                                    key={service.id}
-                                    onSelect={() => {
-                                        handleAddIntegration(service.id, service.name);
-                                        walkthrough?.emit('integration-type-selected');
-                                    }}
-                                >
-                                    <Icon size={16} className="text-theme-secondary" />
-                                    {service.name}
-                                </DropdownMenu.Item>
-                            );
-                        })}
-                    </DropdownMenu.Content>
-                </DropdownMenu>
+                    </ActionSelect.Trigger>
+                    <ActionSelect.Content
+                        align="end"
+                        sideOffset={8}
+                        className="!w-56 p-1 integration-type-dropdown"
+                        data-walkthrough="integration-type-dropdown"
+                    >
+                        <ActionSelect.Search
+                            value={integrationSearch}
+                            onChange={setIntegrationSearch}
+                            placeholder="Search integrations..."
+                        />
+                        <ActionSelect.Items maxHeight={320}>
+                            {filteredServiceList.length === 0 ? (
+                                <ActionSelect.Empty>
+                                    {integrationSearch
+                                        ? 'No integrations match your search'
+                                        : 'No integrations available'}
+                                </ActionSelect.Empty>
+                            ) : (
+                                filteredServiceList.map((service) => {
+                                    const Icon = service.icon;
+                                    return (
+                                        <ActionSelect.Item
+                                            key={service.id}
+                                            onClick={() => {
+                                                handleAddIntegration(service.id, service.name);
+                                                walkthrough?.emit('integration-type-selected');
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <Icon size={16} className="text-theme-secondary flex-shrink-0" />
+                                                <span>{service.name}</span>
+                                            </div>
+                                        </ActionSelect.Item>
+                                    );
+                                })
+                            )}
+                        </ActionSelect.Items>
+                    </ActionSelect.Content>
+                </ActionSelect>
             }
         >
             <SettingsSection title="Configured Services" icon={Server}>

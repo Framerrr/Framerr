@@ -125,7 +125,8 @@ export abstract class BaseAdapter implements PluginAdapter {
                 ...opts?.headers,
             },
             params: opts?.params,
-            data: body,
+            // Omit body for GET/undefined — avoids axios/Node treating `data: undefined` as a payload
+            ...(body !== undefined ? { data: body } : {}),
             httpAgent: new http.Agent({ keepAlive: false }),
             httpsAgent,
             timeout: opts?.timeout ?? 15000,

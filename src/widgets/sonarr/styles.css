@@ -372,6 +372,9 @@
     padding: 1px 6px;
     border-radius: 4px;
     white-space: nowrap;
+    /* Keep natural size so the title/episode truncates first; when the row
+     * is still too tight the parent (.snr-missing-meta / hero meta) clips
+     * the badge at the edge — no ellipsis inside the badge itself. */
     flex-shrink: 0;
 }
 
@@ -380,24 +383,25 @@
 .snr-hero {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 7;
+    aspect-ratio: 16 / 9;
     border-radius: 0.6rem;
     overflow: hidden;
     cursor: pointer;
     flex-shrink: 0;
+    /* Column mode: stop uncapped 16:9 from eating the Upcoming column */
+    max-height: clamp(110px, 26cqi, 150px);
 }
 
-/* Stacked mode: full widget width made the 16:7 ratio too tall. Scale with
- * container width instead, capped so it never gets "obnoxiously large". */
+/* Stacked mode: keep 16:9 but cap height so full-width heroes stay compact. */
 .snr-hero--compact {
-    aspect-ratio: unset;
-    height: clamp(90px, 20cqi, 150px);
+    max-height: clamp(100px, 22cqi, 150px);
 }
 
 .snr-hero-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center center;
     display: block;
 }
 
@@ -437,6 +441,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .snr-hero-meta {
@@ -474,7 +480,7 @@
 .snr-hero-season-progress-fill {
     height: 100%;
     border-radius: 999px;
-    background: var(--tv);
+    background: var(--sonarr);
 }
 
 .snr-hero-season-progress-text {
@@ -671,6 +677,10 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+    /* Clip meta/badge at the info column edge so they never paint over the
+     * search button; titles ellipsize first, badge keeps natural size until
+     * this container starts clipping it. */
+    overflow: hidden;
 }
 
 .snr-missing-series {
@@ -687,6 +697,7 @@
     align-items: center;
     gap: 0.4rem;
     min-width: 0;
+    overflow: hidden;
 }
 
 .snr-missing-episode {
@@ -840,7 +851,7 @@
 .snr-modal-season-progress-fill {
     height: 100%;
     border-radius: 999px;
-    background: var(--tv);
+    background: var(--sonarr);
 }
 
 /* ---- Footer Actions ---- */

@@ -11,7 +11,7 @@ import { Edit2, Copy, Play, Clock, Share2, Star, RefreshCw, RotateCcw, Tag, Aler
 import { Button } from '../../../shared/ui';
 import { ConfirmButton } from '../../../shared/ui';
 import TemplateThumbnail from './TemplateThumbnail';
-import { useLayout } from '../../../context/LayoutContext';
+import { useLayout } from '../../../context/useLayout';
 
 export interface Template {
     id: string;

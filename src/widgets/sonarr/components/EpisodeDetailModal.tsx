@@ -164,8 +164,12 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
     const [searchError, setSearchError] = useState<string | null>(null);
     const [searchingText, setSearchingText] = useState('Searching indexers…');
     const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Bumped whenever the selected episode id changes; used to invalidate an
+    // in-flight searchReleases so a stale completion can't paint the new episode.
+    const searchGenerationRef = useRef(0);
 
-    // Reset all modal state (called on open via handleOpenChange)
+    // Reset all Interactive Search / modal UI state. Invoked by the id-change
+    // effect below (primary) and defensively by handleOpenChange(true).
     const resetModalState = useCallback(() => {
         setView('info');
         resetAutoSearchState();
@@ -178,6 +182,14 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
         setSearchingText('Searching indexers…');
         if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     }, [resetAutoSearchState]);
+
+    const episodeId = episode?.id ?? null;
+    /* eslint-disable react-hooks/set-state-in-effect -- Intentional: resets Interactive Search UI when selected episode id changes (prop transition, not continuous sync) */
+    useEffect(() => {
+        searchGenerationRef.current += 1;
+        resetModalState();
+    }, [episodeId, resetModalState]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     const handleOpenChange = useCallback((newOpen: boolean) => {
         if (newOpen) {
@@ -196,12 +208,13 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
     const handleInteractiveSearch = useCallback(async () => {
         if (!episode) return;
 
+        const generation = searchGenerationRef.current;
+
         setView('searching');
         setSearchError(null);
         setReleases([]);
         setSearchingText('Searching indexers…');
 
-        // Start the 15-second "still searching" timer
         if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
         searchTimerRef.current = setTimeout(() => {
             setSearchingText('Still searching…');
@@ -209,14 +222,16 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
 
         try {
             const results = await searchReleases(episode.id);
+            if (generation !== searchGenerationRef.current) return; // episode changed mid-search — drop stale results
             setReleases(results);
             setView('results');
         } catch {
+            if (generation !== searchGenerationRef.current) return; // stale error after switch
             setSearchError('Failed to search for releases');
             setView('results');
         }
 
-        // Clear timer when search completes
+        if (generation !== searchGenerationRef.current) return; // reset already cleared the timer on id change
         if (searchTimerRef.current) {
             clearTimeout(searchTimerRef.current);
             searchTimerRef.current = null;

@@ -217,6 +217,7 @@ export function useAuthSettings({ propSubTab }: UseAuthSettingsOptions = {}): Us
         } else if (proxyEnabled && logoutUrl && !overrideLogout) {
             setOverrideLogout(true);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Auto-toggle reacts only to proxyEnabled
     }, [proxyEnabled]);
 
     const handleSave = async (): Promise<void> => {

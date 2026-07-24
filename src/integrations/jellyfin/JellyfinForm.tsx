@@ -100,7 +100,7 @@ const JellyfinForm: React.FC<JellyfinFormProps> = ({
             setPendingSave(true);
             setConnectedUser(data.username || '');
             setAuthState('success');
-        } catch (err) {
+        } catch {
             setAuthState('error');
             setAuthError('Failed to connect to server. Check the URL and try again.');
         }

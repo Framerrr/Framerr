@@ -10,7 +10,7 @@
  * what to do via returned state values.
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { WalkthroughStep, StepPhase } from './types';
 
 interface UseWalkthroughInteractionProps {

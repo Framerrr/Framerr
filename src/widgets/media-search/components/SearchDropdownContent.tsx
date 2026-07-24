@@ -9,7 +9,7 @@
 import React from 'react';
 import { Search, Film, Tv, Loader2, Clock, ChevronRight, AlertCircle } from 'lucide-react';
 import { Button } from '../../../shared/ui';
-import { RequestButton, getInitialRequestState } from './RequestButton';
+import { RequestButton } from './RequestButton';
 import { RequestModal } from '../modals/RequestModal';
 import RecommendationRow from './RecommendationRow';
 import type { RecommendationItem } from '../hooks/useRecommendations';

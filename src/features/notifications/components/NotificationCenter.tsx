@@ -10,7 +10,6 @@ import logger from '../../../utils/logger';
 import { getNotificationSource } from '../utils/notificationCenter.utils';
 import type { Notification } from '../../../../shared/types/notification';
 import type {
-    NotificationType,
     NotificationSource,
     FilterType,
     FilterTabConfig,
@@ -66,6 +65,7 @@ const NotificationCenter = ({ isMobile = false, onClose, excludeHeader = false, 
             overseerr: [],
             sonarr: [],
             radarr: [],
+            lidarr: [],
             system: []
         };
 
@@ -86,7 +86,7 @@ const NotificationCenter = ({ isMobile = false, onClose, excludeHeader = false, 
 
     // Get sources that have notifications, sorted by most recent notification
     const activeSources = useMemo((): NotificationSource[] => {
-        const sources: NotificationSource[] = ['overseerr', 'sonarr', 'radarr', 'system'];
+        const sources: NotificationSource[] = ['overseerr', 'sonarr', 'radarr', 'lidarr', 'system'];
         const sourcesWithNotifications = sources.filter(source => groupedNotifications[source].length > 0);
 
         // Sort by most recent notification timestamp (descending - newest first)
@@ -150,7 +150,7 @@ const NotificationCenter = ({ isMobile = false, onClose, excludeHeader = false, 
     }, [groupedNotifications, markAsRead]);
 
     // Render notification with swipe wrapper
-    const renderNotification = useCallback((notification: Notification, index: number): React.JSX.Element => {
+    const renderNotification = useCallback((notification: Notification): React.JSX.Element => {
         return (
             <div key={notification.id} className="mx-4 mb-3">
                 <SwipeableNotification

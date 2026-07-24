@@ -64,6 +64,9 @@ export interface DragPreviewPortalProps {
 
     /** Transform scale factor (for template builder scaled grids, default 1) */
     transformScale?: number;
+
+    /** Surface that owns this portal — only helpers tagged with matching dragPreviewSurface are rendered */
+    surface: 'dashboard' | 'template';
 }
 
 // ============================================================================
@@ -74,7 +77,7 @@ export interface DragPreviewPortalProps {
  * Manages React portals for drag preview widgets.
  * Mount this component at the surface level (Dashboard or Template Builder).
  */
-export function DragPreviewPortal({ previewMode, getIntegrationBinding, renderWidget, transformScale = 1 }: DragPreviewPortalProps) {
+export function DragPreviewPortal({ previewMode, getIntegrationBinding, renderWidget, transformScale = 1, surface }: DragPreviewPortalProps) {
     const [previews, setPreviews] = useState<DragPreview[]>([]);
 
     // Watch for drag preview elements in the DOM
@@ -90,6 +93,7 @@ export function DragPreviewPortal({ previewMode, getIntegrationBinding, renderWi
                             : node.querySelector('[data-drag-preview-type]');
 
                         if (previewEl && previewEl instanceof HTMLElement) {
+                            if (previewEl.dataset.dragPreviewSurface !== surface) return; // ignore helpers from other surfaces
                             const widgetType = previewEl.dataset.dragPreviewType;
                             const previewId = previewEl.dataset.dragPreviewId || `preview-${Date.now()}`;
 
@@ -136,7 +140,7 @@ export function DragPreviewPortal({ previewMode, getIntegrationBinding, renderWi
         });
 
         return () => observer.disconnect();
-    }, []);
+    }, [surface]);
 
     // Cleanup orphaned previews (element no longer in DOM)
     useEffect(() => {
@@ -178,7 +182,7 @@ interface PreviewWidgetProps {
 /**
  * Renders a single preview widget into its portal container.
  */
-function PreviewWidget({ preview, previewMode, getIntegrationBinding, renderWidget, transformScale }: PreviewWidgetProps) {
+function PreviewWidget({ preview, previewMode, renderWidget, transformScale }: PreviewWidgetProps) {
     const Component = useMemo(() => getWidgetComponent(preview.widgetType), [preview.widgetType]);
     const metadata = getWidgetMetadata(preview.widgetType);
 

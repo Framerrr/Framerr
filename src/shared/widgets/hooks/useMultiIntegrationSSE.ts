@@ -97,6 +97,7 @@ export function useMultiIntegrationSSE<T>({
     }, [integrationType, subtype]);
 
     useEffect(() => {
+        const unsubs = unsubscribesRef.current;
         // Parse the stable key back to array
         const currentIds: string[] = JSON.parse(stableIdsKey);
 
@@ -186,11 +187,11 @@ export function useMultiIntegrationSSE<T>({
 
         // Cleanup on unmount
         return () => {
-            unsubscribesRef.current.forEach((unsub, instanceId) => {
+            unsubs.forEach((unsub, instanceId) => {
                 logger.debug(`[useMultiIntegrationSSE] Cleanup: unsubscribing from ${buildTopic(instanceId)}`);
                 unsub();
             });
-            unsubscribesRef.current.clear();
+            unsubs.clear();
         };
     }, [enabled, connectionId, stableIdsKey, buildTopic, subscribeToTopic]);
 

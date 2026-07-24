@@ -12,7 +12,7 @@ export const plugin: WidgetPlugin = {
     id: 'prowlarr',
     name: 'Prowlarr',
     description: 'Indexer health and status monitoring',
-    category: 'system',
+    category: 'management',
     icon: Search,
     sizing: {
         default: { w: 6, h: 6 },

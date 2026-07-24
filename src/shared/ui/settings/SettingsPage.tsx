@@ -11,7 +11,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { settingsPageContainer } from '../animations';
-import { useSettingsAnimation } from '../../../context/SettingsAnimationContext';
+import { useSettingsAnimation } from '../../../context/useSettingsAnimation';
 
 export interface SettingsPageProps {
     /** Page title */

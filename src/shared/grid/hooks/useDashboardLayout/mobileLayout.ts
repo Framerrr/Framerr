@@ -7,7 +7,7 @@
  * Uses FramerrWidget type with .layout (desktop) and .mobileLayout (mobile).
  */
 
-import type { FramerrWidget, LayoutItem, LayoutState, MobileLayoutMode } from './types';
+import type { FramerrWidget, LayoutState, MobileLayoutMode } from './types';
 
 /**
  * Get the appropriate widget array to use for rendering

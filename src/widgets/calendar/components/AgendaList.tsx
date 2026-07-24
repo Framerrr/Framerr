@@ -8,11 +8,12 @@
  */
 
 import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
-import { Tv, Film, Calendar as CalendarIcon } from 'lucide-react';
+import { Tv, Film, Calendar as CalendarIcon, Disc3 } from 'lucide-react';
 import { WidgetStateMessage } from '../../../shared/widgets';
 import EpisodeDetailModal from '../../sonarr/components/EpisodeDetailModal';
 import MovieDetailModal from '../../radarr/components/MovieDetailModal';
-import { getDisplayTitle, getEpisodeCode, getPosterUrl } from './EventPopover';
+import AlbumDetailModal from '../../lidarr/components/AlbumDetailModal';
+import { getDisplayTitle, getEpisodeCode, getPosterUrl, getAlbumMeta, getMovieReleaseTypeLabel } from './eventPopoverHelpers';
 import type { CalendarEvent, EventsMap, FilterType } from '../calendar.types';
 import { toLocalDateStr } from '../../../shared/utils/dateUtils';
 import { formatDisplayDate } from '../../_shared/media/format';
@@ -33,6 +34,11 @@ interface AgendaListProps {
     filter: FilterType;
     hasMultipleSonarr: boolean;
     hasMultipleRadarr: boolean;
+    hasMultipleLidarr?: boolean;
+    /** Bound-source filter chips — hidden when that type has no integrations */
+    showTvFilter?: boolean;
+    showMoviesFilter?: boolean;
+    showMusicFilter?: boolean;
     /** Whether to show the filter row */
     showFilter?: boolean;
     onFilterChange?: (filter: FilterType) => void;
@@ -42,6 +48,12 @@ interface AgendaListProps {
     scrollToMonth?: string;
     /** Whether to show a "Today" button for scrolling back (agenda-only mode) */
     showTodayButton?: boolean;
+    /**
+     * Increment to force-scroll the agenda to today (or next future group).
+     * Used by Both-mode MonthGrid "Today" when the month is already current
+     * (so scrollToMonth alone would be a no-op).
+     */
+    scrollToTodayNonce?: number;
 }
 
 /** An event paired with the specific date string it is plotted under in this group. */
@@ -102,25 +114,11 @@ const noopAutoSearch = async () => false;
 const noopSearchReleases = async () => [] as never[];
 const noopGrabRelease = async () => false;
 
-/** Get movie release type label, preferring the specific plotted milestone (set by
- * buildEventsMap) over re-deriving fallback-priority from the raw date fields — keeps
- * the label in sync with the stripe color even under movieDates: 'all'. */
-function getMovieReleaseType(ev: CalendarEvent): string {
-    switch (ev.plottedReleaseType) {
-        case 'physical': return 'Physical Release';
-        case 'digital': return 'Digital Release';
-        case 'cinema': return 'In Cinemas';
-    }
-    // Defensive fallback for a radarr event with no plottedReleaseType set.
-    if (ev.digitalRelease) return 'Digital Release';
-    if (ev.physicalRelease) return 'Physical Release';
-    if (ev.inCinemas) return 'In Cinemas';
-    return '';
-}
 
 /** Left-border stripe color for an agenda card, matching the shared release-type tokens. */
 function getStripeColor(ev: CalendarEvent): string {
-    if (ev.type === 'sonarr') return 'var(--tv)';
+    if (ev.type === 'sonarr') return 'var(--sonarr)';
+    if (ev.type === 'lidarr') return 'var(--lidarr)';
     switch (ev.plottedReleaseType) {
         case 'cinema': return 'var(--cinema)';
         case 'physical': return 'var(--physical)';
@@ -167,13 +165,15 @@ function getRelativeDay(dateStr: string): string {
 const AgendaList: React.FC<AgendaListProps> = ({
     events,
     filter,
-    hasMultipleSonarr,
-    hasMultipleRadarr,
+    showTvFilter = true,
+    showMoviesFilter = true,
+    showMusicFilter = true,
     showFilter = true,
     onFilterChange,
     compact = false,
     scrollToMonth,
     showTodayButton = false,
+    scrollToTodayNonce = 0,
 }) => {
     // Modal state
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -233,6 +233,7 @@ const AgendaList: React.FC<AgendaListProps> = ({
             // Apply filter
             if (filter === 'tv') dayEvents = dayEvents.filter(ev => ev.type === 'sonarr');
             else if (filter === 'movies') dayEvents = dayEvents.filter(ev => ev.type === 'radarr');
+            else if (filter === 'music') dayEvents = dayEvents.filter(ev => ev.type === 'lidarr');
             if (dayEvents.length === 0) return;
 
             const bucketId = getBucketId(dateStr, todayStr);
@@ -292,8 +293,9 @@ const AgendaList: React.FC<AgendaListProps> = ({
     const scrollToToday = useCallback(() => {
         if (!scrollRef.current || groups.length === 0) return;
         const todayStr = toLocalDateStr(new Date());
-        // Find today's group or the next future group
-        const targetGroup = groups.find(g => g.dateStr >= todayStr);
+        // Prefer the Today bucket (id), then any group at/after today by dateStr.
+        const targetGroup = groups.find(g => g.id === 'today')
+            ?? groups.find(g => g.dateStr >= todayStr);
         if (!targetGroup) return;
         const target = scrollRef.current.querySelector(
             `[data-date="${targetGroup.dateStr}"]`
@@ -305,12 +307,19 @@ const AgendaList: React.FC<AgendaListProps> = ({
         }
     }, [groups]);
 
+    // Parent (Both-mode Today) can re-request scroll even when month is unchanged.
+    useEffect(() => {
+        if (!scrollToTodayNonce) return;
+        scrollToToday();
+    }, [scrollToTodayNonce, scrollToToday]);
+
     // Auto-scroll to today on initial data load
     const hasData = groups.length > 0;
     useEffect(() => {
         if (!scrollRef.current || !hasData) return;
         const todayStr = toLocalDateStr(new Date());
-        const targetGroup = groups.find(g => g.dateStr >= todayStr);
+        const targetGroup = groups.find(g => g.id === 'today')
+            ?? groups.find(g => g.dateStr >= todayStr);
         if (!targetGroup) return;
         const target = scrollRef.current.querySelector(
             `[data-date="${targetGroup.dateStr}"]`
@@ -326,7 +335,7 @@ const AgendaList: React.FC<AgendaListProps> = ({
     return (
         <div className={`cal-agenda ${compact ? 'cal-agenda--compact' : ''}`}>
             {/* Filter row */}
-            {showFilter && onFilterChange && (
+            {showFilter && onFilterChange && (showTvFilter || showMoviesFilter || showMusicFilter) && (
                 <div className="cal-filter-row">
                     <button
                         onClick={() => onFilterChange('all')}
@@ -334,18 +343,30 @@ const AgendaList: React.FC<AgendaListProps> = ({
                     >
                         All
                     </button>
-                    <button
-                        onClick={() => onFilterChange('tv')}
-                        className={`cal-filter-btn cal-filter-btn--tv ${filter === 'tv' ? 'cal-filter-btn--active-tv' : ''}`}
-                    >
-                        TV
-                    </button>
-                    <button
-                        onClick={() => onFilterChange('movies')}
-                        className={`cal-filter-btn cal-filter-btn--movie ${filter === 'movies' ? 'cal-filter-btn--active-movie' : ''}`}
-                    >
-                        Movies
-                    </button>
+                    {showTvFilter && (
+                        <button
+                            onClick={() => onFilterChange('tv')}
+                            className={`cal-filter-btn cal-filter-btn--tv ${filter === 'tv' ? 'cal-filter-btn--active-tv' : ''}`}
+                        >
+                            TV
+                        </button>
+                    )}
+                    {showMoviesFilter && (
+                        <button
+                            onClick={() => onFilterChange('movies')}
+                            className={`cal-filter-btn cal-filter-btn--movie ${filter === 'movies' ? 'cal-filter-btn--active-movie' : ''}`}
+                        >
+                            Movies
+                        </button>
+                    )}
+                    {showMusicFilter && (
+                        <button
+                            onClick={() => onFilterChange('music')}
+                            className={`cal-filter-btn cal-filter-btn--music ${filter === 'music' ? 'cal-filter-btn--active-music' : ''}`}
+                        >
+                            Music
+                        </button>
+                    )}
                     {showTodayButton && (
                         <button className="cal-agenda-today-btn" onClick={scrollToToday}>
                             Today
@@ -372,10 +393,12 @@ const AgendaList: React.FC<AgendaListProps> = ({
                         {/* Event cards */}
                         {group.events.map(({ dateStr, event: ev }, idx) => {
                             const isTV = ev.type === 'sonarr';
+                            const isMusic = ev.type === 'lidarr';
                             const title = getDisplayTitle(ev);
                             const episodeCode = getEpisodeCode(ev);
+                            const albumMeta = getAlbumMeta(ev);
                             const posterUrl = getPosterUrl(ev);
-                            const releaseType = !isTV ? getMovieReleaseType(ev) : '';
+                            const releaseType = !isTV && !isMusic ? getMovieReleaseTypeLabel(ev) : '';
                             const stripeColor = getStripeColor(ev);
 
                             return (
@@ -387,12 +410,12 @@ const AgendaList: React.FC<AgendaListProps> = ({
                                     onClick={() => handleCardClick(ev)}
                                 >
                                     {/* Poster thumbnail */}
-                                    <div className="cal-agenda-poster">
+                                    <div className={`cal-agenda-poster${isMusic ? ' cal-agenda-poster--square' : ''}`}>
                                         {posterUrl ? (
                                             <img src={posterUrl} alt={title} loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                         ) : (
                                             <div className="cal-agenda-poster-placeholder">
-                                                {isTV ? <Tv size={18} /> : <Film size={18} />}
+                                                {isTV ? <Tv size={18} /> : isMusic ? <Disc3 size={18} /> : <Film size={18} />}
                                             </div>
                                         )}
                                     </div>
@@ -403,7 +426,10 @@ const AgendaList: React.FC<AgendaListProps> = ({
                                         {isTV && episodeCode && (
                                             <div className="cal-agenda-card-meta">{episodeCode}{ev.title ? ` · ${ev.title}` : ''}</div>
                                         )}
-                                        {!isTV && releaseType && (
+                                        {isMusic && albumMeta && (
+                                            <div className="cal-agenda-card-meta">{albumMeta}</div>
+                                        )}
+                                        {!isTV && !isMusic && releaseType && (
                                             <div className="cal-agenda-card-meta">{releaseType}</div>
                                         )}
                                         {isTV && (() => {
@@ -417,8 +443,8 @@ const AgendaList: React.FC<AgendaListProps> = ({
                                     </div>
 
                                     {/* Type badge — top right */}
-                                    <div className={`cal-agenda-type-badge ${isTV ? 'cal-agenda-type-badge--tv' : 'cal-agenda-type-badge--movie'}`}>
-                                        {isTV ? 'TV' : 'Movie'}
+                                    <div className={`cal-agenda-type-badge ${isTV ? 'cal-agenda-type-badge--tv' : isMusic ? 'cal-agenda-type-badge--music' : 'cal-agenda-type-badge--movie'}`}>
+                                        {isTV ? 'TV' : isMusic ? 'Music' : 'Movie'}
                                     </div>
 
                                     {/* Inline date — This Week / Next Week / Later buckets only */}
@@ -460,6 +486,20 @@ const AgendaList: React.FC<AgendaListProps> = ({
             {selectedEvent?.type === 'radarr' && (
                 <MovieDetailModal
                     movie={selectedEvent as never}
+                    integrationId={selectedEvent.instanceId || ''}
+                    open={modalOpen}
+                    onOpenChange={setModalOpen}
+                    triggerAutoSearch={noopAutoSearch}
+                    searchReleases={noopSearchReleases}
+                    grabRelease={noopGrabRelease}
+                    userIsAdmin={false}
+                />
+            )}
+
+            {/* Lidarr Album Detail Modal (read-only) */}
+            {selectedEvent?.type === 'lidarr' && (
+                <AlbumDetailModal
+                    album={selectedEvent as never}
                     integrationId={selectedEvent.instanceId || ''}
                     open={modalOpen}
                     onOpenChange={setModalOpen}

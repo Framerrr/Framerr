@@ -46,19 +46,20 @@ http://sonarr:8989
 ### Sonarr Widget
 
 Dedicated Sonarr widget showing:
-- **Library statistics** — total series, episodes, monitored items
-- **Missing episodes** — episodes that are monitored but not yet downloaded
+- **Summary statistics** — upcoming, missing, upgrades, downloads
+- **Upcoming episodes** — hero + carousel
+- **Needs Attention** — missing and cutoff-unmet episodes
 
 **View modes:** Auto, Stacked, Column
 
 ### Calendar Widget
 
-Combined Sonarr + Radarr calendar showing upcoming and recent releases:
+Combined Sonarr + Radarr + Lidarr calendar showing upcoming and recent releases:
 - **Month view** — traditional calendar grid
 - **Agenda view** — chronological list of upcoming episodes
 - **Both** — side-by-side month and agenda
 
-The Calendar widget supports **multi-integration**, allowing you to attach multiple Sonarr and Radarr instances to a single calendar.
+The Calendar widget supports **multi-integration**, allowing you to attach multiple Sonarr, Radarr, and Lidarr instances to a single calendar.
 
 ## Notifications
 

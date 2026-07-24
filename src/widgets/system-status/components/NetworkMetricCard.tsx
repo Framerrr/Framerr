@@ -45,7 +45,6 @@ function formatSpeed(bytesPerSec: number): string {
 interface NetworkMetricCardProps {
     metric: PackedMetric;
     value: number | null;
-    visibleCount: number;
 }
 
 interface SparkPoint {
@@ -79,7 +78,7 @@ const HoverCapture: React.FC<{
     return null;
 };
 
-const NetworkMetricCard: React.FC<NetworkMetricCardProps> = ({ metric, value, visibleCount }) => {
+const NetworkMetricCard: React.FC<NetworkMetricCardProps> = ({ metric, value }) => {
     // Buffer of recent values — resets when component mounts
     const bufferRef = useRef<SparkPoint[]>([]);
     const counterRef = useRef(0);

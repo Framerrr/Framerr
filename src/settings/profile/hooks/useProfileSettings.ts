@@ -12,9 +12,8 @@ import { useProfile, useUpdateProfile, useChangePassword, useUploadProfilePictur
 import imageCompression from 'browser-image-compression';
 import logger from '../../../utils/logger';
 import { useNotifications } from '../../../context/notification';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '../../../context/useAuth';
 import {
-    ProfileData,
     PasswordFormData,
     ProfileSettingsState,
     ProfileSettingsHandlers,

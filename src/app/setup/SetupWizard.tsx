@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { authApi, systemApi, configApi, themeApi, plexApi } from '../../api/endpoints';
 import { showLoginSplash } from '../../utils/splash';
-import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/useAuth';
+import { useTheme } from '../../context/useTheme';
 
 // Step components
 import WelcomeStep from './steps/WelcomeStep';
@@ -44,7 +44,6 @@ interface RippleState {
 }
 
 const STEPS = ['welcome', 'choice', 'account', 'theme', 'customize', 'auth', 'complete'] as const;
-type StepName = typeof STEPS[number];
 
 // Animation variants for step transitions
 const stepVariants = {
@@ -213,7 +212,7 @@ const SetupWizard: React.FC = () => {
             setLoading(false);
             return false;
         }
-    }, [data.appName, data.theme, data.flattenUI]);
+    }, [data.appName, data.theme, data.flattenUI, changeTheme]);
 
     // Save auth settings (Step 5 — freely revisitable)
     const saveAuthSettings = useCallback(async (): Promise<boolean> => {

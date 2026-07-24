@@ -1,0 +1,280 @@
+.dns-stats-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    height: 100%;
+    overflow: hidden;
+    container-type: inline-size;
+}
+
+.dns-stats-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    flex-shrink: 0;
+}
+
+.dns-stats-header-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+}
+
+/* Stats strip — wrap instead of truncating; keep full labels readable */
+.dns-stats-summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-evenly;
+    column-gap: clamp(0.5rem, 2.5cqi, 1rem);
+    row-gap: 0.45rem;
+    padding: clamp(0.5rem, 2cqi, 0.75rem) clamp(0.5rem, 2.5cqi, 1rem);
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.dns-stats-summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    flex: 1 1 auto;
+    /* Never shrink below content — wrap the row instead of ellipsis */
+    min-width: max-content;
+    text-align: center;
+}
+
+.dns-stats-summary-item-main {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+}
+
+.dns-stats-summary-item svg {
+    color: var(--accent);
+    opacity: 0.8;
+    flex-shrink: 0;
+    width: 11px;
+    height: 11px;
+}
+
+.dns-stats-summary-value {
+    font-size: clamp(0.75rem, 2.8cqi, 0.9rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.dns-stats-summary-label {
+    font-size: clamp(0.68rem, 2.4cqi, 0.8rem);
+    font-weight: 400;
+    color: var(--text-secondary);
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+/* Compact: drop icons only — never hide or truncate labels */
+@container (max-width: 340px) {
+    .dns-stats-summary-item svg {
+        display: none;
+    }
+
+    .dns-stats-summary {
+        column-gap: 0.45rem;
+        padding-inline: 0.45rem;
+    }
+}
+
+.dns-stats-divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 0.1rem 0;
+    flex-shrink: 0;
+}
+
+.dns-stats-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.dns-stats-pause-popover {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 12rem;
+}
+
+.dns-stats-pause-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.dns-stats-pause-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.dns-stats-pause-custom {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.dns-stats-pause-input {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.dns-stats-ranked {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-height: 0;
+}
+
+.dns-stats-ranked-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.dns-stats-ranked-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.dns-stats-ranked-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.375rem;
+}
+
+.dns-stats-ranked-label {
+    font-size: 0.8125rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dns-stats-ranked-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-shrink: 0;
+}
+
+.dns-stats-ranked-extra {
+    font-size: 0.6875rem;
+}
+
+.dns-stats-ranked-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.125rem 0.375rem;
+    border-radius: 9999px;
+    flex-shrink: 0;
+}
+
+.dns-stats-sparkline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    /* Let the tooltip sit above the plot without covering the line */
+    overflow: visible;
+    position: relative;
+    z-index: 2;
+}
+
+.dns-stats-sparkline-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.dns-stats-sparkline-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.6875rem;
+}
+
+.dns-stats-sparkline-swatch {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.dns-stats-sparkline-swatch-queries {
+    background: var(--accent);
+}
+
+.dns-stats-sparkline-swatch-blocked {
+    background: var(--error);
+}
+
+.dns-stats-sparkline-chart {
+    width: 100%;
+    height: 3rem;
+    min-height: 0;
+    overflow: visible;
+    position: relative;
+}
+
+.dns-stats-sparkline-chart .recharts-responsive-container,
+.dns-stats-sparkline-chart .recharts-wrapper,
+.dns-stats-sparkline-chart .recharts-surface {
+    overflow: visible !important;
+}
+
+.dns-stats-sparkline-tooltip {
+    /* Solid surface — glass-card is translucent and lets the tab bar bleed through */
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light, rgba(255, 255, 255, 0.12));
+    pointer-events: none;
+    opacity: 1;
+}
+
+/* ---- Top lists (tab bar styles live in shared SlidingTabBar) ---- */
+
+.dns-stats-top-lists {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.dns-stats-top-lists-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.dns-stats-top-lists-empty {
+    font-size: 0.8125rem;
+    padding: 0.5rem 0.25rem;
+}

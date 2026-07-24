@@ -1,16 +1,18 @@
 /**
  * ClockWidget - Fluid Container Query-based Responsive Styles
- * 
+ *
  * Layout tiers (matching weather widget approach):
- * 
+ *
  * 1. SHORT HEIGHT (h=1)     → Inline: [Time] [Date · Timezone]
  * 2. WIDE + TALL (default)  → Flex row: [Time] [Date / Timezone stacked]
  * 3. NARROW + TALL          → Stacked: Time on top, date below, centered
  * 4. TALL + SKINNY          → Full vertical stack, centered
  * 5. COMPACT                → Hide date
  * 6. ULTRA COMPACT          → Time only
- * 
- * RULE: Never clip. Hide elements progressively rather than overflow.
+ *
+ * RULE: Never clip. CSS targets a large size from container height;
+ * JS fit-to-width (ClockWidget) shrinks only when needed. Hide secondary
+ * elements progressively on tiny containers rather than overflowing.
  */
 
 /* ============================================================================
@@ -27,6 +29,8 @@
     justify-content: center;
     box-sizing: border-box;
     overflow: hidden;
+    /* Keep time/date off the glass card edges */
+    padding: clamp(4px, 2cqi, 12px);
 }
 
 /* ============================================================================
@@ -39,19 +43,22 @@
     align-items: center;
     justify-content: center;
     gap: clamp(6px, 3cqi, 24px);
-    width: fit-content;
+    width: 100%;
     max-width: 100%;
+    min-width: 0;
     flex-wrap: nowrap;
+    box-sizing: border-box;
 }
 
-/* Time Display — primary element, always visible */
+/* Time Display — primary element; CSS aims large, JS caps to width */
 .clock-widget__time {
-    font-size: clamp(1rem, min(12cqi, 50cqb), 4rem);
+    font-size: clamp(1.15rem, min(18cqi, 42cqb), 5rem);
     font-weight: 700;
     color: var(--text-primary);
     line-height: 1;
     white-space: nowrap;
-    flex-shrink: 0;
+    min-width: 0;
+    flex-shrink: 1;
 }
 
 /* Info section — stacks vertically by default */
@@ -60,6 +67,7 @@
     flex-direction: column;
     gap: clamp(1px, 0.5cqi, 4px);
     min-width: 0;
+    flex-shrink: 0;
 }
 
 /* Date text */
@@ -91,7 +99,7 @@
     }
 
     .clock-widget__time {
-        font-size: clamp(1.1rem, 40cqb, 2.2rem);
+        font-size: clamp(1.1rem, min(16cqi, 48cqb), 2.75rem);
     }
 
     /* Info becomes single inline row */
@@ -145,7 +153,9 @@
     .clock-widget__time {
         grid-row: 1;
         text-align: center;
-        font-size: clamp(1.2rem, 14cqi, 2.5rem);
+        /* Height-led; JS fit handles long 12h / seconds strings */
+        font-size: clamp(1.25rem, min(28cqi, 32cqb), 3.5rem);
+        max-width: 100%;
     }
 
     .clock-widget__info {
@@ -170,7 +180,8 @@
     }
 
     .clock-widget__time {
-        font-size: clamp(1.5rem, 25cqi, 3rem);
+        font-size: clamp(1.15rem, min(32cqi, 22cqb), 2.75rem);
+        max-width: 100%;
     }
 
     .clock-widget__info {

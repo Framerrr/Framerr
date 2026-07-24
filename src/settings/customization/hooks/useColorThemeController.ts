@@ -151,7 +151,22 @@ export function useColorThemeController({
         if (enabled) {
             setCustomColorsEnabled(true);
             setLastSelectedTheme(theme);
-            setUseCustomColors(false);
+            // Persist immediately so leaving settings before editing a swatch
+            // still restores the toggle (mode: 'custom') on remount.
+            try {
+                await saveThemeMutation.mutateAsync({
+                    mode: 'custom',
+                    customColors,
+                    lastSelectedTheme: theme,
+                    preset: theme,
+                });
+                setUseCustomColors(true);
+                applyColorsToDOM(customColors);
+            } catch (error) {
+                logger.error('Failed to enable custom colors:', error);
+                setCustomColorsEnabled(false);
+                showError('Save Failed', 'Failed to enable custom colors. Please try again.');
+            }
         } else {
             setCustomColorsEnabled(false);
             setUseCustomColors(false);
@@ -161,7 +176,7 @@ export function useColorThemeController({
                 logger.error('Failed to revert to theme:', error);
             }
         }
-    }, [theme, lastSelectedTheme, resetToThemeColors]);
+    }, [theme, lastSelectedTheme, customColors, resetToThemeColors, saveThemeMutation, showError]);
 
     // Save custom colors
     // [F2 Bug Fix] Fixed dep array: uses saveThemeMutation instead of updateUserMutation

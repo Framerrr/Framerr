@@ -14,7 +14,7 @@
  * - empty: Configurable empty state
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     AlertTriangle,
     AlertCircle,
@@ -27,6 +27,9 @@ import {
 import { Button, Popover } from '../../ui';
 import { LoadingSpinner } from '@/shared/ui';
 import './styles.css';
+
+/** Keep Retry button in loading state through server burst (5 polls × 5s). */
+const RETRY_PENDING_MS = 20_000;
 
 export type WidgetStateVariant =
     | 'loading'
@@ -48,8 +51,8 @@ export interface WidgetStateMessageProps {
     instanceName?: string;
     /** Custom message override */
     message?: string;
-    /** Retry callback for error/crash states */
-    onRetry?: () => void;
+    /** Retry callback for error/crash/unavailable states */
+    onRetry?: () => void | Promise<void>;
     /** Error stack trace for crash details popover */
     errorDetails?: string;
     /** Custom icon for empty state */
@@ -146,7 +149,7 @@ const variantConfigs: Record<WidgetStateVariant, VariantConfig> = {
             ? `Unable to reach ${serviceName}`
             : 'Unable to reach service',
         showSettingsLink: false,
-        showRetry: false,
+        showRetry: true,
         showDetails: false,
     },
     authError: {
@@ -175,7 +178,35 @@ export const WidgetStateMessage: React.FC<WidgetStateMessageProps> = ({
     isAdmin = false,
 }) => {
     const [detailsOpen, setDetailsOpen] = useState(false);
+    const [retrying, setRetrying] = useState(false);
+    const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const config = variantConfigs[variant];
+
+    useEffect(() => {
+        return () => {
+            if (retryTimeoutRef.current) {
+                clearTimeout(retryTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    const handleRetryClick = async (): Promise<void> => {
+        if (!onRetry || retrying) return;
+        setRetrying(true);
+        try {
+            await onRetry();
+        } finally {
+            if (retryTimeoutRef.current) {
+                clearTimeout(retryTimeoutRef.current);
+            }
+            // Stay pending through the server-side burst window so the button
+            // shows work while polls are still firing.
+            retryTimeoutRef.current = setTimeout(() => {
+                setRetrying(false);
+                retryTimeoutRef.current = null;
+            }, RETRY_PENDING_MS);
+        }
+    };
 
     // Loading state - just show spinner
     if (variant === 'loading') {
@@ -251,9 +282,10 @@ export const WidgetStateMessage: React.FC<WidgetStateMessageProps> = ({
                             variant="primary"
                             size="sm"
                             icon={RotateCcw}
-                            onClick={onRetry}
+                            loading={retrying}
+                            onClick={() => { void handleRetryClick(); }}
                         >
-                            Retry
+                            {retrying ? 'Retrying…' : 'Retry'}
                         </Button>
                     )}
 

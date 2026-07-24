@@ -10,7 +10,7 @@
  * Fetches server list and TV details on open.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Film, Tv, Star, Loader2 } from 'lucide-react';
 import { Modal, Button, Select, MultiSelectDropdown } from '../../../shared/ui';
 import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
@@ -18,7 +18,6 @@ import api from '../../../api/client';
 import type { OverseerrMediaResult } from '../types';
 import {
     useOverseerrRequest,
-    needsModal as needsModalCheck,
 } from '../hooks/useOverseerrRequest';
 import type { OverseerrServer } from '../hooks/useOverseerrRequest';
 
@@ -91,9 +90,10 @@ export const RequestModal: React.FC<RequestModalProps> = ({
     }, [fetchServers, fetchTvDetails, isTv, item.id]);
 
     // ── Get applicable servers ──
-    const applicableServers: OverseerrServer[] = servers
-        ? (isTv ? servers.sonarr : servers.radarr)
-        : [];
+    const applicableServers: OverseerrServer[] = useMemo(
+        () => (servers ? (isTv ? servers.sonarr : servers.radarr) : []),
+        [servers, isTv],
+    );
     const showServerPicker = applicableServers.length > 1;
 
     // ── Season options for MultiSelectDropdown ──
@@ -103,7 +103,10 @@ export const RequestModal: React.FC<RequestModalProps> = ({
     }));
 
     // Combine API-reported requested seasons with optimistic local tracking
-    const allRequestedSeasons = [...new Set([...requestedSeasonNumbers, ...optimisticRequested])];
+    const allRequestedSeasons = useMemo(
+        () => [...new Set([...requestedSeasonNumbers, ...optimisticRequested])],
+        [requestedSeasonNumbers, optimisticRequested],
+    );
 
     // Season IDs that are already requested/available (greyed out in dropdown)
     const disabledSeasonIds = allRequestedSeasons.map(String);
@@ -183,7 +186,7 @@ export const RequestModal: React.FC<RequestModalProps> = ({
     }, [
         selectedServerId, selectedSeasons, applicableServers, showServerPicker,
         submitRequest, item, isTv, onRequestComplete, onClose, allRequestedSeasons,
-        refetchTvDetails, resetRequestState,
+        refetchTvDetails, resetRequestState, requestedSeasonNumbers, tvSeasons,
     ]);
 
     // ── Poster ──
@@ -479,6 +482,3 @@ export const RequestModal: React.FC<RequestModalProps> = ({
         </Modal>
     );
 };
-
-// Re-export to make decision accessible from widget
-export { needsModalCheck as needsModal };

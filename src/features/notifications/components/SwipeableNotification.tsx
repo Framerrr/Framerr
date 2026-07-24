@@ -25,6 +25,8 @@ const VELOCITY_ASSIST = 0.5;   // Moderate velocity that assists distance-based 
 const MAX_LEFT = -180;
 const MAX_RIGHT_DEFAULT = 180;
 
+const SPRING_CONFIG = { type: 'spring' as const, stiffness: 500, damping: 30 };
+
 /**
  * SwipeableNotification - iOS-style swipe gestures for notifications
  * 
@@ -56,9 +58,6 @@ const SwipeableNotification = ({
     const leftActionScale = useTransform(x, [-COMMIT_THRESHOLD, -REVEAL_THRESHOLD, 0], [1.2, 1, 0.8]);
     const rightActionScale = useTransform(x, [0, REVEAL_THRESHOLD, COMMIT_THRESHOLD], [0.8, 1, 1.2]);
 
-    // Spring config used throughout
-    const springConfig = { type: 'spring' as const, stiffness: 500, damping: 30 };
-
     const handleRelease = useCallback((velocity: number) => {
         const currentX = x.get();
 
@@ -68,7 +67,7 @@ const SwipeableNotification = ({
         if (isSnapped === 'right') {
             if (velocity < 0 || currentX < BUTTON_WIDTH * 0.5) {
                 // Swiping back toward center
-                animate(x, 0, springConfig);
+                animate(x, 0, SPRING_CONFIG);
                 setIsSnapped(null);
                 return;
             }
@@ -88,13 +87,13 @@ const SwipeableNotification = ({
                 }
             }
             // Stay snapped
-            animate(x, BUTTON_WIDTH, springConfig);
+            animate(x, BUTTON_WIDTH, SPRING_CONFIG);
             return;
         }
 
         if (isSnapped === 'left') {
             if (velocity > 0 || currentX > -BUTTON_WIDTH * 0.5) {
-                animate(x, 0, springConfig);
+                animate(x, 0, SPRING_CONFIG);
                 setIsSnapped(null);
                 return;
             }
@@ -109,7 +108,7 @@ const SwipeableNotification = ({
                 return;
             }
             // Stay snapped
-            animate(x, -BUTTON_WIDTH, springConfig);
+            animate(x, -BUTTON_WIDTH, SPRING_CONFIG);
             return;
         }
 
@@ -119,14 +118,14 @@ const SwipeableNotification = ({
         const DEAD_ZONE = 20;
 
         if (Math.abs(currentX) < DEAD_ZONE) {
-            animate(x, 0, springConfig);
+            animate(x, 0, SPRING_CONFIG);
             return;
         }
 
         // Right direction (mark as read)
         if (currentX > 0) {
             if (!onMarkAsRead || isRead) {
-                animate(x, 0, springConfig);
+                animate(x, 0, SPRING_CONFIG);
                 return;
             }
 
@@ -151,12 +150,12 @@ const SwipeableNotification = ({
                 (currentX > SNAP_THRESHOLD * 0.6 && velocity > 0.1);
 
             if (shouldSnap) {
-                animate(x, BUTTON_WIDTH, springConfig);
+                animate(x, BUTTON_WIDTH, SPRING_CONFIG);
                 setIsSnapped('right');
                 return;
             }
 
-            animate(x, 0, springConfig);
+            animate(x, 0, SPRING_CONFIG);
             return;
         }
 
@@ -180,21 +179,21 @@ const SwipeableNotification = ({
                 (currentX < -SNAP_THRESHOLD * 0.6 && velocity < -0.1);
 
             if (shouldSnap) {
-                animate(x, -BUTTON_WIDTH, springConfig);
+                animate(x, -BUTTON_WIDTH, SPRING_CONFIG);
                 setIsSnapped('left');
                 return;
             }
 
-            animate(x, 0, springConfig);
+            animate(x, 0, SPRING_CONFIG);
             return;
         }
 
-        animate(x, 0, springConfig);
+        animate(x, 0, SPRING_CONFIG);
     }, [x, onMarkAsRead, onDelete, isRead, isSnapped]);
 
     // @use-gesture drag handler — replaces Framer Motion drag + manual direction detection
     useDrag(
-        ({ down, movement: [mx], velocity: [vx], direction: [dx], event, cancel, tap }) => {
+        ({ down, movement: [mx], velocity: [vx], direction: [dx], event, tap }) => {
             if (tap) return;
 
             // Stop the event from reaching the pull-to-close gesture handler
@@ -230,7 +229,7 @@ const SwipeableNotification = ({
         if (isSnapped === 'right' && onMarkAsRead && !isRead) {
             triggerHaptic('light');
             onMarkAsRead();
-            animate(x, 0, springConfig);
+            animate(x, 0, SPRING_CONFIG);
             setIsSnapped(null);
         }
     }, [isSnapped, isRead, onMarkAsRead, x]);
@@ -249,7 +248,7 @@ const SwipeableNotification = ({
 
         const handleScroll = () => {
             if (isSnapped) {
-                animate(x, 0, springConfig);
+                animate(x, 0, SPRING_CONFIG);
                 setIsSnapped(null);
             }
         };
@@ -266,7 +265,7 @@ const SwipeableNotification = ({
     useEffect(() => {
         const handleReset = () => {
             if (isSnapped) {
-                animate(x, 0, springConfig);
+                animate(x, 0, SPRING_CONFIG);
                 setIsSnapped(null);
             }
         };

@@ -20,6 +20,11 @@ interface MonthGridProps {
     onGoToToday: () => void;
     hasMultipleSonarr: boolean;
     hasMultipleRadarr: boolean;
+    hasMultipleLidarr?: boolean;
+    /** Bound-source filter chips — hidden when that type has no integrations */
+    showTvFilter?: boolean;
+    showMoviesFilter?: boolean;
+    showMusicFilter?: boolean;
     /** Whether to show the filter row */
     showFilter?: boolean;
     onFilterChange?: (filter: FilterType) => void;
@@ -40,6 +45,9 @@ const MonthGrid: React.FC<MonthGridProps> = ({
     onGoToToday,
     hasMultipleSonarr,
     hasMultipleRadarr,
+    showTvFilter = true,
+    showMoviesFilter = true,
+    showMusicFilter = true,
     showFilter = true,
     onFilterChange,
     compact = false,
@@ -61,6 +69,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({
     const filterEvents = (dayEvents: CalendarEvent[]): CalendarEvent[] => {
         if (filter === 'all') return dayEvents;
         if (filter === 'tv') return dayEvents.filter(ev => ev.type === 'sonarr');
+        if (filter === 'music') return dayEvents.filter(ev => ev.type === 'lidarr');
         return dayEvents.filter(ev => ev.type === 'radarr');
     };
 
@@ -91,7 +100,7 @@ const MonthGrid: React.FC<MonthGridProps> = ({
                     </button>
                 </div>
 
-                {showFilter && onFilterChange && (
+                {showFilter && onFilterChange && (showTvFilter || showMoviesFilter || showMusicFilter) && (
                     <div className="cal-filter-group">
                         <button
                             onClick={() => onFilterChange('all')}
@@ -99,18 +108,30 @@ const MonthGrid: React.FC<MonthGridProps> = ({
                         >
                             All
                         </button>
-                        <button
-                            onClick={() => onFilterChange('tv')}
-                            className={`cal-filter-btn cal-filter-btn--tv ${filter === 'tv' ? 'cal-filter-btn--active-tv' : ''}`}
-                        >
-                            TV
-                        </button>
-                        <button
-                            onClick={() => onFilterChange('movies')}
-                            className={`cal-filter-btn cal-filter-btn--movie ${filter === 'movies' ? 'cal-filter-btn--active-movie' : ''}`}
-                        >
-                            Movies
-                        </button>
+                        {showTvFilter && (
+                            <button
+                                onClick={() => onFilterChange('tv')}
+                                className={`cal-filter-btn cal-filter-btn--tv ${filter === 'tv' ? 'cal-filter-btn--active-tv' : ''}`}
+                            >
+                                TV
+                            </button>
+                        )}
+                        {showMoviesFilter && (
+                            <button
+                                onClick={() => onFilterChange('movies')}
+                                className={`cal-filter-btn cal-filter-btn--movie ${filter === 'movies' ? 'cal-filter-btn--active-movie' : ''}`}
+                            >
+                                Movies
+                            </button>
+                        )}
+                        {showMusicFilter && (
+                            <button
+                                onClick={() => onFilterChange('music')}
+                                className={`cal-filter-btn cal-filter-btn--music ${filter === 'music' ? 'cal-filter-btn--active-music' : ''}`}
+                            >
+                                Music
+                            </button>
+                        )}
                     </div>
                 )}
             </div>

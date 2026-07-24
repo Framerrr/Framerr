@@ -74,7 +74,6 @@ const UserRow: React.FC<UserRowProps> = ({
     integrations,
     onChange,
     indented = false,
-    isLast = false
 }) => {
     return (
         <div className={`flex items-center justify-between py-2 ${indented ? 'relative' : ''}`}>

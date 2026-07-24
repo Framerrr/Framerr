@@ -1,10 +1,12 @@
-import React, { createContext, useContext, useMemo, ReactNode } from 'react';
+import React, { createContext, useMemo, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSystemConfigQuery } from '../api/hooks/useConfig';
 import { queryKeys } from '../api/queryKeys';
 import type { SystemConfigContextValue, SystemConfig } from '../types/context/systemConfig';
 
 const SystemConfigContext = createContext<SystemConfigContextValue | null>(null);
+
+export { SystemConfigContext };
 
 interface SystemConfigProviderProps {
     children: ReactNode;
@@ -39,13 +41,5 @@ export const SystemConfigProvider = ({ children }: SystemConfigProviderProps): R
             {children}
         </SystemConfigContext.Provider>
     );
-};
-
-export const useSystemConfig = (): SystemConfigContextValue => {
-    const context = useContext(SystemConfigContext);
-    if (!context) {
-        throw new Error('useSystemConfig must be used within a SystemConfigProvider');
-    }
-    return context;
 };
 

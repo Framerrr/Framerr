@@ -7,7 +7,8 @@ import UnlinkConfirmationModal from './UnlinkConfirmationModal';
 import RelinkConfirmationModal from './RelinkConfirmationModal';
 import UnsavedChangesModal from './UnsavedChangesModal';
 import { configApi } from '../../../api/endpoints';
-import { getWidgetMetadata } from '../../../widgets/registry';
+import { resolveWidgetChrome } from '../../../shared/widgets';
+import { useRoleAwareIntegrations, useIntegrationSchemas } from '../../../api/hooks';
 import logger from '../../../utils/logger';
 import type { FramerrWidget } from '../../../../shared/types/widget';
 import type { LayoutItem } from '../../../shared/grid/core/types';
@@ -98,6 +99,9 @@ const DashboardModalStack: React.FC<DashboardModalStackProps> = ({
         setResizeModalWidgetId,
     } = modalSetters;
 
+    const { data: integrations = [] } = useRoleAwareIntegrations();
+    const { data: schemas } = useIntegrationSchemas();
+
     const {
         handleAddWidgetFromModal,
         handleSaveWidgetConfig,
@@ -114,7 +118,6 @@ const DashboardModalStack: React.FC<DashboardModalStackProps> = ({
         displayWidgets,
         layouts,
         isMobile,
-        editMode,
         hasUnsavedChanges,
         pendingUnlink,
         pendingDestination,
@@ -241,13 +244,14 @@ const DashboardModalStack: React.FC<DashboardModalStackProps> = ({
                     w: layoutItem?.w ?? widgetLayout?.w ?? 4,
                     h: layoutItem?.h ?? widgetLayout?.h ?? 2,
                 };
+                const chrome = resolveWidgetChrome({ widget, schemas, integrations });
                 return (
                     <WidgetResizeModal
                         isOpen={true}
                         onClose={() => setResizeModalWidgetId(null)}
                         widgetId={widget.id}
                         widgetType={widget.type}
-                        widgetName={widget.config?.title as string || getWidgetMetadata(widget.type)?.name || 'Widget'}
+                        widgetName={chrome.title}
                         currentLayout={currentLayout}
                         currentShowHeader={widget.config?.showHeader !== false}
                         isMobile={isMobile}

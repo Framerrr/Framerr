@@ -25,7 +25,9 @@ export const ActiveWidgetsPage: React.FC = () => {
         mobileLayoutMode,
         handleRemove,
         handleIconSelect,
-        updateWidgetConfig
+        updateWidgetConfig,
+        schemas,
+        integrations,
     } = useActiveWidgets();
 
     if (loading) {
@@ -119,6 +121,8 @@ export const ActiveWidgetsPage: React.FC = () => {
                             onConfirmRemove={setConfirmRemoveId}
                             onIconSelect={handleIconSelect}
                             onUpdateConfig={updateWidgetConfig}
+                            schemas={schemas}
+                            integrations={integrations}
                         />
                     ))}
                 </div>

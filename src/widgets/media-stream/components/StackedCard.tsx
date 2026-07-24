@@ -11,7 +11,8 @@
 import React, { useState } from 'react';
 import { Film, Play, Pause, Network, Info, ExternalLink, StopCircle } from 'lucide-react';
 import { useSessionCardData } from '../hooks/useSessionCardData';
-import type { MediaSession } from '../adapters';
+import { openMediaInApp } from '../../../shared/utils/mediaDeepLinks';
+import type { MediaSession, IntegrationType } from '../adapters';
 
 // ============================================================================
 // TYPES
@@ -56,7 +57,6 @@ export const StackedCard: React.FC<StackedCardProps> = ({
         isPlaying,
         percent,
         timeStr,
-        deepLink,
         externalLinkTitle,
         userName,
     } = useSessionCardData({ session, integrationId, machineId, serverUrl, serverId, lastUpdateTime });
@@ -106,7 +106,15 @@ export const StackedCard: React.FC<StackedCardProps> = ({
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
-                        if (deepLink) window.open(deepLink, '_blank');
+                        openMediaInApp(
+                            session.integrationType as IntegrationType,
+                            session.ratingKey || '',
+                            {
+                                machineId: machineId || undefined,
+                                serverUrl: serverUrl || undefined,
+                                serverId: serverId || undefined,
+                            }
+                        );
                     }}
                     className="w-9 h-9 rounded-lg bg-theme-hover border border-theme flex items-center justify-center text-theme-primary hover:bg-theme-tertiary transition-colors"
                     title={externalLinkTitle}

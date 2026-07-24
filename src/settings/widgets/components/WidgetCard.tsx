@@ -1,9 +1,11 @@
-import React, { ChangeEvent } from 'react';
-import { getWidgetMetadata, getWidgetIconName, getWidgetConfigConstraints } from '../../../widgets/registry';
+import React, { ChangeEvent, useMemo } from 'react';
+import { getWidgetMetadata, getWidgetConfigConstraints } from '../../../widgets/registry';
 import { useWidgetConfigUI } from '../../../shared/widgets/hooks/useWidgetConfigUI';
+import { resolveWidgetChrome } from '../../../shared/widgets';
+import type { ChromeIntegrationRef, ChromeSchemaRef } from '../../../shared/widgets';
 import IconPicker from '../../../components/IconPicker';
 import { Input } from '@/shared/ui';
-import { Button, ConfirmButton } from '../../../shared/ui';
+import { ConfirmButton } from '../../../shared/ui';
 import { Switch } from '@/shared/ui';
 import type { Widget, WidgetConfig } from '../types';
 
@@ -16,26 +18,37 @@ interface WidgetCardProps {
     onIconSelect: (widgetId: string, iconName: string) => Promise<void>;
     onUpdateConfig: (widgetId: string, configUpdates: Partial<WidgetConfig>) => Promise<void>;
     onResize?: (widgetId: string, size: { w?: number; h?: number }) => Promise<void>;
+    schemas?: Record<string, ChromeSchemaRef> | null;
+    integrations?: ChromeIntegrationRef[];
 }
 
 /**
  * Individual widget card with customization options
- * 
+ *
  * Displays widget info, icon picker, custom name input,
  * and toggle options for flatten/header settings.
  */
 export const WidgetCard: React.FC<WidgetCardProps> = ({
     widget,
     isRemoving,
-    isConfirmingRemove,
     onRemove,
-    onConfirmRemove,
     onIconSelect,
     onUpdateConfig,
-    onResize
+    onResize,
+    schemas,
+    integrations = [],
 }) => {
     const metadata = getWidgetMetadata(widget.type);
-    const customIcon = widget.config?.customIcon;
+
+    const chrome = useMemo(
+        () =>
+            resolveWidgetChrome({
+                widget: { type: widget.type, config: widget.config || {} },
+                schemas,
+                integrations,
+            }),
+        [widget.type, widget.config, schemas, integrations]
+    );
 
     // Centralized config UI state from plugin constraints
     const widgetHeight = widget.layout.h;
@@ -48,7 +61,7 @@ export const WidgetCard: React.FC<WidgetCardProps> = ({
                 {/* Icon - Compact on mobile, full on desktop */}
                 <div className="flex-shrink-0">
                     <IconPicker
-                        value={customIcon || getWidgetIconName(widget.type)}
+                        value={chrome.iconName}
                         onChange={(iconName: string) => onIconSelect(widget.id, iconName)}
                         compact
                     />
@@ -57,7 +70,7 @@ export const WidgetCard: React.FC<WidgetCardProps> = ({
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                     <h4 className="font-semibold text-theme-primary mb-1 truncate text-sm sm:text-base">
-                        {widget.config?.title || metadata?.name || widget.type}
+                        {chrome.title}
                     </h4>
                     <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-3 gap-y-1 text-[10px] sm:text-xs text-theme-secondary">
                         <span className="whitespace-nowrap">{metadata?.name || widget.type}</span>
@@ -87,15 +100,29 @@ export const WidgetCard: React.FC<WidgetCardProps> = ({
 
             {/* Customization Section */}
             <div className="space-y-3 pt-3 border-t border-theme">
-                {/* Custom Name Input */}
+                {/* Custom Name Input — title is canonical for chrome; customName kept in sync for settings UI */}
                 <Input
                     label="Custom Name"
                     placeholder={metadata?.name || widget.type}
-                    value={widget.config?.customName || ''}
+                    value={
+                        widget.config?.titleOverridden
+                            ? (widget.config?.customName || widget.config?.title || '')
+                            : chrome.title
+                    }
                     onChange={async (e: ChangeEvent<HTMLInputElement>) => {
+                        const next = e.target.value;
+                        if (!next.trim()) {
+                            await onUpdateConfig(widget.id, {
+                                customName: undefined,
+                                title: undefined,
+                                titleOverridden: false,
+                            });
+                            return;
+                        }
                         await onUpdateConfig(widget.id, {
-                            customName: e.target.value,
-                            title: e.target.value || metadata?.name || widget.type
+                            customName: next,
+                            title: next,
+                            titleOverridden: true,
                         });
                     }}
                 />
@@ -132,10 +159,8 @@ export const WidgetCard: React.FC<WidgetCardProps> = ({
                                 checked={widget.config?.showHeader !== false}
                                 onCheckedChange={async (checked: boolean) => {
                                     if (!configUI.headerToggleDisabled) {
-                                        // Update config
                                         await onUpdateConfig(widget.id, { showHeader: checked });
 
-                                        // If hard mode, also resize widget
                                         if (configUI.headerTriggersResize && onResize) {
                                             const constraints = getWidgetConfigConstraints(widget.type);
                                             const threshold = constraints.minHeightForHeader ?? 2;

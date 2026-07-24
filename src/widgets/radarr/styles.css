@@ -381,24 +381,25 @@
 .rdr-hero {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 7;
+    aspect-ratio: 16 / 9;
     border-radius: 0.6rem;
     overflow: hidden;
     cursor: pointer;
     flex-shrink: 0;
+    /* Column mode: stop uncapped 16:9 from eating the Upcoming column */
+    max-height: clamp(110px, 26cqi, 150px);
 }
 
-/* Stacked mode: full widget width made the 16:7 ratio too tall. Scale with
- * container width instead, capped so it never gets "obnoxiously large". */
+/* Stacked mode: keep 16:9 but cap height so full-width heroes stay compact. */
 .rdr-hero--compact {
-    aspect-ratio: unset;
-    height: clamp(90px, 20cqi, 150px);
+    max-height: clamp(100px, 22cqi, 150px);
 }
 
 .rdr-hero-image {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    object-position: center center;
     display: block;
 }
 
@@ -627,6 +628,9 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+    /* Clip meta at the info column edge so text never paints over the
+     * search button; titles/year ellipsize first (same as Sonarr/Lidarr). */
+    overflow: hidden;
 }
 
 .rdr-missing-series {
@@ -643,6 +647,7 @@
     align-items: center;
     gap: 0.4rem;
     min-width: 0;
+    overflow: hidden;
 }
 
 .rdr-missing-year {

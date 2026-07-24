@@ -1,19 +1,21 @@
 import React, { useEffect, useMemo, ReactNode, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { configApi } from './api/endpoints';
 import logger from './utils/logger';
 import api from './api/client';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { useAuth } from './context/useAuth';
 import { ThemeProvider } from './context/ThemeContext';
 import { SystemConfigProvider } from './context/SystemConfigContext';
 import { IntegrationDataProvider } from './app/providers/IntegrationDataProvider';
 import { AppBrandingProvider } from './app/providers/AppBrandingProvider';
 import { NotificationProvider } from './context/notification';
-import { LayoutProvider, useLayout } from './context/LayoutContext';
+import { LayoutProvider } from './context/LayoutContext';
+import { useLayout } from './context/useLayout';
 import { DashboardEditProvider } from './context/DashboardEditContext';
-import { SharedSidebarProvider, useSharedSidebar } from '@/app/sidebar/SharedSidebarContext';
+import { SharedSidebarProvider } from '@/app/sidebar/SharedSidebarContext';
+import { useSharedSidebar } from '@/app/sidebar/context/useSharedSidebar';
 import { WalkthroughProvider, WalkthroughOverlay } from './features/walkthrough';
 import { LAYOUT } from './constants/layout';
 import ProtectedRoute from '@/app/ProtectedRoute';
@@ -47,13 +49,6 @@ const queryClient = new QueryClient({
 
 interface CustomColorLoaderProps {
     children: ReactNode;
-}
-
-interface UserConfigResponse {
-    theme?: {
-        mode?: string;
-        customColors?: Record<string, string>;
-    };
 }
 
 // Component to load and apply custom colors after user authentication
@@ -158,7 +153,7 @@ const MainLayout: React.FC = () => {
             const data = await api.get<{ flows: Record<string, boolean> }>('/api/walkthrough/status');
             return data.flows;
         },
-        resetFlow: async (_flowId: string) => {
+        resetFlow: async () => {
             await api.post('/api/walkthrough/reset', {});
         },
     }), []);

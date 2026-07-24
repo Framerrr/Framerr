@@ -144,6 +144,7 @@ export function getSystemIconIdForService(service: string): string | null {
         'home-assistant': 'home-assistant',
         'homeassistant': 'home-assistant',
         'pihole': 'pi-hole',
+        'adguard': 'adguard-home',
         'adguardhome': 'adguard-home',
         'uptimekuma': 'uptime-kuma',
         'nginxproxymanager': 'nginx-proxy-manager',

@@ -3,18 +3,19 @@
  *
  * Single source of truth for release type display across Radarr, Sonarr,
  * and Calendar widgets. Color always encodes release *type*, never status —
- * see docs/WIDGET_REDESIGN_MEDIA.md §0.1/§0.2.
+ * see docs/private/widgets/WIDGET_REDESIGN_MEDIA.md §0.1/§0.2.
  */
 
 import React from 'react';
 
-export type ReleaseType = 'cinema' | 'digital' | 'physical' | 'tv' | 'missing';
+export type ReleaseType = 'cinema' | 'digital' | 'physical' | 'tv' | 'music' | 'missing';
 
 const TYPE_LABELS: Record<ReleaseType, string> = {
     cinema: 'Cinema',
     digital: 'Digital',
     physical: 'Physical',
     tv: 'TV',
+    music: 'Music',
     missing: 'Missing',
 };
 

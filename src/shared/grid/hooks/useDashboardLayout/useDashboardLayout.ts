@@ -61,7 +61,9 @@ export const useDashboardLayout = (options: UseDashboardLayoutOptions): UseDashb
     // ========== CORE STATE (Internal: FramerrWidget) ==========
 
     // Convert incoming FramerrWidget[] if needed (they may already be FramerrWidget)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- useMemo intentionally snapshots initial prop
     const initialFramerrWidgets = useMemo(() => initialWidgets, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- same for initialMobileWidgets
     const initialFramerrMobileWidgets = useMemo(() => initialMobileWidgets, []);
 
     // Widget arrays (internal: FramerrWidget)

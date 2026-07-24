@@ -24,13 +24,14 @@
  * </Modal>
  */
 
-import React, { createContext, useContext, forwardRef } from 'react';
+import React, { createContext, forwardRef } from 'react';
 // NOTE: createContext is still used by ModalContext (internal state sharing)
 import * as Dialog from '@radix-ui/react-dialog';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { scaleIn, backdrop } from '../animations';
+import { InsideModalContext } from './useInsideModal';
 
 // ===========================
 // Context for Modal state
@@ -42,31 +43,6 @@ interface ModalContextValue {
 }
 
 const ModalContext = createContext<ModalContextValue | null>(null);
-
-function useModalContext() {
-    const context = useContext(ModalContext);
-    if (!context) {
-        throw new Error('Modal compound components must be used within <Modal>');
-    }
-    return context;
-}
-
-// ===========================
-// Inside-modal signal
-// ===========================
-// Lightweight context that tells child primitives (Popover, etc.) they are
-// rendered inside a Modal.  Popover uses this to set modal={true} on its
-// Radix root, which activates its own RemoveScroll and avoids the scroll-
-// blocking conflict with Dialog's RemoveScroll.
-
-const InsideModalContext = createContext(false);
-
-/** Returns true when the calling component is rendered inside a <Modal>. */
-export function useInsideModal() {
-    return useContext(InsideModalContext);
-}
-
-
 
 // ===========================
 // Size Variants
@@ -218,7 +194,6 @@ export interface ModalHeaderProps {
 
 const ModalHeader = forwardRef<HTMLDivElement, ModalHeaderProps>(
     ({ title, subtitle, icon, actions, showClose = true, closeOnly = false, className = '', closeButtonProps }, ref) => {
-        const { onOpenChange } = useModalContext();
 
         // Close-only mode: compact borderless row with just the X button
         if (closeOnly) {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronUp, X } from 'lucide-react';
 import SwipeableStack from './SwipeableStack';
@@ -168,7 +168,7 @@ const NotificationGroup = ({
                     className={`relative ${!isExpanded && hasMultiple ? 'z-10' : ''}`}
                     style={{ pointerEvents: !isExpanded && hasMultiple ? 'none' : 'auto' }}
                 >
-                    {renderNotification(notifications[0], 0)}
+                    {renderNotification(notifications[0])}
                 </div>
 
                 {/* Tap to expand hint - animate height in/out with spring for smoothness */}
@@ -234,7 +234,7 @@ const NotificationGroup = ({
                         style={{ overflow: 'hidden' }}
                         className="mb-0"
                     >
-                        {renderNotification(notification, i + 1)}
+                        {renderNotification(notification)}
                     </motion.div>
                 ))}
             </AnimatePresence>

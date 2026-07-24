@@ -8,16 +8,18 @@
  */
 
 import React, { useState, useCallback, useRef, useMemo } from 'react';
-import { Film, CalendarDays, AlertTriangle, Circle, ArrowUpCircle, Download } from 'lucide-react';
+import { Film } from 'lucide-react';
 import { WidgetStateMessage } from '../../shared/widgets';
 import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
-import { useAuth } from '../../context/AuthContext';
+import { useRetryPoll } from '../../shared/widgets/hooks';
+import { useAuth } from '../../context/useAuth';
 import { isAdmin } from '../../utils/permissions';
 import { useRadarrData, type RadarrSortBy } from './hooks/useRadarrData';
 import HeroCard from './components/HeroCard';
 import UpcomingCarousel from './components/UpcomingCarousel';
 import MissingList from './components/MissingList';
 import MovieDetailModal from './components/MovieDetailModal';
+import HeaderChips from './components/HeaderChips';
 import type { WidgetProps } from '../types';
 import type { CalendarMovie, WantedMovie, ReleaseTypeVisibility } from './radarr.types';
 import './styles.css';
@@ -37,19 +39,15 @@ const PREVIEW_MOVIES = [
 function PreviewMode(): React.JSX.Element {
     return (
         <div className="rdr-widget">
-            {/* Stats bar mock */}
-            <div className="rdr-stats-bar">
-                <span className="rdr-stats-item">
-                    <CalendarDays size={14} className="rdr-stats-icon" style={{ color: 'var(--accent)' }} />
-                    <span className="rdr-stats-value">5</span> upcoming
-                </span>
-                <span className="rdr-stats-item">
-                    <AlertTriangle size={14} className="rdr-stats-icon" style={{ color: 'var(--warning)' }} />
-                    <span className="rdr-stats-value">3</span> missing
-                </span>
-            </div>
+            <HeaderChips
+                upcomingCount={5}
+                cinemaCount={1}
+                missingCount={3}
+                cutoffUnmetCount={0}
+                downloadingCount={0}
+            />
+            <div className="rdr-divider" />
 
-            {/* Preview list */}
             <div className="rdr-section-header">Upcoming</div>
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 {PREVIEW_MOVIES.map(movie => (
@@ -83,9 +81,19 @@ interface AdminViewProps {
     viewMode: 'auto' | 'stacked' | 'column';
     showStatsBar: boolean;
     userIsAdmin: boolean;
+    showMissing: boolean;
+    showUpgrades: boolean;
 }
 
-function AdminView({ integrationId, data, viewMode: configViewMode, showStatsBar, userIsAdmin }: AdminViewProps): React.JSX.Element {
+function AdminView({
+    integrationId,
+    data,
+    viewMode: configViewMode,
+    showStatsBar,
+    userIsAdmin,
+    showMissing,
+    showUpgrades,
+}: AdminViewProps): React.JSX.Element {
     const [selectedMovie, setSelectedMovie] = useState<WantedMovie | CalendarMovie | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
 
@@ -96,12 +104,14 @@ function AdminView({ integrationId, data, viewMode: configViewMode, showStatsBar
 
     const handleQuickSearch = useCallback((movieId: number) => {
         return data.triggerAutoSearch([movieId]);
-    }, [data.triggerAutoSearch]);
+    }, [data]);
 
     const fetchFirstPage = useCallback(() => {
-        data.refreshMissing();
-        data.refreshCutoff();
-    }, [data.refreshMissing, data.refreshCutoff]);
+        if (showMissing) data.refreshMissing();
+        if (showUpgrades) data.refreshCutoff();
+    }, [data, showMissing, showUpgrades]);
+
+    const showNeedsAttention = showMissing || showUpgrades;
 
     // ResizeObserver for auto layout detection (same pattern as Sonarr/Overseerr)
     const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
@@ -125,8 +135,10 @@ function AdminView({ integrationId, data, viewMode: configViewMode, showStatsBar
         || (configViewMode === 'auto' && containerSize.w > containerSize.h && containerSize.w > 0);
 
     const upcomingCount = data.upcoming.length;
-    const missingCount = data.missingCounts?.missingCount ?? 0;
-    const cutoffUnmetCount = data.missingCounts?.cutoffUnmetCount ?? 0;
+    const missingCount = showMissing ? (data.missingCounts?.missingCount ?? 0) : 0;
+    const cutoffUnmetCount = showUpgrades ? (data.missingCounts?.cutoffUnmetCount ?? 0) : 0;
+    const visibleMissingMovies = showMissing ? data.missingMovies : [];
+    const visibleCutoffMovies = showUpgrades ? data.cutoffMovies : [];
 
     // Header chips (spec §1.2, extended) — the single consolidated urgency
     // summary for the whole widget. Cinema/missing read the display info
@@ -153,31 +165,13 @@ function AdminView({ integrationId, data, viewMode: configViewMode, showStatsBar
              * once there's actually something to flag. */}
             {showStatsBar && (
                 <>
-                    <div className="rdr-header-chips">
-                        <span className="rdr-header-chip rdr-header-chip--upcoming">
-                            <CalendarDays size={11} /> {upcomingCount} upcoming
-                        </span>
-                        {cinemaCount > 0 && (
-                            <span className="rdr-header-chip rdr-header-chip--cinema">
-                                <Circle size={9} fill="currentColor" /> {cinemaCount} Cinema
-                            </span>
-                        )}
-                        {missingCount > 0 && (
-                            <span className="rdr-header-chip rdr-header-chip--missing">
-                                <AlertTriangle size={11} /> {missingCount} missing
-                            </span>
-                        )}
-                        {cutoffUnmetCount > 0 && (
-                            <span className="rdr-header-chip rdr-header-chip--cutoff">
-                                <ArrowUpCircle size={11} /> {cutoffUnmetCount} upgrade
-                            </span>
-                        )}
-                        {downloadingCount > 0 && (
-                            <span className="rdr-header-chip rdr-header-chip--downloading">
-                                <Download size={11} /> {downloadingCount} downloading
-                            </span>
-                        )}
-                    </div>
+                    <HeaderChips
+                        upcomingCount={upcomingCount}
+                        cinemaCount={cinemaCount}
+                        missingCount={missingCount}
+                        cutoffUnmetCount={cutoffUnmetCount}
+                        downloadingCount={downloadingCount}
+                    />
                     <div className="rdr-divider" />
                 </>
             )}
@@ -205,27 +199,29 @@ function AdminView({ integrationId, data, viewMode: configViewMode, showStatsBar
                     </div>
                 )}
 
-                {/* Needs Attention Column */}
-                <div className={`rdr-body-col ${isWide ? 'rdr-body-col--missing' : ''}`}>
-                    <div className="rdr-section-header">Needs Attention</div>
-                    <MissingList
-                        missingMovies={data.missingMovies}
-                        cutoffMovies={data.cutoffMovies}
-                        integrationId={integrationId}
-                        missingLoading={data.missingLoading}
-                        cutoffLoading={data.cutoffLoading}
-                        missingHasMore={data.missingHasMore}
-                        cutoffHasMore={data.cutoffHasMore}
-                        onLoadMoreMissing={data.loadMoreMissing}
-                        onLoadMoreCutoff={data.loadMoreCutoff}
-                        onMovieClick={handleMovieClick}
-                        onQuickSearch={handleQuickSearch}
-                        queueItems={data.queueItems}
-                        autoFetch
-                        fetchFirstPage={fetchFirstPage}
-                        userIsAdmin={userIsAdmin}
-                    />
-                </div>
+                {/* Needs Attention Column — optional via config (missing / upgrades) */}
+                {showNeedsAttention && (
+                    <div className={`rdr-body-col ${isWide ? 'rdr-body-col--missing' : ''}`}>
+                        <div className="rdr-section-header">Needs Attention</div>
+                        <MissingList
+                            missingMovies={visibleMissingMovies}
+                            cutoffMovies={visibleCutoffMovies}
+                            integrationId={integrationId}
+                            missingLoading={showMissing && data.missingLoading}
+                            cutoffLoading={showUpgrades && data.cutoffLoading}
+                            missingHasMore={showMissing && data.missingHasMore}
+                            cutoffHasMore={showUpgrades && data.cutoffHasMore}
+                            onLoadMoreMissing={data.loadMoreMissing}
+                            onLoadMoreCutoff={data.loadMoreCutoff}
+                            onMovieClick={handleMovieClick}
+                            onQuickSearch={handleQuickSearch}
+                            queueItems={data.queueItems}
+                            autoFetch
+                            fetchFirstPage={fetchFirstPage}
+                            userIsAdmin={userIsAdmin}
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Movie Detail Modal */}
@@ -256,18 +252,18 @@ interface RadarrConfig {
     showCinema?: boolean;
     showDigital?: boolean;
     showPhysical?: boolean;
+    showMissing?: boolean;
+    showUpgrades?: boolean;
     [key: string]: unknown;
 }
 
 export type RadarrWidgetProps = WidgetProps;
 
 const RadarrWidget = ({ widget, previewMode = false }: RadarrWidgetProps): React.JSX.Element => {
-    // Preview mode: skip all data fetching and show mock data
     if (previewMode) {
         return <PreviewMode />;
     }
 
-    // Get auth state to determine admin status
     const { user } = useAuth();
     const userIsAdmin = isAdmin(user);
 
@@ -282,6 +278,8 @@ const RadarrWidget = ({ widget, previewMode = false }: RadarrWidgetProps): React
     const showCinema = config?.showCinema !== false;
     const showDigital = config?.showDigital !== false;
     const showPhysical = config?.showPhysical !== false;
+    const showMissing = config?.showMissing !== false;
+    const showUpgrades = config?.showUpgrades !== false;
     // Stable reference across renders (unless a flag actually flips) — useRadarrData
     // depends on this object identity to know when to re-derive the upcoming list.
     const visibility: ReleaseTypeVisibility = useMemo(
@@ -294,15 +292,16 @@ const RadarrWidget = ({ widget, previewMode = false }: RadarrWidgetProps): React
         effectiveDisplayName,
         status: accessStatus,
         loading: accessLoading,
-    } = useWidgetIntegration('radarr', configuredIntegrationId, widget.id);
+    } = useWidgetIntegration('radarr', configuredIntegrationId, previewMode ? undefined : widget.id);
 
     const integrationId = effectiveIntegrationId || undefined;
     const isIntegrationBound = !!integrationId;
+    const handleRetry = useRetryPoll(integrationId, 'radarr');
 
     // Data hook — manages all SSE subscriptions and fetching
     const data = useRadarrData({
-        integrationId,
-        enabled: isIntegrationBound,
+        integrationId: previewMode ? undefined : integrationId,
+        enabled: !previewMode && isIntegrationBound,
         sortBy,
         lookAheadDays,
         visibility,
@@ -339,6 +338,7 @@ const RadarrWidget = ({ widget, previewMode = false }: RadarrWidgetProps): React
                 serviceName="Radarr"
                 instanceName={isUnavailable ? effectiveDisplayName : undefined}
                 message={isUnavailable ? undefined : data.error}
+                onRetry={isUnavailable ? handleRetry : undefined}
             />
         );
     }
@@ -351,6 +351,8 @@ const RadarrWidget = ({ widget, previewMode = false }: RadarrWidgetProps): React
             viewMode={configViewMode}
             showStatsBar={showStatsBar}
             userIsAdmin={userIsAdmin}
+            showMissing={showMissing}
+            showUpgrades={showUpgrades}
         />
     );
 };

@@ -26,7 +26,7 @@ export type WidgetTypeKey =
 /**
  * Widget category for grouping in widget picker
  */
-export type WidgetCategory = 'system' | 'media' | 'downloads' | 'utility';
+export type WidgetCategory = 'system' | 'media' | 'management' | 'utility';
 
 /**
  * Layout position for a widget at a specific breakpoint

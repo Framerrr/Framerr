@@ -23,7 +23,6 @@ export type { WidgetStateMessageProps, WidgetStateVariant } from './WidgetStateM
 // Hooks
 export { useWidgetData, useIntegrationFallback, useWidgetIntegration, useMultiWidgetIntegration, useIntegrationSSE, useMultiIntegrationSSE, useWidgetConfigUI } from './hooks';
 export type {
-    UseWidgetDataOptions,
     UseWidgetDataResult,
     IntegrationFallbackResult,
     UseWidgetIntegrationResult,
@@ -38,4 +37,13 @@ export type {
     UseMultiIntegrationSSEResult,
     WidgetConfigUIState
 } from './hooks';
+
+// Chrome identity
+export { resolveWidgetChrome } from './resolveWidgetChrome';
+export type {
+    ResolveWidgetChromeInput,
+    ResolvedWidgetChrome,
+    ChromeIntegrationRef,
+    ChromeSchemaRef,
+} from './resolveWidgetChrome';
 

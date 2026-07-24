@@ -100,7 +100,7 @@ export function useGreetingController({
                 loadingMessages: gLoadingMsgs
             });
         }
-    }, [userConfig, initialized]);
+    }, [userConfig, initialized, user?.displayName, user?.username]);
 
     // Track changes for Greeting
     useEffect(() => {

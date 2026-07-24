@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { plexApi, themeApi, authApi } from '../../api/endpoints';
 import { resetSessionExpiredFlag } from '../../api/client';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 import { useNotifications } from '../../context/notification';
 import { Lock, User, AlertCircle, Loader, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,7 +33,7 @@ const Login = (): React.JSX.Element => {
         !!localStorage.getItem('plexPendingPinId')
     );
     const { login, loginWithPlex, isAuthenticated, loading: authLoading } = useAuth();
-    const { success: showSuccess, info: showInfo, error: showError } = useNotifications();
+    const { success: showSuccess, info: showInfo } = useNotifications();
     const navigate = useNavigate();
     const location = useLocation();
 

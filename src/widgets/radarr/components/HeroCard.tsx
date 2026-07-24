@@ -1,7 +1,7 @@
 /**
  * HeroCard - Full-bleed hero treatment for the top-sorted upcoming movie
  *
- * See docs/WIDGET_REDESIGN_MEDIA.md §1.5.
+ * See docs/private/widgets/WIDGET_REDESIGN_MEDIA.md §1.5.
  */
 
 import React from 'react';
@@ -20,12 +20,17 @@ interface HeroCardProps {
     compact?: boolean;
 }
 
+/** Landscape backdrop only — never poster (cover-cropping a poster looks zoomed-in). */
 function getFanartUrl(movie: CalendarMovie, integrationId: string): string | null {
     const images = movie.images;
     if (!images?.length) return null;
 
-    const fanart = images.find((img: RadarrImage) => img.coverType === 'fanart');
-    const imageUrl = fanart?.remoteUrl || fanart?.url;
+    const type = (img: RadarrImage) => (img.coverType || '').toLowerCase();
+    const pick =
+        images.find((img) => type(img) === 'fanart')
+        || images.find((img) => type(img) === 'banner')
+        || images.find((img) => /fanart/i.test(img.remoteUrl || img.url || ''));
+    const imageUrl = pick?.remoteUrl || pick?.url;
     if (!imageUrl) return null;
 
     return `/api/integrations/${integrationId}/proxy/image?url=${encodeURIComponent(imageUrl)}`;

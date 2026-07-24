@@ -143,19 +143,15 @@ export interface GridRenderConfig {
     onLayoutChange: (currentLayout: RglLayoutItem[], allLayouts?: RglLayouts) => void;
 
     /** Called when drag starts - receives RGL callback params */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onDragStart: (...args: any[]) => void;
 
     /** Called when drag stops - receives RGL callback params */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onDragStop: (...args: any[]) => void;
 
     /** Called when resize starts - receives RGL callback params */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onResizeStart: (...args: any[]) => void;
 
     /** Called when resize stops - receives RGL callback params */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onResizeStop: (...args: any[]) => void;
 
     // ========== Content ==========

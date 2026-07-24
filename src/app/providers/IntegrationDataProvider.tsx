@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import React, { createContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import { useAuth } from '../../context/useAuth';
 import { isAdmin } from '../../utils/permissions';
 import logger from '../../utils/logger';
 import { integrationsApi } from '../../api/endpoints/integrations';
@@ -182,18 +182,6 @@ export const IntegrationDataProvider = ({ children }: IntegrationDataProviderPro
             {children}
         </IntegrationDataContext.Provider>
     );
-};
-
-// ============================================================================
-// Hook
-// ============================================================================
-
-export const useIntegrationData = (): IntegrationDataContextValue => {
-    const context = useContext(IntegrationDataContext);
-    if (!context) {
-        throw new Error('useIntegrationData must be used within an IntegrationDataProvider');
-    }
-    return context;
 };
 
 export { IntegrationDataContext };

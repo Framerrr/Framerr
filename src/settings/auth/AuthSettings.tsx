@@ -17,7 +17,7 @@ import { ProxyPage } from './pages/ProxyPage';
 import { PlexPage } from './pages/PlexPage';
 import { OidcPage } from './pages/OidcPage';
 import { IframePage } from './pages/IframePage';
-import { useSettingsAnimationClass } from '../../context/SettingsAnimationContext';
+import { useSettingsAnimationClass } from '../../context/useSettingsAnimation';
 import type { AuthSettingsProps } from './types';
 
 export const AuthSettings: React.FC<AuthSettingsProps> = ({ activeSubTab: propSubTab }) => {

@@ -5,9 +5,9 @@
  * Manages persistent notifications, SSE delivery, and notification center UI.
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from 'react';
-import { useAuth } from '../AuthContext';
-import { useToasts } from './ToastContext';
+import React, { createContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from 'react';
+import { useAuth } from '../useAuth';
+import { useToasts } from './useToasts';
 import logger from '../../utils/logger';
 import { useRealtimeSSE, type NotificationEvent } from '@/features/realtime/useRealtimeSSE';
 import { notificationsApi } from '../../api/endpoints/notifications';
@@ -417,18 +417,6 @@ export const NotificationCenterProvider = ({ children }: NotificationCenterProvi
             {children}
         </NotificationCenterContext.Provider>
     );
-};
-
-// ============================================
-// Hook
-// ============================================
-
-export const useNotificationCenter = (): NotificationCenterContextValue => {
-    const context = useContext(NotificationCenterContext);
-    if (!context) {
-        throw new Error('useNotificationCenter must be used within a NotificationCenterProvider');
-    }
-    return context;
 };
 
 export { NotificationCenterContext };

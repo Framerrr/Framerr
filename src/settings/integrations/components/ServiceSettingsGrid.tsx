@@ -8,7 +8,6 @@
 
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { AlertCircle } from 'lucide-react';
-import ServiceCard from './ServiceCard';
 import IntegrationTypeCard from './IntegrationTypeCard';
 import ServiceConfigModal from './ServiceConfigModal';
 import StandardIntegrationForm from '../../../integrations/_core/StandardIntegrationForm';
@@ -84,7 +83,6 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
     savedInstances,
     schemas,
     onFieldChange,
-    onToggle,
     onToggleInstance,
     onTest,
 
@@ -96,7 +94,6 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
     saving,
     activeModal,
     setActiveModal,
-    newInstanceId,
     webhookBaseUrl,
     renderPlex,
     renderJellyfin,
@@ -137,17 +134,6 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
             hasConnectionTest: schema.hasConnectionTest,
         }));
     }, [schemas]);
-
-    // Check if a service is configured based on SAVED state (for card badges)
-    const isSavedConfigured = (serviceId: string): boolean => {
-        const config = savedIntegrations[serviceId];
-        if (!config?.enabled) return false;
-        // Complex services are considered configured when enabled
-        if (serviceId === 'plex' || serviceId === 'monitor' || serviceId === 'uptimekuma') {
-            return true;
-        }
-        return !!config.url;
-    };
 
     // Handle modal close (cancel) - refetch to discard unsaved changes
     const handleModalClose = (instanceId?: string) => {
@@ -194,7 +180,9 @@ const ServiceSettingsGrid: React.FC<ServiceSettingsGridProps> = ({
         if (!current || !saved) return true;
         // Strip metadata fields for comparison
         const strip = (cfg: Record<string, unknown>) => {
-            const { _instanceId, _type, ...rest } = cfg as Record<string, unknown>;
+            const rest = { ...cfg };
+            delete rest._instanceId;
+            delete rest._type;
             return rest;
         };
         return JSON.stringify(strip(current as Record<string, unknown>)) !== JSON.stringify(strip(saved as Record<string, unknown>));

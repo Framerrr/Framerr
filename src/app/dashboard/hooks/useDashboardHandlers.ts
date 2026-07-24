@@ -7,7 +7,6 @@ import { useWalkthrough } from '../../../features/walkthrough';
 import { getWidgetMetadata } from '../../../widgets/registry';
 import { resolveAutoBinding } from '../../../widgets/resolveAutoBinding';
 import { deriveLinkedMobileLayout } from '../../../shared/grid/core/ops';
-import { fromLegacyWidget } from '../../../shared/grid/adapter';
 import { GRID_COLS } from '../../../constants/gridConfig';
 import { triggerHaptic } from '../../../utils/haptics';
 import { widgetsApi } from '../../../api/endpoints/widgets';
@@ -325,7 +324,7 @@ export function useDashboardHandlers({
             logger.error('Failed to add widget:', { error });
             showError('Add Widget Failed', 'Failed to add widget.');
         }
-    }, [addWidget, showError, allIntegrations]);
+    }, [addWidget, showError, allIntegrations, walkthrough]);
 
     // ========== WIDGET ACTION HANDLERS ==========
 

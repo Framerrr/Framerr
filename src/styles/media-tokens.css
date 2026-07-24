@@ -1,26 +1,57 @@
 /**
  * Media Widget Redesign — Theme-Invariant Color Tokens
  *
- * These 5 colors encode release/media *type* (cinema, digital, physical, tv,
- * missing), not brand accent. Unlike every other token in this codebase, they
- * are intentionally NOT scoped per-theme — a "cinema" release must look the
- * same amber across dark-pro, nord, or any other theme, or the semantic
- * meaning breaks. Do not move these into src/styles/themes/*.css.
+ * Two layers of semantic color, both intentionally NOT scoped per-theme:
  *
- * See docs/WIDGET_REDESIGN_MEDIA.md §0.1.
+ * 1. Source colors (--sonarr / --radarr / --lidarr)
+ *    Identify which *arr integration an event/chip belongs to. Used by
+ *    Calendar filters/badges and (via aliases below) Sonarr/Lidarr date pills.
+ *    Hex values are taken from the accent fills in each project's official
+ *    Logo/*.svg on GitHub (not Tailwind approximations / not Simple Icons).
+ *
+ * 2. Release-type colors (--cinema / --digital / --physical / --missing)
+ *    Identify what *kind* of date a Radarr (or shared) pill represents.
+ *    Cinema/premiere is orange vs Radarr yellow; digital is royal blue vs
+ *    Sonarr cyan — both tuned for contrast against source colors.
+ *
+ * --tv and --music are kept as aliases of --sonarr / --lidarr so existing
+ * ReleasePill type classes and calendar event-type keys keep working.
+ *
+ * Do not move these into src/styles/themes/*.css.
+ * See docs/private/widgets/WIDGET_REDESIGN_MEDIA.md §0.1.
  */
+
 :root {
-    --cinema: #F59E0B;
-    --digital: #3B82F6;
+    /* ---- Source (integration) — official logo accents ---- */
+    /* Sonarr: Logo/Sonarr.svg fill="#0CF" → #00CCFF */
+    --sonarr: #00CCFF;
+    /* Radarr: Logo/Radarr.svg fill="#FFC230" */
+    --radarr: #FFC230;
+    /* Lidarr: Logo/Lidarr.svg honeycomb accent #009252 */
+    --lidarr: #009252;
+
+    --sonarr-rgb: 0, 204, 255;
+    --radarr-rgb: 255, 194, 48;
+    --lidarr-rgb: 0, 146, 82;
+
+    /* ---- Release type ---- */
+    /* Orange vs Radarr yellow #FFC230 — also drives premiere badges */
+    --cinema: #F97316;
+    /* Royal blue — clear contrast vs Sonarr cyan #00CCFF */
+    --digital: #2563EB;
     --physical: #8B5CF6;
-    --tv: #10B981;
     --missing: #EF4444;
 
-    --cinema-rgb: 245, 158, 11;
-    --digital-rgb: 59, 130, 246;
+    --cinema-rgb: 249, 115, 22;
+    --digital-rgb: 37, 99, 235;
     --physical-rgb: 139, 92, 246;
-    --tv-rgb: 16, 185, 129;
     --missing-rgb: 239, 68, 68;
+
+    /* Aliases → source colors (ReleasePill --tv / --music, calendar type keys) */
+    --tv: #00CCFF;
+    --music: #009252;
+    --tv-rgb: 0, 204, 255;
+    --music-rgb: 0, 146, 82;
 
     /* Text/track rendered on the fixed dark gradient overlay (media.css's
      * .media-gradient-overlay) atop hero/carousel artwork. Same rationale as

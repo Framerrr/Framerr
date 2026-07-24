@@ -23,7 +23,8 @@ const mockSubscribeToTopic = vi.fn((topic: string, cb: TopicCallback) => {
     return Promise.resolve(() => { capturedCallbacks.delete(topic); });
 });
 
-vi.mock('../../../../hooks/useRealtimeSSE', () => ({
+// Must match `@/features/realtime/useRealtimeSSE` (legacy `hooks/useRealtimeSSE` path no longer exists).
+vi.mock('@/features/realtime/useRealtimeSSE', () => ({
     default: () => ({
         subscribeToTopic: mockSubscribeToTopic,
         connectionId: 'conn-1',
