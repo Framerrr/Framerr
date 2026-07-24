@@ -34,7 +34,7 @@
     gap: 0.35rem 0;
     padding: 0.65rem 1.25rem;
     border-radius: 0.5rem;
-    background: var(--bg-hover);
+    background: rgba(255, 255, 255, 0.05);
     width: fit-content;
     max-width: calc(100% - 40px);
     margin: 0 auto;
@@ -165,7 +165,8 @@ button.qbt-stats-clickable {
     padding: 0.65rem 0.55rem;
     border-radius: 0.375rem;
     transition: background 0.15s ease;
-    cursor: pointer;
+    /* cursor set inline when onClick is provided — avoid pointer in preview fixtures */
+    cursor: default;
     min-width: 0;
 }
 
@@ -802,7 +803,7 @@ button.qbt-stats-clickable {
 /* Small: <400px — full-width bar, wrap items, hide label text */
 @container (max-width: 399px) {
     .qbt-stats-wrapper {
-        background: var(--bg-hover);
+        background: rgba(255, 255, 255, 0.05);
         border-radius: 0.5rem;
         padding: 0.4rem 0.5rem;
         align-items: center;

@@ -56,7 +56,9 @@ const CircularGauge: React.FC<CircularGaugeProps> = ({
     className,
 }) => {
     const rootRef = useRef<HTMLDivElement>(null);
+    const centerRef = useRef<HTMLDivElement>(null);
     const [{ stroke, r }, setGeometry] = useState({ stroke: DEFAULT_STROKE, r: DEFAULT_R });
+    const [textScale, setTextScale] = useState(1);
 
     useLayoutEffect(() => {
         const el = rootRef.current;
@@ -74,6 +76,48 @@ const CircularGauge: React.FC<CircularGaugeProps> = ({
         ro.observe(el);
         return () => ro.disconnect();
     }, []);
+
+    // Shrink center text to fit the ring hole (avoids ever-so-slight clipping)
+    useLayoutEffect(() => {
+        const center = centerRef.current;
+        if (!center) return;
+
+        const fit = () => {
+            const availableW = center.clientWidth;
+            const availableH = center.clientHeight;
+            if (availableW <= 0 || availableH <= 0) {
+                setTextScale(1);
+                return;
+            }
+
+            // Measure unscaled content against the hole
+            center.style.transform = 'scale(1)';
+
+            const contentW = Math.max(
+                ...Array.from(center.children, (child) => (child as HTMLElement).scrollWidth),
+                1
+            );
+            const contentH = Array.from(center.children).reduce(
+                (sum, child) => sum + (child as HTMLElement).offsetHeight,
+                0
+            );
+            const rowGap =
+                center.children.length > 1
+                    ? Number.parseFloat(getComputedStyle(center).rowGap || getComputedStyle(center).gap) || 0
+                    : 0;
+            const totalH = contentH + rowGap;
+
+            const scale = Math.min(1, availableW / contentW, availableH / Math.max(totalH, 1));
+            const next = Math.max(0.72, Number.isFinite(scale) ? scale : 1);
+            setTextScale(next);
+            center.style.transform = `scale(${next})`;
+        };
+
+        fit();
+        const ro = new ResizeObserver(fit);
+        ro.observe(center);
+        return () => ro.disconnect();
+    }, [label, caption, stroke, r]);
 
     const clamped = Math.max(0, Math.min(100, value));
     // pathLength=100 → dasharray "N 100" paints exactly N% of the ring
@@ -106,7 +150,11 @@ const CircularGauge: React.FC<CircularGaugeProps> = ({
                     strokeDasharray={dashArray}
                 />
             </svg>
-            <div className="metric-gauge__center">
+            <div
+                ref={centerRef}
+                className="metric-gauge__center"
+                style={{ transform: `scale(${textScale})`, transformOrigin: 'center center' }}
+            >
                 <span className="metric-gauge__value">{label}</span>
                 {caption != null && (
                     <span className="metric-gauge__caption">{caption}</span>

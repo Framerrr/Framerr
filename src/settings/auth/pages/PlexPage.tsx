@@ -8,11 +8,11 @@
  * - Auto-create users toggle
  * - Default group selector
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { plexApi } from '../../../api/endpoints';
 import { usePlexSSOConfig } from '../../../api/hooks/useSettings';
 import { usePlexOAuth, PlexUser } from '@/settings/auth/hooks/usePlexOAuth';
-import { Tv, Loader, RefreshCw, CheckCircle, AlertCircle, ExternalLink, Settings2 } from 'lucide-react';
+import { Tv, Loader, RefreshCw, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 import { Switch, Select } from '@/shared/ui';
 import { SettingsPage, SettingsSection } from '../../../shared/ui/settings';
 import { LoadingSpinner } from '@/shared/ui';
@@ -34,7 +34,7 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
     });
 
     // UI state
-    const [saving, setSaving] = useState<boolean>(false);
+    const [, setSaving] = useState<boolean>(false);
     const [servers, setServers] = useState<PlexServer[]>([]);
     const [loadingServers, setLoadingServers] = useState<boolean>(false);
 
@@ -54,7 +54,7 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
         if (config.hasToken && servers.length === 0) {
             fetchAdminServers();
         }
-    }, [config.hasToken]);
+    }, [config.hasToken, servers.length]);
 
 
 
@@ -121,7 +121,7 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
         }
     };
 
-    const handleSave = async (): Promise<void> => {
+    const handleSave = useCallback(async (): Promise<void> => {
         setSaving(true);
         try {
             await plexApi.saveSSOConfig({
@@ -140,14 +140,14 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
         } finally {
             setSaving(false);
         }
-    };
+    }, [config, showSuccess, showError, onSaveNeeded]);
 
     // Expose save function to parent
     useEffect(() => {
         if (onSave) {
             onSave.current = handleSave;
         }
-    }, [config]);
+    }, [config, handleSave, onSave]);
 
     // Track changes and notify parent
     useEffect(() => {

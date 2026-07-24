@@ -12,7 +12,7 @@
  * - Conditional step filtering
  */
 
-import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import React, { createContext, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { getFlow, getFlowConfig } from './flows/registry';
 import type {
     WalkthroughContextValue,
@@ -234,7 +234,7 @@ export function WalkthroughProvider({
                 return prev;
             }
         });
-    }, [completeFlow]);
+    }, [completeFlow, userRole]);
 
     // ─── Skip ────────────────────────────────────────────────────────
     const skip = useCallback(() => {
@@ -305,7 +305,7 @@ export function WalkthroughProvider({
                 advance();
             }
         });
-    }, [advance]);
+    }, [advance, userRole]);
 
     // ─── Step Data ───────────────────────────────────────────────────
     const setStepData = useCallback((key: string, value: unknown) => {
@@ -414,10 +414,6 @@ export function WalkthroughProvider({
             {children}
         </WalkthroughContext.Provider>
     );
-}
-
-export function useWalkthrough(): WalkthroughContextValue | null {
-    return useContext(WalkthroughContext);
 }
 
 export default WalkthroughContext;

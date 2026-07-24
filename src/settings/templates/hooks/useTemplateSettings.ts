@@ -11,15 +11,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { templatesApi, widgetsApi } from '../../../api/endpoints';
 import type { Widget } from '../../../api/endpoints/widgets';
-import { useLayout } from '../../../context/LayoutContext';
-import { useAuth } from '../../../context/AuthContext';
+import { useLayout } from '../../../context/useLayout';
+import { useAuth } from '../../../context/useAuth';
 import { useNotifications } from '../../../context/notification';
 import { readFramerrFile } from '../../../utils/templateExportImport';
 import { generateWidgetId } from '../../../shared/grid/core/ops';
 import { filterRegisteredWidgets } from '../../../widgets/registry';
 import logger from '../../../utils/logger';
 import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
-import type { Template, BackupData, BuilderMode } from '../types';
+import type { Template, BuilderMode } from '../types';
 
 interface UseTemplateSettingsReturn {
     // Auth & layout
@@ -94,7 +94,7 @@ export function useTemplateSettings(): UseTemplateSettingsReturn {
     const [sharingTemplate, setSharingTemplate] = useState<Template | null>(null);
 
     // Templates list for generating default names
-    const [templates, setTemplates] = useState<Template[]>([]);
+    const [, setTemplates] = useState<Template[]>([]);
 
     // Generate next available default name (Dashboard 1, Dashboard 2, etc.)
     const generateDefaultName = useCallback((templateList: Template[]) => {
@@ -130,7 +130,7 @@ export function useTemplateSettings(): UseTemplateSettingsReturn {
                 } else {
                     setBackupInfo(null);
                 }
-            } catch (err) {
+            } catch {
                 logger.debug('No backup available');
             }
         };

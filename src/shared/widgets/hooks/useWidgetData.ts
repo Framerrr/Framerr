@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '../../../context/useAuth';
 import { isAdmin } from '../../../utils/permissions';
 import { useRoleAwareIntegrations } from '../../../api/hooks/useIntegrations';
 import { useMyWidgetAccess } from '../../../api/hooks/useWidgetQueries';
@@ -24,11 +24,6 @@ import { queryKeys } from '../../../api/queryKeys';
 import logger from '../../../utils/logger';
 import type { IntegrationConfig, SharedIntegration } from '../../../settings/widgets/types';
 import type { WidgetMetadata } from '../../../widgets/registry';
-
-export interface UseWidgetDataOptions {
-    /** Whether to fetch immediately on mount (now ignored - RQ handles this) */
-    fetchOnMount?: boolean;
-}
 
 export interface UseWidgetDataResult {
     /** Loading state */
@@ -51,7 +46,7 @@ export interface UseWidgetDataResult {
     getSharedByInfo: (widget: WidgetMetadata) => string | null;
 }
 
-export function useWidgetData(_options: UseWidgetDataOptions = {}): UseWidgetDataResult {
+export function useWidgetData(): UseWidgetDataResult {
     const { user } = useAuth();
     const hasAdminAccess = isAdmin(user);
 

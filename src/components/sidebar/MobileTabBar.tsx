@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, LayoutDashboard, ChevronUp, LogOut, UserCircle, Mail, LayoutGrid, Settings as SettingsIcon, Undo2, Redo2, Plus, Save, Link, Unlink } from 'lucide-react';
-import { useSharedSidebar } from '@/app/sidebar/SharedSidebarContext';
+import { Menu, X, LayoutDashboard, ChevronUp, LogOut, UserCircle, Mail, LayoutGrid, Settings as SettingsIcon, Undo2, Redo2, Plus, Save, Link } from 'lucide-react';
+import { useSharedSidebar } from '@/app/sidebar/context/useSharedSidebar';
 import { sidebarSpring } from '@/app/sidebar/types';
 import MenuContentShell from '@/app/sidebar/MenuContentShell';
 import { NotificationCenter, NotificationCenterHeader } from '../../features/notifications';
@@ -50,10 +50,6 @@ export function MobileTabBar() {
 
     // Parse current route for active state detection
     const hash = window.location.hash.slice(1);
-    const hashParts = hash.split('?');
-    const searchParams = hashParts.length > 1 ? new URLSearchParams(hashParts[1]) : new URLSearchParams();
-    const currentTab = searchParams.get('tab');
-    const source = searchParams.get('source');
 
     // Swipe-to-edit handlers
     const handleTabBarTouchStart = (e: React.TouchEvent): void => {
@@ -62,7 +58,7 @@ export function MobileTabBar() {
         swipeStartYRef.current = e.touches[0].clientY;
     };
 
-    const handleTabBarTouchMove = (e: React.TouchEvent): void => {
+    const handleTabBarTouchMove = (): void => {
         if (swipeStartYRef.current === null) return;
         // Note: Cannot preventDefault here as touch events are passive by default in React
         // The touchAction: 'none' CSS property handles this instead
@@ -407,7 +403,7 @@ export function MobileTabBar() {
                                                     Tabs
                                                 </motion.div>
                                                 <div className="space-y-1">
-                                                    {tabs.map((tab, index) => {
+                                                    {tabs.map((tab) => {
                                                         const isActive = hash === tab.slug;
                                                         return (
                                                             <motion.a

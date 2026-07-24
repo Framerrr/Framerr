@@ -19,7 +19,7 @@ const AppTitle = (): null => {
                 const response = await configApi.getAppName();
                 const appName = response?.name || 'Framerr';
                 document.title = appName;
-            } catch (error) {
+            } catch {
                 // Fallback to default if API fails
                 document.title = 'Framerr';
             }

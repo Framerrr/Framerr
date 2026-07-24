@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useRef, useMemo, ReactNode } from 'react';
 import { getSegmentLabels } from './settingsConfig';
 
 /**
@@ -214,14 +214,6 @@ export function SettingsNavProvider({ children }: SettingsNavProviderProps): Rea
             {children}
         </SettingsNavContext.Provider>
     );
-}
-
-export function useSettingsNav(): SettingsNavContextValue {
-    const context = useContext(SettingsNavContext);
-    if (context === undefined) {
-        throw new Error('useSettingsNav must be used within SettingsNavProvider');
-    }
-    return context;
 }
 
 export default SettingsNavContext;

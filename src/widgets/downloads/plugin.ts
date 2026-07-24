@@ -14,7 +14,7 @@ export const plugin: WidgetPlugin = {
     id: 'downloads',
     name: 'Downloads',
     description: 'Download management for qBittorrent and SABnzbd',
-    category: 'downloads',
+    category: 'media',
     icon: Download,
     sizing: {
         default: { w: 6, h: 6 },

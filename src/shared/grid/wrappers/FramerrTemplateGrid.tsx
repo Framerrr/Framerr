@@ -190,8 +190,8 @@ export function FramerrTemplateGrid({
                 mainGridSelector={mainGridSelector}
             />
             {/* Drag preview portal with preview mode for Template Builder - uses same renderWidget */}
-            <DragPreviewPortal previewMode={true} renderWidget={renderWidget} transformScale={transformScale} />
-            <DropTransitionOverlay renderWidget={renderWidget} transformScale={transformScale} />
+            <DragPreviewPortal previewMode={true} surface="template" renderWidget={renderWidget} transformScale={transformScale} />
+            <DropTransitionOverlay renderWidget={renderWidget} transformScale={transformScale} gridSelector={mainGridSelector} />
         </div>
     );
 }

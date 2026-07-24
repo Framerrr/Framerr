@@ -11,11 +11,14 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useWidgets, useSaveWidgets } from '../../../api/hooks/useDashboard';
+import { useRoleAwareIntegrations, useIntegrationSchemas } from '../../../api/hooks';
+import { getWidgetIconName } from '../../../widgets/registry';
 import logger from '../../../utils/logger';
 import { useNotifications } from '../../../context/notification';
-import { useLayout } from '../../../context/LayoutContext';
+import { useLayout } from '../../../context/useLayout';
 import type { Widget, WidgetConfig, ViewMode, WidgetStats } from '../types';
 import type { MobileLayoutMode } from '../../../api/endpoints';
+import type { ChromeIntegrationRef, ChromeSchemaRef } from '../../../shared/widgets';
 import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
 
 interface UseActiveWidgetsReturn {
@@ -30,6 +33,8 @@ interface UseActiveWidgetsReturn {
     confirmRemoveId: string | null;
     stats: WidgetStats;
     showViewToggle: boolean;
+    schemas: Record<string, ChromeSchemaRef> | undefined;
+    integrations: ChromeIntegrationRef[];
 
     // Actions
     setViewMode: (mode: ViewMode) => void;
@@ -58,9 +63,12 @@ export function useActiveWidgets(): UseActiveWidgetsReturn {
 
     const saveMutation = useSaveWidgets();
 
+    const { data: integrations = [] } = useRoleAwareIntegrations();
+    const { data: schemas } = useIntegrationSchemas();
+
     // Unwrap data from query
-    const widgets = widgetsData?.widgets ?? [];
-    const mobileWidgets = widgetsData?.mobileWidgets ?? [];
+    const widgets = useMemo(() => widgetsData?.widgets ?? [], [widgetsData]);
+    const mobileWidgets = useMemo(() => widgetsData?.mobileWidgets ?? [], [widgetsData]);
     const mobileLayoutMode = widgetsData?.mobileLayoutMode ?? 'linked';
 
     // ========================================================================
@@ -141,12 +149,21 @@ export function useActiveWidgets(): UseActiveWidgetsReturn {
 
     const handleIconSelect = useCallback(async (widgetId: string, iconName: string): Promise<void> => {
         const isMobileEdit = viewMode === 'mobile' && mobileLayoutMode === 'independent';
+        const targetList = isMobileEdit ? mobileWidgets : widgets;
+        const target = targetList.find(w => w.id === widgetId);
+        if (!target) return;
+
+        const widgetDefaultIcon = getWidgetIconName(target.type);
+        const iconUpdates: Partial<WidgetConfig> =
+            iconName === widgetDefaultIcon
+                ? { customIcon: undefined, iconOverridden: false }
+                : { customIcon: iconName, iconOverridden: true };
 
         try {
             if (isMobileEdit) {
                 const updatedMobileWidgets = mobileWidgets.map(w =>
                     w.id === widgetId
-                        ? { ...w, config: { ...w.config, customIcon: iconName } }
+                        ? { ...w, config: { ...w.config, ...iconUpdates } }
                         : w
                 );
                 await saveMutation.mutateAsync({
@@ -160,7 +177,7 @@ export function useActiveWidgets(): UseActiveWidgetsReturn {
             } else {
                 const updatedWidgets = widgets.map(w =>
                     w.id === widgetId
-                        ? { ...w, config: { ...w.config, customIcon: iconName } }
+                        ? { ...w, config: { ...w.config, ...iconUpdates } }
                         : w
                 );
                 await saveMutation.mutateAsync({
@@ -319,6 +336,8 @@ export function useActiveWidgets(): UseActiveWidgetsReturn {
         confirmRemoveId,
         stats,
         showViewToggle,
+        schemas,
+        integrations,
 
         setViewMode,
         setConfirmRemoveId,

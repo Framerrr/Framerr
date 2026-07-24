@@ -140,6 +140,10 @@ export type { ViewMode } from './ViewModeToggle';
 export { SegmentedControl } from './SegmentedControl';
 export type { SegmentedControlProps, SegmentOption, SegmentedControlSize } from './SegmentedControl';
 
+// SlidingTabBar - Full-width widget tabs with unified selection indicator
+export { SlidingTabBar } from './SlidingTabBar';
+export type { SlidingTabBarProps, SlidingTabBarItem } from './SlidingTabBar';
+
 // IntegrationNotificationsTab - Notification configuration for integration instances
 export { IntegrationNotificationsTab } from './notifications';
 export type { NotificationMode, NotificationEvent, NotificationConfigData } from './notifications';

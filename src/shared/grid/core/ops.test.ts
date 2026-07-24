@@ -17,11 +17,9 @@ import {
     moveWidget,
     // Layout operations
     widgetsToLayoutItems,
-    widgetsToLayoutModel,
     applyLayoutToWidgets,
     normalizeLayout,
     validateLayout,
-    applyConstraintsToLayout,
     // Mobile layout
     deriveLinkedMobileLayout,
     snapshotToMobileLayout,

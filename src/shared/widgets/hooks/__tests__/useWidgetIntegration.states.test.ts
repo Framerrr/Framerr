@@ -27,7 +27,7 @@ let mockFallbackResult = {
     loading: false,
 };
 
-vi.mock('../../../../context/AuthContext', () => ({
+vi.mock('../../../../context/useAuth', () => ({
     useAuth: () => ({ user: { role: 'admin' } }),
 }));
 

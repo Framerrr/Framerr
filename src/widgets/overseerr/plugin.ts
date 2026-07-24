@@ -13,7 +13,7 @@ export const plugin: WidgetPlugin = {
     id: 'overseerr',
     name: 'Seerr',
     description: 'Media requests and discovery',
-    category: 'media',
+    category: 'management',
     icon: Popcorn,
     sizing: {
         default: { w: 12, h: 6 },

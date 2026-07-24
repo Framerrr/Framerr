@@ -97,7 +97,7 @@ const UptimeKumaForm = forwardRef<UptimeKumaFormRef, UptimeKumaFormProps>((
         } finally {
             setFetching(false);
         }
-    }, [formUrl, formApiKey]);
+    }, [formUrl, formApiKey, instanceId]);
 
     // Toggle monitor selection (uses name as ID)
     const toggleMonitorSelection = (monitorId: string) => {
@@ -106,12 +106,6 @@ const UptimeKumaForm = forwardRef<UptimeKumaFormRef, UptimeKumaFormProps>((
             ? current.filter(id => id !== monitorId)
             : [...current, monitorId];
         onFieldChange(instanceId, 'selectedMonitorIds', JSON.stringify(updated));
-    };
-
-    // Select all monitors
-    const selectAllMonitors = () => {
-        const allIds = availableMonitors.map(m => m.id);
-        onFieldChange(instanceId, 'selectedMonitorIds', JSON.stringify(allIds));
     };
 
     // Clear all selections

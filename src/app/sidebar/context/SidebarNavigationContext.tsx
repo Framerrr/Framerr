@@ -1,9 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../../context/AuthContext';
+import React, { createContext, useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useAuth } from '../../../context/useAuth';
 import { useNotifications } from '../../../context/notification';
-import { useLayout } from '../../../context/LayoutContext';
-import { useDashboardEdit } from '../../../context/DashboardEditContext';
+import { useLayout } from '../../../context/useLayout';
+import { useDashboardEdit } from '../../../context/useDashboardEdit';
 import { guardedNavigate } from '@/settings/navigation';
 import { triggerHaptic } from '../../../utils/haptics';
 import { Tab } from '../types';
@@ -65,10 +65,9 @@ export function SidebarNavigationProvider({ children, tabs, onExpandSidebar }: S
 
     // Context hooks
     const { isWideDesktop } = useLayout();
-    const { logout, user } = useAuth();
+    const { user } = useAuth();
     const { info } = useNotifications();
     const dashboardEdit = useDashboardEdit();
-    const navigate = useNavigate();
     const location = useLocation();
 
     // Derived: should sidebar auto-expand (settings mode on wide desktop)
@@ -218,14 +217,6 @@ export function SidebarNavigationProvider({ children, tabs, onExpandSidebar }: S
             {children}
         </SidebarNavigationContext.Provider>
     );
-}
-
-export function useSidebarNavigation() {
-    const context = useContext(SidebarNavigationContext);
-    if (!context) {
-        throw new Error('useSidebarNavigation must be used within SidebarNavigationProvider');
-    }
-    return context;
 }
 
 export { SidebarNavigationContext };

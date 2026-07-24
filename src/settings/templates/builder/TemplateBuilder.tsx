@@ -16,7 +16,7 @@ import TemplateBuilderStep1 from './TemplateBuilderStep1';
 import TemplateBuilderStep2 from './TemplateBuilderStep2';
 import { Button } from '../../../shared/ui';
 import { LoadingSpinner } from '@/shared/ui';
-import { useLayout } from '../../../context/LayoutContext';
+import { useLayout } from '../../../context/useLayout';
 import logger from '../../../utils/logger';
 import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
 

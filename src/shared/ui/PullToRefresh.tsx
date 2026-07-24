@@ -144,7 +144,7 @@ const PullToRefresh = (): React.JSX.Element | null => {
             window.removeEventListener('touchend', handleTouchEnd);
             window.removeEventListener('touchcancel', handleTouchEnd);
         };
-    }, [isTouchDevice, rubberBand]);
+    }, [isTouchDevice, rubberBand, PULL_THRESHOLD]);
 
     if (!isTouchDevice) return null;
 

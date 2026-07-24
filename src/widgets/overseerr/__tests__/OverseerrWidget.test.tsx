@@ -21,7 +21,7 @@ import { AllProviders } from '../../../test/providers';
 import OverseerrWidget from '../OverseerrWidget';
 import type { WidgetData } from '../../types';
 
-vi.mock('../../../context/AuthContext', () => ({
+vi.mock('../../../context/useAuth', () => ({
     useAuth: () => ({ user: { role: 'admin' } }),
 }));
 vi.mock('../../../utils/permissions', () => ({ isAdmin: () => true }));

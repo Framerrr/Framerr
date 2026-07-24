@@ -72,7 +72,6 @@ const UserRow: React.FC<UserRowProps> = ({
     integrations,
     onChange,
     indented = false,
-    isLast = false
 }) => {
     return (
         <div className={`flex items-center justify-between py-2 pr-4 hover:bg-theme-hover/30 ${indented ? 'relative' : 'pl-4'}`}>
@@ -222,7 +221,7 @@ const WidgetShareCard: React.FC<WidgetShareCardProps> = ({
     const metadata = getWidgetMetadata(widgetType);
     const WidgetIcon = getWidgetIcon(widgetType);
     const widgetName = metadata?.name || widgetType;
-    const compatibleTypes = metadata?.compatibleIntegrations || [];
+    const compatibleTypes = useMemo(() => getWidgetMetadata(widgetType)?.compatibleIntegrations || [], [widgetType]);
 
     // Filter integrations to those compatible with this widget
     const compatibleIntegrations = compatibleTypes.length > 0

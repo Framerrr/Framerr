@@ -24,7 +24,7 @@
  * ```
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
 import logger from '../../../utils/logger';
 

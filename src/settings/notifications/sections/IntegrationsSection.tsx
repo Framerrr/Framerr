@@ -55,9 +55,6 @@ export function IntegrationsSection({
     expandedSections = {},
     toggleSection = () => { },
     saveUserIntegrationSettings = async () => { },
-    // Legacy props (not used for per-instance view)
-    visibleIntegrations = [],
-    integrations = {}
 }: IntegrationsSectionProps): React.ReactElement | null {
 
     // User view: Show per-instance integration cards

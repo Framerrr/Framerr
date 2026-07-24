@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { WidgetMetadata, getWidgetConfigConstraints } from '../../../../widgets/registry';
+import type { WidgetMetadata } from '../../../../widgets/registry';
 import { getWidgetConfigConstraints as getConstraints } from '../../../../widgets/registry';
 
 interface WidgetsByCategory {
@@ -60,6 +60,7 @@ function DraggableWidgetCard({ widget, onAddWidget, disabled }: DraggableWidgetC
             style={{
                 touchAction: 'none', // Prevent scrolling while dragging
             }}
+            data-drag-surface="template"
             {...gsDataAttrs}
         >
             <div className="p-1.5 rounded bg-accent/20 text-accent">

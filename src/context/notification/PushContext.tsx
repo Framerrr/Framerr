@@ -5,9 +5,9 @@
  * Manages service worker registration, push subscriptions, and push permissions.
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
-import { useAuth } from '../AuthContext';
-import { useNotificationCenter } from './NotificationCenterContext';
+import React, { createContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import { useAuth } from '../useAuth';
+import { useNotificationCenter } from './useNotificationCenter';
 import logger from '../../utils/logger';
 import { notificationsApi } from '../../api/endpoints/notifications';
 import type { PushSubscriptionRecord } from '../../../shared/types/notification';
@@ -377,18 +377,6 @@ export const PushProvider = ({ children }: PushProviderProps): React.JSX.Element
             {children}
         </PushContext.Provider>
     );
-};
-
-// ============================================
-// Hook
-// ============================================
-
-export const usePush = (): PushContextValue => {
-    const context = useContext(PushContext);
-    if (!context) {
-        throw new Error('usePush must be used within a PushProvider');
-    }
-    return context;
 };
 
 export { PushContext };

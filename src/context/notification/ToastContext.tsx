@@ -5,7 +5,7 @@
  * Manages ephemeral toast notifications (success, error, warning, info).
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
+import React, { createContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
 import { setNotificationFunctions } from '../../api/client';
 import logger from '../../utils/logger';
 import type {
@@ -130,18 +130,6 @@ export const ToastProvider = ({ children }: ToastProviderProps): React.JSX.Eleme
             {children}
         </ToastContext.Provider>
     );
-};
-
-// ============================================
-// Hook
-// ============================================
-
-export const useToasts = (): ToastContextValue => {
-    const context = useContext(ToastContext);
-    if (!context) {
-        throw new Error('useToasts must be used within a ToastProvider');
-    }
-    return context;
 };
 
 export { ToastContext };

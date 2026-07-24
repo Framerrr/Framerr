@@ -1,8 +1,10 @@
 // Sidebar Context - Split for optimized re-renders
-// Primary export: useSharedSidebar (BWC hook)
-// Sub-context exports for focused access
 
-export { SharedSidebarProvider, useSharedSidebar, SharedSidebarContext, type SidebarMode } from './SharedSidebarContext';
-export { SidebarUIProvider, useSidebarUI } from './SidebarUIContext';
-export { SidebarTabsProvider, useSidebarTabs } from './SidebarTabsContext';
-export { SidebarNavigationProvider, useSidebarNavigation } from './SidebarNavigationContext';
+export { SharedSidebarProvider, SharedSidebarContext, type SidebarMode } from './SharedSidebarContext';
+export { useSharedSidebar } from './useSharedSidebar';
+export { SidebarUIProvider } from './SidebarUIContext';
+export { useSidebarUI } from './useSidebarUI';
+export { SidebarTabsProvider } from './SidebarTabsContext';
+export { useSidebarTabs } from './useSidebarTabs';
+export { SidebarNavigationProvider } from './SidebarNavigationContext';
+export { useSidebarNavigation } from './useSidebarNavigation';

@@ -46,14 +46,15 @@ http://radarr:7878
 ### Radarr Widget
 
 Dedicated Radarr widget showing:
-- **Library statistics** — total movies, monitored, unmonitored
-- **Missing movies** — movies that are monitored but not yet downloaded
+- **Summary statistics** — upcoming, missing, upgrades, downloads
+- **Upcoming movies** — hero + carousel
+- **Needs Attention** — missing and cutoff-unmet movies
 
 **View modes:** Auto, Stacked, Column
 
 ### Calendar Widget
 
-Combined Sonarr + Radarr calendar showing upcoming and recent releases. The Calendar widget supports **multi-integration**, allowing multiple Sonarr and Radarr instances on a single calendar.
+Combined Sonarr + Radarr + Lidarr calendar showing upcoming and recent releases. The Calendar widget supports **multi-integration**, allowing multiple Sonarr, Radarr, and Lidarr instances on a single calendar.
 
 ## Notifications
 

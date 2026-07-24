@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 import { isAdmin } from '../../utils/permissions';
 import { GeneralPage } from './pages/GeneralPage';
 import { ColorsPage } from './pages/ColorsPage';

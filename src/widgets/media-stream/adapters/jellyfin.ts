@@ -74,7 +74,7 @@ function mapJellyfinType(type?: string): MediaSession['type'] {
 // ============================================================================
 
 export const jellyfinAdapter: SessionAdapter = {
-    normalize(raw: unknown, _integrationId: string): MediaSession {
+    normalize(raw: unknown): MediaSession {
         const session = raw as JellyfinRawSession;
         const item = session.NowPlayingItem;
         const ti = session.TranscodingInfo;

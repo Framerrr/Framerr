@@ -16,9 +16,7 @@ import { deriveLinkedMobileLayout, snapshotToMobileLayout } from '@/shared/grid/
 import type {
     FramerrWidget,
     MobileLayoutMode,
-    Breakpoint,
     LayoutState,
-    LayoutItem,
     LayoutCommitEvent,
 } from './types';
 
@@ -87,7 +85,6 @@ export function useGridCallbacks(deps: GridCallbackDeps): GridCallbackReturn {
         setPendingUnlink,
         setHasUnsavedChanges,
         pushToStack,
-        clearStack,
     } = deps;
 
 
@@ -231,7 +228,7 @@ export function useGridCallbacks(deps: GridCallbackDeps): GridCallbackReturn {
             setWidgets(withMobileLayouts);
 
             // Update layouts state
-            setLayouts(prev => ({
+            setLayouts(() => ({
                 lg: withMobileLayouts.map(w => ({
                     id: w.id,
                     x: w.layout.x,
@@ -250,7 +247,7 @@ export function useGridCallbacks(deps: GridCallbackDeps): GridCallbackReturn {
         }
 
         setIsUserDragging(false);
-    }, [editMode, isMobile, mobileLayoutMode, pendingUnlink, widgets, mobileWidgets, originalLayout, mobileOriginalLayout,
+    }, [editMode, isMobile, mobileLayoutMode, pendingUnlink, widgets, originalLayout, mobileOriginalLayout,
         setWidgets, setMobileWidgets, setLayouts, setIsUserDragging, setPendingUnlink, setHasUnsavedChanges,
         isUndoRedoRef, dragStartStateRef, mobileDragStartStateRef, pushToStack]);
 

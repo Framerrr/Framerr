@@ -74,7 +74,7 @@ function mapDecision(decision?: string): 'directplay' | 'copy' | 'transcode' | u
 // ============================================================================
 
 export const plexAdapter: SessionAdapter = {
-    normalize(raw: unknown, _integrationId: string): MediaSession {
+    normalize(raw: unknown): MediaSession {
         const session = raw as PlexRawSession;
         const media = session.Media?.[0];
         return {

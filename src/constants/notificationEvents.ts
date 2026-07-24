@@ -18,7 +18,7 @@ export interface NotificationEvent {
 /**
  * Integration ID type
  */
-export type IntegrationIdWithEvents = 'overseerr' | 'sonarr' | 'radarr' | 'servicemonitoring';
+export type IntegrationIdWithEvents = 'overseerr' | 'sonarr' | 'radarr' | 'lidarr' | 'servicemonitoring';
 
 // Overseerr Events (10 total)
 export const OVERSEERR_EVENTS: NotificationEvent[] = [
@@ -71,6 +71,23 @@ export const RADARR_EVENTS: NotificationEvent[] = [
     { key: 'manualInteractionRequired', label: 'Manual Interaction Required', defaultAdmin: true, defaultUser: false }
 ];
 
+// Lidarr Events
+export const LIDARR_EVENTS: NotificationEvent[] = [
+    { key: 'test', label: 'Test Notification', defaultAdmin: true, defaultUser: false },
+    { key: 'grab', label: 'Album Grabbed', defaultAdmin: false, defaultUser: false },
+    { key: 'download', label: 'Album Downloaded', defaultAdmin: true, defaultUser: false },
+    { key: 'rename', label: 'Album Renamed', defaultAdmin: false, defaultUser: false },
+    { key: 'retag', label: 'Album Retagged', defaultAdmin: false, defaultUser: false },
+    { key: 'artistAdd', label: 'Artist Added', defaultAdmin: true, defaultUser: false },
+    { key: 'artistDelete', label: 'Artist Removed', defaultAdmin: true, defaultUser: false },
+    { key: 'albumDelete', label: 'Album Removed', defaultAdmin: true, defaultUser: false },
+    { key: 'trackFileDelete', label: 'Track Deleted', defaultAdmin: false, defaultUser: false },
+    { key: 'healthIssue', label: 'Health Issue', defaultAdmin: true, defaultUser: false },
+    { key: 'healthRestored', label: 'Health Restored', defaultAdmin: true, defaultUser: false },
+    { key: 'applicationUpdate', label: 'Application Update', defaultAdmin: true, defaultUser: false },
+    { key: 'manualInteractionRequired', label: 'Manual Interaction Required', defaultAdmin: true, defaultUser: false },
+];
+
 // Service Monitoring Events (5 total)
 export const SERVICE_MONITORING_EVENTS: NotificationEvent[] = [
     { key: 'serviceDown', label: 'Service Down', defaultAdmin: true, defaultUser: true },
@@ -85,6 +102,7 @@ export const INTEGRATION_EVENTS: Record<IntegrationIdWithEvents, NotificationEve
     overseerr: OVERSEERR_EVENTS,
     sonarr: SONARR_EVENTS,
     radarr: RADARR_EVENTS,
+    lidarr: LIDARR_EVENTS,
     servicemonitoring: SERVICE_MONITORING_EVENTS
 };
 

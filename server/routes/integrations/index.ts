@@ -9,6 +9,7 @@
  * - overseerr/     Overseerr-specific routes
  * - sonarr/        Sonarr-specific routes
  * - radarr/        Radarr-specific routes
+ * - lidarr/        Lidarr-specific routes
  * - qbittorrent/   qBittorrent-specific routes
  * - glances/       Glances-specific routes
  * - customsystemstatus/  Custom System Status routes
@@ -33,7 +34,10 @@ import { crudRouter, testRouter, schemasRouter, itemMetadataRouter } from './_co
 import { plexProxyRouter } from './plex';
 import { sonarrProxyRouter } from './sonarr';
 import { radarrProxyRouter } from './radarr';
+import { lidarrProxyRouter } from './lidarr';
 import { prowlarrProxyRouter } from './prowlarr';
+import { adguardProxyRouter } from './adguard';
+import { piholeProxyRouter } from './pihole';
 import { qbittorrentProxyRouter } from './qbittorrent';
 import { overseerrProxyRouter, overseerrActionsRouter, overseerrServersRouter } from './overseerr';
 import { glancesProxyRouter } from './glances';
@@ -62,7 +66,10 @@ router.use('/', schemasRouter);
 router.use('/', plexProxyRouter);
 router.use('/', sonarrProxyRouter);
 router.use('/', radarrProxyRouter);
+router.use('/', lidarrProxyRouter);
 router.use('/', prowlarrProxyRouter);
+router.use('/', adguardProxyRouter);
+router.use('/', piholeProxyRouter);
 router.use('/', qbittorrentProxyRouter);
 router.use('/', overseerrProxyRouter);
 router.use('/', glancesProxyRouter);

@@ -66,9 +66,19 @@ export const WidgetRenderer: React.FC<WidgetRendererProps> = ({
     };
     const actualPaddingSize = paddingClassMap[pluginPadding] ?? paddingSize;
 
-    // Build content class with fluid padding
-    // In edit mode, add edit-disabled class to block internal clicks (except .edit-clickable elements)
-    const contentClass = `widget-content flex-1 overflow-auto widget-padding-${actualPaddingSize}${editMode ? ' edit-disabled' : ''}`;
+    // Build content class with fluid padding.
+    // Preview (template builder / template preview modal): content is decorative only —
+    // no scroll, no clicks/tabs/popovers. Live edit mode uses the same inert treatment
+    // so drag/resize isn't stolen by inner widget chrome. `.edit-clickable` exceptions
+    // (e.g. delete) sit outside this node or opt back in via CSS.
+    const isPreviewChrome = mode === 'preview' || mode === 'thumbnail';
+    const contentClass = [
+        'widget-content',
+        'flex-1',
+        isPreviewChrome ? 'overflow-hidden' : 'overflow-auto',
+        `widget-padding-${actualPaddingSize}`,
+        (isPreviewChrome || editMode) ? 'edit-disabled' : '',
+    ].filter(Boolean).join(' ');
 
     // Handler for delete that passes the widget ID
     const handleDelete = onDelete ? () => onDelete(widget.id) : undefined;

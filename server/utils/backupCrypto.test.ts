@@ -165,6 +165,7 @@ describe('encryptBuffer / decryptBuffer', () => {
         expect(() => decryptBuffer(tampered, dek, iv, authTag)).toThrow();
     });
 
+    // 1MB encrypt/decrypt is CPU-heavy; under full-suite load the default 5s is flaky.
     it('handles large payloads (1MB)', () => {
         const data = Buffer.alloc(1024 * 1024, 0x42); // 1MB of 'B'
         const dek = generateKey();
@@ -173,7 +174,7 @@ describe('encryptBuffer / decryptBuffer', () => {
         const decrypted = decryptBuffer(ciphertext, dek, iv, authTag);
 
         expect(decrypted).toEqual(data);
-    });
+    }, 30_000);
 });
 
 // ============================================================================

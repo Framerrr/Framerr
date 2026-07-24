@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi, themeApi } from '../api/endpoints';
 import { setLogoutFunction } from '../api/client';
@@ -9,6 +9,8 @@ import type { User, LoginResult } from '../../shared/types/user';
 import type { AuthContextValue } from '../types/context/auth';
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+export { AuthContext };
 
 interface AuthProviderProps {
     children: ReactNode;
@@ -96,7 +98,7 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
             const response = await withRetry(() => authApi.getSession());
             setUser(response.user);
             setRequirePasswordChange(!!response.requirePasswordChange);
-        } catch (err) {
+        } catch {
             // 401/403 = not authenticated (normal on first load)
             // Transient errors already retried - if we get here, give up gracefully
             setUser(null);
@@ -142,10 +144,6 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
         }
 
         // Authenticated — wait for page content + theme airlock to complete
-        const dismiss = () => {
-            // signalAppReady in splash.ts handles the actual fade-out
-            // This is just a safety net event listener
-        };
         const safetyTimeout = setTimeout(() => {
             // Safety: if nothing signals ready in 8s, force dismiss
             const splash = document.getElementById('framerr-splash');
@@ -175,7 +173,7 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
             if (document.visibilityState === 'visible' && user) {
                 try {
                     await authApi.verifySession();
-                } catch (err) {
+                } catch {
                     // 401 will be handled by axios interceptor
                     // which calls handleSessionExpiry
                     logger.debug('Visibility auth check failed');
@@ -311,14 +309,5 @@ export const AuthProvider = ({ children }: AuthProviderProps): React.JSX.Element
             {children}
         </AuthContext.Provider>
     );
-};
-
-
-export const useAuth = (): AuthContextValue => {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
 };
 

@@ -73,7 +73,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: clamp(2px, 0.8cqi, 6px);
+    padding: clamp(4px, 1cqi, 8px);
     border-radius: 0.375rem;
     background: transparent;
     border: none;
@@ -90,12 +90,12 @@
 }
 
 .cal-nav-btn svg {
-    width: clamp(12px, 3cqi, 18px);
-    height: clamp(12px, 3cqi, 18px);
+    width: clamp(16px, 3.5cqi, 22px);
+    height: clamp(16px, 3.5cqi, 22px);
 }
 
 .cal-month-title {
-    font-size: clamp(0.72rem, 2.5cqi, 0.95rem);
+    font-size: clamp(0.85rem, 3cqi, 1.1rem);
     font-weight: 600;
     color: var(--text-primary);
     text-align: center;
@@ -103,9 +103,9 @@
 }
 
 .cal-today-btn {
-    font-size: clamp(0.55rem, 1.8cqi, 0.7rem);
+    font-size: clamp(0.6rem, 1.85cqi, 0.75rem);
     padding: 0.15rem 0.5rem;
-    border-radius: 0.25rem;
+    border-radius: 0.3rem;
     background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
     border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
     color: var(--text-secondary);
@@ -178,16 +178,18 @@
         color: var(--text-primary);
     }
 
-    /* TV's accent matches --tv, the same shared token used for TV event pills/stripes
-     * elsewhere in this widget. Movies uses --info, matching the general "movies"
-     * filter concept even though movie pills themselves render in 3 different
-     * release-type colors (cinema/digital/physical). */
+    /* Filter accents match source tokens (Sonarr / Radarr / Lidarr). Movie event
+     * pills on the grid still use cinema/digital/physical release-type colors. */
     .cal-filter-btn--tv:hover {
-        color: var(--tv);
+        color: var(--sonarr);
     }
 
     .cal-filter-btn--movie:hover {
-        color: var(--info);
+        color: var(--radarr);
+    }
+
+    .cal-filter-btn--music:hover {
+        color: var(--lidarr);
     }
 
     /* Active chips render solid-tinted (background === one of the 2 rules above's
@@ -197,7 +199,8 @@
      * regardless of source order. */
     .cal-filter-btn.cal-filter-btn--active:hover,
     .cal-filter-btn--tv.cal-filter-btn--active-tv:hover,
-    .cal-filter-btn--movie.cal-filter-btn--active-movie:hover {
+    .cal-filter-btn--movie.cal-filter-btn--active-movie:hover,
+    .cal-filter-btn--music.cal-filter-btn--active-music:hover {
         color: #fff;
     }
 }
@@ -208,12 +211,17 @@
 }
 
 .cal-filter-btn--active-tv {
-    background: var(--tv);
+    background: var(--sonarr);
     color: #fff;
 }
 
 .cal-filter-btn--active-movie {
-    background: var(--info);
+    background: var(--radarr);
+    color: #fff;
+}
+
+.cal-filter-btn--active-music {
+    background: var(--lidarr);
     color: #fff;
 }
 
@@ -411,6 +419,13 @@
     flex-shrink: 0;
 }
 
+/* Lidarr album covers are square (TV/movie posters stay 2:3). */
+.cal-popover-poster--square,
+.cal-popover-poster-placeholder--square {
+    width: 40px;
+    height: 40px;
+}
+
 .cal-popover-info {
     flex: 1;
     min-width: 0;
@@ -430,6 +445,12 @@
     font-size: 0.7rem;
     font-weight: 500;
     color: var(--info);
+}
+
+.cal-popover-release-type {
+    font-size: 0.65rem;
+    font-weight: 600;
+    line-height: 1.2;
 }
 
 .cal-popover-date {
@@ -555,6 +576,11 @@
     background: var(--widget-card-bg, rgba(255, 255, 255, 0.05));
 }
 
+.cal-agenda-poster--square {
+    width: 66px;
+    height: 66px;
+}
+
 .cal-agenda-poster img {
     width: 100%;
     height: 100%;
@@ -618,13 +644,18 @@
 }
 
 .cal-agenda-type-badge--tv {
-    color: var(--tv);
-    background: rgba(var(--tv-rgb), 0.15);
+    color: var(--sonarr);
+    background: rgba(var(--sonarr-rgb), 0.15);
 }
 
 .cal-agenda-type-badge--movie {
-    color: var(--info);
-    background: color-mix(in srgb, var(--info) 15%, transparent);
+    color: var(--radarr);
+    background: rgba(var(--radarr-rgb), 0.15);
+}
+
+.cal-agenda-type-badge--music {
+    color: var(--lidarr);
+    background: rgba(var(--lidarr-rgb), 0.15);
 }
 
 /* Inline per-item date — This Week / Next Week / Later buckets only (multi-date) */

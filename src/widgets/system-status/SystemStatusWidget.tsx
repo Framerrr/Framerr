@@ -13,12 +13,13 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useLayout } from '../../context/LayoutContext';
+import { useAuth } from '../../context/useAuth';
+import { useLayout } from '../../context/useLayout';
 import { isAdmin } from '../../utils/permissions';
 import { WidgetStateMessage } from '../../shared/widgets';
 import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
 import { useIntegrationSSE } from '../../shared/widgets/hooks/useIntegrationSSE';
+import { useRetryPoll } from '../../shared/widgets/hooks';
 import { useIntegrationSchemas } from '../../api/hooks';
 import { useMetricHistoryStatus, useMetricHistoryConfig } from '../../api/hooks/useMetricHistoryConfig';
 import { queryKeys } from '../../api/queryKeys';
@@ -236,6 +237,7 @@ const SystemStatusLive: React.FC<SystemStatusLiveProps> = ({
     }>({ sourceId: null, data: DEFAULT_DATA });
 
     const integrationType = integrationId?.split('-')[0] || 'glances';
+    const handleRetry = useRetryPoll(integrationId, integrationType);
 
     // Schema-driven metric discovery: which metrics does this integration type support?
     const { data: schemas } = useIntegrationSchemas();
@@ -344,7 +346,7 @@ const SystemStatusLive: React.FC<SystemStatusLiveProps> = ({
         if (isAuthError && userIsAdmin) {
             return <WidgetStateMessage variant="authError" serviceName="System Health" instanceName={effectiveDisplayName} isAdmin={userIsAdmin} />;
         }
-        return <WidgetStateMessage variant="unavailable" serviceName="System Health" instanceName={effectiveDisplayName} />;
+        return <WidgetStateMessage variant="unavailable" serviceName="System Health" instanceName={effectiveDisplayName} onRetry={handleRetry} />;
     }
 
     const liveGridClassName = `system-status-grid${liveLayout === 'stacked' ? ' system-status-grid--stacked' : ''}`;
@@ -433,7 +435,6 @@ const SystemStatusLive: React.FC<SystemStatusLiveProps> = ({
                                 key={metric.key}
                                 metric={metric}
                                 value={typeof value === 'number' ? value : null}
-                                visibleCount={liveVisibleCount}
                             />
                         );
                     }

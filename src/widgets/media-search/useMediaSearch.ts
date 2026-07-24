@@ -119,6 +119,7 @@ export function useMediaSearch({
     overseerrIntegrationIds = [],
     hideOverseerrAvailable = true,
 }: UseMediaSearchOptions): UseMediaSearchReturn {
+    void integrationNames;
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResults | null>(null);
     const [isSearching, setIsSearching] = useState(false);
@@ -335,7 +336,7 @@ export function useMediaSearch({
                 setIsSearching(false);
             }
         }
-    }, [integrationIds, integrationNames]);
+    }, [integrationIds]);
 
     // Perform Overseerr search (parallel with library search)
     const performOverseerrSearch = useCallback(async (searchQuery: string) => {
@@ -598,12 +599,14 @@ export function useMediaSearch({
         }
     }, [query, results, offsets]);
 
+    const integrationIdsKey = integrationIds.join(',');
+
     // Fetch sync statuses on mount / integration change
     useEffect(() => {
-        if (integrationIds.length > 0) {
+        if (integrationIdsKey) {
             fetchSyncStatuses();
         }
-    }, [integrationIds.join(','), fetchSyncStatuses]);
+    }, [integrationIdsKey, fetchSyncStatuses]);
 
     return {
         query,

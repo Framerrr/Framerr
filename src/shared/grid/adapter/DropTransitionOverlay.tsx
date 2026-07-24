@@ -49,6 +49,8 @@ export interface DropTransitionOverlayProps {
     renderWidget: (widget: FramerrWidget) => ReactNode;
     /** Transform scale factor (for template builder scaled grids, default 1) */
     transformScale?: number;
+    /** Grid selector — only handle drops whose contentEl is inside this grid (default: dashboard) */
+    gridSelector?: string;
 }
 
 // ============================================================================
@@ -61,7 +63,7 @@ export const DROP_TRANSITION_EVENT = 'widget-drop-animate';
 // COMPONENT
 // ============================================================================
 
-export function DropTransitionOverlay({ renderWidget, transformScale = 1 }: DropTransitionOverlayProps): React.ReactElement | null {
+export function DropTransitionOverlay({ renderWidget, transformScale = 1, gridSelector = '.grid-stack-main' }: DropTransitionOverlayProps): React.ReactElement | null {
     const [overlay, setOverlay] = useState<OverlayState | null>(null);
     const overlayRef = useRef<HTMLDivElement>(null);
     const cleanupTimersRef = useRef<number[]>([]);
@@ -82,6 +84,7 @@ export function DropTransitionOverlay({ renderWidget, transformScale = 1 }: Drop
         const handler = (e: Event) => {
             const detail = (e as CustomEvent<DropTransitionEvent>).detail;
             if (!detail) return;
+            if (!detail.contentEl || !detail.contentEl.closest(gridSelector)) return; // ignore drops on other surfaces
 
             // Clean up any existing overlay
             cleanupAll();
@@ -98,14 +101,14 @@ export function DropTransitionOverlay({ renderWidget, transformScale = 1 }: Drop
             window.removeEventListener(DROP_TRANSITION_EVENT, handler);
             cleanupAll();
         };
-    }, [cleanupAll]);
+    }, [cleanupAll, gridSelector]);
 
     // Safety net: if the user starts dragging any widget while the overlay
     // is still visible, dismiss it immediately to prevent a visual clone.
     useEffect(() => {
         if (!overlay) return;
 
-        const mainGrid = document.querySelector('.grid-stack-main');
+        const mainGrid = document.querySelector(gridSelector);
         if (!mainGrid) return;
 
         const onDragStart = () => {
@@ -116,7 +119,7 @@ export function DropTransitionOverlay({ renderWidget, transformScale = 1 }: Drop
         // GridStack fires 'dragstart' on the grid element
         mainGrid.addEventListener('dragstart', onDragStart);
         return () => mainGrid.removeEventListener('dragstart', onDragStart);
-    }, [overlay, cleanupAll]);
+    }, [overlay, cleanupAll, gridSelector]);
 
     // Handle animation phases
     useEffect(() => {

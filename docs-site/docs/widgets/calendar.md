@@ -1,11 +1,11 @@
 ---
 title: Calendar
-description: Upcoming TV episodes and movie releases from Sonarr and Radarr.
+description: Upcoming TV, movie, and music releases from Sonarr, Radarr, and Lidarr.
 ---
 
 # Calendar
 
-A combined calendar showing upcoming TV episode air dates from Sonarr and movie releases from Radarr. View in month, agenda, or split view.
+A combined calendar showing TV episode air dates from Sonarr, movie releases from Radarr, and album releases from Lidarr. View in month, agenda, or split view.
 
 ## Supported Integrations
 
@@ -13,9 +13,10 @@ A combined calendar showing upcoming TV episode air dates from Sonarr and movie 
 |-------------|------------|
 | [Sonarr](/docs/integrations/sonarr) | TV episode air dates |
 | [Radarr](/docs/integrations/radarr) | Movie release dates |
+| [Lidarr](/docs/integrations/lidarr) | Album release dates |
 
 :::info Multi-Integration
-This is a multi-integration widget. You can assign multiple Sonarr and Radarr instances — their calendars are merged into a single view.
+This is a multi-integration widget. You can assign multiple Sonarr, Radarr, and Lidarr instances — their calendars are merged into a single view.
 :::
 
 ## Configuration Options
@@ -23,5 +24,11 @@ This is a multi-integration widget. You can assign multiple Sonarr and Radarr in
 | Option | Default | Description |
 |--------|---------|-------------|
 | View Mode | Month | **Month** — traditional calendar grid. **Agenda** — chronological list. **Both** — split view with calendar and agenda side by side. |
-| Show Past Events | Off | Include events from previous days in agenda view. Only visible in Agenda or Both modes. |
+| Look Ahead | 60d | How far into the future to load events (`30d` / `60d` / `90d` / `180d` / `All`) |
+| Look Back | 30d | How far into the past to load events (`0d` / `7d` / `30d` / `90d` / `All`) |
+| Start Week On | Sunday | First day of the week in Month or Both modes |
+| Movie Release Dates | All | Which Radarr date to plot: **Cinema**, **Digital**, **Physical**, or **All** |
 
+## Filters
+
+- Filter chips for **TV**, **Movies**, and **Music**

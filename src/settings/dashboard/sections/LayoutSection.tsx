@@ -14,10 +14,9 @@ import { widgetsApi, configApi } from '../../../api/endpoints';
 import { Link, RefreshCw, Trash2, Smartphone, LayoutGrid, PanelLeftClose, Monitor } from 'lucide-react';
 import { Button, Switch, ConfirmDialog } from '../../../shared/ui';
 import { SettingsPage, SettingsSection, SettingsItem } from '../../../shared/ui/settings';
-import { useLayout } from '../../../context/LayoutContext';
 import logger from '../../../utils/logger';
 import { LoadingSpinner } from '@/shared/ui';
-import { useSidebarUI } from '@/app/sidebar/context/SidebarUIContext';
+import { useSidebarUI } from '@/app/sidebar/context/useSidebarUI';
 import { useWalkthrough } from '../../../features/walkthrough';
 
 type MobileLayoutMode = 'linked' | 'independent';
@@ -98,7 +97,6 @@ function SquareCellsToggle() {
 }
 
 export function LayoutSection({ className = '' }: LayoutSectionProps) {
-    const { isMobile } = useLayout();
     const [mobileLayoutMode, setMobileLayoutMode] = useState<MobileLayoutMode>('linked');
     const [widgetCount, setWidgetCount] = useState<number>(0);
     const [loading, setLoading] = useState(true);
@@ -129,7 +127,7 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
             if (response?.preferences?.hideMobileEditButton) {
                 setHideMobileEditButton(true);
             }
-        } catch (error) {
+        } catch {
             logger.debug('Could not load user preferences');
         }
     };

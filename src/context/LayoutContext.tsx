@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { LAYOUT } from '../constants/layout';
 import type { LayoutMode, LayoutContextValue } from '../types/context/layout';
 
@@ -71,6 +71,7 @@ export function LayoutProvider({ children }: LayoutProviderProps): React.JSX.Ele
             window.removeEventListener('resize', handleResize);
             clearTimeout(timeoutId);
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Mount-only SSR-correction + resize-listener registration
     }, []);
 
     // Wide desktop threshold for settings auto-expand (1100px)
@@ -90,17 +91,6 @@ export function LayoutProvider({ children }: LayoutProviderProps): React.JSX.Ele
             {children}
         </LayoutContext.Provider>
     );
-}
-
-/**
- * Hook to access layout context
- */
-export function useLayout(): LayoutContextValue {
-    const context = useContext(LayoutContext);
-    if (context === undefined) {
-        throw new Error('useLayout must be used within a LayoutProvider');
-    }
-    return context;
 }
 
 export default LayoutContext;

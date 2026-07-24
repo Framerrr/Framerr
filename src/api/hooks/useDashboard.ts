@@ -5,7 +5,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { widgetsApi, SaveWidgetsData, WidgetsResponse } from '../endpoints/widgets';
-import { configApi, UserConfig } from '../endpoints/config';
+import { configApi } from '../endpoints/config';
 import { systemApi, SystemConfigResponse } from '../endpoints/system';
 import { queryKeys } from '../queryKeys';
 import { filterRegisteredWidgets } from '../../widgets/registry';

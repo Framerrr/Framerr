@@ -2,7 +2,8 @@
  * Walkthrough Feature — Barrel Export
  */
 
-export { WalkthroughProvider, useWalkthrough } from './WalkthroughContext';
+export { WalkthroughProvider } from './WalkthroughContext';
+export { useWalkthrough } from './useWalkthrough';
 export { default as WalkthroughOverlay } from './WalkthroughOverlay';
 export type {
     WalkthroughContextValue,

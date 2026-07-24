@@ -5,12 +5,12 @@ sidebar_position: 1
 
 # Framerr
 
-A self-hosted dashboard for your media server stack. Plex, Sonarr, Radarr, Seerr, and more — all in one place.
+A self-hosted dashboard for your media server stack. Plex, Sonarr, Radarr, Lidarr, Seerr, and more — all in one place.
 
 ## Key Features
 
 - 🎬 **Real-time media streaming** — See who's watching on Plex, Jellyfin, or Emby
-- 📥 **Download monitoring** — Track Sonarr, Radarr, and qBittorrent/SABnzbd activity
+- 📥 **Download monitoring** — Track Sonarr, Radarr, Lidarr, and qBittorrent/SABnzbd activity
 - 📊 **System status** — Monitor server health at a glance
 - 🎨 **Fully customizable** — Themes, layouts, widget configurations, and more
 - 🔒 **Multi-user support** — Admin and user roles with easy sharing between family and friends

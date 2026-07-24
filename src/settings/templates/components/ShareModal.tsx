@@ -83,6 +83,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         };
 
         fetchShares();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Fetch keyed on template?.id
     }, [template?.id]);
 
     if (!template) return null;

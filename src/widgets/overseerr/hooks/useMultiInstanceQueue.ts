@@ -127,9 +127,15 @@ export function useMultiInstanceQueue(
         onData: (data) => updateQueue(paddedSonarrIds[3], Array.isArray(data?.items) ? data.items : []),
     });
 
+    const radarrKey = radarrIds.join(',');
+    const sonarrKey = sonarrIds.join(',');
+
     // Clear stale entries when IDs change
     useEffect(() => {
-        const validIds = new Set([...radarrIds, ...sonarrIds]);
+        const validIds = new Set([
+            ...radarrKey.split(',').filter(Boolean),
+            ...sonarrKey.split(',').filter(Boolean),
+        ]);
         queueMicrotask(() => {
             setQueues(prev => {
                 const next = new Map<string, QueueItem[]>();
@@ -141,7 +147,7 @@ export function useMultiInstanceQueue(
                 return next;
             });
         });
-    }, [radarrIds.join(','), sonarrIds.join(',')]);
+    }, [radarrKey, sonarrKey]);
 
     return { queues, loading };
 }

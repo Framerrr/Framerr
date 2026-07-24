@@ -271,6 +271,7 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
             }
         }
         return style.getPropertyValue('--accent').trim() || '#3b82f6';
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isOpen is intentional recompute trigger for theme refresh
     }, [metric, isOpen]); // Re-compute when popover opens (theme may have changed)
 
     // Compute available time range buttons based on availableRange

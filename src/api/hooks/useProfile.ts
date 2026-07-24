@@ -4,7 +4,7 @@
  * Hooks for user profile management
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { profileApi, ProfileData, UpdateProfileData, ChangePasswordData, ProfilePictureResponse } from '../endpoints/profile';
+import { profileApi, UpdateProfileData, ChangePasswordData } from '../endpoints/profile';
 import { queryKeys } from '../queryKeys';
 
 // ============================================================================

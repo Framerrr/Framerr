@@ -3,23 +3,18 @@ import { Star, Film, ChevronLeft, ChevronRight } from 'lucide-react';
 import { WidgetStateMessage } from '../../shared/widgets';
 import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
 import { useIntegrationSSE } from '../../shared/widgets/hooks/useIntegrationSSE';
-import { useAuth } from '../../context/AuthContext';
+import { useRetryPoll } from '../../shared/widgets/hooks';
+import { useAuth } from '../../context/useAuth';
 import { isAdmin } from '../../utils/permissions';
 import { useOverseerrServerMapping, getMatchedIntegrationIds } from '../../api/hooks/useOverseerrServerMapping';
 import { useMultiInstanceQueue, findDownloadsForMedia, type QueueItem } from './hooks/useMultiInstanceQueue';
 import RequestInfoModal from './modals/RequestInfoModal';
-import type { WidgetProps, WidgetData } from '../types';
+import type { WidgetProps } from '../types';
 import './styles.css';
 
-import type { Media, MediaRequest, InstanceDownload, DownloadInfoMulti, OverseerrData } from './types';
+import type { MediaRequest, DownloadInfoMulti, OverseerrData } from './types';
 
 type OverseerrWidgetProps = WidgetProps;
-
-interface OverseerrIntegration {
-    enabled?: boolean;
-    url?: string;
-    apiKey?: string;
-}
 
 // Preview mode mock requests data with distinct poster gradient colors
 const PREVIEW_REQUESTS = [
@@ -30,6 +25,35 @@ const PREVIEW_REQUESTS = [
 ];
 
 const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode = false }) => {
+    if (previewMode) {
+        return (
+            <div className="flex flex-col h-full overflow-hidden">
+                <div className="flex justify-between items-center h-8 mb-3">
+                    <span className="text-sm font-semibold text-theme-primary">Recent Requests</span>
+                </div>
+                <div className="flex gap-3 flex-1 overflow-hidden">
+                    {PREVIEW_REQUESTS.map((req, i) => (
+                        <div key={i} className="relative h-full flex-shrink-0 rounded-xl overflow-hidden shadow-medium" style={{ aspectRatio: '2/3' }}>
+                            <div className="w-full h-full flex items-center justify-center" style={{ background: req.gradient }}>
+                                <Film size={24} className="text-theme-primary opacity-50" />
+                            </div>
+                            <div
+                                className="overseerr-status-chip overseerr-status-chip--overlay"
+                                style={{ '--overseerr-status-color': req.color } as React.CSSProperties}
+                            >
+                                <span className="overseerr-status-chip__dot" aria-hidden="true" />
+                                {req.status}
+                            </div>
+                            <div className="absolute inset-x-0 bottom-0 py-3 px-2 bg-gradient-to-t from-black/95 to-transparent">
+                                <div className="font-semibold text-xs text-white text-center">{req.title}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
     // Get auth state to determine admin status
     const { user } = useAuth();
     const userIsAdmin = isAdmin(user);
@@ -78,10 +102,11 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
     // Use the effective integration ID (may be fallback)
     const integrationId = effectiveIntegrationId || undefined;
     const isIntegrationBound = !!integrationId;
+    const handleRetry = useRetryPoll(integrationId, 'overseerr');
 
     // Phase: Multi-instance queue correlation
     // Fetch server mapping to discover which Radarr/Sonarr are connected to this Overseerr
-    const { data: serverMapping, isLoading: serverMappingLoading } = useOverseerrServerMapping(integrationId);
+    const { data: serverMapping } = useOverseerrServerMapping(integrationId);
 
     // Extract matched integration IDs from server mapping
     const { radarrIds, sonarrIds } = useMemo(
@@ -113,7 +138,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
     // Convert Map to arrays for modal prop (existing interface)
     const sonarrQueue = useMemo(() => {
         const items: QueueItem[] = [];
-        for (const [_id, queue] of multiInstanceQueues) {
+        for (const queue of multiInstanceQueues.values()) {
             items.push(...queue.filter(q => q.series)); // Sonarr items have series
         }
         return items;
@@ -121,7 +146,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
 
     const radarrQueue = useMemo(() => {
         const items: QueueItem[] = [];
-        for (const [_id, queue] of multiInstanceQueues) {
+        for (const queue of multiInstanceQueues.values()) {
             items.push(...queue.filter(q => q.movie)); // Radarr items have movie
         }
         return items;
@@ -218,28 +243,26 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
     };
 
     // Update scroll button states based on scroll position
-    const updateScrollButtons = (): void => {
+    const updateScrollButtons = useCallback((): void => {
         if (scrollContainerRef.current) {
             const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
             setCanScrollLeft(scrollLeft > 1); // Small threshold for precision
             setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
         }
-    };
-
-    // Handle scroll - update buttons AND collapse expanded card
-    const handleScroll = (): void => {
-        updateScrollButtons();
-        // Collapse any expanded card when scrolling
-        if (expandedCardId !== null) {
-            setExpandedCardId(null);
-        }
-    };
+    }, []);
 
     // Set up scroll event listener and initial state (widget horizontal scroll)
     useEffect(() => {
         const container = scrollContainerRef.current;
         if (container) {
             updateScrollButtons();
+            const handleScroll = (): void => {
+                updateScrollButtons();
+                // Collapse any expanded card when scrolling
+                if (expandedCardId !== null) {
+                    setExpandedCardId(null);
+                }
+            };
             container.addEventListener('scroll', handleScroll);
             // Also update on resize
             const resizeObserver = new ResizeObserver(updateScrollButtons);
@@ -250,7 +273,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
             };
         }
         return undefined;
-    }, [requestsData, expandedCardId]); // Re-run when data changes or expandedCardId changes
+    }, [requestsData, expandedCardId, updateScrollButtons]);
 
     // Collapse expanded card on page scroll
     useEffect(() => {
@@ -259,38 +282,6 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
         window.addEventListener('scroll', handlePageScroll, { passive: true });
         return () => window.removeEventListener('scroll', handlePageScroll);
     }, [expandedCardId]);
-
-    // NOW we can have early returns (after all hooks have been called)
-
-    // Preview mode: render mock request cards
-    if (previewMode) {
-        return (
-            <div className="flex flex-col h-full overflow-hidden">
-                <div className="flex justify-between items-center h-8 mb-3">
-                    <span className="text-sm font-semibold text-theme-primary">Recent Requests</span>
-                </div>
-                <div className="flex gap-3 flex-1 overflow-hidden">
-                    {PREVIEW_REQUESTS.map((req, i) => (
-                        <div key={i} className="relative h-full flex-shrink-0 rounded-xl overflow-hidden shadow-medium" style={{ aspectRatio: '2/3' }}>
-                            <div className="w-full h-full flex items-center justify-center" style={{ background: req.gradient }}>
-                                <Film size={24} className="text-theme-primary opacity-50" />
-                            </div>
-                            <div
-                                className="overseerr-status-chip overseerr-status-chip--overlay"
-                                style={{ '--overseerr-status-color': req.color } as React.CSSProperties}
-                            >
-                                <span className="overseerr-status-chip__dot" aria-hidden="true" />
-                                {req.status}
-                            </div>
-                            <div className="absolute inset-x-0 bottom-0 py-3 px-2 bg-gradient-to-t from-black/95 to-transparent">
-                                <div className="font-semibold text-xs text-white text-center">{req.title}</div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        );
-    }
 
     // Handle access loading state
     if (accessLoading) {
@@ -345,6 +336,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                 serviceName="Seerr"
                 instanceName={isServiceUnavailable ? effectiveDisplayName : undefined}
                 message={isServiceUnavailable ? undefined : error}
+                onRetry={isServiceUnavailable ? handleRetry : undefined}
             />
         );
     }
@@ -681,7 +673,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                             onMouseLeave={() => !isTouchDevice && setExpandedCardId(null)}
                             // Desktop: click anywhere opens modal
                             // Mobile non-shadow: click opens modal (shadow handled separately)
-                            onClick={(e) => {
+                            onClick={() => {
                                 if (!isTouchDevice) {
                                     // Desktop: always open modal on click
                                     setSelectedRequest({ request: req, downloadInfo });
@@ -754,7 +746,7 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
                                 {/* Download Progress Bars - shows up to 3 bars when downloading (Phase 8) */}
                                 {downloadInfo?.isDownloading && downloadInfo.downloads.length > 0 && (
                                     <div className={`overseerr-progress-stack mb-2 ${isExpanded ? 'expanded' : ''}`}>
-                                        {downloadInfo.downloads.slice(0, 3).map((dl, idx) => (
+                                        {downloadInfo.downloads.slice(0, 3).map((dl) => (
                                             <div key={dl.integrationId} className="overseerr-progress group/progress">
                                                 {/* Show label if multiple instances */}
                                                 {downloadInfo.downloads.length > 1 && (

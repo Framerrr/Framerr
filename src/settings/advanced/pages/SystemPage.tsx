@@ -1,5 +1,4 @@
 import React from 'react';
-import { RefreshCw } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/ui';
 import { useSystemSettings } from '../../system/hooks/useSystemSettings';
 import { InfoSection } from '../../system/sections/InfoSection';

@@ -19,8 +19,17 @@ import {
     getSubscriberCount
 } from '../services/sseStreamService';
 import { clientConnections, setPushEndpoint } from '../services/sse/connections';
+import { pollerOrchestrator, parseTopic } from '../services/sse/PollerOrchestrator';
+import { getInstanceById } from '../db/integrationInstances';
+import { userHasIntegrationAccess } from '../db/integrationShares';
 import { requireAuth } from '../middleware/auth';
 import logger from '../utils/logger';
+
+// Burst retry rate limiting: 1 burst per (userId:topic) per 30 s
+const retryAttempts: Map<string, number> = new Map();
+const RETRY_RATE_WINDOW_MS = 30_000;
+const BURST_COUNT = 5;
+const BURST_INTERVAL_MS = 5_000;
 
 /**
  * Verify that the authenticated user owns the given SSE connection.
@@ -35,6 +44,43 @@ function verifyConnectionOwnership(connectionId: string, userId: string, res: Re
         return false;
     }
     return true;
+}
+
+/**
+ * Verify the authenticated user is authorized to access the integration
+ * instance a topic refers to. Subscription presence alone is NOT sufficient.
+ */
+function authorizeRetryTopic(
+    topic: string,
+    userId: string,
+    userGroup: string,
+    res: Response
+): { type: string; instanceId: string; subtype?: string } | null {
+    const { type, instanceId, subtype } = parseTopic(topic);
+
+    if (!instanceId) {
+        res.status(400).json({ error: 'Topic does not support on-demand retry' });
+        return null;
+    }
+
+    if (!pollerOrchestrator.supportsPolling(topic)) {
+        res.status(400).json({ error: 'Topic does not support on-demand retry' });
+        return null;
+    }
+
+    const dbInstance = getInstanceById(instanceId);
+    if (!dbInstance || dbInstance.type !== type) {
+        res.status(403).json({ error: 'Integration not found for topic' });
+        return null;
+    }
+
+    const isAdmin = userGroup === 'admin';
+    if (!isAdmin && !userHasIntegrationAccess(type, userId, userGroup)) {
+        res.status(403).json({ error: 'Access denied for this integration' });
+        return null;
+    }
+
+    return { type, instanceId, subtype };
 }
 
 const router = Router();
@@ -196,6 +242,61 @@ router.post('/unsubscribe', requireAuth, (req: Request, res: Response) => {
     unsubscribe(connectionId, topic);
 
     return res.json({ success: true, topic });
+});
+
+/**
+ * POST /api/realtime/retry
+ * Trigger a burst of on-demand polls for a topic.
+ *
+ * Body: { connectionId: string, topic: string }
+ */
+router.post('/retry', requireAuth, async (req: Request, res: Response) => {
+    const { connectionId, topic } = req.body as { connectionId?: string; topic?: string };
+    const user = (req as unknown as { user?: { id: string; group: string } }).user;
+    const userId = user?.id || '';
+    const userGroup = user?.group || '';
+
+    if (!connectionId || !topic) {
+        return res.status(400).json({ error: 'Missing required fields: connectionId, topic' });
+    }
+
+    if (!verifyConnectionOwnership(connectionId, userId, res)) {
+        return;
+    }
+
+    if (!authorizeRetryTopic(topic, userId, userGroup, res)) {
+        return;
+    }
+
+    const connection = clientConnections.get(connectionId);
+    if (!connection || !connection.subscriptions.has(topic)) {
+        return res.status(403).json({ error: 'Not subscribed to topic' });
+    }
+
+    const rateKey = `${userId}:${topic}`;
+    const lastBurst = retryAttempts.get(rateKey) ?? 0;
+    const now = Date.now();
+    if (now - lastBurst < RETRY_RATE_WINDOW_MS) {
+        return res.status(429).json({ error: 'Retry already in progress. Wait 30 s before retrying again.' });
+    }
+    retryAttempts.set(rateKey, now);
+
+    try {
+        await pollerOrchestrator.triggerPoll(topic);
+    } catch (err) {
+        logger.warn(`[Realtime Retry] First poll failed: topic=${topic}`, { error: err });
+    }
+
+    for (let i = 1; i < BURST_COUNT; i++) {
+        setTimeout(() => {
+            pollerOrchestrator.triggerPoll(topic).catch((err: unknown) => {
+                logger.debug(`[Realtime Retry] Burst poll ${i}/${BURST_COUNT - 1}: topic=${topic}`, { error: err });
+            });
+        }, i * BURST_INTERVAL_MS);
+    }
+
+    logger.debug(`[Realtime Retry] Burst scheduled: topic=${topic} userId=${userId} count=${BURST_COUNT}`);
+    return res.json({ success: true, topic, burstCount: BURST_COUNT });
 });
 
 /**

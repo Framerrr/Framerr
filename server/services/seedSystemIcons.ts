@@ -61,6 +61,18 @@ export const SYSTEM_ICONS: SystemIconConfig[] = [
         mimeType: 'image/png'
     },
     {
+        id: 'system-adguard',
+        filename: 'adguard-home.png',
+        name: 'AdGuard Home',
+        mimeType: 'image/png'
+    },
+    {
+        id: 'system-pihole',
+        filename: 'pi-hole.png',
+        name: 'Pi-hole',
+        mimeType: 'image/png'
+    },
+    {
         id: 'system-plex',
         filename: 'plex.png',
         name: 'Plex',
@@ -162,6 +174,8 @@ export function getSystemIconIdForService(service: string): string | null {
         'sonarr': 'system-sonarr',
         'lidarr': 'system-lidarr',
         'prowlarr': 'system-prowlarr',
+        'adguard': 'system-adguard',
+        'pihole': 'system-pihole',
         'plex': 'system-plex',
         'tautulli': 'system-tautulli',
         'qbittorrent': 'system-qbittorrent',

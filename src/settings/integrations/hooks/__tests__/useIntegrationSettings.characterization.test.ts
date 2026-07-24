@@ -13,7 +13,7 @@
  *   BL-6  — INTEGRATIONS_UPDATED event dispatched on save
  */
 
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -28,7 +28,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const mockShowSuccess = vi.fn();
 const mockShowError = vi.fn();
 
-vi.mock('@/context/notification/NotificationContext', () => ({
+vi.mock('@/context/notification/useNotifications', () => ({
     useNotifications: () => ({
         success: mockShowSuccess,
         error: mockShowError,

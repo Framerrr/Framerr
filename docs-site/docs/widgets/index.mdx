@@ -5,7 +5,7 @@ slug: /widgets
 ---
 
 import DocCardGrid from '@site/src/components/DocCardGrid/DocCardGrid';
-import { Tv, Search, Calendar, MonitorPlay, Film, Popcorn, BarChart3, Download, Activity, Server, Clock, Cloud, Globe, Link, Code } from 'lucide-react';
+import { Tv, Search, Calendar, MonitorPlay, Film, Music, Popcorn, BarChart3, Download, Activity, Server, Clock, Cloud, Globe, Link, Code, Shield } from 'lucide-react';
 
 # Widgets
 
@@ -17,7 +17,8 @@ Widgets are the building blocks of your Framerr dashboard. Each widget displays 
     items: [
       { title: 'Media Stream', description: 'Live view of what\'s currently playing across your media servers', icon: <Tv size={22} />, link: '/docs/widgets/media-stream' },
       { title: 'Media Search', description: 'Search across your media libraries and request new content', icon: <Search size={22} />, link: '/docs/widgets/media-search' },
-      { title: 'Calendar', description: 'Upcoming TV episodes and movie releases from Sonarr and Radarr', icon: <Calendar size={22} />, link: '/docs/widgets/calendar' },
+      { title: 'Calendar', description: 'TV, movies, and music releases from Sonarr, Radarr, and Lidarr', icon: <Calendar size={22} />, link: '/docs/widgets/calendar' },
+      { title: 'Downloads', description: 'Active downloads from qBittorrent and SABnzbd', icon: <Download size={22} />, link: '/docs/widgets/downloads' },
     ],
   },
   {
@@ -25,14 +26,16 @@ Widgets are the building blocks of your Framerr dashboard. Each widget displays 
     items: [
       { title: 'Sonarr Library', description: 'TV show library, missing episodes, and download queue', icon: <MonitorPlay size={22} />, link: '/docs/widgets/sonarr' },
       { title: 'Radarr Library', description: 'Movie library, missing movies, and download queue', icon: <Film size={22} />, link: '/docs/widgets/radarr' },
+      { title: 'Lidarr Library', description: 'Music library, missing albums, and upcoming releases', icon: <Music size={22} />, link: '/docs/widgets/lidarr' },
       { title: 'Seerr Requests', description: 'Pending and approved media requests from Seerr', icon: <Popcorn size={22} />, link: '/docs/widgets/overseerr' },
       { title: 'Tautulli Stats', description: 'Plex watch history and top media statistics', icon: <BarChart3 size={22} />, link: '/docs/widgets/tautulli' },
-      { title: 'Downloads', description: 'Active downloads from qBittorrent and SABnzbd', icon: <Download size={22} />, link: '/docs/widgets/downloads' },
+      { title: 'Prowlarr', description: 'Indexer health, connected apps, and recent activity', icon: <Search size={22} />, link: '/docs/widgets/prowlarr' },
     ],
   },
   {
     label: '🖥️ System & Monitoring',
     items: [
+      { title: 'DNS Stats', description: 'DNS filtering stats for AdGuard Home and Pi-hole', icon: <Shield size={22} />, link: '/docs/widgets/dns-stats' },
       { title: 'System Status', description: 'CPU, RAM, disk, network, and GPU metrics', icon: <Activity size={22} />, link: '/docs/widgets/system-status' },
       { title: 'Service Status', description: 'Uptime and response time monitoring for your services', icon: <Server size={22} />, link: '/docs/widgets/service-status' },
     ],

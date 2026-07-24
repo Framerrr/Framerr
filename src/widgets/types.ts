@@ -268,7 +268,6 @@ export interface WidgetPlugin {
     // === COMPONENT (required) ===
     // NOTE: Using flexible type to accommodate existing widget prop variations.
     // Full prop normalization (all widgets using WidgetProps) planned for Phase 4.5.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     component: LazyExoticComponent<ComponentType<any>>;
 
     // === INTEGRATION BINDING (optional) ===

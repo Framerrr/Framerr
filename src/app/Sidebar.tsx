@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLayout } from '@/context/LayoutContext';
+import { useLayout } from '@/context/useLayout';
 import { DesktopSidebar } from '@/components/sidebar/DesktopSidebar';
 import { MobileTabBar } from '@/components/sidebar/MobileTabBar';
 

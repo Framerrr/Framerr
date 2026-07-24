@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Loader, CheckCircle2, Unlink, ExternalLink, AlertCircle } from 'lucide-react';
+import { Loader, CheckCircle2, Unlink, ExternalLink } from 'lucide-react';
 import { Button } from '../../../shared/ui';
 import { getIconComponent } from '../../../utils/iconUtils';
 import type { LinkedAccountData } from '../types';

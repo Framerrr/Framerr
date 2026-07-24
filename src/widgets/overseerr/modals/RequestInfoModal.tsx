@@ -3,8 +3,7 @@ import api from '../../../api/client';
 import { Star, Calendar, Clock, User, Check, XCircle, Film, Tv } from 'lucide-react';
 import { Modal } from '../../../shared/ui';
 import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
-import { useAuth } from '../../../context/AuthContext';
-import { useNotifications } from '../../../context/notification';
+import { useAuth } from '../../../context/useAuth';
 import { isAdmin } from '../../../utils/permissions';
 import logger from '../../../utils/logger';
 import type { MediaRequest, InstanceDownload, DownloadInfoMulti, QueueItem } from '../types';
@@ -71,7 +70,6 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
     onClose
 }) => {
     const { user } = useAuth();
-    const { handleRequestAction } = useNotifications();
     const userIsAdmin = isAdmin(user);
 
     // Phase 24: Queue data passed from parent widget (no direct SSE subscription)
@@ -153,7 +151,7 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
         };
 
         fetchDetails();
-    }, [request.id]);
+    }, [request.id, integrationId]);
 
     // Handle approve/decline
     const handleAction = async (action: 'approve' | 'decline') => {

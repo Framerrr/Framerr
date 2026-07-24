@@ -11,8 +11,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useMetricConfig, METRIC_REGISTRY, isGaugeEligible, isGaugeStructurallyAllowed, resolveMetricViz } from '../hooks/useMetricConfig';
+import { renderHook } from '@testing-library/react';
+import { useMetricConfig, isGaugeEligible, isGaugeStructurallyAllowed, resolveMetricViz } from '../hooks/useMetricConfig';
 import type { StatusData } from '../types';
 
 // ============================================================================

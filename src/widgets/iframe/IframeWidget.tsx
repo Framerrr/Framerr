@@ -6,7 +6,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { Globe, AlertTriangle } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import type { IframeWidgetProps, IframeConfig } from './types';
 import './styles.css';
 

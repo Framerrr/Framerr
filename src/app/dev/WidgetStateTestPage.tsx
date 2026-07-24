@@ -9,12 +9,7 @@
 
 import React, { useState } from 'react';
 import { WidgetStateMessage } from '../../shared/widgets';
-import {
-    Play,
-    Tv,
-    ServerOff,
-    Calendar
-} from 'lucide-react';
+import { Calendar } from 'lucide-react';
 
 const WIDGET_SIZES = [
     { name: 'Large', w: 400, h: 300 },

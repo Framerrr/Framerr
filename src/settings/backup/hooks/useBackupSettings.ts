@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import logger from '../../../utils/logger';
 import { useRealtimeSSE, BackupEvent } from '@/features/realtime/useRealtimeSSE';
@@ -58,8 +58,8 @@ export function useBackupSettings(): UseBackupSettingsReturn {
     // React Query hooks for data fetching
     const backupListQuery = useBackupList();
     const scheduleQuery = useBackupSchedule();
-    const createBackupMutation = useCreateBackup();
-    const deleteBackupMutation = useDeleteBackup();
+    useCreateBackup();
+    useDeleteBackup();
     const updateScheduleMutation = useUpdateBackupSchedule();
     const encryptionQuery = useBackupEncryptionStatus();
     const queryClient = useQueryClient();
@@ -88,13 +88,13 @@ export function useBackupSettings(): UseBackupSettingsReturn {
     const totalSize = backupListQuery.data?.totalSize ?? 0;
     const isLoading = backupListQuery.isLoading;
     const nextBackupTime = scheduleQuery.data?.status.nextBackup ?? null;
-    const schedule = localSchedule ?? {
+    const schedule = useMemo(() => localSchedule ?? {
         enabled: true,
         frequency: 'weekly' as const,
         dayOfWeek: 0,
         hour: 3,
         maxBackups: 10
-    };
+    }, [localSchedule]);
 
     // Refetch functions for components that need manual refresh
     const fetchBackups = useCallback(() => {
@@ -231,7 +231,7 @@ export function useBackupSettings(): UseBackupSettingsReturn {
         } finally {
             setIsSavingSchedule(false);
         }
-    }, [schedule, notify]);
+    }, [schedule, notify, scheduleQuery, updateScheduleMutation]);
 
     // Toggle schedule enabled/disabled (saves immediately)
     const handleToggleSchedule = useCallback(async (): Promise<void> => {
@@ -240,7 +240,7 @@ export function useBackupSettings(): UseBackupSettingsReturn {
         setLocalSchedule(newSchedule);
 
         try {
-            const response = await backupApi.updateSchedule(newSchedule as Parameters<typeof backupApi.updateSchedule>[0]);
+            await backupApi.updateSchedule(newSchedule as Parameters<typeof backupApi.updateSchedule>[0]);
 
             scheduleQuery.refetch();
             notify.success(
@@ -253,7 +253,7 @@ export function useBackupSettings(): UseBackupSettingsReturn {
             const message = extractErrorMessage(err);
             setError(message);
         }
-    }, [schedule, notify]);
+    }, [schedule, notify, scheduleQuery]);
 
     // Update schedule field (only for options, not toggle)
     const updateSchedule = useCallback((updates: Partial<ScheduleConfig>) => {

@@ -18,7 +18,7 @@ import { Button } from '../../../shared/ui';
 import { LoadingSpinner } from '@/shared/ui';
 import logger from '../../../utils/logger';
 import { useNotifications } from '../../../context/notification';
-import { useLayout } from '../../../context/LayoutContext';
+import { useLayout } from '../../../context/useLayout';
 import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
 
 interface Category {
@@ -48,9 +48,10 @@ const TemplateList: React.FC<TemplateListProps> = ({
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
+    const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [applyingId, setApplyingId] = useState<string | null>(null);
+    const [, setApplyingId] = useState<string | null>(null);
     const { success, error: showError } = useNotifications();
     const { isMobile } = useLayout();
 
@@ -73,6 +74,22 @@ const TemplateList: React.FC<TemplateListProps> = ({
         } finally {
             setLoading(false);
         }
+    }, []);
+
+    // Open a preview (mount + show).
+    const openPreview = useCallback((t: Template) => {
+        setPreviewTemplate(t);
+        setIsPreviewOpen(true);
+    }, []);
+
+    // Close request: start the exit but keep the modal mounted for the reverse morph.
+    const requestPreviewClose = useCallback(() => {
+        setIsPreviewOpen(false);
+    }, []);
+
+    // Exit finished: now unmount and let the card thumbnail's opacity restore.
+    const handlePreviewExited = useCallback(() => {
+        setPreviewTemplate(null);
     }, []);
 
     useEffect(() => {
@@ -351,9 +368,12 @@ Your changes will be discarded.`,
                             onSync={handleSync}
                             onRevert={handleRevert}
                             onNameChange={handleNameChange}
-                            onPreview={setPreviewTemplate}
+                            onPreview={openPreview}
                             isAdmin={isAdmin}
-                            isBeingPreviewed={previewTemplate?.id === template.id}
+                            // Hide chip only while preview is visibly open. When exit starts
+                            // (isPreviewOpen→false) the chip becomes the layoutId morph target
+                            // while the modal shell stays mounted until onExited.
+                            isBeingPreviewed={isPreviewOpen && previewTemplate?.id === template.id}
                         />
                     ))
                 )}
@@ -363,8 +383,9 @@ Your changes will be discarded.`,
             {previewTemplate && (
                 <TemplatePreviewModal
                     template={previewTemplate}
-                    isOpen={!!previewTemplate}
-                    onClose={() => setPreviewTemplate(null)}
+                    isOpen={isPreviewOpen}
+                    onClose={requestPreviewClose}
+                    onExited={handlePreviewExited}
                     onApply={handleApply}
                     onEdit={onEdit}
                     isMobile={isMobile}

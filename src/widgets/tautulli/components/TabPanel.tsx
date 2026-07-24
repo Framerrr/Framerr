@@ -41,7 +41,7 @@ const TabPanel = ({ rows, listLimit, emptyLabel }: TabPanelProps): React.JSX.Ele
             if (typeof w === 'number' && w > 0) setWidthPx(w);
         });
         ro.observe(el);
-        setWidthPx(el.clientWidth || 400);
+        queueMicrotask(() => setWidthPx(el.clientWidth || 400));
         return () => ro.disconnect();
     }, []);
 

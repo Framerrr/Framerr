@@ -3,7 +3,7 @@
  *
  * Renders two logical groups (missing, then cutoff-unmet) as one seamless
  * list. Left-border stripe encodes severity per
- * docs/WIDGET_REDESIGN_MEDIA.md §1.7:
+ * docs/private/widgets/WIDGET_REDESIGN_MEDIA.md §1.7:
  * - Red: missing entirely — [Search] quick action
  * - Blue: actively downloading (takes priority over red/amber) — progress bar
  * - Amber: on disk but cutoff-unmet — [Upgrade] action (opens the modal)

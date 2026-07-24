@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useLayout } from '../../context/LayoutContext';
+import React, { useMemo } from 'react';
+import { useAuth } from '../../context/useAuth';
+import { useLayout } from '../../context/useLayout';
 import { LAYOUT } from '../../constants/layout';
-import { getWidgetConfigConstraints } from '../../widgets/registry';
-import { useIntegrationSchemas } from '../../api/hooks';
-import { useDashboardEdit } from '../../context/DashboardEditContext';
+import { useIntegrationSchemas, useRoleAwareIntegrations } from '../../api/hooks';
+import { useDashboardEdit } from '../../context/useDashboardEdit';
 import { useWalkthrough } from '../../features/walkthrough';
 import DevDebugOverlay from '@/app/dashboard/DevDebugOverlay';
 import { useDragAutoScroll } from '@/shared/hooks/useDragAutoScroll';
@@ -48,8 +47,9 @@ const Dashboard = (): React.JSX.Element => {
     const dashboardEditContext = useDashboardEdit();
     const walkthrough = useWalkthrough();
 
-    // Integration schemas for icon resolution (customIcon → integration icon → widget default)
+    // Integration schemas + instances for chrome title/icon resolution
     const { data: schemas } = useIntegrationSchemas();
+    const { data: integrations = [] } = useRoleAwareIntegrations();
 
     // ========== SHARED LAYOUT HOOK ==========
     const layoutHook = useDashboardLayout({
@@ -79,8 +79,6 @@ const Dashboard = (): React.JSX.Element => {
         setInitialData,
         updateWidgetConfig,
         resizeWidget,
-        setWidgets,
-        setDisplayWidgetsUnified,
         canUndo,
         canRedo,
         undo,
@@ -101,7 +99,6 @@ const Dashboard = (): React.JSX.Element => {
         setSaving,
         isGlobalDragEnabled,
         setGlobalDragEnabled,
-        isUsingTouch,
         setIsUsingTouch,
         widgetVisibility,
         handleWidgetVisibilityChange,
@@ -125,7 +122,6 @@ const Dashboard = (): React.JSX.Element => {
         debugOverlayEnabled,
         widgetPixelSizes,
         setWidgetPixelSizes,
-        userIsAdmin,
         hasWidgetAccess,
         fetchWidgets,
     } = dataHook;
@@ -211,7 +207,6 @@ const Dashboard = (): React.JSX.Element => {
     const loadingMsg = useMemo(() => {
         if (!loadingMessagesEnabled) return null;
         return getLoadingMessage(user?.displayName || user?.username || 'User');
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loadingMessagesEnabled, user?.displayName, user?.username]);
 
     const { squareCells } = useDashboardEffects({
@@ -249,6 +244,7 @@ const Dashboard = (): React.JSX.Element => {
         editMode,
         isMobile,
         schemas,
+        integrations,
         layouts,
         debugOverlayEnabled,
         handleEditWidget,

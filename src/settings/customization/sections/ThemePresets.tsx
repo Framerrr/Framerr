@@ -8,7 +8,7 @@
 import React, { useState, useRef } from 'react';
 import { Palette } from 'lucide-react';
 import { SettingsSection } from '../../../shared/ui/settings';
-import { useTheme } from '../../../context/ThemeContext';
+import { useTheme } from '../../../context/useTheme';
 import type { ThemeDefinition, CustomColors } from '../types';
 import { themeColorPreviews, getCurrentThemeColors, removeColorsFromDOM } from '../utils/colorUtils';
 import logger from '../../../utils/logger';

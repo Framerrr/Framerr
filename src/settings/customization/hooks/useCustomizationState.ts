@@ -15,8 +15,8 @@
 import { useState, useCallback } from 'react';
 import { useUserPreferences, useUpdateUserPreferences } from '../../../api/hooks/useDashboard';
 import { useSaveTheme } from '../../../api/hooks/useConfig';
-import { useTheme } from '../../../context/ThemeContext';
-import { useAuth } from '../../../context/AuthContext';
+import { useTheme } from '../../../context/useTheme';
+import { useAuth } from '../../../context/useAuth';
 import { useNotifications } from '../../../context/notification';
 import { isAdmin } from '../../../utils/permissions';
 import type { SubTabId, CustomizationState } from '../types';

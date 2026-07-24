@@ -2,6 +2,33 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.3.0] - 2026-07-24
+
+### Added
+- **Lidarr integration + widget** — upcoming albums, Needs Attention, admin interactive search, webhooks
+- **Calendar music source** — Lidarr alongside Sonarr/Radarr, with a Music filter
+- **DNS Stats widget** — AdGuard Home and Pi-hole query/block stats, sparkline, and top lists
+- **AdGuard Home** and **Pi-hole** integrations
+- **Retry Now** on Service Unavailable for poller widgets
+- **Needs Attention visibility toggles** — show/hide Missing and Upgrades on Radarr, Sonarr, and Lidarr
+
+### Changed
+- **Media source colors** — Sonarr / Radarr / Lidarr logo colors; cinema and digital release colors kept distinct
+- **Clock widget** — scales up better for long 12h times; no more size flicker at some breakpoints
+- **Sonarr / Lidarr Look Ahead** — same options as Radarr (7 / 30 / 90 / All), default 30d
+- **Open in Plex** on iOS — tries native `plex://preplay`, falls back to web
+- **Templates preview / builder** — snappier previews, various optimizations
+
+### Fixed
+- **qBittorrent ratio** always showed ×0.00 in the Downloads widget
+- **Calendar Movie Release Dates** — Cinema / Digital / Physical each use that date only; default is All
+- **Calendar source unbind** — clearing Sonarr/Radarr/Lidarr no longer auto-rebinds or steals the widget title
+- **Wrong widget icon/title** on the dashboard after binding an integration
+- **Stale Sonarr/Radarr Interactive Search** when switching titles
+- **Plex Sync Now** JSON parse error
+
+---
+
 ## [0.2.1] - 2026-07-20
 
 ### Added

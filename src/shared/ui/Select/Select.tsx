@@ -25,7 +25,7 @@
 
 import React, { forwardRef, useState, useCallback, useRef, useEffect } from 'react';
 import * as RadixSelect from '@radix-ui/react-select';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Check, ChevronDown } from 'lucide-react';
 import { popIn } from '../animations';
 import { formSizeClasses, type FormSize } from '../formSizeClasses';

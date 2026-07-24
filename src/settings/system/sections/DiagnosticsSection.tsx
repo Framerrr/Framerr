@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, RefreshCw, Wifi, CheckCircle, XCircle, Database, Loader, Zap, Clock, Download, Upload } from 'lucide-react';
+import { Activity, Wifi, CheckCircle, XCircle, Database, Loader, Zap, Clock, Download, Upload } from 'lucide-react';
 import { Button } from '../../../shared/ui';
 import { SettingsSection } from '../../../shared/ui/settings';
 import type { SseStatus, DbStatus, SpeedTestState, ApiHealth, HealthStatus } from '../types';
@@ -47,7 +47,6 @@ export function DiagnosticsSection({
     apiHealth,
     apiLoading,
     onTestApiHealth,
-    onRefreshDiagnostics,
     getStatusColor
 }: DiagnosticsSectionProps): React.JSX.Element {
 

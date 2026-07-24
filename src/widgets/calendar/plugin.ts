@@ -1,7 +1,7 @@
 /**
  * Calendar Widget Plugin
  *
- * Combined Sonarr and Radarr calendar.
+ * Combined Sonarr, Radarr, and Lidarr calendar.
  * P4 Phase 4.3: Widget Plugin Migration
  */
 
@@ -12,7 +12,7 @@ import type { WidgetPlugin } from '../types';
 export const plugin: WidgetPlugin = {
     id: 'calendar',
     name: 'Calendar',
-    description: 'Combined Sonarr and Radarr calendar',
+    description: 'Combined Sonarr, Radarr, and Lidarr calendar',
     category: 'media',
     icon: Calendar,
     sizing: {
@@ -21,16 +21,17 @@ export const plugin: WidgetPlugin = {
         max: { w: 24, h: 18 },
     },
     component: lazy(() => import('./CalendarWidget')),
-    compatibleIntegrations: ['sonarr', 'radarr'],
+    compatibleIntegrations: ['sonarr', 'radarr', 'lidarr'],
     multiIntegration: true,
     integrationGroups: [
         { key: 'sonarrIntegrationIds', label: 'Sonarr', types: ['sonarr'] },
         { key: 'radarrIntegrationIds', label: 'Radarr', types: ['radarr'] },
+        { key: 'lidarrIntegrationIds', label: 'Lidarr', types: ['lidarr'] },
     ],
     defaultConfig: {
         viewMode: 'month',
         startWeekOnMonday: false,
-        movieDates: 'digital',
+        movieDates: 'all',
         lookAheadDays: '60',
         lookBackDays: '30',
     },
@@ -89,7 +90,7 @@ export const plugin: WidgetPlugin = {
                 key: 'movieDates',
                 label: 'Movie Release Dates',
                 type: 'buttons',
-                defaultValue: 'digital',
+                defaultValue: 'all',
                 choices: [
                     { value: 'cinema', label: 'Cinema' },
                     { value: 'digital', label: 'Digital' },

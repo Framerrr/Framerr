@@ -25,9 +25,19 @@ export interface QBittorrentData {
         state: string;
         progress: number;
         size: number;
+        total_size: number;
         dlspeed: number;
         upspeed: number;
+        eta: number;
+        ratio: number;
         added_on: number;
+        completion_on: number;
+        category: string;
+        num_seeds: number;
+        num_leechs: number;
+        downloaded: number;
+        uploaded: number;
+        time_active: number;
     }[];
     transferInfo: {
         dl_info_speed?: number;
@@ -69,11 +79,22 @@ export async function poll(instance: PluginInstance, adapter?: PluginAdapter): P
             hash: t.hash as string,
             name: t.name as string,
             state: t.state as string,
-            progress: t.progress as number,
-            size: t.size as number,
-            dlspeed: t.dlspeed as number,
-            upspeed: t.upspeed as number,
-            added_on: t.added_on as number
+            progress: Number(t.progress) || 0,
+            size: Number(t.size) || 0,
+            total_size: Number(t.total_size) || 0,
+            dlspeed: Number(t.dlspeed) || 0,
+            upspeed: Number(t.upspeed) || 0,
+            eta: Number(t.eta) || 0,
+            // qBittorrent returns share ratio as `ratio` on /torrents/info
+            ratio: typeof t.ratio === 'number' ? t.ratio : Number(t.ratio) || 0,
+            added_on: Number(t.added_on) || 0,
+            completion_on: Number(t.completion_on) || 0,
+            category: typeof t.category === 'string' ? t.category : '',
+            num_seeds: Number(t.num_seeds) || 0,
+            num_leechs: Number(t.num_leechs) || 0,
+            downloaded: Number(t.downloaded) || 0,
+            uploaded: Number(t.uploaded) || 0,
+            time_active: Number(t.time_active) || 0,
         }));
 
     // Fetch transfer info (best effort — keep inner try/catch)

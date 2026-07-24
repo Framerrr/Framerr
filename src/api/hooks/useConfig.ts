@@ -4,10 +4,10 @@
  * Hooks for system config, user config, and theme
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 import { isAdmin } from '../../utils/permissions';
-import { configApi, type GlobalSystemConfig, type UserConfig, type ThemeConfig } from '../endpoints/config';
-import { themeApi, type ThemeResponse, type ThemePreset } from '../endpoints/theme';
+import { configApi, type GlobalSystemConfig, type ThemeConfig } from '../endpoints/config';
+import { themeApi, type ThemePreset } from '../endpoints/theme';
 import { queryKeys } from '../queryKeys';
 
 
@@ -83,7 +83,11 @@ export function useSaveTheme() {
     return useMutation({
         mutationFn: (theme: ThemePreset) => themeApi.saveTheme(theme),
         onSuccess: () => {
+            // Theme lives on user config too — Customization Settings hydrates
+            // customColorsEnabled from config.user, not theme.current. Invalidate
+            // both or remounting settings shows toggle off while colors still apply.
             queryClient.invalidateQueries({ queryKey: queryKeys.theme.current() });
+            queryClient.invalidateQueries({ queryKey: queryKeys.config.user() });
         },
     });
 }

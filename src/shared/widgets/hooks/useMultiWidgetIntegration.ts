@@ -22,12 +22,11 @@
  */
 
 import { useMemo, useEffect, useRef } from 'react';
-import { useAuth } from '../../../context/AuthContext';
-import { useDashboardEdit } from '../../../context/DashboardEditContext';
+import { useAuth } from '../../../context/useAuth';
+import { useDashboardEdit } from '../../../context/useDashboardEdit';
 import { isAdmin } from '../../../utils/permissions';
 import { useMyWidgetAccess } from '../../../api/hooks/useWidgetQueries';
 import { useRoleAwareIntegrations } from '../../../api/hooks/useIntegrations';
-import { getWidgetMetadata } from '../../../widgets/registry';
 import { widgetsApi } from '../../../api/endpoints';
 import logger from '../../../utils/logger';
 
@@ -81,14 +80,16 @@ interface AccessibleInstance {
 
 /**
  * Hook for multi-integration widgets
- * 
+ *
  * @param widgetType - The widget type (e.g., 'calendar')
- * @param configuredIntegrations - Map of integration type → configured ID
- *                                 e.g., { sonarr: 'sonarr-abc', radarr: 'radarr-xyz' }
+ * @param configuredIntegrations - Map of integration type → slot value:
+ *   - `string` — configured instance ID
+ *   - `undefined` — never configured (auto-fallback + persist allowed)
+ *   - `null` — explicitly none (user cleared; no fallback, no persist)
  */
 export function useMultiWidgetIntegration(
     widgetType: string,
-    configuredIntegrations: Record<string, string | undefined>,
+    configuredIntegrations: Record<string, string | undefined | null>,
     widgetId?: string  // Optional: provide to enable automatic fallback persistence
 ): UseMultiWidgetIntegrationResult {
     const { user } = useAuth();
@@ -97,11 +98,6 @@ export function useMultiWidgetIntegration(
     // Get dashboard edit context to prevent persistence during edit/drag operations
     const dashboardEditContext = useDashboardEdit();
     const isEditMode = dashboardEditContext?.editMode ?? false;
-
-    // Get widget metadata for compatible types
-    const metadata = getWidgetMetadata(widgetType);
-    const compatibleTypes = metadata?.compatibleIntegrations || [];
-
 
     // ========================================================================
     // Widget Access Check (non-admin only)
@@ -218,8 +214,16 @@ export function useMultiWidgetIntegration(
                         };
                     }
                 }
+            } else if (configuredId === null) {
+                // Explicitly cleared by user — do not auto-bind or persist
+                integrations[integrationType] = {
+                    effectiveId: null,
+                    configuredId: undefined,
+                    isFallback: false,
+                    isAccessible: false,
+                };
             } else {
-                // Not configured - check if any of this type available for auto-select
+                // Never configured — auto-select first available of this type
                 const fallback = typeInstances[0];
                 integrations[integrationType] = {
                     effectiveId: fallback?.id || null,

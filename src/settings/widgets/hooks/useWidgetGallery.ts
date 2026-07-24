@@ -9,11 +9,10 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { widgetsApi, integrationsApi } from '../../../api/endpoints';
-import { useWidgets } from '../../../api/hooks/useDashboard';
 import logger from '../../../utils/logger';
 import { useNotifications } from '../../../context/notification';
-import { useAuth } from '../../../context/AuthContext';
-import { useLayout } from '../../../context/LayoutContext';
+import { useAuth } from '../../../context/useAuth';
+import { useLayout } from '../../../context/useLayout';
 import { isAdmin } from '../../../utils/permissions';
 import { getWidgetsByCategory, getWidgetMetadata, WidgetMetadata } from '../../../widgets/registry';
 import { useWidgetSharing } from '@/shared/hooks/useWidgetSharing';
@@ -76,11 +75,6 @@ export function useWidgetGallery(): UseWidgetGalleryReturn {
     const { isMobile } = useLayout();
     const hasAdminAccess = isAdmin(user);
 
-    // Dashboard data for mobile layout
-    const { data: dashboardData } = useWidgets();
-    const mobileLayoutMode = dashboardData?.mobileLayoutMode || 'linked';
-    const mobileWidgets = dashboardData?.mobileWidgets || [];
-
     // P2 React Query: Use shared useWidgetData hook (single source of truth, role-aware)
     const {
         loading,
@@ -88,8 +82,7 @@ export function useWidgetGallery(): UseWidgetGalleryReturn {
         sharedIntegrations,
         isWidgetVisible: sharedIsWidgetVisible,
         getSharedByInfo: sharedGetSharedByInfo,
-        fetchIntegrations: refetchWidgetData,
-    } = useWidgetData({ fetchOnMount: true });
+    } = useWidgetData();
 
     // Widget sharing hook
     const {

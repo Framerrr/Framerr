@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, MutableRefObject } from 'react';
 import { configApi } from '../../../api/endpoints';
 import logger from '../../../utils/logger';
-import { useSystemConfig } from '../../../context/SystemConfigContext';
+import { useSystemConfig } from '../../../context/useSystemConfig';
 import { detectAuthNeed, isAuthDetectionEnabled, getSensitivity, getUserAuthPatterns, AuthDetectionResult } from '../../../utils/authDetection';
 import { useNotifications } from '../../../context/notification';
 import type { Tab } from '../types';
@@ -57,7 +57,7 @@ export function useTabAuth({ tabs, loadedTabs, reloadTab }: UseTabAuthOptions): 
             try {
                 const response = await configApi.getAuth();
                 setIframeAuthEnabled(response?.iframe?.enabled || false);
-            } catch (e) {
+            } catch {
                 // Ignore errors, keep current state
             }
         };
@@ -96,7 +96,7 @@ export function useTabAuth({ tabs, loadedTabs, reloadTab }: UseTabAuthOptions): 
                                 setAuthDetectionInfo(prev => ({ ...prev, [slug]: detection }));
                             }
                         }
-                    } catch (e) {
+                    } catch {
                         // Cross-origin - can't read src
                     }
                 }
@@ -161,7 +161,7 @@ export function useTabAuth({ tabs, loadedTabs, reloadTab }: UseTabAuthOptions): 
                             setAuthDetectionInfo(prev => ({ ...prev, [slug]: detection }));
                         }
                     }
-                } catch (e) {
+                } catch {
                     // Cross-origin restriction - expected
                 }
             }, 1000);
@@ -220,9 +220,6 @@ export function useTabAuth({ tabs, loadedTabs, reloadTab }: UseTabAuthOptions): 
     const handleManualAuth = (slug: string): void => {
         const tab = tabs.find(t => t.slug === slug);
         if (!tab) return;
-
-        const iframe = iframeRefs.current[slug];
-        const authUrl = iframe?.src || tab.url;
 
         logger.info(`Manual auth triggered for ${slug}`);
         setNeedsAuth(prev => ({ ...prev, [slug]: true }));

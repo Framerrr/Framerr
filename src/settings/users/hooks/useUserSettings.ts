@@ -4,10 +4,10 @@
  * Manages all state and handlers for user management.
  */
 
-import { useState, useCallback, FormEvent } from 'react';
+import { useState, useCallback, useMemo, FormEvent } from 'react';
 import logger from '../../../utils/logger';
 import { useNotifications } from '../../../context/notification';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '../../../context/useAuth';
 import { usersApi, extractErrorMessage } from '../../../api';
 import { useUsers, useUserGroupsList } from '../../../api/hooks';
 import type { User, UserFormData, TempPassword, ModalMode } from '../types';
@@ -26,7 +26,10 @@ export function useUserSettings() {
     const groupsQuery = useUserGroupsList();
 
     // Derive data from queries
-    const users = (usersQuery.data ?? []) as unknown as User[];
+    const users = useMemo(
+        () => (usersQuery.data ?? []) as unknown as User[],
+        [usersQuery.data],
+    );
     const groups = groupsQuery.data?.groups ?? [];
     const loading = usersQuery.isLoading;
 
@@ -143,7 +146,7 @@ export function useUserSettings() {
             logger.error('Error saving user:', error);
             showError('Save Failed', extractErrorMessage(error));
         }
-    }, [modalMode, selectedUser, formData, currentUser, fetchUsers, showSuccess, showError]);
+    }, [modalMode, selectedUser, formData, currentUser, fetchUsers, showSuccess, showError, users]);
 
     // Confirm self-demotion: save + logout
     const confirmSelfDemotion = useCallback(async () => {

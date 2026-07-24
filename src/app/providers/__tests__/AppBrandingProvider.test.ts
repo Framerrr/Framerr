@@ -34,7 +34,7 @@ vi.mock('@/features/realtime/useRealtimeSSE', () => ({
     }),
 }));
 
-vi.mock('@/context/AuthContext', () => ({
+vi.mock('@/context/useAuth', () => ({
     useAuth: () => ({
         user: { id: '1', username: 'admin', displayName: 'Admin', role: 'admin' },
         isAuthenticated: true,
@@ -66,7 +66,8 @@ vi.mock('@/api/endpoints', () => ({
 // IMPORTS (after mocks)
 // ============================================================================
 
-import { AppBrandingProvider, useAppBranding } from '../AppBrandingProvider';
+import { AppBrandingProvider } from '../AppBrandingProvider';
+import { useAppBranding } from '../useAppBranding';
 import type { AppBrandingContextValue } from '../AppBrandingProvider';
 
 // ============================================================================
@@ -101,13 +102,9 @@ afterEach(() => {
 
 describe('BL-BR-1: Type contract', () => {
     it('AppBrandingContextValue includes serverName, serverIcon, brandingLoaded', () => {
-        const assertHasField = <K extends keyof AppBrandingContextValue>(_key: K): void => {
-            // Type-level assertion only
-        };
-
-        assertHasField('serverName');
-        assertHasField('serverIcon');
-        assertHasField('brandingLoaded');
+        'serverName' satisfies keyof AppBrandingContextValue;
+        'serverIcon' satisfies keyof AppBrandingContextValue;
+        'brandingLoaded' satisfies keyof AppBrandingContextValue;
 
         expect(true).toBe(true);
     });

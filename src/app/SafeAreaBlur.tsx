@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLayout } from '@/context/LayoutContext';
+import { useLayout } from '@/context/useLayout';
 
 /**
  * SafeAreaBlur - Overlay for the top safe area (notch/camera region)

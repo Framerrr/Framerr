@@ -4,7 +4,7 @@
  * Hooks for widget sharing and template management
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { widgetSharesApi, SaveSharesData, UsersAndGroupsResponse, ExistingSharesResponse } from '../endpoints/widgetShares';
+import { widgetSharesApi, SaveSharesData } from '../endpoints/widgetShares';
 import { templatesApi, CreateTemplateData, UpdateTemplateData, Template, TemplatesResponse } from '../endpoints/templates';
 import { queryKeys } from '../queryKeys';
 import { filterRegisteredWidgets } from '../../widgets/registry';

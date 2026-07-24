@@ -102,7 +102,6 @@ function Highlight({
     onValueChange,
     mode = 'children',
     scrollContainerRef,
-    scrollFadeDelay = 150,
 }: HighlightProps) {
     const containerRef = React.useRef<HTMLDivElement>(null);
     const hoverLeaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -122,9 +121,10 @@ function Highlight({
 
     // Scroll clip bounds state (parent mode)
     const [scrollClipBounds, setScrollClipBounds] = React.useState<{ top: number; bottom: number } | null>(null);
+    const [isActiveInScrollContainer, setIsActiveInScrollContainer] = React.useState(false);
 
     // Track if mouse is hovering the container (for clip-path decision)
-    const [isContainerHovered, setIsContainerHovered] = React.useState(false);
+    const [, setIsContainerHovered] = React.useState(false);
 
     // Controlled vs uncontrolled - when setting to null, fall back to defaultValue
     const setActiveValue = React.useCallback((newValue: string | null) => {
@@ -233,6 +233,20 @@ function Highlight({
         };
     }, [mode, scrollContainerRef]);
 
+    React.useEffect(() => {
+        if (mode !== 'parent' || !scrollContainerRef?.current || !containerRef.current || !activeValue) {
+            setIsActiveInScrollContainer(false);
+            return;
+        }
+
+        const activeEl = containerRef.current.querySelector<HTMLElement>(
+            `[data-highlight-value="${activeValue}"]`
+        );
+        setIsActiveInScrollContainer(
+            !!activeEl && scrollContainerRef.current.contains(activeEl)
+        );
+    }, [mode, scrollContainerRef, activeValue]);
+
     const contextValue = React.useMemo<HighlightContextType>(() => ({
         activeValue,
         setActiveValue,
@@ -273,19 +287,6 @@ function Highlight({
             >
                 {/* Parent mode: Single indicator with location-based clipping */}
                 {mode === 'parent' && (() => {
-                    // Determine if active item is inside the scroll container
-                    // If inside → apply clip-path (clips with scroll)
-                    // If outside (footer) → no clip-path
-                    let isActiveInScrollContainer = false;
-                    if (scrollContainerRef?.current && containerRef.current && activeValue) {
-                        const activeEl = containerRef.current.querySelector<HTMLElement>(
-                            `[data-highlight-value="${activeValue}"]`
-                        );
-                        if (activeEl) {
-                            isActiveInScrollContainer = scrollContainerRef.current.contains(activeEl);
-                        }
-                    }
-
                     // Calculate clip-path only for items inside scroll container
                     let clipPath: string | undefined;
                     if (isActiveInScrollContainer && scrollClipBounds && bounds) {
@@ -375,9 +376,10 @@ function HighlightItem({
         mode,
         contextId,
         transition,
-        exitDelay,
         indicatorClassName,
         indicatorStyle,
+        hoverLeaveDelay,
+        hoverLeaveTimeoutRef,
     } = useHighlight();
 
     const isActive = activeValue === value;
@@ -440,9 +442,6 @@ function HighlightItem({
         return <>{children}</>;
     }
 
-    // Get hoverLeaveDelay and timeout ref from context
-    const { hoverLeaveDelay, hoverLeaveTimeoutRef } = useHighlight();
-
     const handlers = hover && !disabled
         ? {
             onMouseEnter: () => {
@@ -499,5 +498,5 @@ function HighlightItem({
     );
 }
 
-export { Highlight, HighlightItem, useHighlight };
+export { Highlight, HighlightItem };
 export type { HighlightProps, HighlightItemProps };

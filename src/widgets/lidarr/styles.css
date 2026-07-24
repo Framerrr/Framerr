@@ -1,0 +1,990 @@
+/* ============================================================================
+ * Lidarr WIDGET STYLES
+ * 
+ * Uses theme variables exclusively — no hardcoded colors.
+ * Supports both glass and flatten modes via theme utility classes.
+ * Prefix: ldr- (consistent with rdr-/qbt- pattern)
+ * ============================================================================ */
+
+/* ---- Widget Container ---- */
+
+.ldr-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    height: 100%;
+    overflow: hidden;
+    container-type: inline-size;
+    padding: clamp(6px, 2cqi, 14px);
+}
+
+/* ---- Header Chips (spec §2 consolidated Summary Bar) ---- */
+
+.ldr-header-chips {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.ldr-header-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Neutral overview stat (not an urgency signal) — theme accent instead of one
+ * of the release-type/severity tokens. */
+.ldr-header-chip--upcoming {
+    color: var(--text-secondary);
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.06));
+}
+
+.ldr-header-chip--premiere {
+    color: var(--cinema);
+    background: rgba(var(--cinema-rgb), 0.15);
+}
+
+.ldr-header-chip--missing {
+    color: var(--missing);
+    background: rgba(var(--missing-rgb), 0.15);
+}
+
+/* Borrows --physical (purple) rather than --cinema — matches Radarr's
+ * equivalent "upgrade" chip: visually distinct from the amber "premiering"
+ * chip on the same row even though the Needs Attention stripe uses amber
+ * for cutoff-unmet. */
+.ldr-header-chip--upgrade {
+    color: var(--physical);
+    background: rgba(var(--physical-rgb), 0.15);
+}
+
+.ldr-header-chip--downloading {
+    color: var(--digital);
+    background: rgba(var(--digital-rgb), 0.15);
+}
+
+/* ---- Divider (below header chips) ---- */
+
+.ldr-divider {
+    height: 1px;
+    background: var(--border-light);
+    margin: 0.1rem 0;
+    flex-shrink: 0;
+}
+
+/* ---- Body Layout ---- */
+
+.ldr-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    gap: 0.5rem;
+}
+
+/* Wide mode: side-by-side columns */
+.ldr-body--wide {
+    flex-direction: row;
+    overflow: hidden;
+    gap: 0;
+}
+
+/* Column base — upcoming column stays at natural height */
+.ldr-body-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex-shrink: 0;
+    gap: 0.5rem;
+}
+
+/* Last column (missing) fills remaining space in vertical mode */
+.ldr-body-col:last-child {
+    flex: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+
+/* Wide mode: upcoming column ~35% */
+.ldr-body-col--upcoming {
+    width: 35%;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-right: 1px solid var(--border-light);
+    padding-right: 0.5rem;
+}
+
+/* Wide mode: missing column ~60% */
+.ldr-body-col--missing {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-left: 0.5rem;
+    min-width: 0;
+}
+
+/* Section headers — consistent positioning in both columns */
+.ldr-section-header {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    padding: 0 0.15rem;
+    flex-shrink: 0;
+}
+
+/* ---- Upcoming Carousel: horizontal mini-scroll mode (default, stacked layout) ---- */
+
+.ldr-carousel {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.ldr-carousel-track {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-behavior: smooth;
+    padding: 2px;
+}
+
+.ldr-carousel-track::-webkit-scrollbar {
+    display: none;
+}
+
+.ldr-carousel-card {
+    position: relative;
+    flex-shrink: 0;
+    /* Larger 1:1 tiles so album + artist labels remain readable. */
+    width: clamp(120px, 22cqi, 180px);
+    aspect-ratio: 1 / 1;
+    border-radius: 0.35rem;
+    overflow: hidden;
+    scroll-snap-align: start;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+@media (hover: hover) {
+    .ldr-carousel-card:hover {
+        transform: scale(1.03);
+    }
+}
+
+.ldr-carousel-poster,
+.ldr-carousel-poster-placeholder {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+}
+
+.ldr-carousel-poster-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+}
+
+/* Text overlaid on the poster, bottom-anchored — same cinematic treatment as HeroCard. */
+.ldr-carousel-card-content {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.3rem;
+}
+
+.ldr-carousel-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--media-overlay-title);
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ldr-carousel-subtitle {
+    font-size: 0.62rem;
+    font-weight: 500;
+    color: var(--media-overlay-meta);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ldr-carousel-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: var(--widget-card-bg, rgba(0, 0, 0, 0.5));
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    backdrop-filter: blur(4px);
+}
+
+@media (hover: hover) {
+    .ldr-carousel:hover .ldr-carousel-btn {
+        opacity: 1;
+    }
+}
+
+.ldr-carousel-btn--left {
+    left: 4px;
+}
+
+.ldr-carousel-btn--right {
+    right: 4px;
+}
+
+/* ---- Upcoming Carousel: vertical row-list mode (column/wide layout only) ----
+ * A scrollable row list instead of a horizontal strip — fills the tall,
+ * narrow Upcoming column instead of leaving dead space below a short strip. */
+
+.ldr-carousel-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.ldr-carousel-row {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.4rem;
+    border-radius: 0.4rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+@media (hover: hover) {
+    .ldr-carousel-row:hover {
+        background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    }
+}
+
+.ldr-carousel-row-poster-wrap {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.ldr-carousel-row-poster,
+.ldr-carousel-row-poster-placeholder {
+    /* Modest bump over the old 48–72px rows — between original and stacked tiles */
+    width: clamp(64px, 13cqi, 96px);
+    aspect-ratio: 1 / 1;
+    border-radius: 0.35rem;
+    flex-shrink: 0;
+    object-fit: cover;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+}
+
+.ldr-carousel-row-poster-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+}
+
+.ldr-carousel-row-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ldr-carousel-row-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ldr-carousel-row-subtitle {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ldr-carousel-row-info .media-release-pill {
+    margin-top: 2px;
+}
+
+/* Pill + album-type badge on one baseline (Sonarr network sits mid-row; Lidarr
+ * keeps the type chip next to the date so they stay visually paired). */
+.ldr-carousel-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    margin-top: 2px;
+}
+
+.ldr-carousel-row-meta .media-release-pill {
+    margin-top: 0;
+    align-self: center;
+}
+
+/* ---- Premiere Badge (spec §2.3) ---- */
+
+.ldr-premiere-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 1;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--cinema);
+    color: var(--cinema-contrast);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+/* Smaller variant for mini-scroll cards/rows */
+.ldr-premiere-badge--sm {
+    top: 3px;
+    left: 3px;
+    padding: 1px 4px;
+    font-size: 0.5rem;
+    border-radius: 3px;
+}
+
+/* ---- Network Badge (spec §2.4) ---- */
+
+.ldr-network-badge {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--bg-hover);
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    /* Keep natural size so title/meta truncates first; parent clips at the
+     * info column edge so the badge never paints over the search button. */
+    flex-shrink: 0;
+}
+
+/* ---- Needs Attention (spec §2 severity-striped list) ---- */
+
+.ldr-attention-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.6rem 0.6rem 0.6rem 0.7rem;
+    border-radius: 0.4rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+@media (hover: hover) {
+    .ldr-attention-item:hover {
+        background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    }
+}
+
+/* Hairline between rows (not on the first) — sits in the small gap the list
+ * already puts between items, rather than needing its own reserved space. */
+.ldr-attention-item + .ldr-attention-item::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 12px;
+    right: 12px;
+    height: 1px;
+    background: var(--border-light);
+}
+
+/* Severity bar — inset from the row's top/bottom edges (rather than a
+ * full-height border) so consecutive rows' bars read as distinct marks
+ * instead of one continuous line down the side. */
+.ldr-attention-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 18%;
+    bottom: 18%;
+    width: 3px;
+    border-radius: 999px;
+    background: transparent;
+}
+
+.ldr-attention-item--missing::before {
+    background: var(--missing);
+}
+
+.ldr-attention-item--downloading::before {
+    background: var(--digital);
+}
+
+.ldr-attention-item--cutoff::before {
+    background: var(--cinema);
+}
+
+.ldr-attention-item--error::before {
+    background: var(--error);
+}
+
+.ldr-attention-item--warning::before {
+    background: var(--warning);
+}
+
+.ldr-attention-item--importing::before {
+    background: var(--info);
+}
+
+.ldr-attention-item--queued::before {
+    background: var(--text-secondary);
+}
+
+.ldr-attention-queue-label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    margin-top: 1px;
+}
+
+.ldr-attention-progress {
+    margin-top: 3px;
+    max-width: 140px;
+}
+
+.ldr-attention-progress-pct {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: var(--digital);
+    flex-shrink: 0;
+}
+
+.ldr-attention-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    color: var(--text-secondary);
+    font-size: 0.62rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+}
+
+.ldr-attention-action-btn:disabled {
+    cursor: default;
+    opacity: 0.85;
+}
+
+@media (hover: hover) {
+    .ldr-attention-action-btn:not(:disabled):hover {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+    }
+}
+
+/* ---- Missing List (Needs Attention row container + Preview Mode rows) ---- */
+
+.ldr-missing-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.ldr-missing-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.35rem;
+    border-radius: 0.35rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+@media (hover: hover) {
+    .ldr-missing-item:hover {
+        background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    }
+}
+
+.ldr-missing-item+.ldr-missing-item {
+    position: relative;
+}
+
+.ldr-missing-item+.ldr-missing-item::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: var(--border-light);
+}
+
+/* Scales with widget width in both layouts — same clamp+cqi pattern as the
+ * Upcoming section's cards, tied to the widget's own inline-size so it's
+ * consistent whether Needs Attention is stacked full-width or a 60% column. */
+.ldr-missing-poster,
+.ldr-missing-poster-placeholder {
+    width: clamp(44px, 9cqi, 80px);
+    aspect-ratio: 1 / 1;
+    border-radius: 0.3rem;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+}
+
+.ldr-missing-poster-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    font-size: 0.65rem;
+}
+
+.ldr-missing-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    /* Clip meta/badge at the info column edge so they never paint over the
+     * search button; titles ellipsize first, album-type badge stays natural
+     * size until this container starts clipping it. */
+    overflow: hidden;
+}
+
+.ldr-missing-series {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ldr-missing-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* Shared ReleasePill sets align-self:flex-start; keep pill baseline with album-type badge. */
+.ldr-missing-meta .media-release-pill {
+    align-self: center;
+}
+
+.ldr-missing-episode {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---- Load More Button ---- */
+
+.ldr-load-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    font-size: 0.7rem;
+    color: var(--accent);
+    cursor: pointer;
+    border: none;
+    background: none;
+    border-radius: 0.35rem;
+    transition: background 0.15s ease;
+    width: 100%;
+    flex-shrink: 0;
+}
+
+@media (hover: hover) {
+    .ldr-load-more:hover {
+        background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    }
+}
+
+.ldr-load-more:disabled {
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+}
+
+/* ---- User View Grid ---- */
+
+.ldr-poster-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 0.5rem;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 2px;
+}
+
+.ldr-poster-card {
+    border-radius: 0.5rem;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+@media (hover: hover) {
+    .ldr-poster-card:hover {
+        transform: scale(1.03);
+    }
+}
+
+/* ---- Container Query Responsiveness ---- */
+
+@container (max-width: 250px) {
+    .ldr-header-chip {
+        font-size: 0.68rem;
+        padding: 2px 8px;
+    }
+}
+
+@container (min-width: 600px) {
+    .ldr-poster-grid {
+        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    }
+}
+
+/* ---- Also Upcoming Section (modal) ---- */
+
+.ldr-modal-also-upcoming {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.ldr-modal-section-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+}
+
+.ldr-modal-upcoming-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.ldr-modal-upcoming-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    font-size: 0.75rem;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.05));
+}
+
+.ldr-modal-upcoming-item:last-child {
+    border-bottom: none;
+}
+
+.ldr-modal-upcoming-code {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.ldr-modal-upcoming-title {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ldr-modal-upcoming-date {
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+}
+
+/* ---- Modal Season Progress (spec §2.5, modal info view) ---- */
+
+.ldr-modal-season-progress {
+    position: relative;
+    width: 100%;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.08));
+    overflow: hidden;
+}
+
+.ldr-modal-season-progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--lidarr);
+}
+
+/* ---- Footer Actions ---- */
+
+.ldr-modal-footer-actions {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%;
+    justify-content: flex-end;
+}
+
+/* Auto-search spin animation */
+.ldr-spin-icon svg:first-child {
+    animation: ldr-spin 0.8s linear infinite;
+}
+
+@keyframes ldr-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Action button state colors */
+.ldr-success-btn {
+    color: var(--success) !important;
+    border-color: var(--success) !important;
+}
+
+.ldr-error-btn {
+    color: var(--error) !important;
+    border-color: var(--error) !important;
+}
+
+/* ---- Modal Searching View ---- */
+
+.ldr-modal-searching {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    flex: 1;
+    height: 100%;
+}
+
+.ldr-modal-searching-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* ---- Modal Results View ---- */
+
+.ldr-modal-results {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+    height: 100%;
+}
+
+.ldr-modal-results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 1.5rem;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    flex-shrink: 0;
+}
+
+.ldr-modal-results-count {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+}
+
+.ldr-modal-results-error {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    color: var(--error);
+    font-size: 0.8rem;
+}
+
+.ldr-modal-results-empty {
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+}
+
+/* ---- Release List ---- */
+
+.ldr-release-list {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    padding: 0 1.5rem;
+}
+
+.ldr-release-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+}
+
+.ldr-release-item:last-child {
+    border-bottom: none;
+}
+
+.ldr-release-actions {
+    display: flex;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.ldr-release-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.ldr-release-title {
+    font-size: 0.75rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+}
+
+.ldr-release-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+    flex-wrap: wrap;
+}
+
+.ldr-release-quality {
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: var(--accent-bg, rgba(var(--accent-rgb, 59, 130, 246), 0.15));
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+}
+
+.ldr-release-seeders {
+    color: var(--success);
+}
+
+.ldr-release-no-seeders {
+    color: var(--error);
+}
+
+.ldr-release-indexer {
+    color: var(--text-secondary);
+}
+
+.ldr-release-rejections {
+    font-size: 0.6rem;
+    color: var(--error);
+    opacity: 0.8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ---- Grab Button ---- */
+
+.ldr-grab-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 0.35rem;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    background: var(--widget-card-bg, rgba(255, 255, 255, 0.04));
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+}
+
+@media (hover: hover) {
+    .ldr-grab-btn:hover:not(:disabled) {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+    }
+}
+
+.ldr-grab-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.ldr-grab-btn--success {
+    color: var(--success) !important;
+    border-color: var(--success) !important;
+    opacity: 1 !important;
+}
+
+.ldr-grab-btn--override {
+    border-style: dashed;
+}

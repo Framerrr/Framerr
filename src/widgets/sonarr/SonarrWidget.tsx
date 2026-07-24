@@ -11,7 +11,8 @@ import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { CalendarDays, AlertTriangle, Circle, ArrowUpCircle, Download, MonitorPlay } from 'lucide-react';
 import { WidgetStateMessage } from '../../shared/widgets';
 import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
-import { useAuth } from '../../context/AuthContext';
+import { useRetryPoll } from '../../shared/widgets/hooks';
+import { useAuth } from '../../context/useAuth';
 import { isAdmin } from '../../utils/permissions';
 import { useSonarrData } from './hooks/useSonarrData';
 import { getPremiereType } from './hooks/sonarrDisplayState';
@@ -86,6 +87,8 @@ interface AdminViewProps {
     showNetwork: boolean;
     showSeasonProgress: boolean;
     highlightPremieres: boolean;
+    showMissing: boolean;
+    showUpgrades: boolean;
 }
 
 function AdminView({
@@ -97,6 +100,8 @@ function AdminView({
     showNetwork,
     showSeasonProgress,
     highlightPremieres,
+    showMissing,
+    showUpgrades,
 }: AdminViewProps): React.JSX.Element {
     const [selectedEpisode, setSelectedEpisode] = useState<WantedEpisode | CalendarEpisode | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
@@ -108,12 +113,14 @@ function AdminView({
 
     const handleQuickSearch = useCallback((episodeId: number) => {
         return data.triggerAutoSearch([episodeId]);
-    }, [data.triggerAutoSearch]);
+    }, [data]);
 
     const fetchFirstPage = useCallback(() => {
-        data.refreshMissing();
-        data.refreshCutoff();
-    }, [data.refreshMissing, data.refreshCutoff]);
+        if (showMissing) data.refreshMissing();
+        if (showUpgrades) data.refreshCutoff();
+    }, [data, showMissing, showUpgrades]);
+
+    const showNeedsAttention = showMissing || showUpgrades;
 
     // ResizeObserver for auto layout detection (same pattern as Overseerr)
     const [containerSize, setContainerSize] = useState({ w: 0, h: 0 });
@@ -137,8 +144,10 @@ function AdminView({
         || (configViewMode === 'auto' && containerSize.w > containerSize.h && containerSize.w > 0);
 
     const upcomingCount = data.upcoming.length;
-    const missingCount = data.missingCounts?.missingCount ?? 0;
-    const cutoffUnmetCount = data.missingCounts?.cutoffUnmetCount ?? 0;
+    const missingCount = showMissing ? (data.missingCounts?.missingCount ?? 0) : 0;
+    const cutoffUnmetCount = showUpgrades ? (data.missingCounts?.cutoffUnmetCount ?? 0) : 0;
+    const visibleMissingEpisodes = showMissing ? data.missingEpisodes : [];
+    const visibleCutoffEpisodes = showUpgrades ? data.cutoffEpisodes : [];
 
     // Consolidated summary bar (matches Radarr's shipped `.rdr-header-chips`
     // pattern) — "upcoming" always shows (even at 0); the rest are urgency
@@ -214,28 +223,30 @@ function AdminView({
                     </div>
                 )}
 
-                {/* Needs Attention Column */}
-                <div className={`snr-body-col ${isWide ? 'snr-body-col--missing' : ''}`}>
-                    <div className="snr-section-header">Needs Attention</div>
-                    <MissingList
-                        missingEpisodes={data.missingEpisodes}
-                        cutoffEpisodes={data.cutoffEpisodes}
-                        integrationId={integrationId}
-                        missingLoading={data.missingLoading}
-                        cutoffLoading={data.cutoffLoading}
-                        missingHasMore={data.missingHasMore}
-                        cutoffHasMore={data.cutoffHasMore}
-                        onLoadMoreMissing={data.loadMoreMissing}
-                        onLoadMoreCutoff={data.loadMoreCutoff}
-                        onEpisodeClick={handleEpisodeClick}
-                        onQuickSearch={handleQuickSearch}
-                        queueItems={data.queueItems}
-                        autoFetch
-                        fetchFirstPage={fetchFirstPage}
-                        showNetwork={showNetwork}
-                        userIsAdmin={userIsAdmin}
-                    />
-                </div>
+                {/* Needs Attention Column — optional via config (missing / upgrades) */}
+                {showNeedsAttention && (
+                    <div className={`snr-body-col ${isWide ? 'snr-body-col--missing' : ''}`}>
+                        <div className="snr-section-header">Needs Attention</div>
+                        <MissingList
+                            missingEpisodes={visibleMissingEpisodes}
+                            cutoffEpisodes={visibleCutoffEpisodes}
+                            integrationId={integrationId}
+                            missingLoading={showMissing && data.missingLoading}
+                            cutoffLoading={showUpgrades && data.cutoffLoading}
+                            missingHasMore={showMissing && data.missingHasMore}
+                            cutoffHasMore={showUpgrades && data.cutoffHasMore}
+                            onLoadMoreMissing={data.loadMoreMissing}
+                            onLoadMoreCutoff={data.loadMoreCutoff}
+                            onEpisodeClick={handleEpisodeClick}
+                            onQuickSearch={handleQuickSearch}
+                            queueItems={data.queueItems}
+                            autoFetch
+                            fetchFirstPage={fetchFirstPage}
+                            showNetwork={showNetwork}
+                            userIsAdmin={userIsAdmin}
+                        />
+                    </div>
+                )}
             </div>
 
             {/* Episode Detail Modal */}
@@ -266,18 +277,18 @@ interface SonarrConfig {
     showNetwork?: boolean;
     showSeasonProgress?: boolean;
     highlightPremieres?: boolean;
+    showMissing?: boolean;
+    showUpgrades?: boolean;
     [key: string]: unknown;
 }
 
 export type SonarrWidgetProps = WidgetProps;
 
 const SonarrWidget = ({ widget, previewMode = false }: SonarrWidgetProps): React.JSX.Element => {
-    // Preview mode: skip all data fetching and show mock data
     if (previewMode) {
         return <PreviewMode />;
     }
 
-    // Get auth state to determine admin status
     const { user } = useAuth();
     const userIsAdmin = isAdmin(user);
 
@@ -286,25 +297,29 @@ const SonarrWidget = ({ widget, previewMode = false }: SonarrWidgetProps): React
     const configuredIntegrationId = config?.integrationId;
     const configViewMode = config?.viewMode ?? 'auto';
     const showStatsBar = config?.showStatsBar !== 'false';
-    const lookAheadDays = Number(config?.lookAheadDays ?? '7') || 7;
+    const lookAheadDaysRaw = config?.lookAheadDays ?? '30';
+    const lookAheadDays = lookAheadDaysRaw === 'all' ? 'all' : Number(lookAheadDaysRaw) || 30;
     const showNetwork = config?.showNetwork !== false;
     const showSeasonProgress = config?.showSeasonProgress !== false;
     const highlightPremieres = config?.highlightPremieres !== false;
+    const showMissing = config?.showMissing !== false;
+    const showUpgrades = config?.showUpgrades !== false;
 
     const {
         effectiveIntegrationId,
         effectiveDisplayName,
         status: accessStatus,
         loading: accessLoading,
-    } = useWidgetIntegration('sonarr', configuredIntegrationId, widget.id);
+    } = useWidgetIntegration('sonarr', configuredIntegrationId, previewMode ? undefined : widget.id);
 
     const integrationId = effectiveIntegrationId || undefined;
     const isIntegrationBound = !!integrationId;
+    const handleRetry = useRetryPoll(integrationId, 'sonarr');
 
     // Data hook — manages all SSE subscriptions and fetching
     const data = useSonarrData({
-        integrationId,
-        enabled: isIntegrationBound,
+        integrationId: previewMode ? undefined : integrationId,
+        enabled: !previewMode && isIntegrationBound,
         lookAheadDays,
     });
 
@@ -339,6 +354,7 @@ const SonarrWidget = ({ widget, previewMode = false }: SonarrWidgetProps): React
                 serviceName="Sonarr"
                 instanceName={isUnavailable ? effectiveDisplayName : undefined}
                 message={isUnavailable ? undefined : data.error}
+                onRetry={isUnavailable ? handleRetry : undefined}
             />
         );
     }
@@ -354,6 +370,8 @@ const SonarrWidget = ({ widget, previewMode = false }: SonarrWidgetProps): React
             showNetwork={showNetwork}
             showSeasonProgress={showSeasonProgress}
             highlightPremieres={highlightPremieres}
+            showMissing={showMissing}
+            showUpgrades={showUpgrades}
         />
     );
 };

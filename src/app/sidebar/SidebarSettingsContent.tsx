@@ -1,12 +1,12 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getLucideIcon } from '../../utils/iconUtils';
-import { useSharedSidebar } from './SharedSidebarContext';
+import { useSharedSidebar } from './context/useSharedSidebar';
 import { HighlightItem } from './Highlight';
 import { textSpring } from './types';
 import { getSettingsCategories, getVisibleChildren, getFirstVisibleChild } from '@/settings/navigation';
 import '@/settings/layout/SettingsLayout.css';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/useAuth';
 import { isAdmin } from '../../utils/permissions';
 
 /**

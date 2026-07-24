@@ -184,7 +184,6 @@ export const CacheSection: React.FC<CacheSectionProps> = ({
                                                 <FlushButton
                                                     isFlushing={flushingCache === `library-${integration.integrationId}`}
                                                     onClick={() => onFlushLibrary(integration.integrationId)}
-                                                    small
                                                 />
                                             </div>
                                         </td>
@@ -256,7 +255,6 @@ export const CacheSection: React.FC<CacheSectionProps> = ({
                                                 <FlushButton
                                                     isFlushing={flushingCache === `metric-history-${integration.integrationId}`}
                                                     onClick={() => onFlushMetricHistoryIntegration(integration.integrationId)}
-                                                    small
                                                 />
                                             </div>
                                         </td>
@@ -277,8 +275,7 @@ const FlushButton: React.FC<{
     onClick: () => void;
     disabled?: boolean;
     label?: React.ReactNode;
-    small?: boolean;
-}> = ({ isFlushing, onClick, disabled, label = 'Flush', small }) => (
+}> = ({ isFlushing, onClick, disabled, label = 'Flush' }) => (
     <Button
         variant="ghost"
         size="sm"

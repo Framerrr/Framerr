@@ -36,7 +36,7 @@ vi.mock('@/features/realtime/useRealtimeSSE', () => ({
 }));
 
 const mockUser = { id: '1', username: 'admin', displayName: 'Admin', role: 'admin' };
-vi.mock('@/context/AuthContext', () => ({
+vi.mock('@/context/useAuth', () => ({
     useAuth: () => ({
         user: mockUser,
         isAuthenticated: true,
@@ -79,7 +79,8 @@ vi.mock('@/api/endpoints/integrations', () => ({
 // IMPORTS (after mocks)
 // ============================================================================
 
-import { IntegrationDataProvider, useIntegrationData } from '../IntegrationDataProvider';
+import { IntegrationDataProvider } from '../IntegrationDataProvider';
+import { useIntegrationData } from '../useIntegrationData';
 import type { IntegrationDataContextValue } from '../IntegrationDataProvider';
 import { useIntegration } from '@/shared/hooks/useIntegration';
 
@@ -117,13 +118,9 @@ afterEach(() => {
 
 describe('BL-INT-1: Type contract', () => {
     it('useIntegrationData() provides integrations, integrationsLoaded, integrationsError', () => {
-        const assertHasField = <K extends keyof IntegrationDataContextValue>(_key: K): void => {
-            // Type-level assertion only
-        };
-
-        assertHasField('integrations');
-        assertHasField('integrationsLoaded');
-        assertHasField('integrationsError');
+        'integrations' satisfies keyof IntegrationDataContextValue;
+        'integrationsLoaded' satisfies keyof IntegrationDataContextValue;
+        'integrationsError' satisfies keyof IntegrationDataContextValue;
 
         expect(true).toBe(true);
     });

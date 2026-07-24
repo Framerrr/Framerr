@@ -1,7 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
-import { useLayout } from '../../../context/LayoutContext';
+import React, { createContext, useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
+import { useLayout } from '../../../context/useLayout';
 import { ExpandedGroups } from '../types';
-import { useSidebarTabs } from './SidebarTabsContext';
+import { useSidebarTabs } from './useSidebarTabs';
 import { configApi } from '../../../api/endpoints';
 import logger from '../../../utils/logger';
 
@@ -88,7 +88,7 @@ export function SidebarUIProvider({ children }: SidebarUIProviderProps) {
                 if (response?.preferences?.sidebarAutoHide) {
                     setIsSidebarHiddenState(true);
                 }
-            } catch (error) {
+            } catch {
                 logger.debug('Could not load sidebar preference');
             }
         };
@@ -213,22 +213,11 @@ export function SidebarUIProvider({ children }: SidebarUIProviderProps) {
     useEffect(() => {
         if (!isMobile || !isMobileMenuOpen) return undefined;
 
-        const scrollY = window.scrollY;
-        const scrollX = window.scrollX;
-
         const originalHtmlOverflow = document.documentElement.style.overflow;
         const originalHtmlOverscrollBehavior = document.documentElement.style.overscrollBehavior;
         const originalBodyOverflow = document.body.style.overflow;
-        const originalBodyPosition = document.body.style.position;
-        const originalBodyTop = document.body.style.top;
-        const originalBodyLeft = document.body.style.left;
-        const originalBodyRight = document.body.style.right;
-        const originalBodyWidth = document.body.style.width;
         const originalTouchAction = document.body.style.touchAction;
         const originalBodyOverscrollBehavior = document.body.style.overscrollBehavior;
-
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
-            (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
 
         document.documentElement.style.overflow = 'hidden';
         document.documentElement.style.overscrollBehavior = 'none';
@@ -337,14 +326,6 @@ export function SidebarUIProvider({ children }: SidebarUIProviderProps) {
             {children}
         </SidebarUIContext.Provider>
     );
-}
-
-export function useSidebarUI() {
-    const context = useContext(SidebarUIContext);
-    if (!context) {
-        throw new Error('useSidebarUI must be used within SidebarUIProvider');
-    }
-    return context;
 }
 
 export { SidebarUIContext };

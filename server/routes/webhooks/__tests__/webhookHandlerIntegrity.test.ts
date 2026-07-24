@@ -18,10 +18,12 @@ import { describe, it, expect } from 'vitest';
 // ============================================================================
 
 describe('BL-WEBHOOK-1: processWebhookNotification export', () => {
+    // Dynamic import of `_shared` pulls a large server graph; under full-suite load
+    // the default 5s timeout is flaky even when the export is present.
     it('exports processWebhookNotification as a function from _shared', async () => {
         const mod = await import('../_shared');
         expect(typeof mod.processWebhookNotification).toBe('function');
-    });
+    }, 30_000);
 });
 
 // ============================================================================

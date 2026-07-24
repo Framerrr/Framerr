@@ -11,10 +11,9 @@
  * Non-idle states display as disabled buttons with status-appropriate colors.
  */
 
-import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '../../../shared/ui';
-import type { RequestButtonState, OverseerrMediaResult } from '../types';
-import type { OverseerrServers } from '../hooks/useOverseerrRequest';
+import type { RequestButtonState } from '../types';
 
 interface RequestButtonProps {
     state: RequestButtonState;
@@ -115,37 +114,5 @@ export function RequestButton({ state, onClick, className = '' }: RequestButtonP
                     Request
                 </Button>
             );
-    }
-}
-
-// ============================================================================
-// HELPER: Determine initial button state from Overseerr mediaInfo
-// ============================================================================
-
-export function getInitialRequestState(item: OverseerrMediaResult): RequestButtonState {
-    if (!item.mediaInfo) return 'idle';
-
-    const { status, requestedSeasonCount, totalSeasonCount } = item.mediaInfo;
-
-    // TV shows: use enriched per-season counts for accuracy
-    if (item.mediaType === 'tv') {
-        if (status === 5) return 'available';
-        // If backend provided season counts, check if ALL seasons are covered
-        if (requestedSeasonCount !== undefined && totalSeasonCount !== undefined && totalSeasonCount > 0) {
-            if (requestedSeasonCount >= totalSeasonCount) return 'requested';
-        }
-        // Partial or unknown — keep button active for more requests
-        return 'idle';
-    }
-
-    // Movies: standard behavior
-    switch (status) {
-        case 2: // Pending
-        case 3: // Processing
-            return 'requested';
-        case 5: // Available
-            return 'available';
-        default:
-            return 'idle';
     }
 }

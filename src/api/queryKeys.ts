@@ -7,7 +7,7 @@
  * @see https://tanstack.com/query/latest/docs/framework/react/guides/query-keys
  */
 
-import type { IntegrationId, UserId, TemplateId, WidgetId } from './types';
+import type { IntegrationId, UserId, TemplateId } from './types';
 
 /**
  * Query key factory for the entire application.

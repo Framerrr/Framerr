@@ -1,7 +1,7 @@
 /**
  * StatsSummary - Compact inline library stats strip (movies/shows/plays/watch time).
  *
- * See docs/WIDGET_REDESIGN_MEDIA.md §4.2.
+ * See docs/private/widgets/WIDGET_REDESIGN_MEDIA.md §4.2.
  */
 
 import React, { useRef, useCallback } from 'react';

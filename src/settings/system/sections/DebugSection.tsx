@@ -37,8 +37,6 @@ export function DebugSection(): React.JSX.Element {
         setAutoRefresh,
 
         // Log Actions
-        confirmClear,
-        setConfirmClear,
         handleClearLogs,
         handleDownloadLogs,
 

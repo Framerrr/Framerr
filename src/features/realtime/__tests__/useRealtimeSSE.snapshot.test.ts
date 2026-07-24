@@ -35,8 +35,9 @@ const stableSnapshot = {
     disconnectedAt: null,
 };
 
-vi.mock('../../features/realtime', () => ({
-    subscribeToStore: (cb: () => void) => {
+// Must match the `@/features/realtime` import in useRealtimeSSE.ts (relative mock paths do not intercept).
+vi.mock('@/features/realtime', () => ({
+    subscribeToStore: () => {
         return () => { };
     },
     getSnapshot: () => stableSnapshot,

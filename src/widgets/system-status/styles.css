@@ -2,8 +2,8 @@
  * System Status Widget - 4-Column Priority Grid
  *
  * Uses CSS container queries for adaptive layout.
+ * Soft 2-column remap ~220–319px (keeps span-2 pairs); hard stack under ~220px.
  * Card tiles with neutral themed styling.
- * Collapses to single column at narrow widths.
  */
 
 /* Container setup */
@@ -468,8 +468,32 @@
 /* In stacked mode, vertical cards (uptime) stay stacked at all widths.
    Height-based container queries below handle the short widget case. */
 
-/* ===== NARROW COLLAPSE: < 280px width → single column ===== */
-@container system-status (max-width: 279px) {
+/* ===== NARROW WIDTH: soft 2-col mid-band, hard stack when too tight =====
+ *
+ * Mid band (~220–319px): remap to 2 columns so span-2 pairs stay side-by-side
+ * (avoids the old ≤279px cliff that stacked while half the width sat empty).
+ * Below ~220px: full single column — two gauges/net pills no longer fit well.
+ * Explicit .system-status-grid--stacked still forces a single column at any width.
+ */
+@container system-status (max-width: 319px) and (min-width: 220px) {
+    .system-status-grid:not(.system-status-grid--stacked) {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* 4-col spans → 2-col equivalents */
+    .system-status-grid:not(.system-status-grid--stacked) .metric-card--span-1,
+    .system-status-grid:not(.system-status-grid--stacked) .metric-card--span-2 {
+        grid-column: span 1;
+    }
+
+    .system-status-grid:not(.system-status-grid--stacked) .metric-card--span-3,
+    .system-status-grid:not(.system-status-grid--stacked) .metric-card--span-4 {
+        grid-column: span 2;
+    }
+}
+
+/* Narrower than the soft band — full single column */
+@container system-status (max-width: 219px) {
     .system-status-grid {
         grid-template-columns: 1fr;
     }
@@ -925,12 +949,12 @@
     /* Text scales with the ring itself, not the full metric card */
     container-type: size;
     container-name: gauge;
-    /* Ring-local typography (bars keep widget-scoped tokens) */
-    --ss-value-size: clamp(0.62rem, 18cqmin, 1.15rem);
-    --ss-label-size: clamp(0.58rem, 12cqmin, 0.85rem);
-    --ss-icon-size: clamp(11px, 13cqmin, 15px);
-    --ss-label-gap: clamp(0.2rem, 3.5cqmin, 0.375rem);
-    --ss-stack-gap: clamp(0.2rem, 7cqmin, 0.55rem);
+    /* Ring-local typography — floors low enough that mid-width 2-up never clips */
+    --ss-value-size: clamp(0.5rem, 15cqmin, 1.15rem);
+    --ss-label-size: clamp(0.45rem, 10cqmin, 0.85rem);
+    --ss-icon-size: clamp(9px, 11cqmin, 15px);
+    --ss-label-gap: clamp(0.12rem, 2.5cqmin, 0.375rem);
+    --ss-stack-gap: clamp(0.08rem, 4cqmin, 0.45rem);
 }
 
 .metric-gauge__svg {
@@ -962,44 +986,46 @@
 .metric-gauge__center {
     position: absolute;
     z-index: 1;
-    /* Keep text clear of the stroke; scale padding with ring size */
-    /* Keep text clear of the stroke without starving the label area */
-    inset: clamp(14%, 17cqmin, 20%);
+    /* Slightly roomier hole so value + caption can shrink instead of clip */
+    inset: clamp(11%, 14cqmin, 18%);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--ss-stack-gap, clamp(0.2rem, 7cqmin, 0.55rem));
+    gap: var(--ss-stack-gap, clamp(0.08rem, 4cqmin, 0.45rem));
     text-align: center;
     pointer-events: none;
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .metric-gauge__value {
-    font-size: var(--ss-value-size, clamp(0.6rem, 17cqmin, 1.1rem));
+    font-size: var(--ss-value-size, clamp(0.5rem, 15cqmin, 1.15rem));
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: var(--text-primary);
-    line-height: 1.05;
+    line-height: 1;
     max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    min-width: 0;
+    white-space: nowrap;
+    /* Shrink to fit the hole — never ellipsis-clip mid-glyph */
+    overflow: visible;
 }
 
-/* Match bar-card label chrome; inherits shared --ss-* from .metric-card */
 .metric-gauge__caption {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--ss-label-gap, clamp(0.2rem, 3.5cqmin, 0.375rem));
-    font-size: var(--ss-label-size, clamp(0.55rem, 11cqmin, 0.8rem));
+    gap: var(--ss-label-gap, clamp(0.12rem, 2.5cqmin, 0.375rem));
+    font-size: var(--ss-label-size, clamp(0.45rem, 10cqmin, 0.85rem));
     font-weight: 500;
-    line-height: 1.3;
+    line-height: 1.1;
     color: var(--text-primary);
     max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    min-width: 0;
     white-space: nowrap;
+    overflow: visible;
 }
 
 .metric-gauge__caption svg {
@@ -1082,14 +1108,15 @@
     gap: 0.2rem;
 }
 
-/* Thin / auto-stacked widgets: tighten gauge chrome so % + title still fit */
-@container system-status (max-width: 279px) {
+/* Thin / auto mid-width widgets: tighten gauge chrome so % + title still fit */
+@container system-status (max-width: 319px) {
     .metric-card--gauge {
         padding: 0.15rem;
     }
 
     .metric-gauge__center {
-        gap: clamp(0.15rem, 5cqmin, 0.4rem);
+        inset: clamp(10%, 13cqmin, 16%);
+        gap: clamp(0.05rem, 3cqmin, 0.3rem);
     }
 
     .metric-card__gauge-caption {

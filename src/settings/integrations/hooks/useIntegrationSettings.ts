@@ -258,9 +258,15 @@ export function useIntegrationSettings(): UseIntegrationSettingsReturn {
 
         setSaving(true);
         try {
-            const { _instanceId, _displayName, _type, enabled, ...configWithoutMeta } = config as IntegrationConfig & {
+            const typedConfig = config as IntegrationConfig & {
                 _instanceId?: string; _displayName?: string; _type?: string
             };
+            const { _displayName, _type, enabled } = typedConfig;
+            const configWithoutMeta = { ...typedConfig } as Record<string, unknown>;
+            delete configWithoutMeta._instanceId;
+            delete configWithoutMeta._displayName;
+            delete configWithoutMeta._type;
+            delete configWithoutMeta.enabled;
 
             // Allow callers to override enabled (e.g., Save & Enable flow)
             const finalEnabled = overrides?.enabled ?? enabled;

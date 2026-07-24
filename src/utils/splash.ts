@@ -112,7 +112,6 @@ export async function signalAppReady(
 
     const splashTheme = window.__splashTheme || 'dark-pro';
     const splashStart = window.__splashStart || performance.now();
-    const elapsed = performance.now() - splashStart;
 
     // Check if theme needs to transition (airlock)
     const needsTransition = splashTheme !== targetTheme;

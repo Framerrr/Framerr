@@ -97,6 +97,7 @@ export const WidgetCard: React.FC<WidgetCardProps> = ({
             style={{
                 ...(fillContainer && { width: '100%', height: '100%', overflow: 'hidden' })
             }}
+            data-drag-surface={variant === 'modal' ? 'dashboard' : 'template'}
             {...gsDataAttrs}
         >
             {/* Header */}

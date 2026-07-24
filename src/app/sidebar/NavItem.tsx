@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { useSharedSidebar } from './SharedSidebarContext';
+import { useSharedSidebar } from './context/useSharedSidebar';
 import { indicatorSpring } from './types';
 
 interface NavItemProps {

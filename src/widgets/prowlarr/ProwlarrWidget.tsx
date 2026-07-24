@@ -9,14 +9,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { History, MessageSquareWarning, Search } from 'lucide-react';
 import { WidgetStateMessage } from '../../shared/widgets';
 import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
-import { useAuth } from '../../context/AuthContext';
+import { useRetryPoll } from '../../shared/widgets/hooks';
+import { useAuth } from '../../context/useAuth';
 import { isAdmin } from '../../utils/permissions';
 import { useProwlarrData } from './hooks/useProwlarrData';
 import SummaryBar from './components/SummaryBar';
 import HealthMessageBanner from './components/HealthMessageBanner';
 import IndexerListRow from './components/IndexerListRow';
 import ActivityPanel from './components/ActivityPanel';
-import TabBar, { type TabBarItem } from './components/TabBar';
+import { SlidingTabBar, type SlidingTabBarItem } from '../../shared/ui';
 import type { WidgetProps } from '../types';
 import type { ProwlarrIndexerHealth, ProwlarrSummary } from './prowlarr.types';
 import './styles.css';
@@ -29,7 +30,7 @@ interface ProwlarrWidgetConfig {
 
 type ProwlarrTabId = 'indexers' | 'activity' | 'messages';
 
-const BASE_TABS: TabBarItem[] = [
+const BASE_TABS: SlidingTabBarItem[] = [
     { id: 'indexers', label: 'Indexers', shortLabel: 'Index', icon: Search },
     { id: 'activity', label: 'Recent Activity', shortLabel: 'Activity', icon: History },
 ];
@@ -124,16 +125,17 @@ const ProwlarrWidget: React.FC<WidgetProps> = ({ widget, previewMode = false }) 
         effectiveDisplayName,
         status: accessStatus,
         loading: accessLoading,
-    } = useWidgetIntegration('prowlarr', configuredIntegrationId, widget.id);
+    } = useWidgetIntegration('prowlarr', configuredIntegrationId, previewMode ? undefined : widget.id);
 
     const integrationId = effectiveIntegrationId || undefined;
     const isIntegrationBound = !!integrationId;
+    const handleRetry = useRetryPoll(integrationId, 'prowlarr');
 
-    const data = useProwlarrData({ integrationId, enabled: isIntegrationBound });
+    const data = useProwlarrData({ integrationId: previewMode ? undefined : integrationId, enabled: !previewMode && isIntegrationBound });
 
     const hasMessages = data.healthMessages.length > 0;
 
-    const tabs = useMemo((): TabBarItem[] => {
+    const tabs = useMemo((): SlidingTabBarItem[] => {
         if (!hasMessages) return BASE_TABS;
         return [
             ...BASE_TABS,
@@ -148,7 +150,7 @@ const ProwlarrWidget: React.FC<WidgetProps> = ({ widget, previewMode = false }) 
 
     useEffect(() => {
         if (activeTab === 'messages' && !hasMessages) {
-            setActiveTab('indexers');
+            queueMicrotask(() => setActiveTab('indexers'));
         }
     }, [activeTab, hasMessages]);
 
@@ -171,12 +173,14 @@ const ProwlarrWidget: React.FC<WidgetProps> = ({ widget, previewMode = false }) 
     }
 
     if (data.error) {
+        const isUnavailable = data.error.includes('unavailable') || data.error.includes('Unable to reach');
         return (
             <WidgetStateMessage
-                variant="error"
+                variant={isUnavailable ? 'unavailable' : 'error'}
                 serviceName="Prowlarr"
-                instanceName={effectiveDisplayName}
-                message={data.error}
+                instanceName={isUnavailable ? effectiveDisplayName : undefined}
+                message={isUnavailable ? undefined : data.error}
+                onRetry={isUnavailable ? handleRetry : undefined}
             />
         );
     }
@@ -231,7 +235,7 @@ const ProwlarrWidget: React.FC<WidgetProps> = ({ widget, previewMode = false }) 
                 onTestAll={data.testAllIndexers}
             />
 
-            <TabBar
+            <SlidingTabBar
                 tabs={tabs}
                 activeId={activeTab}
                 onChange={(id) => setActiveTab(id as ProwlarrTabId)}

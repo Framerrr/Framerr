@@ -47,10 +47,14 @@ const sidebars = {
         'integrations/emby',
         'integrations/sonarr',
         'integrations/radarr',
+        'integrations/lidarr',
         'integrations/overseerr',
         'integrations/tautulli',
+        'integrations/prowlarr',
         'integrations/qbittorrent',
         'integrations/sabnzbd',
+        'integrations/adguard',
+        'integrations/pihole',
         'integrations/glances',
         'integrations/unraid',
         'integrations/uptime-kuma',
@@ -69,9 +73,12 @@ const sidebars = {
         'widgets/calendar',
         'widgets/sonarr',
         'widgets/radarr',
+        'widgets/lidarr',
         'widgets/overseerr',
         'widgets/tautulli',
+        'widgets/prowlarr',
         'widgets/downloads',
+        'widgets/dns-stats',
         'widgets/system-status',
         'widgets/service-status',
         'widgets/clock',
@@ -104,4 +111,3 @@ const sidebars = {
 };
 
 module.exports = sidebars;
-

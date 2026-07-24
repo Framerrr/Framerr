@@ -5,9 +5,11 @@
  * flatten toggle, and show header toggle.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Switch } from '../../../../shared/ui';
 import { getWidgetIconName } from '../../../../widgets/registry';
+import { resolveWidgetChrome } from '../../../../shared/widgets';
+import type { ChromeIntegrationRef } from '../../../../shared/widgets';
 import IconPicker from '../../../../components/IconPicker';
 import { Input } from '@/shared/ui';
 import { Settings } from 'lucide-react';
@@ -24,6 +26,7 @@ export interface DisplaySettingsProps {
     widgetType: string;
     schemas: Record<string, { name?: string; icon?: string; metrics?: { key: string }[] }> | undefined;
     metadataName: string | undefined;
+    integrations?: ChromeIntegrationRef[];
 }
 
 // ============================================================================
@@ -37,7 +40,20 @@ const DisplaySettings: React.FC<DisplaySettingsProps> = ({
     widgetType,
     schemas,
     metadataName,
+    integrations = [],
 }) => {
+    const chrome = useMemo(
+        () =>
+            resolveWidgetChrome({
+                widget: { type: widgetType, config },
+                schemas,
+                integrations,
+            }),
+        [widgetType, config, schemas, integrations]
+    );
+
+    const widgetDefaultIcon = getWidgetIconName(widgetType);
+
     return (
         <div className="space-y-4">
             <h4 className="text-sm font-medium text-theme-secondary flex items-center gap-2">
@@ -49,17 +65,14 @@ const DisplaySettings: React.FC<DisplaySettingsProps> = ({
             <div className="flex gap-2 items-end">
                 <div className="flex-shrink-0 self-end">
                     <IconPicker
-                        value={(config.customIcon as string) || (() => {
-                            // Resolution chain: customIcon → integration icon → widget default
-                            const integrationId = config.integrationId as string | undefined;
-                            if (integrationId) {
-                                const intType = integrationId.split('-')[0];
-                                const schemaIcon = schemas?.[intType]?.icon;
-                                if (schemaIcon) return schemaIcon;
-                            }
-                            return getWidgetIconName(widgetType);
-                        })()}
+                        value={chrome.iconName}
                         onChange={(iconName) => {
+                            // Picking the widget default icon resets override → derive again
+                            if (iconName === widgetDefaultIcon) {
+                                updateConfig('customIcon', undefined);
+                                updateConfig('iconOverridden', false);
+                                return;
+                            }
                             updateConfig('customIcon', iconName);
                             updateConfig('iconOverridden', true);
                         }}
@@ -69,9 +82,19 @@ const DisplaySettings: React.FC<DisplaySettingsProps> = ({
                 <div className="flex-1 min-w-0">
                     <Input
                         label="Widget Title"
-                        value={(config.title as string) ?? metadataName ?? ''}
+                        value={
+                            config.titleOverridden
+                                ? ((config.title as string) ?? '')
+                                : chrome.title
+                        }
                         onChange={(e) => {
-                            updateConfig('title', e.target.value);
+                            const next = e.target.value;
+                            if (!next.trim()) {
+                                updateConfig('title', undefined);
+                                updateConfig('titleOverridden', false);
+                                return;
+                            }
+                            updateConfig('title', next);
                             updateConfig('titleOverridden', true);
                         }}
                         placeholder={metadataName || 'Widget'}

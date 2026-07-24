@@ -9,7 +9,7 @@
  * - Config sync from external updates (e.g., config modal)
  */
 
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useMemo, useRef, useCallback } from 'react';
 import { LucideIcon } from 'lucide-react';
 import { Activity, Disc, Thermometer, Clock, HardDrive, ArrowUp, ArrowDown } from 'lucide-react';
 import type { StatusData } from '../types';
@@ -359,7 +359,7 @@ interface UseMetricConfigReturn {
     gridCssVars: Record<string, string>;
 }
 
-export function useMetricConfig({ widgetId, config, widgetH, showHeader, integrationType, statusData, schemaMetricKeys }: UseMetricConfigOptions): UseMetricConfigReturn {
+export function useMetricConfig({ config, widgetH, showHeader, integrationType, statusData, schemaMetricKeys }: UseMetricConfigOptions): UseMetricConfigReturn {
     // Get the metrics available for this integration type (schema-driven when available)
     const availableMetrics = useMemo(
         () => getMetricDefsForIntegration(integrationType, schemaMetricKeys),
@@ -512,7 +512,7 @@ export function useMetricConfig({ widgetId, config, widgetH, showHeader, integra
         }
 
         return base;
-    }, [localOrder, config, availableKeys, statusData, integrationType]);
+    }, [localOrder, config, availableKeys, statusData, hasSavedDiskLayout]);
 
     // Pack metrics into grid
     const allPackedMetrics = useMemo(() => packMetrics(visibleMetrics, localSpans), [visibleMetrics, localSpans]);

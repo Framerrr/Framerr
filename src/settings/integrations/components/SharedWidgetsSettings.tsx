@@ -11,7 +11,7 @@
  * - Per-widget management via WidgetShareCard
  */
 
-import React, { useState, useMemo, ChangeEvent } from 'react';
+import React, { useState, useMemo, useCallback, ChangeEvent } from 'react';
 import { Search, Share2, Loader2 } from 'lucide-react';
 import { Select, ConfirmButton } from '../../../shared/ui';
 import { SettingsPage, SettingsSection, EmptyState } from '../../../shared/ui/settings';
@@ -29,7 +29,7 @@ interface Integration {
 }
 
 // Category display order (matches Widget Gallery)
-const CATEGORY_ORDER = ['system', 'media', 'downloads', 'utility', 'other'];
+const CATEGORY_ORDER = ['system', 'media', 'management', 'utility', 'other'];
 
 const SharedWidgetsSettings: React.FC = () => {
     // React Query hooks for data
@@ -56,7 +56,7 @@ const SharedWidgetsSettings: React.FC = () => {
     // Extract data from query results
     const groups = usersAndGroups?.groups ?? [];
     const ungroupedUsers = usersAndGroups?.ungroupedUsers ?? [];
-    const widgetShares = allSharesData?.widgetShares ?? {};
+    const widgetShares = useMemo(() => allSharesData?.widgetShares ?? {}, [allSharesData]);
 
     // Get shareable widget types from registry (excludes isGlobal widgets)
     const shareableWidgets = useMemo(() => getShareableWidgets(), []);
@@ -66,11 +66,11 @@ const SharedWidgetsSettings: React.FC = () => {
     const categories = useMemo(() => ['all', ...Object.keys(widgetsByCategory)], [widgetsByCategory]);
 
     // Check if a widget has active shares
-    const hasActiveShares = (widgetType: string): boolean => {
+    const hasActiveShares = useCallback((widgetType: string): boolean => {
         const shares = widgetShares[widgetType];
         if (!shares) return false;
         return shares.userCount > 0 || shares.groupCount > 0 || shares.hasEveryoneShare;
-    };
+    }, [widgetShares]);
 
     // Filter widgets: must be shareable AND have active shares, then apply user filters
     const activeWidgets = useMemo(() => {
@@ -93,7 +93,7 @@ const SharedWidgetsSettings: React.FC = () => {
 
             return true;
         });
-    }, [shareableWidgets, widgetShares, searchTerm, selectedCategory]);
+    }, [shareableWidgets, searchTerm, selectedCategory, hasActiveShares]);
 
     // Group widgets by category for display
     const widgetsByDisplayCategory = useMemo(() => {

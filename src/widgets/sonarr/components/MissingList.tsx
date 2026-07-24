@@ -3,7 +3,7 @@
  *
  * Renders two logical groups (missing, then cutoff-unmet) as one seamless
  * list. Left-border stripe encodes severity per
- * docs/WIDGET_REDESIGN_MEDIA.md §2 — 7 possible values (5 from the shared
+ * docs/private/widgets/WIDGET_REDESIGN_MEDIA.md §2 — 7 possible values (5 from the shared
  * queue-severity resolver, plus plain 'missing'/'cutoff' when the episode
  * isn't currently in the download queue at all):
  * - Red: missing entirely — [Search] quick action

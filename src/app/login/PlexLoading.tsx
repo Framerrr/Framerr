@@ -31,7 +31,6 @@ const PlexLoading: React.FC = () => {
         const handleOAuth = async () => {
             const pinId = localStorage.getItem(PLEX_PIN_KEY);
             const authUrl = localStorage.getItem('plexOAuthUrl');
-            const origin = localStorage.getItem(PLEX_ORIGIN_KEY);
 
             logger.debug('[PlexLoading] Starting OAuth flow', {
                 hasPinId: !!pinId,
@@ -105,6 +104,7 @@ const PlexLoading: React.FC = () => {
         };
 
         handleOAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Mount-only OAuth initiation
     }, []);
 
     const sendResultToOpener = (

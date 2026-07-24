@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { Menu, ChevronLeft } from 'lucide-react';
-import { useLayout } from '@/context/LayoutContext';
+import { useLayout } from '@/context/useLayout';
 import { useSettingsNav } from '@/settings/navigation';
 import './SettingsLayout.css';
 
@@ -37,7 +37,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
     onToggleSidebar
 }) => {
     const { isMobile } = useLayout();
-    const { canGoBack, goBack, getBreadcrumbs, depth } = useSettingsNav();
+    const { goBack, getBreadcrumbs, depth } = useSettingsNav();
 
     // Track window width for narrow desktop detection
     const [windowWidth, setWindowWidth] = useState<number>(
@@ -49,11 +49,10 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
 
     // Use controlled or internal state
     const sidebarOpen = controlledSidebarOpen ?? internalSidebarOpen;
-    const toggleSidebar = onToggleSidebar ?? (() => setInternalSidebarOpen(prev => !prev));
+    const toggleSidebar = useMemo(() => onToggleSidebar ?? (() => setInternalSidebarOpen(prev => !prev)), [onToggleSidebar]);
 
     // Determine layout mode
     const isNarrowDesktop = !isMobile && windowWidth <= NARROW_DESKTOP_MAX;
-    const isWideDesktop = !isMobile && windowWidth > NARROW_DESKTOP_MAX;
 
     // Track window resize
     useEffect(() => {
@@ -77,6 +76,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({
         if (isNarrowDesktop && sidebarOpen) {
             queueMicrotask(() => setInternalSidebarOpen(false));
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Effect closes sidebar only on nav depth change
     }, [depth]); // Close when navigation depth changes
 
     // Get breadcrumbs for header

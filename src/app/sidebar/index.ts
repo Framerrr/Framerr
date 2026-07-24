@@ -1,5 +1,6 @@
 // Sidebar components barrel exports
-export { SharedSidebarProvider, useSharedSidebar, SharedSidebarContext, type SidebarMode } from './SharedSidebarContext';
+export { SharedSidebarProvider, SharedSidebarContext, type SidebarMode } from './context/SharedSidebarContext';
+export { useSharedSidebar } from './context/useSharedSidebar';
 // Sub-context exports for focused access
 export { useSidebarUI, useSidebarTabs, useSidebarNavigation } from './context';
 export { NavItem } from './NavItem';

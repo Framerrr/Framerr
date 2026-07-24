@@ -13,7 +13,6 @@ import { ApiError } from '@/api/errors';
 import type {
     IntegrationsState,
     TestState,
-    IntegrationConfig,
 } from '../types';
 
 export interface UseConnectionTestingProps {
@@ -49,7 +48,10 @@ export function useConnectionTesting({ integrations }: UseConnectionTestingProps
 
         setTestStates(prev => ({ ...prev, [instanceId]: { loading: true } }));
         try {
-            const { _instanceId, _displayName, _type, enabled, ...configWithoutMeta } = config as IntegrationConfig & { _instanceId?: string; _displayName?: string; _type?: string };
+            const configWithoutMeta = { ...config } as Record<string, unknown>;
+            delete configWithoutMeta._instanceId;
+            delete configWithoutMeta._displayName;
+            delete configWithoutMeta._type;
 
             const result = await integrationsApi.testByConfig(type, configWithoutMeta, instanceId.startsWith('new-') ? undefined : instanceId);
 

@@ -39,7 +39,7 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
     const [uploadSearch, setUploadSearch] = useState<string>('');
     const [systemCollapsed, setSystemCollapsed] = useState<boolean>(false);
     const [userCollapsed, setUserCollapsed] = useState<boolean>(false);
-    const [triggerWidth, setTriggerWidth] = useState<number>(0);
+    const [, setTriggerWidth] = useState<number>(0);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const { error: showError } = useNotifications();
 

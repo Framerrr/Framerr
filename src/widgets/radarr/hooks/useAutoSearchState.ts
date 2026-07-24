@@ -28,7 +28,9 @@ export function useAutoSearchState({
     const [state, setState] = useState<AutoSearchState>('idle');
     // Read inside `trigger` without recreating the callback on every state tick.
     const stateRef = useRef(state);
-    stateRef.current = state;
+    useEffect(() => {
+        stateRef.current = state;
+    }, [state]);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => () => {

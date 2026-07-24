@@ -21,12 +21,10 @@
 import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { renderHook } from '@testing-library/react';
-import {
-    SettingsAnimationProvider,
-    useSettingsAnimationClass,
-    useShouldAnimate,
-    useSettingsAnimation,
-} from '../SettingsAnimationContext';
+import { SettingsAnimationProvider } from '../SettingsAnimationContext';
+import { useShouldAnimate } from '../useSettingsAnimation';
+import { useSettingsAnimationClass } from '../useSettingsAnimation';
+import { useSettingsAnimation } from '../useSettingsAnimation';
 
 // ---------------------------------------------------------------------------
 // Tests

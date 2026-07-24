@@ -88,7 +88,7 @@ export const LinkGridWidget: React.FC<LinkGridWidgetProps> = ({
     });
 
     // === Link Library Hook ===
-    const { data: libraryLinks = [], isLoading: _libraryLoading } = useLinkLibraryLinks();
+    const { data: libraryLinks = [] } = useLinkLibraryLinks();
     const deleteLibraryLink = useDeleteLibraryLink();
 
 

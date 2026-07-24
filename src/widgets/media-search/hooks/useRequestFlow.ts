@@ -7,7 +7,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useOverseerrRequest, needsModal, getDefaultServerId } from './useOverseerrRequest';
-import { getInitialRequestState } from '../components/RequestButton';
+import { getInitialRequestState } from '../components/requestButtonState';
 import { useNotification } from '@/shared/hooks/useNotification';
 import type { OverseerrMediaResult, RequestButtonState } from '../types';
 

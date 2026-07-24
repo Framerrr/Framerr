@@ -21,7 +21,7 @@ import MediaStreamWidget from '../MediaStreamWidget';
 import type { WidgetData } from '../../types';
 
 // Minimal mocks — preview mode early-returns before hooks
-vi.mock('../../../context/AuthContext', () => ({
+vi.mock('../../../context/useAuth', () => ({
     useAuth: () => ({ user: { role: 'admin' } }),
 }));
 vi.mock('../../../utils/permissions', () => ({ isAdmin: () => true }));

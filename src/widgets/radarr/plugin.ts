@@ -13,7 +13,7 @@ export const plugin: WidgetPlugin = {
     id: 'radarr',
     name: 'Radarr',
     description: 'Movie management and calendar',
-    category: 'media',
+    category: 'management',
     icon: Film,
     sizing: {
         default: { w: 6, h: 6 },
@@ -83,6 +83,15 @@ export const plugin: WidgetPlugin = {
                     { value: 'showCinema', label: 'Cinema', defaultValue: true },
                     { value: 'showDigital', label: 'Digital', defaultValue: true },
                     { value: 'showPhysical', label: 'Physical', defaultValue: true },
+                ],
+            },
+            {
+                key: 'attentionVisibility',
+                label: 'Needs Attention',
+                type: 'toggle-buttons',
+                choices: [
+                    { value: 'showMissing', label: 'Missing', defaultValue: true },
+                    { value: 'showUpgrades', label: 'Upgrades', defaultValue: true },
                 ],
             },
         ]

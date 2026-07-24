@@ -295,7 +295,9 @@ const TorrentDetailModal: React.FC<TorrentDetailModalProps> = ({
                     {!dataLoading && tab === 'overview' && (
                         <div className="qbt-detail-grid">
                             <span className="qbt-detail-label">Ratio</span>
-                            <span className="qbt-detail-value">×{(torrent.ratio || 0).toFixed(2)}</span>
+                            <span className="qbt-detail-value">
+                                ×{(props?.share_ratio ?? torrent.ratio ?? 0).toFixed(2)}
+                            </span>
 
                             <span className="qbt-detail-label">Seeds</span>
                             <span className="qbt-detail-value">

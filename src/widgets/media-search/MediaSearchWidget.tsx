@@ -67,7 +67,6 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
         isSearching,
         syncStatuses,
         allSyncing,
-        anySyncing,
         hasNoSyncedLibrary,
         search,
         clearResults,
@@ -170,6 +169,7 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
         });
 
         return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- SSE subscription must bind once
     }, [onSettingsInvalidate, refetchSyncStatuses, clearResults, previewMode]);
 
     // Clear stale results when integration bindings change (e.g. unbinding Plex in config modal)

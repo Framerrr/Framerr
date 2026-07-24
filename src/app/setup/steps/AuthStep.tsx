@@ -111,7 +111,7 @@ const AuthStep: React.FC<AuthStepProps> = ({
                 }
             }, 300000);
 
-        } catch (err) {
+        } catch {
             setPlexError('Failed to start Plex authentication');
             setPlexConnecting(false);
         }

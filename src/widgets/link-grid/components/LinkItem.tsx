@@ -29,7 +29,6 @@ export const LinkItem: React.FC<LinkItemProps> = ({
     cellSize,
     gridGap,
     editMode,
-    editingLinkId,
     onLinkClick
 }) => {
     // Local state for HTTP action execution

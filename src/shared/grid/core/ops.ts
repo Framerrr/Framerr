@@ -22,7 +22,6 @@ import type {
     Breakpoint,
     ChangeDetectionOptions,
     GetConstraintsFn,
-    WidgetConstraints,
 } from './types';
 
 import logger from '../../../utils/logger';

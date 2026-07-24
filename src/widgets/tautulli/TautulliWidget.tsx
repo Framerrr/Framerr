@@ -3,14 +3,15 @@ import { BarChart3, Film, History, Tv, Users } from 'lucide-react';
 import { WidgetStateMessage } from '../../shared/widgets';
 import { useWidgetIntegration } from '../../shared/widgets/hooks/useWidgetIntegration';
 import { useIntegrationSSE } from '../../shared/widgets/hooks/useIntegrationSSE';
-import { useAuth } from '../../context/AuthContext';
+import { useRetryPoll } from '../../shared/widgets/hooks';
+import { useAuth } from '../../context/useAuth';
 import { isAdmin } from '../../utils/permissions';
 import type { WidgetProps } from '../types';
 import type { TautulliLibrary, TautulliStatCategory, TautulliRecentItem, TautulliConfig } from './tautulli.types';
 import { useTautulliStats } from './hooks/useTautulliStats';
 import StatsSummary from './components/StatsSummary';
 import TabPanel, { type TabPanelRow } from './components/TabPanel';
-import TabBar, { type TabBarItem } from './components/TabBar';
+import { SlidingTabBar, type SlidingTabBarItem } from '../../shared/ui';
 import { formatCount, formatStatSubtitle, formatTimeAgo, tautulliArtByRatingKey, tautulliImageUrl } from './utils';
 import './styles.css';
 
@@ -70,7 +71,7 @@ const PREVIEW_RECENT: TautulliRecentItem[] = [
 
 type TautulliTabId = 'recent' | 'movies' | 'tv' | 'users';
 
-const TABS: TabBarItem[] = [
+const TABS: SlidingTabBarItem[] = [
     { id: 'recent', label: 'Recently Added', shortLabel: 'Recent', icon: History },
     { id: 'movies', label: 'Top Movies', shortLabel: 'Movies', icon: Film },
     { id: 'tv', label: 'Top TV', shortLabel: 'TV', icon: Tv },
@@ -158,6 +159,32 @@ function statsToRows(
     });
 }
 
+const PREVIEW_ITEM_COUNT = resolveListItemCount(undefined);
+
+function TautulliPreview(): React.JSX.Element {
+    return (
+        <div className="tautulli-widget">
+            <StatsSummary libraries={PREVIEW_LIBRARIES} />
+            <div className="tautulli-divider" />
+            <div className="tautulli-content">
+                <SlidingTabBar
+                    tabs={TABS}
+                    activeId="recent"
+                    onChange={() => { /* preview: tabs are non-interactive */ }}
+                    aria-label="Tautulli sections"
+                />
+                <div className="tautulli-tab-body" role="tabpanel">
+                    <TabPanel
+                        rows={recentToRows(PREVIEW_RECENT)}
+                        listLimit={PREVIEW_ITEM_COUNT}
+                        emptyLabel="No recently added items"
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ============================================================================
 // MAIN WIDGET COMPONENT
 // ============================================================================
@@ -165,6 +192,9 @@ function statsToRows(
 export type TautulliWidgetProps = WidgetProps;
 
 const TautulliWidget = ({ widget, previewMode = false }: TautulliWidgetProps): React.JSX.Element => {
+    if (previewMode) {
+        return <TautulliPreview />;
+    }
 
     // ---- Auth & access ----
     const { user } = useAuth();
@@ -187,6 +217,7 @@ const TautulliWidget = ({ widget, previewMode = false }: TautulliWidgetProps): R
 
     const integrationId = effectiveIntegrationId || undefined;
     const isIntegrationBound = !!integrationId;
+    const handleRetry = useRetryPoll(integrationId, 'tautulli');
 
     // ---- SSE subscriptions ----
     const [libraries, setLibraries] = useState<TautulliLibrary[]>([]);
@@ -266,7 +297,7 @@ const TautulliWidget = ({ widget, previewMode = false }: TautulliWidgetProps): R
 
         return (
             <>
-                <TabBar
+                <SlidingTabBar
                     tabs={TABS}
                     activeId={activeTab}
                     onChange={(id) => setActiveTab(id as TautulliTabId)}
@@ -278,26 +309,6 @@ const TautulliWidget = ({ widget, previewMode = false }: TautulliWidgetProps): R
             </>
         );
     };
-
-    // ---- Preview mode ----
-    if (previewMode) {
-        return (
-            <div className="tautulli-widget">
-                <StatsSummary libraries={PREVIEW_LIBRARIES} />
-                <div className="tautulli-divider" />
-                <div className="tautulli-content">
-                    {renderTabs(
-                        recentToRows(PREVIEW_RECENT),
-                        statsToRows(PREVIEW_STATS, 'top_movies', undefined, 'content'),
-                        statsToRows(PREVIEW_STATS, 'top_tv', undefined, 'content'),
-                        statsToRows(PREVIEW_STATS, 'top_users', undefined, 'user'),
-                        false,
-                        null,
-                    )}
-                </div>
-            </div>
-        );
-    }
 
     // ---- Access state handling (after all hooks) ----
     if (accessLoading) return <WidgetStateMessage variant="loading" />;
@@ -313,7 +324,7 @@ const TautulliWidget = ({ widget, previewMode = false }: TautulliWidgetProps): R
 
     if (error) {
         const isUnavailable = error.includes('unavailable') || error.includes('Unable to reach');
-        return <WidgetStateMessage variant={isUnavailable ? 'unavailable' : 'error'} serviceName="Tautulli" instanceName={isUnavailable ? effectiveDisplayName : undefined} message={isUnavailable ? undefined : error} />;
+        return <WidgetStateMessage variant={isUnavailable ? 'unavailable' : 'error'} serviceName="Tautulli" instanceName={isUnavailable ? effectiveDisplayName : undefined} message={isUnavailable ? undefined : error} onRetry={isUnavailable ? handleRetry : undefined} />;
     }
 
     if (libraries.length === 0) {

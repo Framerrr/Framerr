@@ -8,7 +8,7 @@ import {
     computeGaugeAutoAdjustRow,
     resizePairedRow,
     canAcceptSwap,
-} from '../components/MetricLayoutEditor';
+} from '../components/metricLayoutMath';
 
 describe('Editor gauge width gating', () => {
     it('effectiveMinWidth returns 2 for gauge-configured eligible key, 1 otherwise', () => {
