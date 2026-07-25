@@ -23,6 +23,25 @@ vi.mock('../../db/userConfig', () => ({
     updateUserConfig: (...args: unknown[]) => mockUpdateUserConfig(...args),
 }));
 
+const mockListDashboards = vi.fn();
+const mockGetDashboard = vi.fn();
+const mockCreateDashboard = vi.fn();
+const mockSetDashboardPrefs = vi.fn();
+const mockUpdateDashboardMeta = vi.fn();
+vi.mock('../../db/dashboards', () => ({
+    listDashboards: (...args: unknown[]) => mockListDashboards(...args),
+    getDashboard: (...args: unknown[]) => mockGetDashboard(...args),
+    createDashboard: (...args: unknown[]) => mockCreateDashboard(...args),
+    setDashboardPrefs: (...args: unknown[]) => mockSetDashboardPrefs(...args),
+    updateDashboardMeta: (...args: unknown[]) => mockUpdateDashboardMeta(...args),
+}));
+
+vi.mock('../../database/db', () => ({
+    getDb: () => ({
+        prepare: () => ({ run: vi.fn() }),
+    }),
+}));
+
 const mockGetSystemConfig = vi.fn();
 vi.mock('../../db/systemConfig', () => ({
     getSystemConfig: (...args: unknown[]) => mockGetSystemConfig(...args),
@@ -192,7 +211,19 @@ describe('BL-BACKUP-1: Route Registration Matrix', () => {
         mockGetSystemConfig.mockResolvedValue({ backupSchedule: { enabled: true, frequency: 'daily', hour: 3, maxBackups: 5 } });
         mockGetSchedulerStatus.mockReturnValue({ nextBackup: new Date(), isRunning: false });
         mockUpdateBackupSchedule.mockResolvedValue(undefined);
-        mockGetUserConfig.mockResolvedValue({ dashboard: {}, tabs: {}, theme: {}, sidebar: {} });
+        mockGetUserConfig.mockResolvedValue({ tabs: [], theme: {}, sidebar: {} });
+        mockListDashboards.mockReturnValue({
+            dashboards: [{ id: 'd1', name: 'Dashboard', userId: 'admin-1', mobileLayoutMode: 'linked', position: 0, widgetCount: 0, createdAt: '', updatedAt: '' }],
+            homeDashboardId: 'd1',
+            rememberLastDashboard: false,
+        });
+        mockGetDashboard.mockReturnValue({
+            id: 'd1',
+            name: 'Dashboard',
+            widgets: [],
+            mobileLayoutMode: 'linked',
+            position: 0,
+        });
         mockGetAllUsers.mockResolvedValue([]);
         mockIsBackupEncryptionEnabled.mockReturnValue(false);
     });
@@ -301,7 +332,19 @@ describe('BL-BACKUP-2: Auth Guard Enforcement', () => {
             res.status(403).json({ error: 'Admin access required' });
         });
         // Default mock returns for routes that pass auth
-        mockGetUserConfig.mockResolvedValue({ dashboard: {}, tabs: {}, theme: {}, sidebar: {} });
+        mockGetUserConfig.mockResolvedValue({ tabs: [], theme: {}, sidebar: {} });
+        mockListDashboards.mockReturnValue({
+            dashboards: [{ id: 'd1', name: 'Dashboard', userId: 'admin-1', mobileLayoutMode: 'linked', position: 0, widgetCount: 0, createdAt: '', updatedAt: '' }],
+            homeDashboardId: 'd1',
+            rememberLastDashboard: false,
+        });
+        mockGetDashboard.mockReturnValue({
+            id: 'd1',
+            name: 'Dashboard',
+            widgets: [],
+            mobileLayoutMode: 'linked',
+            position: 0,
+        });
         mockUpdateUserConfig.mockResolvedValue({});
     });
 
@@ -458,5 +501,210 @@ describe('BL-BACKUP-3: Error Response Shape Parity', () => {
         const res = await request(app).delete('/api/backup/2026-01-01-safety-auto.framerr-backup');
         expect(res.status).toBe(403);
         expect(res.body).toHaveProperty('error');
+    });
+});
+
+// ============================================================================
+// Multi-dashboard JSON export/import (v2 + v1 compat)
+// ============================================================================
+
+describe('Backup user export/import v2 contract', () => {
+    let app: ReturnType<typeof createRegularUserApp>;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        app = createRegularUserApp();
+        mockRequireAuth.mockImplementation((_req: Request, _res: Response, next: NextFunction) => next());
+        mockGetUserConfig.mockResolvedValue({ tabs: [], theme: { mode: 'system' }, sidebar: { collapsed: false } });
+        mockListDashboards.mockReturnValue({
+            dashboards: [
+                {
+                    id: 'dash-home',
+                    name: 'Dashboard',
+                    userId: 'user-1',
+                    mobileLayoutMode: 'linked',
+                    position: 0,
+                    widgetCount: 1,
+                    createdAt: '',
+                    updatedAt: '',
+                },
+            ],
+            homeDashboardId: 'dash-home',
+            rememberLastDashboard: true,
+        });
+        mockGetDashboard.mockReturnValue({
+            id: 'dash-home',
+            name: 'Dashboard',
+            widgets: [{ id: 'w1', type: 'clock' }],
+            mobileLayoutMode: 'linked',
+            position: 0,
+        });
+        mockUpdateUserConfig.mockResolvedValue({});
+        mockCreateDashboard.mockReturnValue({ id: 'new-dash' });
+        mockSetDashboardPrefs.mockReturnValue({
+            homeDashboardId: 'new-dash',
+            rememberLastDashboard: false,
+        });
+    });
+
+    it('GET /export returns version 2.0 with dashboards array', async () => {
+        const res = await request(app).get('/api/backup/export');
+        expect(res.status).toBe(200);
+        expect(res.body.version).toBe('2.0');
+        expect(Array.isArray(res.body.data.dashboards)).toBe(true);
+        expect(res.body.data.dashboards[0].isHome).toBe(true);
+        expect(res.body.data.rememberLastDashboard).toBe(true);
+        expect(res.body.data.dashboard).toBeUndefined();
+    });
+
+    it('POST /import accepts v1 dashboard payload as dashboards replace', async () => {
+        const res = await request(app)
+            .post('/api/backup/import')
+            .send({
+                data: {
+                    dashboard: {
+                        widgets: [{ id: 'w1', type: 'stats' }],
+                        mobileLayoutMode: 'linked',
+                    },
+                },
+            });
+
+        expect(res.status).toBe(200);
+        expect(res.body.imported).toContain('dashboards');
+        expect(mockCreateDashboard).toHaveBeenCalled();
+    });
+
+    it('POST /import accepts v2 dashboards payload', async () => {
+        const res = await request(app)
+            .post('/api/backup/import')
+            .send({
+                data: {
+                    dashboards: [
+                        {
+                            name: 'Imported',
+                            widgets: [],
+                            mobileLayoutMode: 'linked',
+                            position: 0,
+                            isHome: true,
+                        },
+                    ],
+                    rememberLastDashboard: false,
+                },
+            });
+
+        expect(res.status).toBe(200);
+        expect(res.body.imported).toContain('dashboards');
+        expect(mockSetDashboardPrefs).toHaveBeenCalled();
+    });
+
+    it('GET /export serializes fixedDisplay per dashboard', async () => {
+        mockListDashboards.mockReturnValue({
+            dashboards: [
+                {
+                    id: 'dash-on',
+                    name: 'Kiosk',
+                    userId: 'user-1',
+                    icon: null,
+                    fixedDisplay: true,
+                    mobileLayoutMode: 'linked',
+                    position: 0,
+                    widgetCount: 0,
+                    createdAt: '',
+                    updatedAt: '',
+                },
+                {
+                    id: 'dash-off',
+                    name: 'Normal',
+                    userId: 'user-1',
+                    icon: null,
+                    fixedDisplay: false,
+                    mobileLayoutMode: 'linked',
+                    position: 1,
+                    widgetCount: 0,
+                    createdAt: '',
+                    updatedAt: '',
+                },
+            ],
+            homeDashboardId: 'dash-on',
+            rememberLastDashboard: true,
+        });
+        mockGetDashboard.mockImplementation((_userId: string, id: string) => ({
+            id,
+            name: id === 'dash-on' ? 'Kiosk' : 'Normal',
+            widgets: [],
+            mobileLayoutMode: 'linked',
+            position: id === 'dash-on' ? 0 : 1,
+            fixedDisplay: id === 'dash-on',
+        }));
+
+        const res = await request(app).get('/api/backup/export');
+        expect(res.status).toBe(200);
+        expect(res.body.data.dashboards[0].fixedDisplay).toBe(true);
+        expect(res.body.data.dashboards[1].fixedDisplay).toBe(false);
+    });
+
+    it('POST /import v2 passes fixedDisplay through to createDashboard', async () => {
+        await request(app)
+            .post('/api/backup/import')
+            .send({
+                data: {
+                    dashboards: [
+                        {
+                            name: 'Imported Kiosk',
+                            widgets: [],
+                            mobileLayoutMode: 'linked',
+                            position: 0,
+                            fixedDisplay: true,
+                        },
+                    ],
+                },
+            });
+
+        expect(mockCreateDashboard).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ fixedDisplay: true }),
+        );
+    });
+
+    it('POST /import v2 without fixedDisplay defaults false', async () => {
+        mockCreateDashboard.mockClear();
+        await request(app)
+            .post('/api/backup/import')
+            .send({
+                data: {
+                    dashboards: [
+                        {
+                            name: 'Imported',
+                            widgets: [],
+                            mobileLayoutMode: 'linked',
+                            position: 0,
+                        },
+                    ],
+                },
+            });
+
+        expect(mockCreateDashboard).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ fixedDisplay: false }),
+        );
+    });
+
+    it('POST /import v1 legacy defaults fixedDisplay false', async () => {
+        mockCreateDashboard.mockClear();
+        await request(app)
+            .post('/api/backup/import')
+            .send({
+                data: {
+                    dashboard: {
+                        widgets: [{ id: 'w1', type: 'stats' }],
+                        mobileLayoutMode: 'linked',
+                    },
+                },
+            });
+
+        expect(mockCreateDashboard).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ fixedDisplay: false }),
+        );
     });
 });

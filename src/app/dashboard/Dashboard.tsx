@@ -3,6 +3,7 @@ import { useAuth } from '../../context/useAuth';
 import { useLayout } from '../../context/useLayout';
 import { LAYOUT } from '../../constants/layout';
 import { useIntegrationSchemas, useRoleAwareIntegrations } from '../../api/hooks';
+import { useDashboards } from '../../api/hooks/useDashboards';
 import { useDashboardEdit } from '../../context/useDashboardEdit';
 import { useWalkthrough } from '../../features/walkthrough';
 import DevDebugOverlay from '@/app/dashboard/DevDebugOverlay';
@@ -28,6 +29,7 @@ import DashboardEmptyState from './components/DashboardEmptyState';
 import DashboardEditOverlay from './components/DashboardEditOverlay';
 import DashboardModalStack from './components/DashboardModalStack';
 import { createRenderWidget } from './helpers/renderWidget';
+import { DashboardSurfaceProvider } from './DashboardSurfaceContext';
 
 
 /**
@@ -40,7 +42,14 @@ import { createRenderWidget } from './helpers/renderWidget';
  * - useDashboardEffects: Standalone effects (events, splash, debug)
  */
 
-const Dashboard = (): React.JSX.Element => {
+const Dashboard = ({
+    dashboardId,
+    isActive = true,
+}: {
+    dashboardId: string;
+    /** False when keep-alive mounted but not the visible surface (pauses SSE). */
+    isActive?: boolean;
+}): React.JSX.Element => {
     const { user } = useAuth();
     const { isMobile } = useLayout();
     const { error: showError } = useNotifications();
@@ -89,6 +98,7 @@ const Dashboard = (): React.JSX.Element => {
     // ========== DATA HOOK ==========
     const dataHook = useDashboardData({
         user,
+        dashboardId,
         setInitialData,
     });
 
@@ -128,6 +138,7 @@ const Dashboard = (): React.JSX.Element => {
 
     // ========== HANDLERS HOOK ==========
     const handlersHook = useDashboardHandlers({
+        dashboardId,
         widgets,
         mobileWidgets,
         layouts,
@@ -209,7 +220,7 @@ const Dashboard = (): React.JSX.Element => {
         return getLoadingMessage(user?.displayName || user?.username || 'User');
     }, [loadingMessagesEnabled, user?.displayName, user?.username]);
 
-    const { squareCells } = useDashboardEffects({
+    useDashboardEffects({
         editMode,
         isMobile,
         widgets,
@@ -224,6 +235,9 @@ const Dashboard = (): React.JSX.Element => {
         setWidgetPixelSizes,
         fetchWidgets,
     });
+
+    const { data: dashboardsData } = useDashboards();
+    const fixedDisplay = dashboardsData?.dashboards.find(d => d.id === dashboardId)?.fixedDisplay ?? false;
 
     // ========== AUTO-SCROLL HOOK ==========
     const {
@@ -266,8 +280,9 @@ const Dashboard = (): React.JSX.Element => {
     const isEmpty = displayWidgets.length === 0;
 
     return (
+        <DashboardSurfaceProvider dashboardId={dashboardId} isActive={isActive}>
         <div
-            className={`w-full min-h-full max-w-[2000px] mx-auto fade-in p-2 md:p-4 ${editMode ? 'dashboard-edit-mode' : ''}`}
+            className={`w-full min-h-full fade-in ${fixedDisplay ? 'p-2' : 'max-w-[2000px] mx-auto p-2 md:p-4'} ${editMode ? 'dashboard-edit-mode' : ''}`}
             style={{ alignSelf: 'flex-start' }}
         >
             {/* Mobile pull-to-refresh — disabled during edit mode */}
@@ -360,7 +375,7 @@ const Dashboard = (): React.JSX.Element => {
                     debugOverlayEnabled={debugOverlayEnabled}
                     mobileLayoutMode={mobileLayoutMode}
                     pendingUnlink={pendingUnlink}
-                    squareCells={squareCells}
+                    fixedDisplay={fixedDisplay}
                     emptyOverlay={isEmpty ? (
                         <DashboardEmptyState onAddWidget={handleAddWidget} />
                     ) : undefined}
@@ -429,6 +444,7 @@ const Dashboard = (): React.JSX.Element => {
                         resume: walkthrough.resume,
                         skip: walkthrough.skip,
                     } : null,
+                    fixedDisplay,
                 }}
                 setEditMode={setEditMode}
                 setMobileDisclaimerDismissed={setMobileDisclaimerDismissed}
@@ -437,6 +453,7 @@ const Dashboard = (): React.JSX.Element => {
             {/* Bottom Spacer */}
             <div style={{ height: isMobile ? LAYOUT.TABBAR_HEIGHT + LAYOUT.PAGE_MARGIN : LAYOUT.PAGE_MARGIN }} aria-hidden="true" />
         </div>
+        </DashboardSurfaceProvider>
     );
 };
 

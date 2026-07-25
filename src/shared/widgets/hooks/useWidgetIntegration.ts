@@ -22,6 +22,8 @@ import { useMyWidgetAccess } from '../../../api/hooks/useWidgetQueries';
 import { useIntegrationFallback } from './useIntegrationFallback';
 import { getWidgetMetadata } from '../../../widgets/registry';
 import { widgetsApi } from '../../../api/endpoints';
+import { useOptionalActiveDashboard } from '../../../context/ActiveDashboardContext';
+import { useDashboardEdit } from '../../../context/useDashboardEdit';
 import logger from '../../../utils/logger';
 
 // ============================================================================
@@ -66,11 +68,16 @@ export interface UseWidgetIntegrationResult {
 
 export function useWidgetIntegration(
     widgetType: string,
-    configuredIntegrationId?: string,
+    configuredIntegrationId?: string | null,
     widgetId?: string  // Optional: provide to enable automatic fallback persistence
 ): UseWidgetIntegrationResult {
     const { user } = useAuth();
     const hasAdminAccess = isAdmin(user);
+    const activeDashboardId = useOptionalActiveDashboard()?.activeDashboardId;
+    const isEditMode = useDashboardEdit()?.editMode ?? false;
+
+    const explicitlyCleared = configuredIntegrationId === null;
+    const configuredId = configuredIntegrationId ?? undefined;
 
     // Get widget metadata for compatible types
     const metadata = getWidgetMetadata(widgetType);
@@ -104,9 +111,10 @@ export function useWidgetIntegration(
     // Integration Access + Fallback (only if widget accessible)
     // ========================================================================
     const fallbackResult = useIntegrationFallback({
-        configuredId: configuredIntegrationId,
+        configuredId,
         compatibleTypes,
         widgetType,
+        explicitlyCleared,
     });
 
     // ========================================================================
@@ -227,7 +235,12 @@ export function useWidgetIntegration(
 
     useEffect(() => {
         // Skip if no widgetId provided (persistence disabled)
-        if (!widgetId) return;
+        if (!widgetId || !activeDashboardId) return;
+
+        if (widgetId.startsWith('__')) return;
+        if (widgetId.startsWith('drag-preview-')) return;
+        if (isEditMode) return;
+        if (explicitlyCleared) return;
 
         const desiredId = result.isFallback ? result.effectiveIntegrationId : null;
 
@@ -260,16 +273,19 @@ export function useWidgetIntegration(
 
             try {
                 logger.info(`[useWidgetIntegration] Persisting fallback integration ${currentDesired} for widget ${widgetId}`);
-                await widgetsApi.updateWidgetConfig(widgetId, { integrationId: currentDesired });
+                await widgetsApi.updateWidgetConfig(activeDashboardId, widgetId, {
+                    integrationId: currentDesired,
+                });
                 persistedFallbackRef.current = currentDesired;
                 logger.info(`[useWidgetIntegration] Successfully persisted fallback for widget ${widgetId}`);
                 // Trigger dashboard refetch to update local state
                 window.dispatchEvent(new CustomEvent('widget-config-updated'));
             } catch (error) {
+                persistedFallbackRef.current = null;
                 logger.error(`[useWidgetIntegration] Failed to persist fallback for widget ${widgetId}:`, { error });
             }
         }, 500);
-    }, [widgetId, result.isFallback, result.effectiveIntegrationId]);
+    }, [widgetId, activeDashboardId, result.isFallback, result.effectiveIntegrationId, isEditMode, explicitlyCleared]);
 
     return result;
 }

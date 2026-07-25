@@ -2,12 +2,27 @@
  * Highlight — Characterization (BL-W0-6, BL-W0-7)
  *
  * TASK-20260722-001 / REMEDIATION-2026-P7 / S-T-LINT-04
+ * TASK-20260724-002 — parent-mode registration / ghost characterizations
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import React from 'react';
 import { Highlight, HighlightItem } from '../Highlight';
+
+function mv(initial: unknown) {
+    let v = initial;
+    return {
+        get: () => v,
+        set: (n: unknown) => {
+            v = n;
+        },
+        jump: (n: unknown) => {
+            v = n;
+        },
+        on: () => () => {},
+    };
+}
 
 vi.mock('framer-motion', () => ({
     AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -19,6 +34,17 @@ vi.mock('framer-motion', () => ({
                 </div>
             ),
         ),
+    },
+    useMotionValue: (v: unknown) => mv(v),
+    useSpring: (v: unknown) => mv(typeof v === 'number' ? v : (v as { get: () => unknown }).get()),
+    useTransform: (deps: unknown, fn?: (input: unknown) => string) => {
+        if (Array.isArray(deps) && fn) {
+            const values = deps.map((d: { get?: () => unknown }) =>
+                typeof d === 'object' && d && 'get' in d && d.get ? d.get() : d,
+            );
+            return mv(fn(values));
+        }
+        return mv(fn ? fn(0) : undefined);
     },
 }));
 
@@ -117,5 +143,119 @@ describe('BL-W0-7: Highlight clip-path parity', () => {
         } else {
             expect(indicator).toBeTruthy();
         }
+    });
+});
+
+describe('TASK-20260724-002: parent-mode registration', () => {
+    function ParentPair({
+        showA = true,
+        showB = true,
+        ...highlightProps
+    }: {
+        showA?: boolean;
+        showB?: boolean;
+        defaultValue?: string;
+        value?: string;
+    }) {
+        return (
+            <Highlight enabled hover mode="parent" {...highlightProps}>
+                {showA && (
+                    <HighlightItem value="a">
+                        <span>Item A</span>
+                    </HighlightItem>
+                )}
+                {showB && (
+                    <HighlightItem value="b">
+                        <span>Item B</span>
+                    </HighlightItem>
+                )}
+            </Highlight>
+        );
+    }
+
+    it('ghost clears when route items unmount after hover', async () => {
+        const { rerender } = render(<ParentPair defaultValue="a" showA showB />);
+
+        const itemB = screen.getByText('Item B').closest('[data-highlight-value="b"]')!;
+        fireEvent.mouseEnter(itemB);
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        rerender(<ParentPair defaultValue="a" showA={false} showB={false} />);
+
+        await act(async () => {
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        expect(document.querySelector('[data-highlight-indicator]')).toBeNull();
+    });
+
+    it('ghost retargets to default item on remount without mouse move', async () => {
+        const { rerender } = render(<ParentPair defaultValue="a" showA showB />);
+
+        const itemB = screen.getByText('Item B').closest('[data-highlight-value="b"]')!;
+        fireEvent.mouseEnter(itemB);
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        rerender(<ParentPair defaultValue="a" showA={false} showB={false} />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        rerender(<ParentPair defaultValue="a" showA showB={false} />);
+        await act(async () => {
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
+        const itemA = screen.getByText('Item A').closest('[data-highlight-value="a"]');
+        expect(itemA).toHaveAttribute('data-highlight-active', 'true');
+        expect(document.querySelector('[data-highlight-indicator]')).toBeTruthy();
+    });
+
+    it('controlled pin keeps active value when hovered item unmounts', async () => {
+        const { rerender } = render(<ParentPair value="a" showA showB />);
+
+        const itemB = screen.getByText('Item B').closest('[data-highlight-value="b"]')!;
+        fireEvent.mouseEnter(itemB);
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        rerender(<ParentPair value="a" showA showB={false} />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        const itemA = screen.getByText('Item A').closest('[data-highlight-value="a"]');
+        expect(itemA).toHaveAttribute('data-highlight-active', 'true');
+    });
+
+    it('controlled unmount hides indicator until item remounts', async () => {
+        const { rerender } = render(<ParentPair value="a" showA showB={false} />);
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(document.querySelector('[data-highlight-indicator]')).toBeTruthy();
+
+        rerender(<ParentPair value="a" showA={false} showB={false} />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(document.querySelector('[data-highlight-indicator]')).toBeNull();
+
+        rerender(<ParentPair value="a" showA showB={false} />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(document.querySelector('[data-highlight-indicator]')).toBeTruthy();
     });
 });

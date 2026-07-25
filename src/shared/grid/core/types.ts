@@ -97,6 +97,14 @@ export interface GridPolicy {
         cols: Record<string, number>;
         /** Row height in pixels */
         rowHeight: number | 'auto';
+        /**
+         * Fixed-display (kiosk) mode: when true, widget registry minSize/maxSize are
+         * NOT stamped onto GridStack nodes and live nodes are relaxed so widgets
+         * resize freely (both breakpoints; engine still bounds w to column count).
+         * Toggling off re-stamps registry constraints WITHOUT auto-clamping existing
+         * w/h — they re-clamp on next resize (or visually on next load). Default false.
+         */
+        relaxConstraints?: boolean;
         /** Margin between items [horizontal, vertical] */
         margin: [number, number];
         /** Container padding [horizontal, vertical] */

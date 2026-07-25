@@ -219,7 +219,10 @@ const SystemStatusLive: React.FC<SystemStatusLiveProps> = ({
     const { user } = useAuth();
     const userIsAdmin = isAdmin(user);
 
-    const configuredIntegrationId = config?.integrationId as string | undefined;
+    const cfg = config as Record<string, unknown> | undefined;
+    const configuredIntegrationId = cfg?.forceClearIntegration
+        ? null
+        : (config?.integrationId as string | undefined);
 
     const {
         effectiveIntegrationId,

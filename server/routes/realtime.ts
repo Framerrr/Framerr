@@ -88,7 +88,8 @@ const router = Router();
 // Phase 5: Rate limiting for SSE connections (10 per user per minute)
 const connectionAttempts: Map<string, number[]> = new Map();
 const RATE_LIMIT_WINDOW_MS = 60000;  // 1 minute
-const MAX_CONNECTIONS_PER_WINDOW = 10;
+// Was 10/min — HMR + keep-alive SSE reconnects blew through that during local testing.
+const MAX_CONNECTIONS_PER_WINDOW = process.env.NODE_ENV !== 'production' ? 60 : 30;
 
 /**
  * Check if a user is rate limited for SSE connections.

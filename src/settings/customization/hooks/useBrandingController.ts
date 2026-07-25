@@ -3,14 +3,17 @@
  *
  * Manages application branding state and handlers (admin only).
  * Extracted from useCustomizationState as part of S-X5-04.
+ *
+ * Seeds from AppBrandingProvider (already loaded app-wide) so the General
+ * settings page does not flash default "Framerr" / Server before the real values.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { configApi } from '../../../api/endpoints';
-import { ApiError } from '../../../api/errors';
 import type { BrandingState } from '../types';
 import logger from '../../../utils/logger';
 import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
+import { useAppBranding } from '../../../app/providers/useAppBranding';
 
 interface UseBrandingControllerParams {
     userIsAdmin: boolean;
@@ -21,46 +24,29 @@ interface UseBrandingControllerParams {
 
 export function useBrandingController({
     userIsAdmin,
-    initialized,
+    initialized: _initialized,
     showSuccess,
     showError,
 }: UseBrandingControllerParams): BrandingState {
-    const [applicationName, setApplicationName] = useState<string>('Framerr');
-    const [applicationIcon, setApplicationIcon] = useState<string>('Server');
+    const { serverName, serverIcon, brandingLoaded } = useAppBranding();
+
+    const [applicationName, setApplicationName] = useState<string>(serverName);
+    const [applicationIcon, setApplicationIcon] = useState<string>(serverIcon);
     const [savingAppName, setSavingAppName] = useState<boolean>(false);
-    const [originalAppName, setOriginalAppName] = useState<string>('Framerr');
-    const [originalAppIcon, setOriginalAppIcon] = useState<string>('Server');
+    const [originalAppName, setOriginalAppName] = useState<string>(serverName);
+    const [originalAppIcon, setOriginalAppIcon] = useState<string>(serverIcon);
     const [hasAppNameChanges, setHasAppNameChanges] = useState<boolean>(false);
+    const seededRef = useRef(brandingLoaded);
 
-    // Load system config for admin (separate from user config)
+    // If branding was not ready on first paint, seed once when it loads.
     useEffect(() => {
-        if (!userIsAdmin || !initialized) return;
-
-        const loadSystemConfig = async () => {
-            try {
-                const systemConfig = await configApi.getSystem();
-
-                if (systemConfig?.server?.name) {
-                    const name = systemConfig.server.name;
-                    setApplicationName(name);
-                    setOriginalAppName(name);
-                }
-
-                if (systemConfig?.server?.icon) {
-                    const icon = systemConfig.server.icon;
-                    setApplicationIcon(icon);
-                    setOriginalAppIcon(icon);
-                }
-            } catch (error) {
-                // Silently ignore 403 errors (non-admin users)
-                if (!(error instanceof ApiError && error.status === 403)) {
-                    logger.error('Failed to load system config:', error);
-                }
-            }
-        };
-
-        loadSystemConfig();
-    }, [userIsAdmin, initialized]);
+        if (!userIsAdmin || !brandingLoaded || seededRef.current) return;
+        setApplicationName(serverName);
+        setApplicationIcon(serverIcon);
+        setOriginalAppName(serverName);
+        setOriginalAppIcon(serverIcon);
+        seededRef.current = true;
+    }, [userIsAdmin, brandingLoaded, serverName, serverIcon]);
 
     // Track changes for Application Name & Icon
     useEffect(() => {

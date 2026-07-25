@@ -16,6 +16,7 @@ import { getWidgetIconName } from '../../../widgets/registry';
 import logger from '../../../utils/logger';
 import { useNotifications } from '../../../context/notification';
 import { useLayout } from '../../../context/useLayout';
+import { useActiveDashboard } from '../../../context/ActiveDashboardContext';
 import type { Widget, WidgetConfig, ViewMode, WidgetStats } from '../types';
 import type { MobileLayoutMode } from '../../../api/endpoints';
 import type { ChromeIntegrationRef, ChromeSchemaRef } from '../../../shared/widgets';
@@ -51,6 +52,8 @@ interface UseActiveWidgetsReturn {
 export function useActiveWidgets(): UseActiveWidgetsReturn {
     const { isMobile } = useLayout();
     const { error: showError, success: showSuccess } = useNotifications();
+    const { activeDashboardId } = useActiveDashboard();
+    const dashboardId = activeDashboardId ?? '';
 
     // ========================================================================
     // Server State (React Query)
@@ -59,9 +62,9 @@ export function useActiveWidgets(): UseActiveWidgetsReturn {
         data: widgetsData,
         isLoading: loading,
         refetch: refetchWidgets,
-    } = useWidgets();
+    } = useWidgets(dashboardId);
 
-    const saveMutation = useSaveWidgets();
+    const saveMutation = useSaveWidgets(dashboardId);
 
     const { data: integrations = [] } = useRoleAwareIntegrations();
     const { data: schemas } = useIntegrationSchemas();

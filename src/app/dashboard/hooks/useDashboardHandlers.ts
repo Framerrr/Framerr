@@ -40,6 +40,7 @@ interface DashboardEditContextType {
 }
 
 interface UseDashboardHandlersOptions {
+    dashboardId: string;
     // Layout hook state
     widgets: FramerrWidget[];
     mobileWidgets: FramerrWidget[];
@@ -127,6 +128,7 @@ interface UseDashboardHandlersReturn {
 }
 
 export function useDashboardHandlers({
+    dashboardId,
     widgets,
     mobileWidgets,
     layouts,
@@ -184,7 +186,7 @@ export function useDashboardHandlers({
 
             if (pendingUnlink || (isMobile && mobileLayoutMode === 'independent')) {
                 if (pendingUnlink && mobileLayoutMode === 'linked') {
-                    await widgetsApi.saveAll({
+                    await widgetsApi.saveAll(dashboardId, {
                         widgets: widgets,
                         mobileLayoutMode: 'independent',
                         mobileWidgets: mobileWidgets
@@ -192,7 +194,7 @@ export function useDashboardHandlers({
                     window.dispatchEvent(new CustomEvent('mobile-layout-mode-changed'));
                     logger.debug('Mobile dashboard unlinked and saved');
                 } else if (mobileLayoutMode === 'independent') {
-                    await widgetsApi.saveAll({
+                    await widgetsApi.saveAll(dashboardId, {
                         widgets: widgets,
                         mobileLayoutMode: 'independent',
                         mobileWidgets: mobileWidgets
@@ -200,7 +202,7 @@ export function useDashboardHandlers({
                     logger.debug('Independent mobile widgets saved');
                 }
             } else {
-                await widgetsApi.saveAll({
+                await widgetsApi.saveAll(dashboardId, {
                     widgets,
                     mobileLayoutMode,
                     mobileWidgets: mobileLayoutMode === 'independent' ? mobileWidgets : undefined
@@ -383,13 +385,13 @@ export function useDashboardHandlers({
             setLoading(true);
 
             // API returns FramerrWidget[] directly
-            const response = await widgetsApi.getAll() as WidgetApiResponse;
+            const response = await widgetsApi.getAll(dashboardId) as WidgetApiResponse;
             let fetchedWidgets = response.widgets || [];
 
             // Generate mobile layouts for the fetched widgets
             fetchedWidgets = deriveLinkedMobileLayout(fetchedWidgets, { getMinHeight: (type: string) => getWidgetMetadata(type)?.minSize?.h });
 
-            await widgetsApi.saveAll({
+            await widgetsApi.saveAll(dashboardId, {
                 widgets: fetchedWidgets,
                 mobileLayoutMode: 'linked',
                 mobileWidgets: []

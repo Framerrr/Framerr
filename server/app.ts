@@ -33,7 +33,7 @@ import systemRoutes from './routes/system';
 import integrationsRoutes from './routes/integrations';
 import tabsRoutes from './routes/tabs';
 import tabGroupsRoutes from './routes/tabGroups';
-import widgetsRoutes from './routes/widgets';
+import dashboardsRoutes from './routes/dashboards';
 import themeRoutes from './routes/theme';
 import backupRoutes from './routes/backup';
 import customIconsRoutes from './routes/custom-icons';
@@ -107,7 +107,7 @@ app.use(cors({
 // CSRF protection (requires X-Framerr-Client header on POST/PUT/DELETE)
 app.use(csrfProtection());
 
-// Global rate limiting for all API endpoints (300 req/min per user)
+// Global rate limiting for all API endpoints (see rateLimit.ts — higher in dev)
 app.use('/api', standardRateLimit);
 
 // Stricter rate limiting for auth endpoints (10 attempts/min per IP, brute force protection)
@@ -290,7 +290,7 @@ app.use('/api/system', systemRoutes);
 app.use('/api/integrations', integrationsRoutes);
 app.use('/api/tabs', tabsRoutes);
 app.use('/api/tab-groups', tabGroupsRoutes);
-app.use('/api/widgets', widgetsRoutes);
+app.use('/api/dashboards', dashboardsRoutes);
 app.use('/api/theme', themeRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/custom-icons', customIconsRoutes);

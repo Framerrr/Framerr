@@ -8,13 +8,6 @@ type DeepPartial<T> = T extends object ? {
     [P in keyof T]?: DeepPartial<T[P]>;
 } : T;
 
-interface DashboardConfig {
-    layout: unknown[];
-    widgets: unknown[];
-    mobileLayoutMode?: 'linked' | 'independent';
-    mobileWidgets?: unknown[];
-}
-
 interface ThemeConfig {
     mode: string;                          // accepts preset IDs, 'custom', 'system'
     primaryColor?: string;
@@ -57,7 +50,6 @@ interface UserTab {
 }
 
 interface UserConfig {
-    dashboard: DashboardConfig;
     tabs: UserTab[];
     theme: ThemeConfig;
     sidebar: SidebarConfig;
@@ -69,7 +61,6 @@ export type { UserConfig, DeepPartial, ThemeConfig };
 
 interface UserPreferencesRow {
     user_id: string;
-    dashboard_config: string | null;
     tabs: string | null;
     theme_config: string | null;
     sidebar_config: string | null;
@@ -78,12 +69,6 @@ interface UserPreferencesRow {
 
 // Default user dashboard configuration
 const DEFAULT_USER_CONFIG: UserConfig = {
-    dashboard: {
-        layout: [],
-        widgets: [],
-        mobileLayoutMode: 'linked',
-        mobileWidgets: undefined
-    },
     tabs: [],
     theme: {
         mode: 'system'
@@ -116,7 +101,7 @@ export function getUserConfig(userId: string): UserConfig {
         }
 
         const result = getDb().prepare(`
-            SELECT dashboard_config, tabs, theme_config, sidebar_config, preferences
+            SELECT tabs, theme_config, sidebar_config, preferences
             FROM user_preferences
             WHERE user_id = ?
         `).get(userId) as UserPreferencesRow | undefined;
@@ -127,7 +112,6 @@ export function getUserConfig(userId: string): UserConfig {
         }
 
         return {
-            dashboard: result.dashboard_config ? JSON.parse(result.dashboard_config) : DEFAULT_USER_CONFIG.dashboard,
             tabs: result.tabs ? JSON.parse(result.tabs) : DEFAULT_USER_CONFIG.tabs,
             theme: result.theme_config ? JSON.parse(result.theme_config) : DEFAULT_USER_CONFIG.theme,
             sidebar: result.sidebar_config ? JSON.parse(result.sidebar_config) : DEFAULT_USER_CONFIG.sidebar,
@@ -193,8 +177,7 @@ export function updateUserConfig(userId: string, updates: DeepPartial<UserConfig
         if (exists) {
             const stmt = getDb().prepare(`
                 UPDATE user_preferences
-                SET dashboard_config = ?,
-                    tabs = ?,
+                SET tabs = ?,
                     theme_config = ?,
                     sidebar_config = ?,
                     preferences = ?
@@ -202,7 +185,6 @@ export function updateUserConfig(userId: string, updates: DeepPartial<UserConfig
             `);
 
             stmt.run(
-                JSON.stringify(newConfig.dashboard),
                 JSON.stringify(newConfig.tabs),
                 JSON.stringify(newConfig.theme),
                 JSON.stringify(newConfig.sidebar),
@@ -212,13 +194,12 @@ export function updateUserConfig(userId: string, updates: DeepPartial<UserConfig
         } else {
             const stmt = getDb().prepare(`
                 INSERT INTO user_preferences (
-                    user_id, dashboard_config, tabs, theme_config, sidebar_config, preferences
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    user_id, tabs, theme_config, sidebar_config, preferences
+                ) VALUES (?, ?, ?, ?, ?)
             `);
 
             stmt.run(
                 userId,
-                JSON.stringify(newConfig.dashboard),
                 JSON.stringify(newConfig.tabs),
                 JSON.stringify(newConfig.theme),
                 JSON.stringify(newConfig.sidebar),

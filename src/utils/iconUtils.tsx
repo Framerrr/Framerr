@@ -68,7 +68,7 @@ export const POPULAR_ICONS: string[] = [
     // Location & Maps  
     'Globe', 'Map', 'MapPin', 'MapPinned',
     // Code & Development
-    'Code', 'Code2', 'Terminal', 'Box', 'Layout', 'LayoutGrid'
+    'Code', 'Code2', 'Terminal', 'Box', 'Layout', 'LayoutGrid', 'LayoutDashboard'
 ];
 
 // Default fallback icon

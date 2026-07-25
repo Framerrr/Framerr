@@ -13,13 +13,13 @@ import { Layout, RefreshCw, AlertCircle, Filter, X } from 'lucide-react';
 import { templatesApi } from '../../../api/endpoints';
 import TemplateCard, { Template } from './TemplateCard';
 import TemplatePreviewModal from './TemplatePreviewModal';
+import ApplyTemplateModal from './ApplyTemplateModal';
 import { ConfirmDialog, Select } from '../../../shared/ui';
 import { Button } from '../../../shared/ui';
 import { LoadingSpinner } from '@/shared/ui';
 import logger from '../../../utils/logger';
 import { useNotifications } from '../../../context/notification';
 import { useLayout } from '../../../context/useLayout';
-import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
 
 interface Category {
     id: string;
@@ -27,7 +27,7 @@ interface Category {
 }
 
 // Confirmation dialog types
-type ConfirmAction = 'apply' | 'sync' | 'revert' | null;
+type ConfirmAction = 'sync' | 'revert' | null;
 
 interface TemplateListProps {
     onEdit: (template: Template) => void;
@@ -51,9 +51,9 @@ const TemplateList: React.FC<TemplateListProps> = ({
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [, setApplyingId] = useState<string | null>(null);
     const { success, error: showError } = useNotifications();
     const { isMobile } = useLayout();
+    const [applyModalTemplate, setApplyModalTemplate] = useState<Template | null>(null);
 
     // Confirmation dialog state
     const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
@@ -96,35 +96,9 @@ const TemplateList: React.FC<TemplateListProps> = ({
         fetchTemplates();
     }, [fetchTemplates, refreshTrigger]);
 
-    // Apply template - opens confirmation dialog
+    // Apply template — target picker modal
     const handleApply = (template: Template) => {
-        setConfirmTemplate(template);
-        setConfirmAction('apply');
-    };
-
-    // Execute apply after confirmation
-    const executeApply = async () => {
-        if (!confirmTemplate) return;
-
-        try {
-            setConfirmLoading(true);
-            setApplyingId(confirmTemplate.id);
-            await templatesApi.apply(confirmTemplate.id);
-            success('Template Applied', `"${confirmTemplate.name}" applied.`);
-
-            // Trigger dashboard reload
-            dispatchCustomEvent(CustomEventNames.WIDGETS_ADDED);
-
-            // Close dialog
-            setConfirmAction(null);
-            setConfirmTemplate(null);
-        } catch (err) {
-            logger.error('Failed to apply template', { error: err });
-            showError('Apply Failed', 'Failed to apply template. Please try again.');
-        } finally {
-            setApplyingId(null);
-            setConfirmLoading(false);
-        }
+        setApplyModalTemplate(template);
     };
 
     // Delete template
@@ -223,15 +197,6 @@ const TemplateList: React.FC<TemplateListProps> = ({
         if (!confirmTemplate) return null;
 
         switch (confirmAction) {
-            case 'apply':
-                return {
-                    title: 'Apply Template',
-                    message: `Apply "${confirmTemplate.name}" to your dashboard?
-
-Your current dashboard will be backed up and can be restored later.`,
-                    confirmLabel: 'Apply',
-                    onConfirm: executeApply,
-                };
             case 'sync':
                 return {
                     title: 'Sync Template',
@@ -389,6 +354,15 @@ Your changes will be discarded.`,
                     onApply={handleApply}
                     onEdit={onEdit}
                     isMobile={isMobile}
+                />
+            )}
+
+            {applyModalTemplate && (
+                <ApplyTemplateModal
+                    open={!!applyModalTemplate}
+                    onOpenChange={open => !open && setApplyModalTemplate(null)}
+                    templateId={applyModalTemplate.id}
+                    templateName={applyModalTemplate.name}
                 />
             )}
 

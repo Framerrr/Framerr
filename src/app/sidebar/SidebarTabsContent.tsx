@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import { useSharedSidebar } from './context/useSharedSidebar';
 import { HighlightItem } from './Highlight';
-import { sidebarSpring, textSpring } from './types';
+import { sidebarSpring, textSpring, labelExitTween, labelStagger } from './types';
 
 /**
  * SidebarTabsContent - Renders tabs and groups in sidebar
@@ -27,16 +27,19 @@ export function SidebarTabsContent() {
         return null;
     }
 
+    const ungroupedTabs = tabs.filter(tab => tab.enabled !== false && !tab.groupId);
+    let motionIndex = 0;
+
     return (
         <>
             {/* Header for expanded state */}
             <AnimatePresence mode="wait">
                 {isExpanded && (
                     <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.1 }}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -6, transition: labelExitTween }}
+                        transition={textSpring}
                         className="text-[11px] font-semibold text-theme-tertiary uppercase tracking-wider px-4 pt-4 pb-2"
                     >
                         Tabs
@@ -48,8 +51,9 @@ export function SidebarTabsContent() {
             {!isExpanded && <div className="my-3 h-px bg-gradient-to-r from-transparent via-border-theme to-transparent w-full" />}
 
             {/* Ungrouped tabs */}
-            {tabs.filter(tab => tab.enabled !== false && !tab.groupId).map(tab => {
+            {ungroupedTabs.map(tab => {
                 const isTabActive = hash === tab.slug;
+                const index = motionIndex++;
                 return (
                     <HighlightItem key={tab.id} value={`tab-${tab.id}`}>
                         <a
@@ -74,8 +78,8 @@ export function SidebarTabsContent() {
                                     <motion.span
                                         initial={{ opacity: 0, x: -10 }}
                                         animate={{ opacity: 1, x: 0 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={textSpring}
+                                        exit={{ opacity: 0, x: -6, transition: labelExitTween }}
+                                        transition={{ ...textSpring, delay: labelStagger(index) }}
                                         className={`whitespace-nowrap ${isTabActive ? 'text-accent' : ''}`}
                                     >
                                         {tab.name}
@@ -97,6 +101,7 @@ export function SidebarTabsContent() {
             {groups && groups.map((group) => {
                 const groupTabs = tabs.filter(tab => tab.enabled !== false && String(tab.groupId) === String(group.id));
                 if (groupTabs.length === 0) return null;
+                const groupHeaderIndex = isExpanded ? motionIndex++ : motionIndex;
 
                 return (
                     <div key={group.id} className={isExpanded ? 'mt-2' : ''}>
@@ -107,7 +112,18 @@ export function SidebarTabsContent() {
                                         onClick={() => toggleGroup(String(group.id))}
                                         className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-theme-tertiary uppercase tracking-wider hover:text-theme-secondary transition-colors rounded-lg"
                                     >
-                                        <span>{group.name}</span>
+                                        <AnimatePresence mode="wait">
+                                            {isExpanded && (
+                                                <motion.span
+                                                    initial={{ opacity: 0, x: -10 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    exit={{ opacity: 0, x: -6, transition: labelExitTween }}
+                                                    transition={{ ...textSpring, delay: labelStagger(groupHeaderIndex) }}
+                                                >
+                                                    {group.name}
+                                                </motion.span>
+                                            )}
+                                        </AnimatePresence>
                                         <ChevronRight
                                             size={16}
                                             className="transition-transform duration-300"
@@ -122,12 +138,17 @@ export function SidebarTabsContent() {
                                         <motion.div
                                             initial={{ height: 0, opacity: 0 }}
                                             animate={{ height: 'auto', opacity: 1 }}
-                                            exit={{ height: 0, opacity: 0 }}
+                                            exit={{
+                                                height: 0,
+                                                opacity: 0,
+                                                transition: { height: sidebarSpring, opacity: labelExitTween },
+                                            }}
                                             transition={sidebarSpring}
                                             className="overflow-hidden space-y-1 mt-1"
                                         >
                                             {groupTabs.map(tab => {
                                                 const isTabActive = hash === tab.slug;
+                                                const tabIndex = motionIndex++;
                                                 return (
                                                     <HighlightItem key={tab.id} value={`tab-${tab.id}`}>
                                                         <a
@@ -143,9 +164,19 @@ export function SidebarTabsContent() {
                                                             <span className={`mr-3 flex items-center justify-center ${isTabActive ? 'text-accent' : ''}`}>
                                                                 {renderIcon(tab.icon, 20)}
                                                             </span>
-                                                            <span className={`truncate ${isTabActive ? 'text-accent' : ''}`}>
-                                                                {tab.name}
-                                                            </span>
+                                                            <AnimatePresence mode="wait">
+                                                                {isExpanded && (
+                                                                    <motion.span
+                                                                        initial={{ opacity: 0, x: -10 }}
+                                                                        animate={{ opacity: 1, x: 0 }}
+                                                                        exit={{ opacity: 0, x: -6, transition: labelExitTween }}
+                                                                        transition={{ ...textSpring, delay: labelStagger(tabIndex) }}
+                                                                        className={`truncate ${isTabActive ? 'text-accent' : ''}`}
+                                                                    >
+                                                                        {tab.name}
+                                                                    </motion.span>
+                                                                )}
+                                                            </AnimatePresence>
                                                         </a>
                                                     </HighlightItem>
                                                 );

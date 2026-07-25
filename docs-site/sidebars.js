@@ -94,6 +94,7 @@ const sidebars = {
       items: [
         'customization/themes',
         'customization/widgets',
+        'customization/mobile-tab-bar',
         'customization/css-variables',
         'customization/custom-favicon',
       ],

@@ -60,7 +60,8 @@ const OverseerrWidget: React.FC<OverseerrWidgetProps> = ({ widget, previewMode =
 
     // Check if integration is bound (new pattern: explicit integrationId in config)
     const config = widget.config as { integrationId?: string; viewMode?: 'auto' | 'carousel' | 'stacked' } | undefined;
-    const configuredIntegrationId = config?.integrationId;
+    const cfg = config as Record<string, unknown> | undefined;
+    const configuredIntegrationId = cfg?.forceClearIntegration ? null : config?.integrationId;
     const configViewMode = config?.viewMode ?? 'auto';
 
     // Callback ref for auto view mode dimension measurement.

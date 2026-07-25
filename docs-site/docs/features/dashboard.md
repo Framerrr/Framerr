@@ -4,7 +4,46 @@ sidebar_position: 1
 
 # Dashboard
 
-The dashboard is the main screen you see after logging in. It's a responsive grid of widgets — each one connected to an integration or displaying standalone content like clocks, weather, or custom HTML.
+The dashboard is the main screen you see after logging in — a grid of widgets
+tied to your integrations, plus things like clocks, weather, or custom HTML.
+
+You're not limited to one. Create as many dashboards as you need, each with
+its own widgets and layout. Your theme, sidebar, and greeting stay consistent
+across all of them.
+
+## Multiple Dashboards
+
+Different setups for different jobs — media on one, downloads on another,
+a spare for experimenting. Each dashboard keeps its own widgets and layouts.
+
+### Switching Dashboards
+
+- **Desktop:** In the sidebar, hover the current dashboard name and click the
+  dropdown to open the list of dashboards or to create a new one.
+- **Mobile:** Press and hold the dashboard button on the bottom tab bar, then
+  choose a dashboard or create a new one. You can rearrange that bar in
+  [Mobile Tab Bar](../customization/mobile-tab-bar).
+
+### Creating a New Dashboard
+
+From the switcher, or from **Settings → Dashboard → General**, start with:
+
+- A blank dashboard
+- A copy of the one you're on
+- A saved template
+
+### Home
+
+**Home** is the dashboard Framerr opens to. Set any dashboard as Home from
+Settings. Turn on **Remember last dashboard** if you'd rather return to the
+one you used last.
+
+### Manage Dashboards
+
+Under **Settings → Dashboard → General** you can rename dashboards, set icons,
+choose Home, or delete ones you no longer need.
+
+Resetting widgets only clears the dashboard you're currently on.
 
 ## Layout Grid
 
@@ -85,12 +124,16 @@ Dashboard management options are found in **Settings → Dashboard → General**
 
 | Setting | Description |
 |---------|-------------|
-| **Reset Dashboard** | Remove all widgets from both desktop and mobile layouts. Cannot be undone |
+| **Reset Dashboard** | Clear all widgets on the dashboard you're currently on. Cannot be undone |
 | **Reset Welcome Tour** | Replay the onboarding walkthrough on your next dashboard visit |
 | **Auto-hide Sidebar** | Collapse the sidebar to maximize dashboard space. Hover, peek, and click the sidebar, or swipe to the left edge to reveal it |
-| **Square Cells** *(experimental)* | Make grid cell height match width, creating square proportions that scale with window size. Not all widgets internal layouts support this option. |
+| **Fixed Display Mode** *(experimental, per dashboard)* | Full-width layout with square cells and no size limits — useful for a dedicated display; other dashboards stay normal. Widget sizing and content are not optimized and may behave oddly |
 | **Mobile Layout** | View current link status and reconnect if independent |
 | **Hide Mobile Edit Button** | Remove the edit button from the mobile dashboard |
+
+:::note
+**Fixed Display Mode** (experimental) is set per dashboard. It makes that dashboard full-width with square cells and no size limits — useful for a dedicated display — while other dashboards stay normal. Turning it off restores normal sizing rules; existing widgets keep their size until you next resize them. Widget sizing and content are not optimized for this mode and may behave oddly.
+:::
 
 ## Templates
 

@@ -11,8 +11,11 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../../middleware/auth';
 import * as templateDb from '../../db/templates';
+import { DashboardNotFoundError } from '../../db/templates/apply';
 import logger from '../../utils/logger';
+import { invalidateUserSettings } from '../../utils/invalidateUserSettings';
 import type { AuthenticatedRequest } from './types';
+import type { ApplyTemplateTarget } from '../../db/templates/apply';
 
 const router = Router();
 
@@ -39,22 +42,48 @@ router.post('/:id/apply', requireAuth, async (req: Request, res: Response) => {
             return;
         }
 
-        // Use canonical helper for template application
-        // This handles: backup creation, widget conversion, config update
-        const dashboardWidgets = await templateDb.applyTemplateToUser(
+        const body = req.body as { target?: ApplyTemplateTarget };
+        const target = body?.target;
+
+        if (
+            !target ||
+            typeof target !== 'object' ||
+            !('dashboardId' in target || ('createNew' in target && target.createNew === true))
+        ) {
+            res.status(400).json({ error: 'Invalid request body' });
+            return;
+        }
+
+        if ('dashboardId' in target && typeof target.dashboardId !== 'string') {
+            res.status(400).json({ error: 'Invalid request body' });
+            return;
+        }
+
+        const result = await templateDb.applyTemplateToUser(
             template,
             authReq.user!.id,
-            true // Create backup before applying
+            target
         );
 
-        logger.info(`[Templates] Applied: id=${template.id} user=${authReq.user!.id} widgets=${dashboardWidgets.length}`);
+        invalidateUserSettings(authReq.user!.id, 'widgets');
+        if ('createNew' in target && target.createNew) {
+            invalidateUserSettings(authReq.user!.id, 'dashboards');
+        }
+
+        logger.info(
+            `[Templates] Applied: id=${template.id} user=${authReq.user!.id} dashboard=${result.dashboardId} widgets=${result.widgets.length}`
+        );
 
         res.json({
             success: true,
-            widgets: dashboardWidgets,
-            message: 'Template applied. Your previous dashboard was backed up.'
+            widgets: result.widgets,
+            dashboardId: result.dashboardId,
         });
     } catch (error) {
+        if (error instanceof DashboardNotFoundError) {
+            res.status(404).json({ error: 'Dashboard not found' });
+            return;
+        }
         logger.error(`[Templates] Failed to apply: id=${req.params.id} error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Failed to apply template' });
     }

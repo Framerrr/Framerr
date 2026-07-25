@@ -253,6 +253,17 @@ async function executeRestore(zipPath: string): Promise<void> {
     // Reinitialize database connection to pick up the restored database
     reinitializeDatabase();
 
+    const { runMigrations } = await import('../database/migrator');
+    const { getDb } = await import('../database/db');
+    const migration = runMigrations(getDb());
+    if (!migration.success) {
+        logger.error(`[Restore] Backup migration failed: ${migration.error}`);
+        throw new Error(`Backup restored but could not be migrated: ${migration.error}`);
+    }
+    logger.info(
+        `[Restore] Restored DB migrated v${migration.migratedFrom} → v${migration.migratedTo}`
+    );
+
     logger.info('[Restore] Backup restore complete via setup wizard');
 
     // Start background services - the restored database has users and data,

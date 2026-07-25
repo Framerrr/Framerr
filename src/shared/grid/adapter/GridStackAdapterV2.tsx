@@ -35,7 +35,7 @@ import '../../../vendor/gridstack/gridstack-columns.css';
 import type { FramerrWidget, GridPolicy, GridEventHandlers, Breakpoint } from '../core/types';
 
 // Widget registry for constraints
-import { getWidgetMetadata } from '../../../widgets/registry';
+import { resolveWidgetConstraints } from './resolveWidgetConstraints';
 
 // FLIP animation support
 import { getLastHelperRect, getLastMorphContent } from './setupExternalDragSources';
@@ -122,16 +122,14 @@ function buildGridStackOptions(policy: GridPolicy): GridStackOptions {
  */
 function toGridStackWidget(
     widget: FramerrWidget,
-    breakpoint: Breakpoint
+    breakpoint: Breakpoint,
+    relaxConstraints: boolean,
 ): GridStackWidget {
     const layout = (breakpoint === 'sm' && widget.mobileLayout)
         ? widget.mobileLayout
         : widget.layout;
 
-    // Get constraints from registry
-    const metadata = getWidgetMetadata(widget.type);
-    const isMobile = breakpoint === 'sm';
-    const mobileCols = 4;
+    const { minW, maxW, minH, maxH } = resolveWidgetConstraints(widget.type, breakpoint, relaxConstraints);
 
     return {
         id: widget.id,
@@ -139,10 +137,10 @@ function toGridStackWidget(
         y: layout.y,
         w: layout.w,
         h: layout.h,
-        minW: isMobile ? 1 : metadata?.minSize?.w,
-        maxW: isMobile ? mobileCols : metadata?.maxSize?.w,
-        minH: metadata?.minSize?.h,
-        maxH: metadata?.maxSize?.h,
+        minW,
+        maxW,
+        minH,
+        maxH,
         // Use empty div as portal target - React will render content here
         content: `<div data-widget-portal="${widget.id}" style="position:absolute;top:0;left:0;right:0;bottom:0;"></div>`,
     };
@@ -167,10 +165,11 @@ function toGridStackWidgets(
     widgets: FramerrWidget[],
     breakpoint: Breakpoint,
     widgetVisibility?: Record<string, boolean>,
-    canDrag: boolean = true
+    canDrag: boolean = true,
+    relaxConstraints: boolean = false,
 ): GridStackWidget[] {
     const visibleWidgets = filterVisibleWidgets(widgets, widgetVisibility, canDrag);
-    return visibleWidgets.map(w => toGridStackWidget(w, breakpoint));
+    return visibleWidgets.map(w => toGridStackWidget(w, breakpoint, relaxConstraints));
 }
 
 /**
@@ -492,7 +491,8 @@ function GridStackInner({
             widgets,
             policy.view.breakpoint,
             widgetVisibility,
-            policy.interaction.canDrag
+            policy.interaction.canDrag,
+            policy.layout.relaxConstraints === true,
         );
         const visibleIds = new Set(gsWidgets.map(w => w.id as string));
 
@@ -636,7 +636,7 @@ function GridStackInner({
             // Call synchronously - don't wait for RAF
             updatePortalContainersRef.current?.(widgets);
         }
-    }, [widgets, gridStack, policy.view.breakpoint, widgetVisibility, policy.interaction.canDrag, mainGridSelector, getUpdatedWidgets]);
+    }, [widgets, gridStack, policy.view.breakpoint, widgetVisibility, policy.interaction.canDrag, policy.layout.relaxConstraints, mainGridSelector, getUpdatedWidgets]);
 
     // Handle breakpoint/column changes
     const prevColsRef = useRef(
@@ -658,7 +658,8 @@ function GridStackInner({
                 widgets,
                 policy.view.breakpoint,
                 widgetVisibility,
-                policy.interaction.canDrag
+                policy.interaction.canDrag,
+                policy.layout.relaxConstraints === true,
             );
 
             gridStack.batchUpdate();
@@ -694,13 +695,37 @@ function GridStackInner({
 
             prevColsRef.current = newCols;
         }
-    }, [widgets, gridStack, policy.view.breakpoint, policy.layout.cols, widgetVisibility, policy.interaction.canDrag, mainGridSelector]);
+    }, [widgets, gridStack, policy.view.breakpoint, policy.layout.cols, widgetVisibility, policy.interaction.canDrag, policy.layout.relaxConstraints, mainGridSelector]);
 
     // Handle cellHeight changes (e.g. square cells toggle)
     useEffect(() => {
         if (!gridStack || !gridStack.engine) return;
         gridStack.cellHeight(policy.layout.rowHeight === 'auto' ? 'auto' : policy.layout.rowHeight);
     }, [gridStack, policy.layout.rowHeight]);
+
+    // Live-apply constraint relaxation (fixed-display mode) to existing nodes.
+    // Direct node mutation ONLY: gridStack.update() with min/max forces an
+    // immediate moveNode/nodeBoundFix clamp (vendor gridstack.ts:1321,1352;
+    // engine :388-391) which would auto-resize oversized widgets on mode-off.
+    // Node values are enforced by GridStack at the next resize via dd resizable
+    // options set at resize start (vendor gridstack.ts:2616-2621).
+    useEffect(() => {
+        if (!gridStack || !gridStack.engine) return;
+        const relax = policy.layout.relaxConstraints === true;
+        const breakpoint = policy.view.breakpoint;
+        const typeById = new Map(widgetsRef.current.map(w => [w.id, w.type]));
+        for (const node of gridStack.engine.nodes) {
+            const type = node.id !== undefined ? typeById.get(String(node.id)) : undefined;
+            if (!type) continue;
+            const c = resolveWidgetConstraints(type, breakpoint, relax);
+            /* eslint-disable react-hooks/immutability -- imperative GridStack engine API, mirrors existing node-removal pattern above */
+            if (c.minW) node.minW = c.minW; else delete node.minW;
+            if (c.maxW) node.maxW = c.maxW; else delete node.maxW;
+            if (c.minH) node.minH = c.minH; else delete node.minH;
+            if (c.maxH) node.maxH = c.maxH; else delete node.maxH;
+            /* eslint-enable react-hooks/immutability */
+        }
+    }, [gridStack, widgets, policy.layout.relaxConstraints, policy.view.breakpoint]);
 
     // Handle drag/resize enable state
     useEffect(() => {
@@ -824,7 +849,8 @@ export function GridStackAdapterV2({
                 widgets,
                 policy.view.breakpoint,
                 widgetVisibility,
-                policy.interaction.canDrag
+                policy.interaction.canDrag,
+                policy.layout.relaxConstraints === true,
             ),
         };
     }

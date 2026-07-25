@@ -3,11 +3,15 @@ import { Request, Response } from 'express';
 
 /**
  * Rate Limiting Middleware
- * 
+ *
  * Protects against API abuse and DoS attempts.
  * Uses per-user rate limiting (falls back to IP for unauthenticated requests).
- * Values are easily adjustable - just change the numbers.
+ *
+ * Calibrated for self-hosted (1–10 trusted users). Dev is looser so HMR,
+ * multi-dashboard keep-alive, and laggy reconnects don't trip 429s mid-test.
  */
+
+const isDev = process.env.NODE_ENV !== 'production';
 
 /**
  * Key generator for per-user rate limiting
@@ -19,11 +23,11 @@ const userKeyGenerator = (req: Request): string => {
 
 /**
  * Standard rate limit for API endpoints
- * 300 requests per minute per user
+ * Prod: 900/min · Dev: 2500/min (was 300 — too tight for widget-heavy dashboards)
  */
 export const standardRateLimit = rateLimit({
     windowMs: 60 * 1000, // 1 minute
-    max: 300,
+    max: isDev ? 2500 : 900,
     keyGenerator: userKeyGenerator,
     message: { error: 'Too many requests, please try again later' },
     standardHeaders: true,
@@ -32,16 +36,11 @@ export const standardRateLimit = rateLimit({
 
 /**
  * Rate limit for proxy endpoints (widget data)
- * 120 requests per minute per user
- * 
- * Comfortable headroom for:
- * - All widgets polling simultaneously (~50-70/min)
- * - Multiple tabs open (~100/min)
- * - Quick page switching and refreshes
+ * Prod: 300/min · Dev: 1000/min
  */
 export const proxyRateLimit = rateLimit({
     windowMs: 60 * 1000,
-    max: 120,
+    max: isDev ? 1000 : 300,
     keyGenerator: userKeyGenerator,
     message: { error: 'Too many proxy requests, please try again later' },
     standardHeaders: true,

@@ -46,11 +46,22 @@ export const queryKeys = {
     // ============================================
     widgets: {
         all: ['widgets'] as const,
-        dashboard: () => [...queryKeys.widgets.all, 'dashboard'] as const,
+        dashboard: (dashboardId?: string) =>
+            dashboardId
+                ? ([...queryKeys.widgets.all, 'dashboard', dashboardId] as const)
+                : ([...queryKeys.widgets.all, 'dashboard'] as const),
         gallery: () => [...queryKeys.widgets.all, 'gallery'] as const,
         access: () => [...queryKeys.widgets.all, 'access'] as const,
         shares: (widgetType: string) => [...queryKeys.widgets.all, 'shares', widgetType] as const,
         allShares: () => [...queryKeys.widgets.all, 'allShares'] as const,
+    },
+
+    // ============================================
+    // DASHBOARDS (multi-page)
+    // ============================================
+    dashboards: {
+        all: ['dashboards'] as const,
+        list: () => [...queryKeys.dashboards.all, 'list'] as const,
     },
 
     // ============================================

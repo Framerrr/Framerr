@@ -13,6 +13,7 @@ import logger from '../../../utils/logger';
 import { useNotifications } from '../../../context/notification';
 import { useAuth } from '../../../context/useAuth';
 import { useLayout } from '../../../context/useLayout';
+import { useActiveDashboard } from '../../../context/ActiveDashboardContext';
 import { isAdmin } from '../../../utils/permissions';
 import { getWidgetsByCategory, getWidgetMetadata, WidgetMetadata } from '../../../widgets/registry';
 import { useWidgetSharing } from '@/shared/hooks/useWidgetSharing';
@@ -74,6 +75,7 @@ export function useWidgetGallery(): UseWidgetGalleryReturn {
     const { user } = useAuth();
     const { isMobile } = useLayout();
     const hasAdminAccess = isAdmin(user);
+    const { activeDashboardId } = useActiveDashboard();
 
     // P2 React Query: Use shared useWidgetData hook (single source of truth, role-aware)
     const {
@@ -148,6 +150,11 @@ export function useWidgetGallery(): UseWidgetGalleryReturn {
         setAddingWidget(widgetType);
 
         try {
+            if (!activeDashboardId) {
+                showError('Dashboard Unavailable', 'No active dashboard selected.');
+                return;
+            }
+
             const metadata = getWidgetMetadata(widgetType);
             if (!metadata) {
                 showError('Widget Not Found', 'Widget metadata not found');
@@ -155,7 +162,7 @@ export function useWidgetGallery(): UseWidgetGalleryReturn {
             }
 
             // Fetch current widgets
-            const currentResponse = await widgetsApi.getAll();
+            const currentResponse = await widgetsApi.getAll(activeDashboardId);
             const currentWidgets: Widget[] = currentResponse.widgets || [];
             const currentMobileWidgets: Widget[] = currentResponse.mobileWidgets || [];
             const currentMobileLayoutMode = currentResponse.mobileLayoutMode || 'linked';
@@ -229,7 +236,7 @@ export function useWidgetGallery(): UseWidgetGalleryReturn {
 
                 const updatedMobileWidgets = [newMobileWidget, ...shiftedMobileWidgets];
 
-                await widgetsApi.saveAll({
+                await widgetsApi.saveAll(activeDashboardId, {
                     widgets: currentWidgets,
                     mobileLayoutMode: currentMobileLayoutMode,
                     mobileWidgets: updatedMobileWidgets
@@ -267,7 +274,7 @@ export function useWidgetGallery(): UseWidgetGalleryReturn {
 
                 const updatedWidgets = [newWidget, ...shiftedWidgets];
 
-                await widgetsApi.saveAll({
+                await widgetsApi.saveAll(activeDashboardId, {
                     widgets: updatedWidgets,
                     mobileLayoutMode: currentMobileLayoutMode,
                     mobileWidgets: currentMobileLayoutMode === 'independent' ? currentMobileWidgets : undefined
@@ -286,7 +293,7 @@ export function useWidgetGallery(): UseWidgetGalleryReturn {
         } finally {
             setAddingWidget(null);
         }
-    }, [isMobile, showSuccess, showError]);
+    }, [isMobile, showSuccess, showError, activeDashboardId]);
 
     // Filter widgets based on visibility and search
     const filteredWidgets = useMemo(() => {

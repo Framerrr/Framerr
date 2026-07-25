@@ -22,6 +22,18 @@ interface SystemIcon {
 
 type TabType = 'icons' | 'upload';
 
+/** Keep the currently selected item at the front of its own list. */
+function pinSelectedFirst<T>(items: T[], isSelected: (item: T) => boolean): T[] {
+    if (items.length <= 1) return items;
+    const selected: T[] = [];
+    const rest: T[] = [];
+    for (const item of items) {
+        if (isSelected(item)) selected.push(item);
+        else rest.push(item);
+    }
+    return selected.length > 0 ? [...selected, ...rest] : items;
+}
+
 export interface IconPickerProps {
     value?: string;
     onChange: (iconName: string) => void;
@@ -132,9 +144,19 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
 
     const CurrentIcon = getCurrentIcon();
 
-    // Filter icons based on search
-    const filteredIcons = POPULAR_ICONS.filter(icon =>
-        icon.toLowerCase().includes(search.toLowerCase())
+    // Filter Lucide icons; pin current selection to the top of this list only
+    const filteredIcons = pinSelectedFirst(
+        POPULAR_ICONS.filter(icon => icon.toLowerCase().includes(search.toLowerCase())),
+        icon => icon === value,
+    );
+
+    const orderedSystemIcons = pinSelectedFirst(
+        systemIcons,
+        icon => value === `system:${icon.name}`,
+    );
+    const orderedUploadedIcons = pinSelectedFirst(
+        uploadedIcons,
+        icon => value === `custom:${icon.id}`,
     );
 
     const handleIconSelect = (iconName: string): void => {
@@ -370,15 +392,21 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
                                         <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wider mb-2">Search Results</h4>
                                         {(() => {
                                             const q = uploadSearch.toLowerCase();
-                                            // Bundled matches first
-                                            const bundledMatches = systemIcons.filter(i =>
-                                                i.name.includes(q) || i.displayName.toLowerCase().includes(q)
+                                            // Bundled matches first (selected pinned within this list)
+                                            const bundledMatches = pinSelectedFirst(
+                                                systemIcons.filter(i =>
+                                                    i.name.includes(q) || i.displayName.toLowerCase().includes(q)
+                                                ),
+                                                i => value === `system:${i.name}`,
                                             );
-                                            // CDN matches (exclude already bundled)
+                                            // CDN matches (exclude already bundled; selected pinned within this list)
                                             const bundledNames = new Set(systemIcons.map(i => i.name));
-                                            const cdnMatches = cdnCatalog
-                                                .filter(name => name.includes(q) && !bundledNames.has(name))
-                                                .slice(0, 24); // Limit CDN results
+                                            const cdnMatches = pinSelectedFirst(
+                                                cdnCatalog.filter(
+                                                    name => name.includes(q) && !bundledNames.has(name),
+                                                ),
+                                                name => value === `cdn:${name}`,
+                                            ).slice(0, 24);
 
                                             if (bundledMatches.length === 0 && cdnMatches.length === 0) {
                                                 return (
@@ -470,7 +498,7 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
                                             </button>
                                             {!systemCollapsed && (
                                                 <div className="grid grid-cols-4 gap-2 mt-2">
-                                                    {systemIcons.map(icon => {
+                                                    {orderedSystemIcons.map(icon => {
                                                         const iconValue = `system:${icon.name}`;
                                                         const isSelected = value === iconValue;
                                                         return (
@@ -519,9 +547,9 @@ const IconPicker = ({ value, onChange, compact = false }: IconPickerProps): Reac
                                                         <div className="text-center py-4 text-theme-secondary">
                                                             Loading...
                                                         </div>
-                                                    ) : uploadedIcons.length > 0 ? (
+                                                    ) : orderedUploadedIcons.length > 0 ? (
                                                         <div className="grid grid-cols-4 gap-2 mt-2">
-                                                            {uploadedIcons.map((icon) => {
+                                                            {orderedUploadedIcons.map((icon) => {
                                                                 const isSelected = value === `custom:${icon.id}`;
                                                                 return (
                                                                     <div key={icon.id} className="relative group">

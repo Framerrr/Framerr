@@ -126,7 +126,8 @@ export const MediaStreamWidget: React.FC<MediaStreamWidgetProps> = ({
     const configViewMode = config?.viewMode ?? 'auto';
 
     // Check if integration is bound
-    const configuredIntegrationId = config?.integrationId;
+    const cfg = config as Record<string, unknown> | undefined;
+    const configuredIntegrationId = cfg?.forceClearIntegration ? null : config?.integrationId;
 
     // Use unified access hook for widget + integration access
     // Pass 'media-stream' as the widget type, which is compatible with plex, jellyfin, emby

@@ -7,6 +7,7 @@
 
 import { getWidgetIconName, getWidgetMetadata } from '../../widgets/registry';
 import type { FramerrWidget } from '../../../shared/types/widget';
+import { resolveEffectiveIntegrationId } from './resolveEffectiveIntegrationId';
 
 export interface ChromeIntegrationRef {
     id: string;
@@ -110,8 +111,18 @@ export function resolveWidgetChrome({
         return { title, iconName };
     }
 
-    const integrationId = config.integrationId as string | undefined;
-    const instance = findBoundInstance(integrationId, integrations);
+    const metadataCompatible = (metadata?.compatibleIntegrations || []).map((t) => t.toLowerCase());
+    const forceClear = config.forceClearIntegration === true;
+    const compatibleInstances = (integrations || []).filter((i) =>
+        metadataCompatible.includes((i.type || '').toLowerCase()),
+    );
+    const configuredId = config.integrationId as string | undefined;
+    const effectiveId = resolveEffectiveIntegrationId(
+        configuredId,
+        compatibleInstances.map((i) => ({ id: i.id, type: i.type })),
+        forceClear,
+    );
+    const instance = findBoundInstance(effectiveId ?? undefined, integrations);
 
     const titleDerived = derivedTitle(pluginName, instance);
     const iconDerived = derivedIconName(widget.type, instance, schemas);

@@ -28,6 +28,7 @@ import { isAdmin } from '../../../utils/permissions';
 import { useMyWidgetAccess } from '../../../api/hooks/useWidgetQueries';
 import { useRoleAwareIntegrations } from '../../../api/hooks/useIntegrations';
 import { widgetsApi } from '../../../api/endpoints';
+import { useOptionalActiveDashboard } from '../../../context/ActiveDashboardContext';
 import logger from '../../../utils/logger';
 
 // ============================================================================
@@ -94,6 +95,7 @@ export function useMultiWidgetIntegration(
 ): UseMultiWidgetIntegrationResult {
     const { user } = useAuth();
     const hasAdminAccess = isAdmin(user);
+    const activeDashboardId = useOptionalActiveDashboard()?.activeDashboardId;
 
     // Get dashboard edit context to prevent persistence during edit/drag operations
     const dashboardEditContext = useDashboardEdit();
@@ -274,7 +276,7 @@ export function useMultiWidgetIntegration(
 
     useEffect(() => {
         // Skip if no widgetId provided (persistence disabled)
-        if (!widgetId) return;
+        if (!widgetId || !activeDashboardId) return;
 
         // Skip persistence for tentative widgets (they don't exist in the database)
         // TENTATIVE_WIDGET_ID = '__tentative__' - used during external drag
@@ -312,7 +314,7 @@ export function useMultiWidgetIntegration(
                 }
 
                 logger.info(`[useMultiWidgetIntegration] Persisting fallback integrations for widget ${widgetId}:`, configUpdate);
-                await widgetsApi.updateWidgetConfig(widgetId, configUpdate);
+                await widgetsApi.updateWidgetConfig(activeDashboardId, widgetId, configUpdate);
                 logger.info(`[useMultiWidgetIntegration] Successfully persisted fallbacks for widget ${widgetId}`);
 
                 // Trigger dashboard refetch to update local state
@@ -332,7 +334,7 @@ export function useMultiWidgetIntegration(
         }
 
         persistFallbacks();
-    }, [widgetId, result.integrations, isEditMode]);
+    }, [widgetId, activeDashboardId, result.integrations, isEditMode]);
 
     return result;
 }

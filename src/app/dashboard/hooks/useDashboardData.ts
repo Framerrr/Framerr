@@ -23,6 +23,7 @@ import type {
 
 interface UseDashboardDataOptions {
     user: User | null;
+    dashboardId: string;
     setInitialData: (data: {
         widgets: FramerrWidget[];
         mobileWidgets?: FramerrWidget[];
@@ -94,6 +95,7 @@ interface UseDashboardDataReturn {
 
 export function useDashboardData({
     user,
+    dashboardId,
     setInitialData
 }: UseDashboardDataOptions): UseDashboardDataReturn {
     // User permissions
@@ -104,7 +106,7 @@ export function useDashboardData({
     // =========================================================================
 
     // Widgets data
-    const { data: rawWidgetData, isLoading: loadingWidgets, refetch: refetchWidgets } = useWidgets();
+    const { data: rawWidgetData, isLoading: loadingWidgets, refetch: refetchWidgets } = useWidgets(dashboardId);
 
     // Integration data - role-aware hook handles admin/non-admin
     const { data: allIntegrations = [], isLoading: loadingIntegrations } = useRoleAwareIntegrations();

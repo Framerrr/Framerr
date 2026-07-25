@@ -9,6 +9,8 @@
 
 export type LinkSize = 'circle' | 'rectangle';
 export type LinkType = 'link' | 'action';
+/** Destination mode for Open Link type (not used for HTTP Action). */
+export type LinkTarget = 'url' | 'dashboard';
 export type LinkState = 'idle' | 'loading' | 'success' | 'error';
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 export type GridJustify = 'left' | 'center' | 'right';
@@ -25,6 +27,10 @@ export interface LinkAction {
 export interface LinkStyle {
     showIcon?: boolean;
     showText?: boolean;
+    /** Persisted on library templates (widget links store openInNewTab on Link) */
+    openInNewTab?: boolean;
+    linkTarget?: LinkTarget;
+    dashboardId?: string;
 }
 
 export interface Link {
@@ -34,6 +40,12 @@ export interface Link {
     size: LinkSize;
     type: LinkType;
     url?: string;
+    /** url = external/hash field; dashboard = pick a Framerr dashboard */
+    linkTarget?: LinkTarget;
+    /** Set when linkTarget is dashboard */
+    dashboardId?: string;
+    /** External URL links only; default true. Ignored for dashboard / in-app hashes. */
+    openInNewTab?: boolean;
     style?: LinkStyle;
     action?: LinkAction;
 }
@@ -67,7 +79,10 @@ export interface LinkFormData {
     icon: string;
     size: LinkSize;
     type: LinkType;
+    linkTarget: LinkTarget;
     url: string;
+    dashboardId: string;
+    openInNewTab: boolean;
     showIcon: boolean;
     showText: boolean;
     action: LinkAction;
@@ -107,7 +122,10 @@ export const DEFAULT_FORM_DATA: LinkFormData = {
     icon: 'Link',
     size: 'circle',
     type: 'link',
+    linkTarget: 'url',
     url: '',
+    dashboardId: '',
+    openInNewTab: true,
     showIcon: true,
     showText: true,
     action: {

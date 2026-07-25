@@ -13,6 +13,7 @@
  * - 'tabs' - User's personal tabs
  * - 'tab-groups' - Tab group organization
  * - 'widgets' - Dashboard layout
+ * - 'dashboards' - Dashboard list / Home / remember-last
  * - 'user-profile' - Display name, picture
  * - 'theme' - Theme settings
  * 
@@ -69,9 +70,14 @@ const ENTITY_QUERY_KEYS: Record<string, (() => readonly unknown[])[]> = {
         queryKeys.tabs.groups,
     ],
 
-    // Widgets - user's dashboard layout
+    // Widgets - user's dashboard layout (prefix invalidates all per-dashboard keys)
     'widgets': [
         queryKeys.widgets.dashboard,
+    ],
+
+    // Dashboards - user's dashboard list and preferences
+    'dashboards': [
+        queryKeys.dashboards.list,
     ],
 
     // User profile - displayName, picture

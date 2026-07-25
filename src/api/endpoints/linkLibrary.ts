@@ -12,7 +12,13 @@ export interface CreateLinkData {
     size?: 'circle' | 'rectangle';
     type?: 'link' | 'action';
     url?: string;
-    style?: { showIcon?: boolean; showText?: boolean };
+    style?: {
+        showIcon?: boolean;
+        showText?: boolean;
+        openInNewTab?: boolean;
+        linkTarget?: 'url' | 'dashboard';
+        dashboardId?: string;
+    };
     action?: { method: string; url: string; headers?: Record<string, string>; body?: unknown };
 }
 

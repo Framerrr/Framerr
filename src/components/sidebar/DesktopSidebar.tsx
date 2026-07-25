@@ -1,9 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, LogOut, UserCircle, Mail, LayoutGrid, Settings as SettingsIcon, PanelLeftClose } from 'lucide-react';
+import { LogOut, UserCircle, Mail, LayoutGrid, Settings as SettingsIcon, PanelLeftClose, ChevronDown } from 'lucide-react';
+import { DashboardPicker } from './DashboardPicker';
+import { NewDashboardModal } from '@/app/dashboard/components/NewDashboardModal';
+import { isAlreadyOnDashboardPage } from './dashboardNavUtils';
+import { useActiveDashboard } from '@/context/ActiveDashboardContext';
 import { useSharedSidebar } from '@/app/sidebar/context/useSharedSidebar';
 import { Highlight, HighlightItem } from '@/app/sidebar/Highlight';
-import { sidebarSpring } from '@/app/sidebar/types';
+import { sidebarSpring, highlightSpring, indicatorSurfaceStyle } from '@/app/sidebar/types';
 import { NotificationCenter } from '../../features/notifications';
 import { triggerHaptic } from '@/utils/haptics';
 import { SidebarTabsContent } from '@/app/sidebar/SidebarTabsContent';
@@ -11,6 +15,15 @@ import { SidebarSettingsContent } from '@/app/sidebar/SidebarSettingsContent';
 import { BetaBadge } from '@/shared/ui/BetaBadge';
 import { guardedNavigate } from '@/settings/navigation';
 
+type DashboardPickerOverlayBox = {
+    top: number;
+    left: number;
+    width: number;
+    rowHeight: number;
+};
+
+/** Same insets as Highlight boundsOffset (left: 8, width: -16) */
+const DASHBOARD_PICKER_INSET = 8;
 
 /**
  * Desktop Sidebar Component
@@ -23,6 +36,41 @@ export function DesktopSidebar() {
     const modeResetTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     // Ref to debounce auto-hide on mouse leave (prevents flicker during animation)
     const hideTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+    // Pointer over the aside — used so dropdown portal doesn't collapse the sidebar
+    const pointerOverSidebarRef = React.useRef(false);
+    const asideRef = React.useRef<HTMLElement | null>(null);
+    const dashboardAnchorRef = React.useRef<HTMLDivElement>(null);
+    const dashboardPickerOverlayRef = React.useRef<HTMLDivElement>(null);
+    const sidebarFooterRef = React.useRef<HTMLDivElement>(null);
+    const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
+    const dashboardMenuOpenRef = React.useRef(false);
+    const [newDashboardOpen, setNewDashboardOpen] = useState(false);
+    const [dashboardPickerBox, setDashboardPickerBox] = useState<DashboardPickerOverlayBox | null>(null);
+    /** Cap list so it stops above the footer instead of clipping into it */
+    const [dashboardPickerMaxHeight, setDashboardPickerMaxHeight] = useState(0);
+    /** Target list height (content measure) — drives Highlight boundsOffset */
+    const [dashboardPickerListHeight, setDashboardPickerListHeight] = useState(0);
+    /**
+     * Stays true from open through close spring so the list overlay can track the
+     * indicator until it returns to row size.
+     */
+    const [dashboardPickerMorphActive, setDashboardPickerMorphActive] = useState(false);
+    const [asideSettled, setAsideSettled] = useState(true);
+    const dashboardPickerContentRef = React.useRef<HTMLDivElement>(null);
+
+    const setDashboardMenuOpenSafe = (open: boolean): void => {
+        dashboardMenuOpenRef.current = open;
+        setDashboardMenuOpen(open);
+        if (open) {
+            setDashboardPickerMorphActive(true);
+        }
+    };
+
+    const { activeDashboardId, dashboards } = useActiveDashboard();
+    const activeDashboard = dashboards.find(d => d.id === activeDashboardId);
+    const activeDashboardName = activeDashboard?.name?.trim() || 'Dashboard';
+    const activeDashboardIcon = activeDashboard?.icon || 'LayoutDashboard';
+
     const {
         isExpanded,
         setIsExpanded,
@@ -78,12 +126,179 @@ export function DesktopSidebar() {
     const isOnSettingsPage = hash.startsWith('settings');
     const effectivelyHidden = isSidebarHidden && !isOnSettingsPage && !isPeeking && !isExpanded;
 
+    const openDashboardPicker = (): void => {
+        if (hideTimeoutRef.current) {
+            clearTimeout(hideTimeoutRef.current);
+            hideTimeoutRef.current = null;
+        }
+        setIsExpanded(true);
+        setDashboardMenuOpenSafe(true);
+    };
+
+    const closeDashboardPicker = (): void => {
+        setDashboardMenuOpenSafe(false);
+        if (!pointerOverSidebarRef.current && !isOnSettingsPage) {
+            if (isSidebarHidden) {
+                hideTimeoutRef.current = setTimeout(() => {
+                    if (pointerOverSidebarRef.current) return;
+                    setIsExpanded(false);
+                    setPeekIntent(false);
+                    hideTimeoutRef.current = null;
+                }, 100);
+            } else if (!showNotificationCenter) {
+                setIsExpanded(false);
+            }
+        }
+    };
+
+    const cancelDashboardPickerMorph = (): void => {
+        dashboardMenuOpenRef.current = false;
+        setDashboardMenuOpen(false);
+        setDashboardPickerMorphActive(false);
+        setDashboardPickerBox(null);
+        setDashboardPickerListHeight(0);
+    };
+
     // Force sidebar visible when navigating to settings
     useEffect(() => {
         if (isOnSettingsPage && isSidebarHidden) {
             queueMicrotask(() => setIsExpanded(true));
         }
     }, [isOnSettingsPage, isSidebarHidden, setIsExpanded]);
+
+    // List geometry: same insets as Highlight boundsOffset (anchor-based, not animated indicator)
+    useLayoutEffect(() => {
+        if (!dashboardPickerMorphActive) return;
+
+        const updateBox = (): void => {
+            const anchor = dashboardAnchorRef.current;
+            const aside = asideRef.current;
+            if (!anchor || !aside || aside.offsetWidth === 0) return;
+            // Prefer HighlightItem wrapper — same rect Highlight uses for the indicator
+            const item =
+                (aside.querySelector('[data-highlight-value="dashboard"]') as HTMLElement | null) ||
+                anchor;
+            const a = item.getBoundingClientRect();
+            const s = aside.getBoundingClientRect();
+            // aside uses Framer scale transforms — convert viewport deltas into local CSS px
+            const scaleX = s.width / aside.offsetWidth || 1;
+            const scaleY = s.height / aside.offsetHeight || 1;
+            setDashboardPickerBox({
+                top: (a.top - s.top) / scaleY,
+                left: (a.left - s.left) / scaleX + DASHBOARD_PICKER_INSET,
+                width: Math.max(0, a.width / scaleX - DASHBOARD_PICKER_INSET * 2),
+                rowHeight: a.height / scaleY,
+            });
+
+            // Stop above notifications/profile/settings/logout — never grow into the footer
+            const footer = sidebarFooterRef.current;
+            const gap = 8;
+            const hardCap = 24 * 16; // 24rem
+            if (footer) {
+                const available = (footer.getBoundingClientRect().top - a.bottom) / scaleY - gap;
+                setDashboardPickerMaxHeight(Math.max(0, Math.min(hardCap, available)));
+            } else {
+                setDashboardPickerMaxHeight(hardCap);
+            }
+        };
+
+        updateBox();
+        const raf = requestAnimationFrame(updateBox);
+        window.addEventListener('resize', updateBox);
+        const nav = navScrollRef.current;
+        nav?.addEventListener('scroll', updateBox, { passive: true });
+        return () => {
+            cancelAnimationFrame(raf);
+            window.removeEventListener('resize', updateBox);
+            nav?.removeEventListener('scroll', updateBox);
+        };
+    }, [dashboardPickerMorphActive, dashboardMenuOpen, isExpanded]);
+
+    // Measure list content → target height for the Highlight indicator grow
+    useLayoutEffect(() => {
+        if (!dashboardMenuOpen) return;
+        const content = dashboardPickerContentRef.current;
+        if (!content) return;
+
+        const updateHeight = (): void => {
+            const raw = content.scrollHeight;
+            const capped =
+                dashboardPickerMaxHeight > 0 ? Math.min(raw, dashboardPickerMaxHeight) : raw;
+            setDashboardPickerListHeight(Math.max(0, capped));
+        };
+        updateHeight();
+        const ro = new ResizeObserver(updateHeight);
+        ro.observe(content);
+        return () => ro.disconnect();
+    }, [dashboardMenuOpen, dashboardPickerBox, dashboardPickerMaxHeight]);
+
+    // Mirror indicator height onto the transparent list clip (one spring — no second surface)
+    useLayoutEffect(() => {
+        if (!dashboardPickerMorphActive || !dashboardPickerBox) return;
+        const aside = asideRef.current;
+        if (!aside) return;
+
+        const rowHeight = dashboardPickerBox.rowHeight;
+        let rafId = 0;
+        let active = true;
+        const sync = (): void => {
+            if (!active) return;
+            const indicator = aside.querySelector('[data-highlight-indicator]') as HTMLElement | null;
+            const overlay = dashboardPickerOverlayRef.current;
+            if (!indicator && dashboardPickerMorphActive) {
+                active = false;
+                dashboardMenuOpenRef.current = false;
+                setDashboardMenuOpen(false);
+                setDashboardPickerMorphActive(false);
+                setDashboardPickerBox(null);
+                setDashboardPickerListHeight(0);
+                return;
+            }
+            if (indicator && overlay && aside.offsetHeight > 0) {
+                const scaleY = aside.getBoundingClientRect().height / aside.offsetHeight || 1;
+                const indH = indicator.getBoundingClientRect().height / scaleY;
+                const extra = Math.max(0, indH - rowHeight);
+                overlay.style.height = `${extra}px`;
+
+                if (!dashboardMenuOpenRef.current && extra <= 0.5) {
+                    active = false;
+                    setDashboardPickerBox(null);
+                    setDashboardPickerMorphActive(false);
+                    setDashboardPickerListHeight(0);
+                    return;
+                }
+            }
+            rafId = requestAnimationFrame(sync);
+        };
+        rafId = requestAnimationFrame(sync);
+        return () => {
+            active = false;
+            cancelAnimationFrame(rafId);
+        };
+    }, [dashboardPickerMorphActive, dashboardPickerBox]);
+
+    // Close on outside click / Escape
+    useEffect(() => {
+        if (!dashboardMenuOpen) return;
+
+        const onPointerDown = (e: PointerEvent): void => {
+            const target = e.target as Node | null;
+            if (target && dashboardPickerOverlayRef.current?.contains(target)) return;
+            if (target && dashboardAnchorRef.current?.contains(target)) return;
+            closeDashboardPicker();
+        };
+        const onKeyDown = (e: KeyboardEvent): void => {
+            if (e.key === 'Escape') closeDashboardPicker();
+        };
+
+        document.addEventListener('pointerdown', onPointerDown, true);
+        document.addEventListener('keydown', onKeyDown);
+        return () => {
+            document.removeEventListener('pointerdown', onPointerDown, true);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- rebind when open toggles
+    }, [dashboardMenuOpen]);
 
 
     // Calculate sidebar position and scale
@@ -162,8 +377,10 @@ export function DesktopSidebar() {
                         }
                     }}
                     onMouseLeave={() => {
-                        // Mouse left the gap — start hide timer
+                        // Mouse left the gap — start hide timer (skip while dashboard picker is open)
+                        if (dashboardMenuOpenRef.current) return;
                         hideTimeoutRef.current = setTimeout(() => {
+                            if (dashboardMenuOpenRef.current || pointerOverSidebarRef.current) return;
                             setIsExpanded(false);
                             setPeekIntent(false);
                             hideTimeoutRef.current = null;
@@ -186,6 +403,7 @@ export function DesktopSidebar() {
             </AnimatePresence>
 
             <motion.aside
+                ref={asideRef}
                 className="glass-card sidebar-shadow flex flex-col relative fade-in"
                 animate={{
                     width: showNotificationCenter ? 400 : (isExpanded ? 280 : 80),
@@ -194,6 +412,8 @@ export function DesktopSidebar() {
                     opacity: sidebarOpacity,
                 }}
                 transition={sidebarSpring}
+                onAnimationStart={() => setAsideSettled(false)}
+                onAnimationComplete={() => setAsideSettled(true)}
                 style={{
                     height: 'calc(100vh - 32px)',
                     position: 'fixed',
@@ -204,6 +424,7 @@ export function DesktopSidebar() {
                     transformOrigin: 'left center',
                 }}
                 onMouseEnter={() => {
+                    pointerOverSidebarRef.current = true;
                     // Cancel any pending hide (prevents flicker)
                     if (hideTimeoutRef.current) {
                         clearTimeout(hideTimeoutRef.current);
@@ -228,9 +449,15 @@ export function DesktopSidebar() {
                     }
                 }}
                 onMouseLeave={() => {
+                    pointerOverSidebarRef.current = false;
+                    // Keep expanded while the dashboard picker dropdown is open
+                    // (menu content is portaled outside the aside)
+                    if (dashboardMenuOpenRef.current) return;
+
                     if (isSidebarHidden && !isOnSettingsPage) {
                         // Debounce auto-hide to prevent flicker during animation
                         hideTimeoutRef.current = setTimeout(() => {
+                            if (dashboardMenuOpenRef.current || pointerOverSidebarRef.current) return;
                             setIsExpanded(false);
                             setPeekIntent(false);
                             hideTimeoutRef.current = null;
@@ -331,14 +558,25 @@ export function DesktopSidebar() {
                 {/* Navigation and Footer - wrapped in Highlight for unified indicator animation */}
                 <Highlight
                     className="bg-accent/20 rounded-xl shadow-lg"
+                    style={
+                        dashboardPickerMorphActive
+                            ? { ...indicatorSurfaceStyle, zIndex: 40 }
+                            : undefined
+                    }
                     containerClassName="flex flex-col flex-1 min-h-0"
                     hover
-                    exitDelay={100}
-                    hoverLeaveDelay={500}
+                    hoverLeaveDelay={150}
+                    // Pin through close so the row pill stays put under the morphing card
+                    value={dashboardPickerMorphActive ? 'dashboard' : undefined}
                     defaultValue={effectiveActiveNavItem}
-                    transition={sidebarSpring}
+                    transition={highlightSpring}
                     mode="parent"
-                    boundsOffset={{ left: 8, width: -16 }}
+                    boundsOffset={{
+                        left: DASHBOARD_PICKER_INSET,
+                        width: -DASHBOARD_PICKER_INSET * 2,
+                        // Single spring (Highlight) grows/shrinks the pill; list clip mirrors it
+                        height: dashboardMenuOpen ? dashboardPickerListHeight : 0,
+                    }}
                     scrollContainerRef={navScrollRef}
                 >
                     {/* Content Area - conditional based on mode */}
@@ -358,7 +596,11 @@ export function DesktopSidebar() {
                             />
                         </div>
                     ) : (
-                        <nav ref={navScrollRef} className="flex-1 overflow-y-auto overflow-x-hidden py-4 space-y-1 relative" style={{ overscrollBehavior: 'contain' }}>
+                        <nav
+                            ref={navScrollRef}
+                            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 space-y-1 relative"
+                            style={{ overscrollBehavior: 'contain' }}
+                        >
                             {/* Mode Toggle - Tabs / Settings (only on settings page, when expanded) */}
                             {hash.startsWith('settings') && isExpanded && (
                                 <div className="px-4 mb-3">
@@ -404,42 +646,78 @@ export function DesktopSidebar() {
                                 </div>
                             )}
 
-                            {/* Dashboard Link */}
-                            <HighlightItem value="dashboard">
-                                <a
-                                    href="/#dashboard"
-                                    onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
-                                        const isAlreadyOnDashboard = !window.location.hash || window.location.hash === '#dashboard';
-                                        if (isAlreadyOnDashboard) {
-                                            e.preventDefault();
-                                            document.getElementById('dashboard-layer')?.scrollTo({ top: 0, behavior: 'smooth' });
-                                            return;
-                                        }
-                                        handleNavigation(e, '#dashboard');
-                                    }}
-                                    className="relative flex items-center py-3.5 pl-20 min-h-[48px] text-sm font-medium text-theme-secondary hover:text-theme-primary transition-colors rounded-xl"
+                            {/* Dashboard row stays above the grown pill (z-40); tabs stay at default z-1 beneath it */}
+                            <HighlightItem value="dashboard" zIndex={dashboardPickerMorphActive ? 50 : 1}>
+                                <div
+                                    ref={dashboardAnchorRef}
+                                    className="relative group flex items-center min-h-[48px] rounded-xl"
                                 >
-                                    {/* Icon - absolutely positioned in 80px left zone */}
-                                    <div className="absolute left-0 w-20 h-full flex items-center justify-center">
-                                        <span className={`flex items-center justify-center ${activeNavItem === 'dashboard' ? 'text-accent' : ''}`}>
-                                            <LayoutDashboard size={20} />
-                                        </span>
-                                    </div>
-                                    {/* Text - appears when expanded */}
-                                    <AnimatePresence mode="wait">
+                                    <a
+                                        href={
+                                            activeDashboardId
+                                                ? `/#dashboard/${activeDashboardId}`
+                                                : '/#dashboard'
+                                        }
+                                        onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                                            if (dashboardMenuOpen) {
+                                                e.preventDefault();
+                                                return;
+                                            }
+                                            if (isAlreadyOnDashboardPage()) {
+                                                e.preventDefault();
+                                                document.getElementById('dashboard-layer')?.scrollTo({ top: 0, behavior: 'smooth' });
+                                                return;
+                                            }
+                                            handleNavigation(
+                                                e,
+                                                activeDashboardId
+                                                    ? `#dashboard/${activeDashboardId}`
+                                                    : '#dashboard',
+                                            );
+                                        }}
+                                        className={`relative flex flex-1 items-center min-w-0 py-3.5 pl-20 pr-10 min-h-[48px] text-sm font-medium transition-colors rounded-xl ${
+                                            activeNavItem === 'dashboard' || dashboardMenuOpen
+                                                ? 'text-accent'
+                                                : 'text-theme-secondary hover:text-theme-primary'
+                                        }`}
+                                    >
+                                        <div className="absolute left-0 w-20 h-full flex items-center justify-center">
+                                            <span className={`flex items-center justify-center ${activeNavItem === 'dashboard' || dashboardMenuOpen ? 'text-accent' : ''}`}>
+                                                {renderIcon(activeDashboardIcon, 20)}
+                                            </span>
+                                        </div>
                                         {isExpanded && (
-                                            <motion.span
-                                                initial={{ opacity: 0 }}
-                                                animate={{ opacity: 1 }}
-                                                exit={{ opacity: 0 }}
-                                                transition={{ duration: 0.1 }}
-                                                className={`whitespace-nowrap ${activeNavItem === 'dashboard' ? 'text-accent' : ''}`}
+                                            <span
+                                                title={activeDashboardName}
+                                                className="truncate min-w-0 pr-1"
                                             >
-                                                Dashboard
-                                            </motion.span>
+                                                {activeDashboardName}
+                                            </span>
                                         )}
-                                    </AnimatePresence>
-                                </a>
+                                    </a>
+                                    {isExpanded && asideSettled && (
+                                    <button
+                                        type="button"
+                                        aria-label="Switch dashboard"
+                                        aria-expanded={dashboardMenuOpen}
+                                        className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors transition-opacity hover:bg-[rgba(59,130,246,0.12)] active:bg-[rgba(59,130,246,0.18)] opacity-0 pointer-events-none text-theme-tertiary hover:text-theme-primary group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto focus:opacity-100 focus:pointer-events-auto"
+                                        onClick={e => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            if (dashboardMenuOpen) {
+                                                closeDashboardPicker();
+                                            } else {
+                                                openDashboardPicker();
+                                            }
+                                        }}
+                                    >
+                                        <ChevronDown
+                                            size={16}
+                                            className={`transition-transform duration-200 ${dashboardMenuOpen ? 'rotate-180' : ''}`}
+                                        />
+                                    </button>
+                                    )}
+                                </div>
                             </HighlightItem>
 
                             {/* Content Section - Conditionally render tabs or settings */}
@@ -449,7 +727,10 @@ export function DesktopSidebar() {
                     )}
 
                     {/* Footer - ALWAYS visible */}
-                    <div className="flex-shrink-0 py-3 border-t border-theme-light flex flex-col gap-2 relative">
+                    <div
+                        ref={sidebarFooterRef}
+                        className="flex-shrink-0 py-3 border-t border-theme-light flex flex-col gap-2 relative z-[70]"
+                    >
                         {/* Notifications Button */}
                         <HighlightItem value="notifications">
                             <button
@@ -460,7 +741,9 @@ export function DesktopSidebar() {
                                         setShowNotificationCenter(false);
                                         // sidebarMode stays the same - we go back to whatever mode we were in
                                     } else {
-                                        // Open notification center (overlay on current mode)
+                                        if (dashboardMenuOpenRef.current || dashboardPickerMorphActive) {
+                                            cancelDashboardPickerMorph();
+                                        }
                                         setShowNotificationCenter(true);
                                     }
                                 }}
@@ -620,6 +903,49 @@ export function DesktopSidebar() {
                         </HighlightItem>
                     </div>
                 </Highlight>
+
+                {/*
+                  Transparent list chrome — only the Highlight pill paints.
+                  Pill z-40 covers overlapping tabs; this layer is z-60 for hits/text only.
+                */}
+                {dashboardPickerMorphActive && isExpanded && dashboardPickerBox && (
+                    <div
+                        ref={dashboardPickerOverlayRef}
+                        className="absolute z-[60] overflow-hidden"
+                        style={{
+                            top: dashboardPickerBox.top + dashboardPickerBox.rowHeight,
+                            left: dashboardPickerBox.left,
+                            width: dashboardPickerBox.width,
+                            height: 0, // live height written each frame from the indicator
+                            maxHeight: dashboardPickerMaxHeight > 0 ? dashboardPickerMaxHeight : undefined,
+                            pointerEvents: dashboardMenuOpen ? 'auto' : 'none',
+                        }}
+                        onMouseEnter={() => {
+                            pointerOverSidebarRef.current = true;
+                            if (hideTimeoutRef.current) {
+                                clearTimeout(hideTimeoutRef.current);
+                                hideTimeoutRef.current = null;
+                            }
+                        }}
+                    >
+                        <div
+                            ref={dashboardPickerContentRef}
+                            className="overflow-y-auto custom-scrollbar py-1"
+                            style={{
+                                maxHeight: dashboardPickerMaxHeight > 0 ? dashboardPickerMaxHeight : undefined,
+                            }}
+                        >
+                            <DashboardPicker
+                                variant="list"
+                                onRequestClose={closeDashboardPicker}
+                                onRequestNew={() => {
+                                    setDashboardMenuOpenSafe(false);
+                                    setNewDashboardOpen(true);
+                                }}
+                            />
+                        </div>
+                    </div>
+                )}
             </motion.aside >
 
             {/* Backdrop overlay when notification center is open */}
@@ -643,6 +969,9 @@ export function DesktopSidebar() {
                     )
                 }
             </AnimatePresence >
+
+            {/* Hosted outside the dropdown portal so create flow survives menu close */}
+            <NewDashboardModal open={newDashboardOpen} onOpenChange={setNewDashboardOpen} />
         </>
     );
 }

@@ -5,13 +5,16 @@
  * Handles both regular links (open URL) and action buttons (HTTP requests).
  */
 
-import React, { CSSProperties, useState, useCallback } from 'react';
+import React, { CSSProperties } from 'react';
 import { Loader, CheckCircle2, XCircle } from 'lucide-react';
 import { getIconComponent } from '../../../utils/iconUtils';
 import { triggerHaptic } from '../../../utils/haptics';
-import axios, { AxiosRequestConfig } from 'axios';
-import logger from '../../../utils/logger';
-import type { Link, LinkPosition, LinkState } from '../types';
+import { useLinkAction } from '../hooks/useLinkAction';
+import { useDashboardEdit } from '../../../context/useDashboardEdit';
+import { useActiveDashboard } from '../../../context/ActiveDashboardContext';
+import { guardedNavigate } from '../../../settings/navigation/settingsConfig';
+import { resolveLinkNavigation } from '../utils/linkNavigation';
+import type { Link, LinkPosition } from '../types';
 
 interface LinkItemProps {
     link: Link;
@@ -31,8 +34,9 @@ export const LinkItem: React.FC<LinkItemProps> = ({
     editMode,
     onLinkClick
 }) => {
-    // Local state for HTTP action execution
-    const [linkState, setLinkState] = useState<LinkState>('idle');
+    const dashboardEdit = useDashboardEdit();
+    const { switchDashboard } = useActiveDashboard();
+    const { state: linkState, execute: executeAction } = useLinkAction(link);
 
     const Icon = getIconComponent(link.icon);
     const isLoading = linkState === 'loading';
@@ -42,45 +46,6 @@ export const LinkItem: React.FC<LinkItemProps> = ({
 
     const width = cellSize * position.gridColSpan;
     const height = cellSize;
-
-    /**
-     * Execute HTTP action for action-type links
-     */
-    const executeAction = useCallback(async (): Promise<void> => {
-        if (!link.action) {
-            logger.error('No action configured for link', link);
-            return;
-        }
-
-        const { method = 'GET', url, headers = {}, body = null } = link.action;
-
-        setLinkState('loading');
-
-        try {
-            logger.debug(`Executing ${method} action:`, url);
-
-            const requestConfig: AxiosRequestConfig = {
-                method: method.toLowerCase(),
-                url,
-                headers,
-            };
-
-            if (body && ['post', 'put', 'patch'].includes(method.toLowerCase())) {
-                requestConfig.data = body;
-            }
-
-            const response = await axios(requestConfig);
-
-            logger.debug(`Action successful:`, response.status);
-
-            setLinkState('success');
-            setTimeout(() => setLinkState('idle'), 2000);
-        } catch (error) {
-            logger.error(`Action failed:`, error);
-            setLinkState('error');
-            setTimeout(() => setLinkState('idle'), 2000);
-        }
-    }, [link]);
 
     // Base classes
     const baseClasses = 'flex items-center justify-center border bg-theme-tertiary border-theme transition-all duration-200 relative overflow-hidden';
@@ -162,21 +127,53 @@ export const LinkItem: React.FC<LinkItemProps> = ({
 
     // Shared props for both link and button
     // Note: edit-clickable class makes links clickable in edit mode despite global pointer-events: none
+    // Always cursor-pointer — in-app/dashboard links have no href, so the browser won't apply it.
     const sharedProps = {
         'data-link-id': link.id,
-        className: `${classes} ${editMode ? 'cursor-pointer' : ''} edit-clickable no-drag`,
+        className: `${classes} cursor-pointer edit-clickable no-drag`,
         style,
     };
 
-    // Regular link (opens URL)
+    // Regular link (external URL, in-app hash, or Framerr dashboard)
     if (link.type === 'link' || !link.type) {
+        const nav = resolveLinkNavigation(link);
+        const isInApp = nav.kind === 'dashboard' || nav.kind === 'hash';
+        const openInNewTab = !editMode && nav.kind === 'external' && nav.openInNewTab;
+
         return (
             <a
                 {...sharedProps}
-                href={editMode ? undefined : link.url}
-                target={editMode ? undefined : "_blank"}
-                rel={editMode ? undefined : "noopener noreferrer"}
-                onClick={handleLinkClick}
+                href={editMode || isInApp ? undefined : nav.url}
+                target={openInNewTab ? '_blank' : undefined}
+                rel={openInNewTab ? 'noopener noreferrer' : undefined}
+                onClick={(e) => {
+                    if (editMode) {
+                        handleLinkClick(e);
+                        return;
+                    }
+                    if (nav.kind === 'dashboard' && nav.dashboardId) {
+                        e.preventDefault();
+                        triggerHaptic('light');
+                        switchDashboard(nav.dashboardId);
+                        return;
+                    }
+                    if (nav.kind === 'hash' && nav.hash) {
+                        e.preventDefault();
+                        triggerHaptic('light');
+                        const destination = `#${nav.hash}`;
+                        const result = guardedNavigate(destination, dashboardEdit);
+                        if (result === 'proceed') {
+                            window.location.hash = nav.hash;
+                        }
+                        return;
+                    }
+                    if (!nav.openInNewTab) {
+                        // Current-tab external: let the browser follow href (no target=_blank)
+                        triggerHaptic('light');
+                        return;
+                    }
+                    handleLinkClick(e);
+                }}
             >
                 {renderIcon()}
                 {renderText()}

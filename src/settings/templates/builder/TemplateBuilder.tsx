@@ -18,7 +18,7 @@ import { Button } from '../../../shared/ui';
 import { LoadingSpinner } from '@/shared/ui';
 import { useLayout } from '../../../context/useLayout';
 import logger from '../../../utils/logger';
-import { dispatchCustomEvent, CustomEventNames } from '../../../types/events';
+import ApplyTemplateModal from '../components/ApplyTemplateModal';
 
 // Import types from centralized types file
 import type { TemplateWidget, TemplateData } from './types';
@@ -301,6 +301,7 @@ const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
     // Step 3 saving state (managed here so footer can show state)
     const [step3Saving, setStep3Saving] = useState(false);
     const [step3SaveAction, setStep3SaveAction] = useState<'save' | 'apply' | 'share' | null>(null);
+    const [pendingApply, setPendingApply] = useState<{ id: string; name: string } | null>(null);
 
     // Step 3 save handler - moved from TemplateBuilderStep3
     const handleStep3Save = useCallback(async (action: 'save' | 'apply' | 'share') => {
@@ -339,20 +340,26 @@ const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
 
             // Handle action-specific logic
             if (action === 'apply') {
-                await templatesApi.apply(savedTemplate.id);
-                dispatchCustomEvent(CustomEventNames.WIDGETS_ADDED);
-            }
-
-            // Call onSave callback if provided
-            if (onSave) {
-                onSave(savedTemplate as unknown as TemplateData);
+                if (onSave) {
+                    onSave(savedTemplate as unknown as TemplateData);
+                }
+                setPendingApply({ id: savedTemplate.id, name: savedTemplate.name });
+                onClose();
+                return;
             }
 
             // For share action, close builder and trigger share modal
             if (action === 'share' && onShare) {
+                if (onSave) {
+                    onSave(savedTemplate as unknown as TemplateData);
+                }
                 onClose();
                 onShare(savedTemplate as unknown as TemplateData & { id: string });
                 return;
+            }
+
+            if (onSave) {
+                onSave(savedTemplate as unknown as TemplateData);
             }
 
             onClose();
@@ -602,6 +609,14 @@ const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
                     variant: 'danger',
                 }}
             />
+            {pendingApply && (
+                <ApplyTemplateModal
+                    open={!!pendingApply}
+                    onOpenChange={open => !open && setPendingApply(null)}
+                    templateId={pendingApply.id}
+                    templateName={pendingApply.name}
+                />
+            )}
         </>
     );
 };

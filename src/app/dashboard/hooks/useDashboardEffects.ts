@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { configApi } from '../../../api/endpoints';
+import { useEffect, useRef } from 'react';
 import { signalAppReady, setSplashMessage } from '../../../utils/splash';
 import logger from '../../../utils/logger';
 import type { FramerrWidget } from '../../../../shared/types/widget';
@@ -29,11 +28,7 @@ interface UseDashboardEffectsParams {
     fetchWidgets: () => void;
 }
 
-interface UseDashboardEffectsResult {
-    squareCells: boolean;
-}
-
-export function useDashboardEffects(params: UseDashboardEffectsParams): UseDashboardEffectsResult {
+export function useDashboardEffects(params: UseDashboardEffectsParams): void {
     const {
         editMode,
         isMobile,
@@ -49,24 +44,6 @@ export function useDashboardEffects(params: UseDashboardEffectsParams): UseDashb
         setWidgetPixelSizes,
         fetchWidgets,
     } = params;
-
-    // ========== SQUARE CELLS (EXPERIMENTAL) ==========
-    const [squareCells, setSquareCells] = useState(false);
-    useEffect(() => {
-        const loadPref = async () => {
-            try {
-                const response = await configApi.getUser();
-                if (response?.preferences?.squareCells) setSquareCells(true);
-            } catch { /* ignore */ }
-        };
-        loadPref();
-        const handler = (e: Event) => {
-            const detail = (e as CustomEvent).detail;
-            if (detail?.squareCells !== undefined) setSquareCells(!!detail.squareCells);
-        };
-        window.addEventListener('user-preferences-changed', handler);
-        return () => window.removeEventListener('user-preferences-changed', handler);
-    }, []);
 
     // ========== iOS PWA WORKAROUND ==========
     // Set inline styles for resize handles on mobile
@@ -186,6 +163,4 @@ export function useDashboardEffects(params: UseDashboardEffectsParams): UseDashb
             signalAppReady(currentTheme);
         }
     }, [loading]);
-
-    return { squareCells };
 }

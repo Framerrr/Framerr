@@ -1,9 +1,9 @@
 /**
  * Widgets API Endpoints
- * Widget CRUD and dashboard layout
+ * Widget CRUD and dashboard layout (scoped per dashboard)
  */
 import { api } from '../client';
-import { ApiResponse, WidgetId } from '../types';
+import { WidgetId } from '../types';
 
 // Types
 export interface WidgetLayout {
@@ -53,65 +53,35 @@ export interface SaveWidgetsData {
     mobileWidgets?: Widget[];
 }
 
+function widgetsBase(dashboardId: string): string {
+    return `/api/dashboards/${dashboardId}/widgets`;
+}
+
 // Endpoints
 export const widgetsApi = {
-    /**
-     * Get all widgets (desktop + mobile)
-     * Used by settings/dashboard
-     */
-    getAll: () =>
-        api.get<WidgetsResponse>('/api/widgets'),
+    getAll: (dashboardId: string) =>
+        api.get<WidgetsResponse>(widgetsBase(dashboardId)),
 
-    /**
-     * Save all widgets (full layout update)
-     * Used by settings/dashboard
-     */
-    saveAll: (data: SaveWidgetsData) =>
-        api.put<void>('/api/widgets', data),
+    saveAll: (dashboardId: string, data: SaveWidgetsData) =>
+        api.put<void>(widgetsBase(dashboardId), data),
 
-
-    /**
-     * Add widget to dashboard
-     */
-    addWidget: (widget: Omit<Widget, 'id'>) =>
-        api.post<ApiResponse<Widget>>('/api/dashboard/widgets', widget),
-
-    /**
-     * Update widget
-     */
-    updateWidget: (id: WidgetId, data: UpdateWidgetData) =>
-        api.put<ApiResponse<Widget>>(`/api/dashboard/widgets/${id}`, data),
-
-    /**
-     * Remove widget
-     */
-    removeWidget: (id: WidgetId) =>
-        api.delete<ApiResponse<void>>(`/api/dashboard/widgets/${id}`),
-
-    /**
-     * Get widget type access for current user
-     */
     getMyAccess: () =>
         api.get<{ widgets: string[] | 'all' }>('/api/widget-shares/my-access'),
 
-    /**
-     * Reconnect mobile layout to desktop (resync)
-     */
-    reconnectMobile: () =>
-        api.post<void>('/api/widgets/reconnect'),
+    reconnectMobile: (dashboardId: string) =>
+        api.post<void>(`${widgetsBase(dashboardId)}/reconnect`),
 
-    /**
-     * Reset all widgets (clear dashboard)
-     */
-    reset: () =>
-        api.post<void>('/api/widgets/reset'),
+    reset: (dashboardId: string) =>
+        api.post<void>(`${widgetsBase(dashboardId)}/reset`),
 
-    /**
-     * Update a single widget's config
-     * Used by automatic fallback persistence to avoid full dashboard save
-     */
-    updateWidgetConfig: (widgetId: WidgetId, config: Record<string, unknown>) =>
-        api.patch<{ success: boolean }>(`/api/widgets/${widgetId}/config`, { config }),
+    updateWidgetConfig: (
+        dashboardId: string,
+        widgetId: WidgetId,
+        config: Record<string, unknown>
+    ) =>
+        api.patch<{ success: boolean }>(`${widgetsBase(dashboardId)}/${widgetId}/config`, {
+            config,
+        }),
 };
 
 export default widgetsApi;

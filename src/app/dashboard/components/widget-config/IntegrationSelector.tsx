@@ -11,6 +11,10 @@ import React, { useEffect, useRef } from 'react';
 import { Select, IntegrationDropdown, Popover } from '../../../../shared/ui';
 import { Link2, ExternalLink, Info } from 'lucide-react';
 import type { IntegrationInstance, WidgetConfigUIState } from './types';
+import {
+    resolveEffectiveIntegrationId,
+    resolveSingleSlotClearUpdates,
+} from '../../../../shared/widgets/resolveEffectiveIntegrationId';
 
 // ============================================================================
 // Types
@@ -124,22 +128,21 @@ export const SingleIntegrationSelector: React.FC<SingleIntegrationSelectorProps>
     // Validate stored integrationId against available options
     const storedId = config.integrationId as string | undefined;
     const isValidId = storedId && integrationOptions.some(opt => opt.value === storedId);
-    const selectValue = isValidId ? storedId : '';
+    const forceClear = config.forceClearIntegration === true;
+    const effectiveId = resolveEffectiveIntegrationId(
+        storedId,
+        availableIntegrations.map(i => ({ id: i.id, type: i.type })),
+        forceClear,
+    );
+    const selectValue = isValidId ? storedId
+        : (!forceClear && effectiveId ? effectiveId : '');
 
     /**
      * Handle integration selection — bind id only; chrome derives title/icon at render.
      */
     const handleIntegrationChange = (newId: string | undefined) => {
-        updateConfig('integrationId', newId || undefined);
-
-        if (!newId) {
-            // Unbind: clear sticky auto-branding when user has not overridden
-            if (!config.titleOverridden) {
-                updateConfig('title', undefined);
-            }
-            if (!config.iconOverridden) {
-                updateConfig('customIcon', undefined);
-            }
+        for (const { key, value } of resolveSingleSlotClearUpdates(newId, config)) {
+            updateConfig(key, value);
         }
     };
 

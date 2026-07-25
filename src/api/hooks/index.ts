@@ -30,8 +30,6 @@ export {
 export {
     useWidgets,
     useSaveWidgets,
-    useAddWidget,
-    useRemoveWidget,
     useWidgetAccess,
     useUserPreferences,
     useUpdateUserPreferences,
@@ -48,6 +46,13 @@ export {
     useApiHealth,
 } from './useDashboard';
 
+export {
+    useDashboards,
+    useCreateDashboard,
+    useUpdateDashboard,
+    useDeleteDashboard,
+    useSetDashboardPreferences,
+} from './useDashboards';
 
 // Settings hooks
 export {

@@ -294,7 +294,7 @@ const SonarrWidget = ({ widget, previewMode = false }: SonarrWidgetProps): React
 
     // Check if integration is bound
     const config = widget.config as SonarrConfig | undefined;
-    const configuredIntegrationId = config?.integrationId;
+    const configuredIntegrationId = config?.forceClearIntegration ? null : config?.integrationId;
     const configViewMode = config?.viewMode ?? 'auto';
     const showStatsBar = config?.showStatsBar !== 'false';
     const lookAheadDaysRaw = config?.lookAheadDays ?? '30';

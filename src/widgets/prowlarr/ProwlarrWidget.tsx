@@ -114,7 +114,8 @@ const ProwlarrWidget: React.FC<WidgetProps> = ({ widget, previewMode = false }) 
     const userIsAdmin = isAdmin(user);
 
     const config = widget.config as ProwlarrWidgetConfig | undefined;
-    const configuredIntegrationId = config?.integrationId;
+    const cfg = config as Record<string, unknown> | undefined;
+    const configuredIntegrationId = cfg?.forceClearIntegration ? null : config?.integrationId;
     const showSummaryBar = config?.showSummaryBar !== 'false';
     const showApplications = config?.showApplications !== 'false';
 

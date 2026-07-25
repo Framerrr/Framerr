@@ -17,6 +17,7 @@ import { DashboardEditProvider } from './context/DashboardEditContext';
 import { SharedSidebarProvider } from '@/app/sidebar/SharedSidebarContext';
 import { useSharedSidebar } from '@/app/sidebar/context/useSharedSidebar';
 import { WalkthroughProvider, WalkthroughOverlay } from './features/walkthrough';
+import { ActiveDashboardProvider } from './context/ActiveDashboardContext';
 import { LAYOUT } from './constants/layout';
 import ProtectedRoute from '@/app/ProtectedRoute';
 import Sidebar from '@/app/Sidebar';
@@ -160,19 +161,20 @@ const MainLayout: React.FC = () => {
 
     return (
         <DashboardEditProvider>
-            <WalkthroughProvider
-                userRole={userRole}
-                persistence={walkthroughPersistence}
-                autoStartFlowId="onboarding"
-                onFlowComplete={(flowId) => {
-                    // Dispatch event for Dashboard to save and exit edit mode
-                    window.dispatchEvent(new CustomEvent('walkthrough-flow-complete', { detail: { flowId } }));
-                }}
-            >
-                <SharedSidebarProvider>
-                    <MainLayoutContent />
-                </SharedSidebarProvider>
-            </WalkthroughProvider>
+            <ActiveDashboardProvider>
+                <WalkthroughProvider
+                    userRole={userRole}
+                    persistence={walkthroughPersistence}
+                    autoStartFlowId="onboarding"
+                    onFlowComplete={(flowId) => {
+                        window.dispatchEvent(new CustomEvent('walkthrough-flow-complete', { detail: { flowId } }));
+                    }}
+                >
+                    <SharedSidebarProvider>
+                        <MainLayoutContent />
+                    </SharedSidebarProvider>
+                </WalkthroughProvider>
+            </ActiveDashboardProvider>
         </DashboardEditProvider>
     );
 };
