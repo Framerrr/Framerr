@@ -124,6 +124,10 @@ export interface GridStackOptions {
    */
   acceptWidgets?: boolean | string | ((element: Element) => boolean);
 
+  /** FRAMERR: when true, skip Utils.updateScrollResize during resize (app supplies its own
+   * auto-scroll). Default false = stock GridStack behavior. */
+  framerrDisableResizeScroll?: boolean;
+
   /** possible values (default: `mobile`) - does not apply to non-resizable widgets
     * `false` the resizing handles are only shown while hovering over a widget
     * `true` the resizing handles are always shown

@@ -1,7 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 import type { Tab } from '@/api/endpoints/tabs';
-import { sidebarSpring } from '@/app/sidebar/types';
 import { triggerHaptic } from '@/utils/haptics';
 import logger from '@/utils/logger';
 
@@ -73,13 +71,6 @@ export function TabBarIframeTabButton({
             }}
             className="flex flex-col items-center gap-1 transition-colors py-2 px-3 rounded-xl relative text-theme-tertiary active:text-theme-primary"
         >
-            {isActive && (
-                <motion.div
-                    layoutId="mobileTabIndicator"
-                    className="absolute left-0 right-0 top-[-2px] bottom-[2px] rounded-xl bg-accent/20 shadow-sm"
-                    transition={sidebarSpring}
-                />
-            )}
             <div className={`relative z-10 ${isActive ? 'text-accent' : ''}`}>
                 {renderIcon(tab.icon, iconSize)}
             </div>

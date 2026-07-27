@@ -141,7 +141,12 @@ export interface GridPolicy {
         commitStrategy: 'on-stop' | 'on-change';
         /** Selection mode */
         selectionMode: 'single' | 'none';
-        /** Mobile unlock pattern */
+        /** Mobile unlock pattern. NOTE: currently declarative only — buildGridStackOptions
+         * (GridStackAdapterV2.tsx) does not read this field; actual hold-to-drag timing is
+         * driven globally by DDManager.touchDelay/externalTouchDelay (set once, shared by
+         * every GridPolicy surface). See TASK-20260726-003 deep analysis before wiring this
+         * to per-surface behavior — doing so needs surface-aware delay resolution and a
+         * verified Template Builder touch smoke pass, both out of that task's scope. */
         touchActivation: 'long-press' | 'none';
         /** Enable auto-scroll during drag */
         autoScroll: boolean;

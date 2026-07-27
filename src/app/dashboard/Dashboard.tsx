@@ -139,6 +139,7 @@ const Dashboard = ({
     // ========== HANDLERS HOOK ==========
     const handlersHook = useDashboardHandlers({
         dashboardId,
+        isActive,
         widgets,
         mobileWidgets,
         layouts,

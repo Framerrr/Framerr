@@ -33,39 +33,33 @@ Manage groups in **Settings → User Management → Groups**.
 
 ## Authentication Methods
 
-Framerr supports three ways to authenticate:
+Framerr supports multiple ways to sign in. 
 
 ### 1. Local Login (Default)
 
-Standard username and password login. Every user in Framerr has a local account — users who sign in through Plex are prompted to create local credentials on first login.
+Standard username and password login.
 
-- Accounts are created during setup, by an admin, or automatically on first Plex login
-- Passwords are hashed using bcrypt
+- Admin account created on first start up.
+- Accounts can be created during setup, by an admin, or automatically the first time someone signs in through another method (when auto-create is enabled)
+- Local passwords are hashed using bcrypt
 
 ### 2. Plex Login
 
 Users who have **shared library access** on the admin's Plex server can sign in with their Plex account. Local Plex Home users cannot use Plex Login — only users who appear in the admin's Plex sharing settings.
 
-**How it works:**
-1. Admin links their Plex account in **Settings → Auth → Plex SSO**
-2. A user clicks "Sign in with Plex" and authenticates through Plex
-3. Framerr verifies the user has library access on the admin's server
-4. On first login, the user is prompted to create a local Framerr account (username + password)
-5. The Plex account is linked to the local account for future logins
+**Enable in:** Settings → Auth → Plex SSO
 
 :::tip
-After the initial setup, users can sign in with either their Plex account or their local credentials.
+Plex users can also set a local password later if they want a backup sign-in method.
 :::
 
 ### 3. Proxy Authentication
 
-For users running a reverse proxy with an authentication layer (like **Authentik**, **Authelia**, or **Organizr**), Framerr can trust authentication headers from the proxy.
+If you already protect Framerr with a reverse proxy auth layer like **Authentik** or **Authelia**, Framerr can sign users in through that same login.
 
 **How it works:**
 1. Your reverse proxy authenticates the user
-2. The proxy forwards headers with the username (and optionally email)
-3. Framerr reads those headers and creates a session
-4. If the user doesn't exist yet, Framerr auto-creates their account
+2. If the user doesn't exist yet in Framerr, their account is created automatically
 
 **Enable in:** Settings → Auth → Auth Proxy
 
@@ -90,10 +84,38 @@ If you're using Authentik as your identity provider, the default header names wo
 Authelia uses `Remote-User` and `Remote-Email` headers, which Framerr detects automatically as fallbacks. No header name changes needed.
 
 :::warning Security Notice
-Proxy authentication requires a **trusted IP whitelist**. Framerr will only accept authentication headers from IPs in this whitelist — requests from any other IP have their proxy headers stripped automatically. Make sure the whitelist contains only your reverse proxy's IP or subnet (e.g., `172.18.0.0/16` for a Docker network).
+Proxy authentication requires a **trusted IP whitelist**. Only allow your reverse proxy's IP or subnet (e.g., `172.18.0.0/16` for a Docker network) — otherwise other clients could try to spoof login headers.
 :::
 
-### 4. iFrame Auth (OAuth for Embedded Tabs)
+### 4. OpenID Connect (OIDC) SSO
+
+Sign in with an identity provider such as **Authentik**, **Authelia**, **Keycloak**, or any other OpenID Connect–compatible SSO.
+
+**How it works:**
+1. Admin turns on OpenID Connect in **Settings → Auth → OpenID Connect** and enters the provider details
+2. A "Sign in with [Display Name]" button appears on the login page
+3. On first login, Framerr can create the user automatically (if **Auto-create Users** is enabled)
+4. Existing users can link their own SSO account from **Settings → Account → Connected Accounts**
+
+**Enable in:** Settings → Auth → OpenID Connect
+
+#### Configuration
+
+| Setting | Description |
+|---------|-------------|
+| Issuer URL | Base URL of your OIDC provider (e.g. `https://auth.example.com`) |
+| Client ID / Client Secret | Credentials from your provider's application registration |
+| Display Name | Text shown on the login button (e.g. "Company SSO") |
+| Scopes | Space-separated OAuth scopes — must include `openid` (default: `openid profile email`) |
+| Auto-create Users | Create a Framerr account automatically on first OIDC login; if disabled, accounts must already exist and be linked manually |
+
+**Callback URL:** register `<your-framerr-url>/api/auth/oidc/callback` in your identity provider's application settings.
+
+:::tip
+Built-in setup guides for **Authentik**, **Authelia**, and **Keycloak** are available directly in Settings → Auth → OpenID Connect.
+:::
+
+### 5. iFrame Auth (OAuth for Embedded Tabs)
 
 If you embed services like Sonarr or Radarr as iframe tabs and those services are behind an auth proxy, some browsers — particularly **Safari and iOS** — may not load them correctly. This happens because Safari's privacy protections block third-party cookies from being shared into iframe contexts, preventing the auth proxy session from carrying over.
 

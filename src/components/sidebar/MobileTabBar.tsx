@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, LayoutDashboard, ChevronUp, LogOut, Mail, LayoutGrid, Settings as SettingsIcon, Undo2, Redo2, Plus, Save, Link } from 'lucide-react';
 import { useSharedSidebar } from '@/app/sidebar/context/useSharedSidebar';
@@ -17,6 +17,10 @@ import {
     TabBarActionButton,
     TabBarLinkButton,
     TabBarIframeTabButton,
+    TabBarSelectionScope,
+    TabBarSelectionTarget,
+    resolveActiveTabBarSlotId,
+    tabBarSlotKey,
     useMobileTabBarLayout,
     type DashboardHoldSwitcherHandle,
 } from '@/app/sidebar/mobile-tabbar';
@@ -44,6 +48,7 @@ export function MobileTabBar() {
         handleLogout,
         renderIcon,
         lastSettingsPath,
+        location,
     } = useSharedSidebar();
 
     // Swipe-to-edit confirm state
@@ -131,9 +136,20 @@ export function MobileTabBar() {
         clearDashboardLongPress();
     };
 
-    // Parse current route for active state detection
-    const hash = window.location.hash.slice(1);
+    // Parse current route for active state detection (location from router so hash changes re-render)
+    const hash = location.hash.replace(/^#/, '');
     const isOnDashboard = isAlreadyOnDashboardPage();
+    const activeTabBarSlotId = useMemo(
+        () =>
+            resolveActiveTabBarSlotId({
+                slots,
+                hash,
+                activeDashboardId,
+                homeDashboardId,
+                tabs,
+            }),
+        [slots, hash, activeDashboardId, homeDashboardId, tabs],
+    );
 
     // Swipe-to-edit handlers
     const handleTabBarTouchStart = (e: React.TouchEvent): void => {
@@ -150,6 +166,8 @@ export function MobileTabBar() {
     };
 
     const handleTabBarTouchEnd = (e: React.TouchEvent): void => {
+        // Hold-switcher open, or long-press just fired this gesture — do not arm swipe-edit.
+        // (Ref is cleared in hold-switcher onClose / activeDashboardId change.)
         if (holdSwitcher !== null || dashboardLongPressTriggeredRef.current) {
             swipeStartYRef.current = null;
             return;
@@ -230,6 +248,16 @@ export function MobileTabBar() {
             }
         };
     }, []);
+
+    // Dashboard switches (incl. hold-switcher) must reset swipe-to-edit gesture state.
+    useEffect(() => {
+        dashboardLongPressTriggeredRef.current = false;
+        if (confirmTimeoutRef.current) {
+            clearTimeout(confirmTimeoutRef.current);
+            confirmTimeoutRef.current = null;
+        }
+        setShowEditConfirm(false);
+    }, [activeDashboardId]);
 
     // Dismiss confirm on any tap outside (allows tap-through to underlying elements)
     useEffect(() => {
@@ -459,6 +487,10 @@ export function MobileTabBar() {
                     onClose={() => {
                         clearHoldChromeRevealTimer();
                         setHoldSwitcher(null);
+                        // Long-press latch must clear when the switcher closes — otherwise
+                        // tab-bar swipe-to-edit stays suppressed until the next dashboard-slot tap
+                        // (or a full refresh).
+                        dashboardLongPressTriggeredRef.current = false;
                         // If the crossfade timer never fired, fade in after the pill is gone
                         // (never set visible under an opaque pill — that reads as a snap).
                         if (holdChromeHiddenRef.current) {
@@ -597,10 +629,10 @@ export function MobileTabBar() {
                                                                 }}
                                                                 whileTap={{ scale: 0.97 }}
                                                             >
-                                                                {/* Active Indicator for Menu List */}
+                                                                {/* Menu-sheet indicator — separate layoutId from bottom bar */}
                                                                 {isActive && (
                                                                     <motion.div
-                                                                        layoutId="mobileTabIndicator"
+                                                                        layoutId="mobileMenuTabIndicator"
                                                                         className="absolute inset-0 bg-accent/20 rounded-xl shadow-lg"
                                                                         transition={sidebarSpring}
                                                                     />
@@ -814,13 +846,19 @@ export function MobileTabBar() {
                                 animate={{ y: 0, opacity: 1 }}
                                 exit={{ y: '-100%', opacity: 0 }}
                                 transition={{ type: 'spring', stiffness: 700, damping: 50 }}
-                                className="flex justify-around items-center w-full"
+                                className="w-full"
                             >
+                                <TabBarSelectionScope
+                                    activeId={activeTabBarSlotId}
+                                    className="flex justify-around items-center w-full"
+                                >
                                 {slots.map((slot, slotIndex) => {
+                                    const slotKey = tabBarSlotKey(slot, slotIndex);
+
                                     if (slot.kind === 'menu') {
                                         return (
                                             <button
-                                                key={`menu-${slotIndex}`}
+                                                key={slotKey}
                                                 onClick={() => { triggerHaptic(); setIsMobileMenuOpen(!isMobileMenuOpen); }}
                                                 className="flex flex-col items-center gap-1 text-theme-tertiary active:text-theme-primary transition-all py-2 px-3 rounded-lg active:bg-theme-hover"
                                                 style={{ transition: 'transform 300ms ease-out' }}
@@ -860,8 +898,8 @@ export function MobileTabBar() {
                                             isDashboardHashActive(hash);
                                         const chromeHidden = holdChromeHidden && holdSwitcher !== null;
                                         return (
+                                            <TabBarSelectionTarget key={slotKey} id={slotKey}>
                                             <button
-                                                key={`dashboard-${slotIndex}-${boundId ?? 'home'}`}
                                                 type="button"
                                                 aria-label={label}
                                                 draggable={false}
@@ -915,13 +953,6 @@ export function MobileTabBar() {
                                                 }}
                                                 className="flex flex-col items-center gap-1 transition-colors py-2 px-3 rounded-xl relative text-theme-tertiary active:text-theme-primary"
                                             >
-                                                {isBoundActive && (
-                                                    <motion.div
-                                                        layoutId="mobileTabIndicator"
-                                                        className="absolute left-0 right-0 top-[-2px] bottom-[2px] rounded-xl bg-accent/20 shadow-sm"
-                                                        transition={sidebarSpring}
-                                                    />
-                                                )}
                                                 <motion.div
                                                     initial={false}
                                                     animate={{ opacity: chromeHidden ? 0 : 1 }}
@@ -943,13 +974,16 @@ export function MobileTabBar() {
                                                     </span>
                                                 </motion.div>
                                             </button>
+                                            </TabBarSelectionTarget>
                                         );
                                     }
 
                                     if (slot.kind === 'settings') {
+                                        const isProfilePage = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
+                                        const isSettingsActive = hash.startsWith('settings') && !isProfilePage;
                                         return (
+                                            <TabBarSelectionTarget key={slotKey} id={slotKey}>
                                             <a
-                                                key={`settings-${slotIndex}`}
                                                 href="/#settings"
                                                 onClick={(e) => {
                                                     e.preventDefault();
@@ -967,35 +1001,19 @@ export function MobileTabBar() {
                                                 }}
                                                 className="flex flex-col items-center gap-1 transition-colors py-2 px-3 rounded-xl relative text-theme-tertiary active:text-theme-primary"
                                             >
-                                                {(() => {
-                                                    const isProfilePage = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
-                                                    const isActive = hash.startsWith('settings') && !isProfilePage;
-                                                    return isActive && (
-                                                        <motion.div
-                                                            layoutId="mobileTabIndicator"
-                                                            className="absolute left-0 right-0 top-[-2px] bottom-[2px] rounded-xl bg-accent/20 shadow-sm"
-                                                            transition={sidebarSpring}
-                                                        />
-                                                    );
-                                                })()}
-                                                <div className={`relative z-10 ${(() => {
-                                                    const isProfilePage = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
-                                                    return hash.startsWith('settings') && !isProfilePage ? 'text-accent' : '';
-                                                })()}`}>
+                                                <div className={`relative z-10 ${isSettingsActive ? 'text-accent' : ''}`}>
                                                     <SettingsIcon size={24} />
                                                 </div>
-                                                <span className={`text-[10px] font-medium relative z-10 ${(() => {
-                                                    const isProfilePage = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
-                                                    return hash.startsWith('settings') && !isProfilePage ? 'text-accent' : '';
-                                                })()}`}>Settings</span>
+                                                <span className={`text-[10px] font-medium relative z-10 ${isSettingsActive ? 'text-accent' : ''}`}>Settings</span>
                                             </a>
+                                            </TabBarSelectionTarget>
                                         );
                                     }
 
                                     if (slot.kind === 'link') {
                                         return (
                                             <TabBarLinkButton
-                                                key={`link-${slotIndex}-${slot.link.id}`}
+                                                key={slotKey}
                                                 link={slot.link}
                                                 onMenuClose={closeMenuIfAllowed}
                                             />
@@ -1008,23 +1026,23 @@ export function MobileTabBar() {
                                         );
                                         if (!tab) return null;
                                         return (
+                                            <TabBarSelectionTarget key={slotKey} id={slotKey}>
                                             <TabBarIframeTabButton
-                                                key={`iframeTab-${slotIndex}-${slot.tabId}`}
                                                 tab={tab}
                                                 hash={hash}
                                                 renderIcon={renderIcon}
                                                 handleNavigation={handleNavigation}
                                                 onMenuClose={closeMenuIfAllowed}
                                             />
+                                            </TabBarSelectionTarget>
                                         );
                                     }
 
                                     if (slot.kind !== 'action') return null;
                                     const def = TAB_BAR_ACTIONS[slot.actionId];
                                     if (!def) return null;
-                                    return (
+                                    const actionButton = (
                                         <TabBarActionButton
-                                            key={`action-${slot.actionId}`}
                                             def={def}
                                             hash={hash}
                                             currentUser={currentUser}
@@ -1034,7 +1052,17 @@ export function MobileTabBar() {
                                             invokeCtx={invokeCtx}
                                         />
                                     );
+                                    // Only navigate actions participate in the selection pill.
+                                    if (def.kind !== 'navigate') {
+                                        return <React.Fragment key={slotKey}>{actionButton}</React.Fragment>;
+                                    }
+                                    return (
+                                        <TabBarSelectionTarget key={slotKey} id={slotKey}>
+                                            {actionButton}
+                                        </TabBarSelectionTarget>
+                                    );
                                 })}
+                                </TabBarSelectionScope>
                             </motion.div>
                         )}
                     </AnimatePresence>

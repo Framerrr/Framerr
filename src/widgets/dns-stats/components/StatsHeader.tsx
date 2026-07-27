@@ -79,9 +79,11 @@ const StatsHeader: React.FC<StatsHeaderProps> = ({ data }) => {
                     <ProtectionIcon size={14} />
                     {data.protectionEnabled ? 'Active' : 'Disabled'}
                 </span>
-                {data.pauseRemaining !== null && data.pauseRemaining > 0 && (
+                {!data.protectionEnabled && data.pauseRemaining !== null && (
                     <span className="text-xs px-2 py-1 rounded-full bg-theme-tertiary text-theme-secondary">
-                        Paused · {formatPauseRemaining(data.pauseRemaining)}
+                        {data.pauseRemaining > 0
+                            ? `Paused · ${formatPauseRemaining(data.pauseRemaining)}`
+                            : 'Resuming...'}
                     </span>
                 )}
             </div>

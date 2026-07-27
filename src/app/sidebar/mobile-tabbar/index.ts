@@ -33,6 +33,14 @@ export { TabBarActionButton } from './TabBarActionButton';
 export { TabBarLinkButton, type TabBarLinkButtonProps } from './TabBarLinkButton';
 export { TabBarIframeTabButton, type TabBarIframeTabButtonProps } from './TabBarIframeTabButton';
 export {
+    TabBarSelectionScope,
+    TabBarSelectionTarget,
+} from './TabBarSelectionIndicator';
+export {
+    resolveActiveTabBarSlotId,
+    tabBarSlotKey,
+} from './resolveActiveTabBarSlotId';
+export {
     DashboardHoldSwitcher,
     type DashboardHoldSwitcherHandle,
     type HoldSwitcherCommit,

@@ -496,6 +496,21 @@
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
 
+/* ========================================
+ * HOLD-TO-MOVE UNLOCK FEEDBACK (GridStack path)
+ * .widget-unlocked is added by vendor dd-touch activateDrag() the instant the
+ * hold threshold (TOUCH_HOLD_DELAY_MS) completes, removed on touchend/cancel.
+ * Lift = box-shadow only — NEVER transform:scale (GridStack measures rects
+ * mid-gesture; scale corrupts drag/resize geometry).
+ * ======================================== */
+.dashboard-edit-mode .grid-stack-item.widget-unlocked>.grid-stack-item-content {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 16px var(--accent-edit-soft);
+}
+
+.dashboard-edit-mode .grid-stack-item.widget-unlocked>.grid-stack-item-content::after {
+    border-color: var(--accent-edit);
+}
+
 /* Override GridStack default drag helper styles (box-shadow, opacity) */
 /* Applies to both internal drags and external drag helpers */
 .ui-draggable-dragging>.grid-stack-item-content {
@@ -504,6 +519,13 @@
     outline: none !important;
     border: none !important;
     border-radius: 1rem;
+}
+
+/* FRAMERR: the generic ui-draggable-dragging override above (box-shadow:none) exists for
+ * external drag helpers; real edit-mode drags and unlocked widgets keep their lift. */
+.dashboard-edit-mode .grid-stack-item.ui-draggable-dragging>.grid-stack-item-content,
+.dashboard-edit-mode .grid-stack-item.widget-unlocked>.grid-stack-item-content {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 16px var(--accent-edit-soft) !important;
 }
 
 /* GridStack placeholder styling */

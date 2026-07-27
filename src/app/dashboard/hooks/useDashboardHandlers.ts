@@ -18,7 +18,7 @@ import type { WidgetApiResponse } from '../types';
 interface DashboardEditContextType {
     pendingDestination: string | null;
     setPendingDestination: (dest: string | null) => void;
-    updateEditState: (state: {
+    updateEditState: (ownerId: string, state: {
         editMode: boolean;
         hasUnsavedChanges: boolean;
         pendingUnlink: boolean;
@@ -27,7 +27,7 @@ interface DashboardEditContextType {
         saving: boolean;
         mobileLayoutMode: 'linked' | 'independent';
     }) => void;
-    registerDashboard: (handlers: {
+    registerDashboard: (ownerId: string, handlers: {
         handleSave: () => Promise<void>;
         handleCancel: () => void;
         handleAddWidget: () => void;
@@ -36,11 +36,13 @@ interface DashboardEditContextType {
         handleRedo: () => void;
         handleEnterEditMode: (isTouch?: boolean) => void;
     }) => void;
-    unregisterDashboard: () => void;
+    unregisterDashboard: (ownerId: string) => void;
 }
 
 interface UseDashboardHandlersOptions {
     dashboardId: string;
+    /** False for keep-alive-mounted but hidden dashboards — must not own edit chrome. */
+    isActive?: boolean;
     // Layout hook state
     widgets: FramerrWidget[];
     mobileWidgets: FramerrWidget[];
@@ -129,6 +131,7 @@ interface UseDashboardHandlersReturn {
 
 export function useDashboardHandlers({
     dashboardId,
+    isActive = true,
     widgets,
     mobileWidgets,
     layouts,
@@ -472,9 +475,61 @@ export function useDashboardHandlers({
         return () => window.removeEventListener('walkthrough-flow-complete', handler);
     }, [performSave, setEditMode]);
 
-    // Sync edit state to context for Sidebar navigation blocking
+    // Register + sync edit chrome with context for mobile tab bar / nav guards.
+    // Only the visible keep-alive surface may own handlers or push state — otherwise
+    // tab-bar edit UI desyncs from the grid the user sees after dashboard switches.
+    const handlersRef = useRef<{
+        handleSave: () => Promise<void>;
+        handleCancel: () => void;
+        handleAddWidget: () => void;
+        handleRelink: () => void;
+        handleUndo: () => void;
+        handleRedo: () => void;
+        handleEnterEditMode: (isTouch?: boolean) => void;
+    } | null>(null);
+
+    handlersRef.current = {
+        handleSave,
+        handleCancel,
+        handleAddWidget,
+        handleRelink: () => setShowRelinkConfirmation(true),
+        handleUndo: undo,
+        handleRedo: redo,
+        handleEnterEditMode: (isTouch?: boolean) => {
+            if (!editMode) {
+                triggerHaptic();
+                handleToggleEdit(isTouch);
+            }
+        },
+    };
+
+    const registerDashboard = dashboardEditContext?.registerDashboard;
+    const unregisterDashboard = dashboardEditContext?.unregisterDashboard;
+    const updateEditState = dashboardEditContext?.updateEditState;
+
+    // Claim ownership when this surface becomes visible (must run before sync below).
     useEffect(() => {
-        dashboardEditContext?.updateEditState({
+        if (!isActive || !registerDashboard || !unregisterDashboard) return;
+
+        registerDashboard(dashboardId, {
+            handleSave: async () => handlersRef.current?.handleSave(),
+            handleCancel: () => handlersRef.current?.handleCancel(),
+            handleAddWidget: () => handlersRef.current?.handleAddWidget(),
+            handleRelink: () => handlersRef.current?.handleRelink(),
+            handleUndo: () => handlersRef.current?.handleUndo(),
+            handleRedo: () => handlersRef.current?.handleRedo(),
+            handleEnterEditMode: (isTouch?: boolean) => handlersRef.current?.handleEnterEditMode(isTouch),
+        });
+
+        return () => {
+            unregisterDashboard(dashboardId);
+        };
+    }, [isActive, dashboardId, registerDashboard, unregisterDashboard]);
+
+    // Push edit chrome state only while we own the context.
+    useEffect(() => {
+        if (!isActive || !updateEditState) return;
+        updateEditState(dashboardId, {
             editMode,
             hasUnsavedChanges,
             pendingUnlink,
@@ -483,7 +538,27 @@ export function useDashboardHandlers({
             saving,
             mobileLayoutMode,
         });
-    }, [editMode, hasUnsavedChanges, pendingUnlink, canUndo, canRedo, saving, mobileLayoutMode, dashboardEditContext]);
+    }, [
+        isActive,
+        dashboardId,
+        editMode,
+        hasUnsavedChanges,
+        pendingUnlink,
+        canUndo,
+        canRedo,
+        saving,
+        mobileLayoutMode,
+        updateEditState,
+    ]);
+
+    // Clear orphaned local edit mode on hidden keep-alive surfaces (e.g. after a
+    // prior ownership bug left editMode true on a dashboard that is no longer visible).
+    useEffect(() => {
+        if (isActive || !editMode) return;
+        cancelEditing();
+        setEditMode(false);
+        clearHistory();
+    }, [isActive, editMode, cancelEditing, setEditMode, clearHistory]);
 
     // Listen for dashboard events from Settings
     useEffect(() => {
@@ -568,49 +643,6 @@ export function useDashboardHandlers({
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [editMode, undo, redo]);
-
-    // Register Dashboard action handlers with context for mobile tab bar
-    const handlersRef = useRef<{
-        handleSave: () => Promise<void>;
-        handleCancel: () => void;
-        handleAddWidget: () => void;
-        handleRelink: () => void;
-        handleUndo: () => void;
-        handleRedo: () => void;
-        handleEnterEditMode: (isTouch?: boolean) => void;
-    } | null>(null);
-
-    handlersRef.current = {
-        handleSave,
-        handleCancel,
-        handleAddWidget,
-        handleRelink: () => setShowRelinkConfirmation(true),
-        handleUndo: undo,
-        handleRedo: redo,
-        handleEnterEditMode: (isTouch?: boolean) => {
-            if (!editMode) {
-                triggerHaptic();
-                handleToggleEdit(isTouch);
-            }
-        },
-    };
-
-    useEffect(() => {
-        dashboardEditContext?.registerDashboard({
-            handleSave: async () => handlersRef.current?.handleSave(),
-            handleCancel: () => handlersRef.current?.handleCancel(),
-            handleAddWidget: () => handlersRef.current?.handleAddWidget(),
-            handleRelink: () => handlersRef.current?.handleRelink(),
-            handleUndo: () => handlersRef.current?.handleUndo(),
-            handleRedo: () => handlersRef.current?.handleRedo(),
-            handleEnterEditMode: (isTouch?: boolean) => handlersRef.current?.handleEnterEditMode(isTouch),
-        });
-
-        return () => {
-            dashboardEditContext?.unregisterDashboard();
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     return {
         showAddModal,

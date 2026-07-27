@@ -32,6 +32,8 @@ export function useDnsStatsData({
 
     const toast = useToasts();
     const optimisticUntil = useRef(0);
+    const pauseAnchorRef = useRef<{ base: number; receivedAt: number } | null>(null);
+    const [displayedPauseRemaining, setDisplayedPauseRemaining] = useState<number | null>(null);
 
     const prevIntegrationRef = useRef(integrationId);
     useEffect(() => {
@@ -56,6 +58,28 @@ export function useDnsStatsData({
             setError(err.message || 'Failed to load DNS stats');
         },
     });
+
+    useEffect(() => {
+        const serverRemaining = data?.pauseRemaining ?? null;
+        if (serverRemaining === null) {
+            pauseAnchorRef.current = null;
+            setDisplayedPauseRemaining(null);
+            return;
+        }
+        pauseAnchorRef.current = { base: serverRemaining, receivedAt: Date.now() };
+        setDisplayedPauseRemaining(serverRemaining);
+    }, [data?.pauseRemaining]);
+
+    useEffect(() => {
+        if (pauseAnchorRef.current === null) return;
+        const interval = setInterval(() => {
+            const anchor = pauseAnchorRef.current;
+            if (!anchor) return;
+            const elapsed = Math.floor((Date.now() - anchor.receivedAt) / 1000);
+            setDisplayedPauseRemaining(Math.max(0, anchor.base - elapsed));
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [data?.pauseRemaining]);
 
     const toggleProtection = useCallback(
         async (enabled: boolean, duration?: number) => {
@@ -105,7 +129,7 @@ export function useDnsStatsData({
     );
 
     return {
-        data,
+        data: data ? { ...data, pauseRemaining: displayedPauseRemaining } : null,
         isLoading,
         error,
         toggleProtection,

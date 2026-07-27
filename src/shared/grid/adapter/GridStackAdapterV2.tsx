@@ -71,13 +71,70 @@ export interface GridStackAdapterV2Props {
 }
 
 // ============================================================================
+// TOUCH INTERACTION CONSTANTS (mobile hold-to-move)
+// ============================================================================
+
+/** Hold-to-move delay before a touch drag arms (ms). Longer than stock 200 so slow
+ * scrolling cancels instead of arming; unlock lift+glow appears at exactly this instant. */
+export const TOUCH_HOLD_DELAY_MS = 350;
+
+/** Hold delay for external drag-in (Add Widget modal / palette cards). Shorter than
+ * dashboard hold-to-move so catalog grabs stay responsive. */
+export const TOUCH_EXTERNAL_HOLD_DELAY_MS = 300;
+
+/** Finger travel that cancels a pending hold (px). Slow scrolls ≥ ~23px/s exceed this
+ * within the hold window; intentional hold jitter (<5px) does not. */
+export const TOUCH_HOLD_TOLERANCE_PX = 8;
+
+/** FRAMERR: how long touchActivated can sit true with zero drag/resize progress
+ * before the stall watchdog treats it as an orphan (lost touchend) rather than a
+ * legitimate "armed, not yet moving" hold. Generous on purpose — this only fires
+ * as defense-in-depth once the pending-cancel wiring (dd-touch.ts) removes the
+ * normal path to this state. Builder-tunable; record final value in IMPLEMENTATION_LOG
+ * if device smoke suggests a change. */
+export const TOUCH_ORPHAN_ACTIVATION_TIMEOUT_MS = 8000;
+
+/**
+ * FRAMERR: Predicate for the DD stall watchdog.
+ * Must NOT reset while a touch resize/drag gesture is still live — resize never sets
+ * `DDManager.dragElement`, so a naive `!dragElement` check falsely "recovers" mid-resize,
+ * clears `touchHandled`, stalls `touchmove`, and leaves document listeners armed (next tap
+ * jumps the widget size to the tap point).
+ */
+export function shouldResetStalledTouchState(state: {
+    mouseHandled: boolean;
+    touchHandled: boolean;
+    hasDragElement: boolean;
+    touchActivated: boolean;
+    touchActivatedElapsedMs?: number;
+    resizeDir?: string;
+    hasUiDragging: boolean;
+    hasUiResizing: boolean;
+}): boolean {
+    if (!(state.mouseHandled || state.touchHandled)) return false;
+    if (state.hasDragElement) return false;
+    // FRAMERR: live resize/drag progress is sacred regardless of activation
+    // dwell time — checked before the time-gated touchActivated branch below.
+    if (state.resizeDir) return false;
+    if (state.hasUiDragging || state.hasUiResizing) return false;
+    if (state.touchActivated) {
+        // FRAMERR: orphan recovery — activated with zero drag/resize progress
+        // for longer than any plausible "hold and decide" pause is presumed a
+        // lost touchend (browser/OS event loss), not a live gesture. Below the
+        // timeout, this is identical to the pre-existing blanket skip.
+        return (state.touchActivatedElapsedMs ?? 0) >= TOUCH_ORPHAN_ACTIVATION_TIMEOUT_MS;
+    }
+    return true;
+}
+
+// ============================================================================
 // HELPER FUNCTIONS (same interface as V1 for consistency)
 // ============================================================================
 
 /**
  * Build GridStack options from our policy format.
  */
-function buildGridStackOptions(policy: GridPolicy): GridStackOptions {
+export function buildGridStackOptions(policy: GridPolicy): GridStackOptions {
     return {
         // Layout
         column: policy.view.breakpoint === 'sm'
@@ -113,6 +170,12 @@ function buildGridStackOptions(policy: GridPolicy): GridStackOptions {
         resizable: {
             handles: policy.interaction.resizeHandles?.join(',') || 'se',
         },
+
+        // FRAMERR: disable GridStack's smooth-scroll resize driver ONLY on surfaces that
+        // declare their own auto-scroll driver (dashboard: useDragAutoScroll via
+        // behavior.autoScroll=true). Template Builder declares autoScroll=false and keeps
+        // stock GridStack resize-scroll — see FramerrTemplateGrid policy.
+        framerrDisableResizeScroll: policy.behavior.autoScroll === true,
     };
 }
 
@@ -272,30 +335,46 @@ function GridStackInner({
     // moving widgets to stale React positions after an add/remove operation
     const skipPositionSyncUntilRef = useRef<number>(0);
 
-    // Configure touch delay
+    // Configure touch delay (dashboard hold vs shorter external/modal drag-in)
     useEffect(() => {
-        DDManager.touchDelay = 200;
-        DDManager.touchTolerance = 10;
+        DDManager.touchDelay = TOUCH_HOLD_DELAY_MS;
+        DDManager.externalTouchDelay = TOUCH_EXTERNAL_HOLD_DELAY_MS;
+        DDManager.touchTolerance = TOUCH_HOLD_TOLERANCE_PX;
     }, []);
 
     // FRAMERR: Watchdog timer — safety net for stalled DD state.
-    // If mouseHandled is stuck true with no active drag for 3 seconds, auto-reset.
+    // If mouseHandled/touchHandled is stuck with no live drag/resize for 3 seconds, auto-reset.
+    // Must skip active resize: resize never sets dragElement (only .ui-resizable-resizing /
+    // resizeDir / touchActivated). Clearing touchHandled mid-resize stalls touchmove while
+    // document listeners remain — next tap jumps size to the tap point.
     useEffect(() => {
         const watchdogInterval = setInterval(() => {
-            if (DDManager.mouseHandled && !DDManager.dragElement) {
-                // Check if any element is actually being dragged in the DOM
-                const activeDrag = document.querySelector('.ui-draggable-dragging');
-                if (!activeDrag) {
-                    // Stalled! Reset DD state to recover
-                    DDManager.mouseHandled = false;
-                    DDTouch.touchHandled = false;
-                    DDManager.touchActivated = false;
-                    DDManager.savedTouchEvent = null;
-                    if (DDManager.touchTimeoutId) {
-                        clearTimeout(DDManager.touchTimeoutId);
-                        DDManager.touchTimeoutId = null;
-                    }
+            const touchActivatedElapsedMs = DDManager.touchActivatedAt
+                ? Date.now() - DDManager.touchActivatedAt
+                : undefined;
+            if (
+                shouldResetStalledTouchState({
+                    mouseHandled: !!DDManager.mouseHandled,
+                    touchHandled: !!DDTouch.touchHandled,
+                    hasDragElement: !!DDManager.dragElement,
+                    touchActivated: !!DDManager.touchActivated,
+                    touchActivatedElapsedMs,
+                    resizeDir: DDManager.resizeDir,
+                    hasUiDragging: !!document.querySelector('.ui-draggable-dragging'),
+                    hasUiResizing: !!document.querySelector('.ui-resizable-resizing'),
+                })
+            ) {
+                DDManager.mouseHandled = false;
+                DDTouch.touchHandled = false;
+                DDManager.touchActivated = false;
+                DDManager.touchActivatedAt = undefined; // FRAMERR
+                DDManager.savedTouchEvent = null;
+                if (DDManager.touchTimeoutId) {
+                    clearTimeout(DDManager.touchTimeoutId);
+                    DDManager.touchTimeoutId = null;
                 }
+                document.querySelectorAll('.grid-stack-item.widget-unlocked')
+                    .forEach(el => el.classList.remove('widget-unlocked'));
             }
         }, 3000);
 

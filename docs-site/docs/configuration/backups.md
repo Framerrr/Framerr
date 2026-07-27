@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Backups & Restore
 
-Framerr includes a built-in backup system that creates portable ZIP archives of your entire configuration. Backups can be scheduled automatically, or triggered manually.
+Framerr includes a built-in backup system that creates portable ZIP archives of your entire configuration. Backups can be scheduled automatically, or triggered manually. Backups can also be optionally password-protected — see [Encrypted Backups](#encrypted-backups) below.
 ## Creating a Backup
 
 Go to **Settings → Advanced → Backups** and click **Create Backup**.
@@ -48,7 +48,7 @@ These are automatically purged on restore since they're instance-specific or reg
 - Media search history
 
 :::caution Backups Contain Plaintext Credentials
-Because backups decrypt credentials for portability, the backup ZIP file contains your integration API keys, tokens, and passwords **in plaintext**. Treat backup files like passwords — don't share them publicly or store them somewhere untrusted.
+Because backups decrypt credentials for portability, the backup file contains your integration API keys, tokens, and passwords **in plaintext** unless [backup encryption](#encrypted-backups) is enabled. Treat backup files like passwords — don't share them publicly or store them somewhere untrusted.
 :::
 
 ## Restoring a Backup
@@ -82,6 +82,25 @@ To **create, download, or delete** backups on a running instance, go to **Settin
 | **Safety** | Auto-created before restore | ❌ No (never auto-deleted) |
 
 Safety backups are never cleaned up by the auto-delete system, so you always have a recovery point.
+
+## Encrypted Backups
+
+Backups can optionally be encrypted with a password. Encrypted backups use the `.framerr-backup` extension instead of `.zip` and require the password to restore.
+
+**Enable in:** Settings → Advanced → Backups → Encryption
+
+- Choose a password (minimum 8 characters) — new backups are encrypted from that point on
+- Existing `.zip` backups are **not** retroactively encrypted, and disabling encryption does **not** decrypt existing `.framerr-backup` files
+- **Change Password** re-wraps server-stored encrypted backups with the new password; backups you've already downloaded still need whatever password was active when you downloaded them
+- Encrypted backups show a lock icon in the backup list
+
+:::caution Don't Lose Your Password
+There's no recovery if you forget your backup password. Write it down somewhere safe.
+:::
+
+### Restoring an Encrypted Backup
+
+The setup wizard detects encrypted backups automatically and prompts for the password. After several incorrect attempts, you'll need to re-upload the file and try again.
 
 ## Backup Storage Location
 

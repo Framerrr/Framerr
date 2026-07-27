@@ -124,7 +124,9 @@ export function FramerrTemplateGrid({
             commitStrategy: 'on-stop',
             selectionMode: 'none',
             touchActivation: 'none',  // No touch blocking for Template Builder
-            autoScroll: false,        // No auto-scroll for Template Builder
+            autoScroll: false,        // No auto-scroll for Template Builder — also keeps stock
+                                      // GridStack resize-scroll (see buildGridStackOptions:
+                                      // framerrDisableResizeScroll derives from this flag)
         },
         view: {
             breakpoint: breakpoint,

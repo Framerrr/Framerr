@@ -8,6 +8,7 @@ export interface IframeConfig {
     url?: string;
     refreshInterval?: number; // seconds, 0 = off
     allowInteraction?: boolean;
+    hideScrollbar?: boolean;
     [key: string]: unknown;
 }
 

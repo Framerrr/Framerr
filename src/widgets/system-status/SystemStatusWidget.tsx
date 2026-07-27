@@ -12,7 +12,7 @@
  * config modal via MetricLayoutEditor.
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/useAuth';
 import { useLayout } from '../../context/useLayout';
 import { isAdmin } from '../../utils/permissions';
@@ -30,6 +30,7 @@ import NetworkMetricCard from './components/NetworkMetricCard';
 import DiskMetricCard from './components/DiskMetricCard';
 import CircularGauge from './components/CircularGauge';
 import { useMetricConfig, PackedMetric } from './hooks/useMetricConfig';
+import { useShrinkToFit } from './hooks/useShrinkToFit';
 import { StatusData, SystemStatusWidgetProps } from './types';
 import './styles.css';
 
@@ -112,11 +113,23 @@ const MetricCard: React.FC<MetricCardProps> = ({ metric, value, visibleCount, ar
     const numValue = Number(value || 0);
     const cardClasses = buildCardClasses(metric, visibleCount);
     const isGauge = metric.vizType === 'progress' && metric.viz === 'gauge';
+    const formattedValue = formatValue(metric.key, value, metric.unit);
+    const isVerticalText = metric.vizType === 'text';
+    const headerRef = useRef<HTMLDivElement>(null);
+    const scale = useShrinkToFit(headerRef, [formattedValue, metric.label, isVerticalText], 0.5);
 
     return (
         <div className={cardClasses}>
             <div className="metric-card__inner">
-                <div className="metric-card__header">
+                <div
+                    className="metric-card__header"
+                    ref={isVerticalText ? headerRef : undefined}
+                    style={
+                        isVerticalText
+                            ? { transform: `scale(${scale})`, transformOrigin: 'center center' }
+                            : undefined
+                    }
+                >
                     <span className="metric-card__label">
                         <metric.icon size={14} />
                         {metric.label}
@@ -129,7 +142,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ metric, value, visibleCount, ar
                     </span>
                     {!isGauge && (
                         <span className="metric-card__value">
-                            {formatValue(metric.key, value, metric.unit)}
+                            {formattedValue}
                         </span>
                     )}
                 </div>

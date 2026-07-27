@@ -31,7 +31,7 @@ interface UseDashboardEffectsParams {
 export function useDashboardEffects(params: UseDashboardEffectsParams): void {
     const {
         editMode,
-        isMobile,
+        // isMobile retained on params for call-site stability (dead RGL handle effect removed)
         widgets,
         mobileWidgets,
         layouts,
@@ -44,27 +44,6 @@ export function useDashboardEffects(params: UseDashboardEffectsParams): void {
         setWidgetPixelSizes,
         fetchWidgets,
     } = params;
-
-    // ========== iOS PWA WORKAROUND ==========
-    // Set inline styles for resize handles on mobile
-    useEffect(() => {
-        if (!editMode || !isMobile) return;
-
-        const handles = document.querySelectorAll('.react-resizable-handle');
-        handles.forEach((handle) => {
-            const el = handle as HTMLElement;
-            el.style.pointerEvents = 'auto';
-            el.style.touchAction = 'none';
-        });
-
-        return () => {
-            handles.forEach((handle) => {
-                const el = handle as HTMLElement;
-                el.style.pointerEvents = '';
-                el.style.touchAction = '';
-            });
-        };
-    }, [editMode, isMobile, widgets]);
 
     // ========== VISIBILITY HEIGHT ADJUSTMENT ==========
     const prevVisibilityRef = useRef<Record<string, boolean>>({});

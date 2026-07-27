@@ -22,6 +22,15 @@
     display: block;
 }
 
+/* Hide Scrollbar (visual only): widen the iframe so the native vertical
+   scrollbar sits in the clipped overflow gutter. Height stays 100% to
+   avoid cropping the bottom edge of embedded content. Wheel/touch scroll
+   are untouched - this only hides scrollbar chrome, not scrolling. */
+.iframe-hide-scrollbar .iframe-embed {
+    width: calc(100% + 20px);
+    height: 100%;
+}
+
 .iframe-placeholder {
     display: flex;
     align-items: center;

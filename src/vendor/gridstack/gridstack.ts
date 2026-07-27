@@ -2673,7 +2673,9 @@ export class GridStack {
     } else if (event.type === 'resize') {
       if (p.x < 0) return;
       // Scrolling page if needed
-      Utils.updateScrollResize(event, el, cellHeight);
+      // FRAMERR: skip GridStack's smooth-scroll driver when the app provides its own
+      // auto-scroll (dual drivers desync dd-resizable's scroll compensation and corrupt y).
+      if (!this.opts.framerrDisableResizeScroll) Utils.updateScrollResize(event, el, cellHeight);
 
       // get new size
       p.w = Math.round((ui.size.width - mLeft) / cellWidth);
@@ -2682,10 +2684,15 @@ export class GridStack {
       if (node._lastTried && node._lastTried.w === p.w && node._lastTried.h === p.h) return; // skip one we tried (but failed)
 
       // if we size on left/top side this might move us, so get possible new position as well
-      let left = ui.position.left + mLeft;
-      let top = ui.position.top + mTop;
-      p.x = Math.round(left / cellWidth);
-      p.y = Math.round(top / cellHeight);
+      // FRAMERR: only handles containing 'w'/'n' can legitimately move the left/top edge.
+      // Recomputing x/y for se/s/e let scroll-compensation error rewrite y (fly-to-top bug).
+      const rDir = DDManager.resizeDir || 'se';
+      if (rDir.indexOf('w') > -1) {
+        p.x = Math.round((ui.position.left + mLeft) / cellWidth);
+      }
+      if (rDir.indexOf('n') > -1) {
+        p.y = Math.round((ui.position.top + mTop) / cellHeight);
+      }
 
       resizing = true;
     }
