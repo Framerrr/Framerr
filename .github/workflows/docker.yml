@@ -34,6 +34,7 @@ jobs:
         id: version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
+      # Beta / develop: :develop + :<package.json version>, channel=beta
       - name: Build and push (develop)
         if: github.ref == 'refs/heads/develop'
         uses: docker/build-push-action@v5
@@ -50,8 +51,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Prerelease tags (v0.4.0-beta.1, v0.4.0-rc.1, etc.) must NOT publish :latest.
+      # GitHub pre-releases are for release notes; Docker betas come from the develop push above.
+      - name: Skip production Docker for prerelease tags
+        if: startsWith(github.ref, 'refs/tags/v') && contains(github.ref_name, '-')
+        run: |
+          echo "Prerelease tag '${{ github.ref_name }}' — skipping :latest / stable channel."
+          echo "Beta images are published from the develop branch push (:develop + :${{ steps.version.outputs.version }})."
+
+      # Stable only: tag name has no hyphen (v0.4.0), channel=stable → :latest + :version
       - name: Build and push (production)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
         uses: docker/build-push-action@v5
         with:
           context: .
