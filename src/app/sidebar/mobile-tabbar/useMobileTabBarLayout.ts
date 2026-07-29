@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useUserConfigQuery, useUpdateUserConfig } from '@/api/hooks/useConfig';
-import { useTabsList } from '@/api/hooks/useSettings';
+import { useSidebarTabs } from '@/app/sidebar/context/useSidebarTabs';
 import { useActiveDashboard } from '@/context/ActiveDashboardContext';
 import {
     createDefaultTabBarPrefs,
@@ -10,23 +10,25 @@ import {
     type TabBarSlot,
 } from './tabBarLayout';
 import { TAB_BAR_KNOWN_IDS } from './tabBarActionRegistry';
+import { computeTabBarLayoutReady } from './tabBarReadiness';
 
 export function useMobileTabBarLayout(): {
     slots: TabBarSlot[];
     prefs: MobileTabBarPrefs;
     savePrefs: (next: MobileTabBarPrefs) => Promise<void>;
     isLoading: boolean;
+    layoutReady: boolean;
 } {
     const { data: config, isLoading } = useUserConfigQuery();
     const updateConfig = useUpdateUserConfig();
     const { homeDashboardId } = useActiveDashboard();
-    const { data: tabsData, isLoading: tabsLoading } = useTabsList();
+    const { tabs: sidebarTabs, tabsLoaded } = useSidebarTabs();
 
     const knownTabIds = useMemo((): ReadonlySet<string> | undefined => {
-        if (tabsLoading || !tabsData?.tabs) return undefined;
-        const enabled = tabsData.tabs.filter(t => t.enabled !== false);
+        if (!tabsLoaded) return undefined;
+        const enabled = sidebarTabs.filter(t => t.enabled !== false);
         return new Set(enabled.map(t => t.id));
-    }, [tabsData?.tabs, tabsLoading]);
+    }, [sidebarTabs, tabsLoaded]);
 
     const prefs = useMemo(
         () =>
@@ -50,6 +52,17 @@ export function useMobileTabBarLayout(): {
         [isLoading, prefs, homeDashboardId, knownTabIds],
     );
 
+    const hasIframeTabSlot = useMemo(
+        () => prefs.slots.some(s => s.kind === 'iframeTab'),
+        [prefs.slots],
+    );
+
+    const layoutReady = computeTabBarLayoutReady({
+        configLoading: isLoading,
+        hasIframeTabSlot,
+        tabsLoaded,
+    });
+
     const savePrefs = useCallback(
         async (next: MobileTabBarPrefs): Promise<void> => {
             const complete = sanitizeTabBarPrefs(
@@ -65,5 +78,5 @@ export function useMobileTabBarLayout(): {
         [updateConfig, homeDashboardId, knownTabIds],
     );
 
-    return { slots, prefs, savePrefs, isLoading };
+    return { slots, prefs, savePrefs, isLoading, layoutReady };
 }

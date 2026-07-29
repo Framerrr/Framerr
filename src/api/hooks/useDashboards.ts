@@ -2,6 +2,7 @@
  * Dashboard list / preferences React Query hooks
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../context/useAuth';
 import {
     dashboardsApi,
     CreateDashboardData,
@@ -11,9 +12,12 @@ import {
 import { queryKeys } from '../queryKeys';
 
 export function useDashboards() {
+    const { isAuthenticated } = useAuth();
+
     return useQuery({
         queryKey: queryKeys.dashboards.list(),
         queryFn: () => dashboardsApi.list(),
+        enabled: isAuthenticated,
         staleTime: 5 * 60 * 1000,
     });
 }

@@ -292,6 +292,7 @@ export function DesktopSidebar() {
         if (!content) return;
 
         const updateHeight = (): void => {
+            // Natural content height (unconstrained inner), not the scroll viewport
             const raw = content.scrollHeight;
             const capped =
                 dashboardPickerMaxHeight > 0 ? Math.min(raw, dashboardPickerMaxHeight) : raw;
@@ -303,7 +304,10 @@ export function DesktopSidebar() {
         return () => ro.disconnect();
     }, [dashboardMenuOpen, dashboardPickerBox, dashboardPickerMaxHeight]);
 
-    // Mirror indicator height onto the transparent list clip (one spring — no second surface)
+    // Mirror indicator geometry onto the list clip (full pill — not only the list band).
+    // Height/top/left/width are ref-owned so React re-renders don't reset clipping.
+    // z-45 sits under the dashboard row (z-50) so scrolled text goes under the header,
+    // not over the branding / switcher label.
     useLayoutEffect(() => {
         if (!dashboardPickerMorphActive || !dashboardPickerBox) return;
         const aside = asideRef.current;
@@ -325,13 +329,31 @@ export function DesktopSidebar() {
                 setDashboardPickerListHeight(0);
                 return;
             }
-            if (indicator && overlay && aside.offsetHeight > 0) {
-                const scaleY = aside.getBoundingClientRect().height / aside.offsetHeight || 1;
-                const indH = indicator.getBoundingClientRect().height / scaleY;
-                const extra = Math.max(0, indH - rowHeight);
-                overlay.style.height = `${extra}px`;
+            if (indicator && overlay && aside.offsetWidth > 0 && aside.offsetHeight > 0) {
+                const asideRect = aside.getBoundingClientRect();
+                const indRect = indicator.getBoundingClientRect();
+                const scaleX = asideRect.width / aside.offsetWidth || 1;
+                const scaleY = asideRect.height / aside.offsetHeight || 1;
+                const top = (indRect.top - asideRect.top) / scaleY;
+                const left = (indRect.left - asideRect.left) / scaleX;
+                const width = indRect.width / scaleX;
+                const height = indRect.height / scaleY;
 
-                if (!dashboardMenuOpenRef.current && extra <= 0.5) {
+                overlay.style.top = `${top}px`;
+                overlay.style.left = `${left}px`;
+                overlay.style.width = `${width}px`;
+                overlay.style.height = `${height}px`;
+
+                // Same scroll-clip as the pill so list can't paint into the branding header
+                const clip = getComputedStyle(indicator).clipPath;
+                overlay.style.clipPath = clip && clip !== 'none' ? clip : '';
+
+                const spacer = overlay.querySelector(
+                    '[data-dashboard-picker-spacer]',
+                ) as HTMLElement | null;
+                if (spacer) spacer.style.height = `${rowHeight}px`;
+
+                if (!dashboardMenuOpenRef.current && height <= rowHeight + 0.5) {
                     active = false;
                     setDashboardPickerBox(null);
                     setDashboardPickerMorphActive(false);
@@ -1016,19 +1038,17 @@ export function DesktopSidebar() {
                 </Highlight>
 
                 {/*
-                  Transparent list chrome — only the Highlight pill paints.
-                  Pill z-40 covers overlapping tabs; this layer is z-60 for hits/text only.
+                  List chrome matches the FULL expanding Highlight pill.
+                  Geometry + clipPath synced each frame from the indicator.
+                  z-45 is under the dashboard row (z-50) so scrolled rows pass
+                  under the switcher header instead of painting over branding.
                 */}
                 {dashboardPickerMorphActive && isExpanded && dashboardPickerBox && (
                     <div
                         ref={dashboardPickerOverlayRef}
-                        className="absolute z-[60] overflow-hidden"
+                        className="absolute z-[45] overflow-hidden rounded-xl"
                         style={{
-                            top: dashboardPickerBox.top + dashboardPickerBox.rowHeight,
-                            left: dashboardPickerBox.left,
-                            width: dashboardPickerBox.width,
-                            height: 0, // live height written each frame from the indicator
-                            maxHeight: dashboardPickerMaxHeight > 0 ? dashboardPickerMaxHeight : undefined,
+                            // top/left/width/height/clipPath owned by rAF sync
                             pointerEvents: dashboardMenuOpen ? 'auto' : 'none',
                         }}
                         onMouseEnter={() => {
@@ -1039,21 +1059,25 @@ export function DesktopSidebar() {
                             }
                         }}
                     >
-                        <div
-                            ref={dashboardPickerContentRef}
-                            className="overflow-y-auto custom-scrollbar py-1"
-                            style={{
-                                maxHeight: dashboardPickerMaxHeight > 0 ? dashboardPickerMaxHeight : undefined,
-                            }}
-                        >
-                            <DashboardPicker
-                                variant="list"
-                                onRequestClose={closeDashboardPicker}
-                                onRequestNew={() => {
-                                    setDashboardMenuOpenSafe(false);
-                                    setNewDashboardOpen(true);
-                                }}
+                        <div className="flex h-full min-h-0 flex-col">
+                            {/* Reserves the dashboard row; clicks pass through to HighlightItem */}
+                            <div
+                                data-dashboard-picker-spacer
+                                className="shrink-0 pointer-events-none"
+                                style={{ height: dashboardPickerBox.rowHeight }}
                             />
+                            <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain custom-scrollbar">
+                                <div ref={dashboardPickerContentRef} className="py-1">
+                                    <DashboardPicker
+                                        variant="list"
+                                        onRequestClose={closeDashboardPicker}
+                                        onRequestNew={() => {
+                                            setDashboardMenuOpenSafe(false);
+                                            setNewDashboardOpen(true);
+                                        }}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}

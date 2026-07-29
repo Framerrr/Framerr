@@ -374,8 +374,15 @@ function GridStackInner({
                     clearTimeout(DDManager.touchTimeoutId);
                     DDManager.touchTimeoutId = null;
                 }
-                document.querySelectorAll('.grid-stack-item.widget-unlocked')
-                    .forEach(el => el.classList.remove('widget-unlocked'));
+                if (DDManager.unlockRampTimeoutId) {
+                    clearTimeout(DDManager.unlockRampTimeoutId);
+                    DDManager.unlockRampTimeoutId = null;
+                }
+                document.querySelectorAll('.grid-stack-item.widget-unlocked, .grid-stack-item.widget-unlocking')
+                    .forEach(el => {
+                        el.classList.remove('widget-unlocked', 'widget-unlocking');
+                        (el as HTMLElement).style.removeProperty('--unlock-ramp-ms');
+                    });
             }
         }, 3000);
 

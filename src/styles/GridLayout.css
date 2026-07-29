@@ -498,13 +498,49 @@
 
 /* ========================================
  * HOLD-TO-MOVE UNLOCK FEEDBACK (GridStack path)
- * .widget-unlocked is added by vendor dd-touch activateDrag() the instant the
- * hold threshold (TOUCH_HOLD_DELAY_MS) completes, removed on touchend/cancel.
- * Lift = box-shadow only — NEVER transform:scale (GridStack measures rects
- * mid-gesture; scale corrupts drag/resize geometry).
+ * Pending: .widget-unlocking after ~50ms (dd-touch), ramps glow until hold
+ * threshold. Ready: .widget-unlocked at activateDrag(). Cleared on cancel.
+ * Paint-only (shadow + z-index) — NEVER transform:scale (GridStack measures
+ * rects mid-gesture; scale corrupts drag/resize geometry).
+ * --unlock-ramp-ms is set inline to (holdDelay - 50ms).
  * ======================================== */
+/* Ramp ends at the same shadow/border unlocked uses — no second “snap” step. */
+@keyframes widget-unlock-ramp {
+    0% {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15), 0 0 0 0 var(--accent-edit-soft);
+    }
+    100% {
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 32px var(--accent-edit-soft);
+    }
+}
+
+@keyframes widget-unlock-ramp-border {
+    0% {
+        border-color: var(--accent-edit-soft);
+    }
+    100% {
+        border-color: var(--accent-edit);
+    }
+}
+
+.dashboard-edit-mode .grid-stack-item.widget-unlocking {
+    z-index: 110;
+}
+
+.dashboard-edit-mode .grid-stack-item.widget-unlocking>.grid-stack-item-content {
+    animation: widget-unlock-ramp var(--unlock-ramp-ms, 300ms) ease-out forwards;
+}
+
+.dashboard-edit-mode .grid-stack-item.widget-unlocking>.grid-stack-item-content::after {
+    animation: widget-unlock-ramp-border var(--unlock-ramp-ms, 300ms) ease-out forwards;
+}
+
+.dashboard-edit-mode .grid-stack-item.widget-unlocked {
+    z-index: 120;
+}
+
 .dashboard-edit-mode .grid-stack-item.widget-unlocked>.grid-stack-item-content {
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 16px var(--accent-edit-soft);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 32px var(--accent-edit-soft);
 }
 
 .dashboard-edit-mode .grid-stack-item.widget-unlocked>.grid-stack-item-content::after {
@@ -525,7 +561,7 @@
  * external drag helpers; real edit-mode drags and unlocked widgets keep their lift. */
 .dashboard-edit-mode .grid-stack-item.ui-draggable-dragging>.grid-stack-item-content,
 .dashboard-edit-mode .grid-stack-item.widget-unlocked>.grid-stack-item-content {
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 16px var(--accent-edit-soft) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 32px var(--accent-edit-soft) !important;
 }
 
 /* GridStack placeholder styling */

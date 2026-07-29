@@ -241,6 +241,13 @@ export function MobileTabBarEditor(): React.JSX.Element {
         setIframeTabPanel(null);
     }, []);
 
+    /** Select a preview slot and dismiss Add/Edit link or My Tab picker panels. */
+    const selectSlot = useCallback((index: number | null) => {
+        setLinkPanel(null);
+        setIframeTabPanel(null);
+        setSelected(index);
+    }, []);
+
     const insertBeforeSettingsIndex = useCallback((): number => {
         const settingsIdx = prefs.slots.findIndex(s => s.kind === 'settings');
         return settingsIdx >= 0 ? settingsIdx : prefs.slots.length;
@@ -407,7 +414,7 @@ export function MobileTabBarEditor(): React.JSX.Element {
                                             key={slotKey(slot, index)}
                                             type="button"
                                             className={shell}
-                                            onClick={() => setSelected(index)}
+                                            onClick={() => selectSlot(index)}
                                         >
                                             <Menu size={22} />
                                             <span className="text-[10px] font-medium truncate w-full text-center">
@@ -423,7 +430,7 @@ export function MobileTabBarEditor(): React.JSX.Element {
                                             key={slotKey(slot, index)}
                                             type="button"
                                             className={shell}
-                                            onClick={() => setSelected(index)}
+                                            onClick={() => selectSlot(index)}
                                         >
                                             <Settings size={22} />
                                             <span className="text-[10px] font-medium truncate w-full text-center">
@@ -444,7 +451,7 @@ export function MobileTabBarEditor(): React.JSX.Element {
                                             key={slotKey(slot, index)}
                                             type="button"
                                             className={shell}
-                                            onClick={() => setSelected(index)}
+                                            onClick={() => selectSlot(index)}
                                             title={name}
                                         >
                                             {renderIcon(dashIcon, 22)}
@@ -462,7 +469,7 @@ export function MobileTabBarEditor(): React.JSX.Element {
                                             key={slotKey(slot, index)}
                                             type="button"
                                             className={shell}
-                                            onClick={() => setSelected(index)}
+                                            onClick={() => selectSlot(index)}
                                             title={slot.link.title}
                                         >
                                             <SlotIcon size={22} />
@@ -481,7 +488,7 @@ export function MobileTabBarEditor(): React.JSX.Element {
                                             key={slotKey(slot, index)}
                                             type="button"
                                             className={shell}
-                                            onClick={() => setSelected(index)}
+                                            onClick={() => selectSlot(index)}
                                             title={label}
                                         >
                                             {tab ? renderIcon(tab.icon, 22) : <AppWindow size={22} />}
@@ -502,7 +509,7 @@ export function MobileTabBarEditor(): React.JSX.Element {
                                         className={
                                             shell + (isActive && !isSelected ? ' text-accent' : '')
                                         }
-                                        onClick={() => setSelected(index)}
+                                        onClick={() => selectSlot(index)}
                                     >
                                         {def.renderIcon({
                                             size: 22,
@@ -748,7 +755,7 @@ export function MobileTabBarEditor(): React.JSX.Element {
                                     disabled={selected === 0}
                                     onClick={() => {
                                         const next = moveSlot(prefs, selected, selected - 1);
-                                        setSelected(selected - 1);
+                                        selectSlot(selected - 1);
                                         void apply(next);
                                     }}
                                     className="p-2 rounded-lg text-theme-tertiary hover:text-theme-primary hover:bg-theme-hover disabled:opacity-30"
@@ -761,7 +768,7 @@ export function MobileTabBarEditor(): React.JSX.Element {
                                     disabled={selected >= slots.length - 1}
                                     onClick={() => {
                                         const next = moveSlot(prefs, selected, selected + 1);
-                                        setSelected(selected + 1);
+                                        selectSlot(selected + 1);
                                         void apply(next);
                                     }}
                                     className="p-2 rounded-lg text-theme-tertiary hover:text-theme-primary hover:bg-theme-hover disabled:opacity-30"
@@ -774,7 +781,7 @@ export function MobileTabBarEditor(): React.JSX.Element {
                                     disabled={!canRemoveSlot(prefs, selected)}
                                     onClick={() => {
                                         void apply(removeSlotAt(prefs, selected));
-                                        setSelected(null);
+                                        selectSlot(null);
                                     }}
                                     className="p-2 rounded-lg text-theme-tertiary hover:text-error hover:bg-theme-hover disabled:opacity-30"
                                 >

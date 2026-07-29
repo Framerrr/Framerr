@@ -141,10 +141,36 @@ function hasExceededTolerance(e: TouchEvent): boolean {
   return deltaX > DDManager.touchTolerance || deltaY > DDManager.touchTolerance;
 }
 
-// FRAMERR: remove unlock visual from any widget (defensive sweep — savedTouchEvent may be gone)
+/** FRAMERR: ignore quick taps — ramp class only after this hold duration. */
+const UNLOCK_RAMP_MIN_MS = 50;
+
+// FRAMERR: remove unlock / unlocking visuals (defensive sweep — savedTouchEvent may be gone)
 function clearUnlockVisual(): void {
-  document.querySelectorAll('.grid-stack-item.widget-unlocked')
-    .forEach(el => el.classList.remove('widget-unlocked'));
+  if (DDManager.unlockRampTimeoutId) {
+    clearTimeout(DDManager.unlockRampTimeoutId);
+    DDManager.unlockRampTimeoutId = null;
+  }
+  document.querySelectorAll('.grid-stack-item.widget-unlocked, .grid-stack-item.widget-unlocking')
+    .forEach(el => {
+      el.classList.remove('widget-unlocked', 'widget-unlocking');
+      (el as HTMLElement).style.removeProperty('--unlock-ramp-ms');
+    });
+}
+
+/** FRAMERR: after UNLOCK_RAMP_MIN_MS, start paint-only glow ramp until hold threshold. */
+function armUnlockRamp(item: HTMLElement | null | undefined, delayMs: number): void {
+  if (!item || delayMs <= UNLOCK_RAMP_MIN_MS) return;
+  const rampMs = delayMs - UNLOCK_RAMP_MIN_MS;
+  if (DDManager.unlockRampTimeoutId) {
+    clearTimeout(DDManager.unlockRampTimeoutId);
+    DDManager.unlockRampTimeoutId = null;
+  }
+  DDManager.unlockRampTimeoutId = setTimeout(() => {
+    DDManager.unlockRampTimeoutId = null;
+    if (!DDTouch.touchHandled || DDManager.touchActivated) return;
+    item.style.setProperty('--unlock-ramp-ms', `${rampMs}ms`);
+    item.classList.add('widget-unlocking');
+  }, UNLOCK_RAMP_MIN_MS);
 }
 
 // FRAMERR: arm pending-phase document listeners so an early lift or a
@@ -184,12 +210,20 @@ function activateDrag(): void {
   DDManager.touchActivated = true;
   DDManager.touchActivatedAt = Date.now(); // FRAMERR: watchdog orphan-recovery timestamp
 
-  // FRAMERR: unlock visual — mark the widget the moment hold-to-drag arms so CSS can
-  // show lift+glow exactly at the threshold. Resize handles activate instantly and
-  // need no unlock signal.
+  // FRAMERR: unlock visual — swap ramp → full bloom at the hold threshold.
+  // Resize handles activate instantly and need no unlock signal.
+  if (DDManager.unlockRampTimeoutId) {
+    clearTimeout(DDManager.unlockRampTimeoutId);
+    DDManager.unlockRampTimeoutId = null;
+  }
   const t = DDManager.savedTouchEvent?.target as HTMLElement | null;
   if (t && !t.closest?.('.ui-resizable-handle')) {
-    t.closest?.('.grid-stack-item')?.classList.add('widget-unlocked');
+    const item = t.closest?.('.grid-stack-item') as HTMLElement | null;
+    if (item) {
+      item.classList.remove('widget-unlocking');
+      item.style.removeProperty('--unlock-ramp-ms');
+      item.classList.add('widget-unlocked');
+    }
   }
 
   // Now simulate mousedown using the saved touchstart event
@@ -254,6 +288,8 @@ export function touchstart(e: TouchEvent): void {
   // Start delay timer - activate after delay if still within tolerance
   // FRAMERR: arm pending-phase cancel listeners now — see armPendingCancelListeners.
   armPendingCancelListeners();
+  const item = target?.closest?.('.grid-stack-item') as HTMLElement | null;
+  armUnlockRamp(item, delayMs);
   DDManager.touchTimeoutId = setTimeout(() => {
     DDManager.touchTimeoutId = null;
     // Only activate if we haven't been cancelled and finger hasn't moved too much

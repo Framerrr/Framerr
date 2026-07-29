@@ -61,6 +61,11 @@ export class DDManager {
   public static touchTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   /**
+   * FRAMERR: Timer before progressive unlock ramp paints (ignores quick taps).
+   */
+  public static unlockRampTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  /**
    * Whether touch drag has been activated (delay passed, within tolerance).
    */
   public static touchActivated: boolean = false;

@@ -60,7 +60,6 @@ export function TabBarSelectionScope({
     const itemsRef = useRef(new Map<string, HTMLElement>());
     const [registryVersion, bumpRegistry] = useReducer((x: number) => x + 1, 0);
     const [hasTarget, setHasTarget] = useState(false);
-    const wasHiddenRef = useRef(true);
     const lastTargetRef = useRef<Bounds | null>(null);
     const prevActiveIdRef = useRef<string | null>(null);
 
@@ -121,7 +120,6 @@ export function TabBarSelectionScope({
 
     useLayoutEffect(() => {
         if (!activeId) {
-            wasHiddenRef.current = true;
             prevActiveIdRef.current = null;
             setHasTarget(false);
             return;
@@ -129,19 +127,22 @@ export function TabBarSelectionScope({
 
         const el = itemsRef.current.get(activeId);
         if (!el) {
-            wasHiddenRef.current = true;
             prevActiveIdRef.current = null;
             setHasTarget(false);
             return;
         }
 
+        // Snap only for a true first measurement, or when the previously active
+        // target vanished from the registry (sibling layout correction). A
+        // transient activeId gap (e.g. a brief null during route/hash churn)
+        // must not force a snap on reappearance — it springs from the last
+        // known position instead.
         const snap =
-            wasHiddenRef.current ||
+            lastTargetRef.current === null ||
             (prevActiveIdRef.current !== null &&
                 !itemsRef.current.has(prevActiveIdRef.current));
 
         retarget(el, snap);
-        wasHiddenRef.current = false;
         prevActiveIdRef.current = activeId;
         setHasTarget(true);
     }, [activeId, registryVersion, retarget]);

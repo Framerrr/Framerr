@@ -14,6 +14,7 @@ describe('pendingHoldCancel', () => {
         DDManager.touchActivated = false;
         DDManager.touchActivatedAt = undefined;
         DDManager.touchTimeoutId = null;
+        DDManager.unlockRampTimeoutId = null;
         DDManager.savedTouchEvent = null;
         DDManager.touchInitialX = 0;
         DDManager.touchInitialY = 0;
@@ -26,6 +27,10 @@ describe('pendingHoldCancel', () => {
         if (DDManager.touchTimeoutId) {
             clearTimeout(DDManager.touchTimeoutId);
             DDManager.touchTimeoutId = null;
+        }
+        if (DDManager.unlockRampTimeoutId) {
+            clearTimeout(DDManager.unlockRampTimeoutId);
+            DDManager.unlockRampTimeoutId = null;
         }
         DDTouch.touchHandled = false;
         DDManager.touchActivated = false;
@@ -91,12 +96,14 @@ describe('pendingHoldCancel', () => {
         expect(DDTouch.touchHandled).toBe(false);
         expect(DDManager.touchActivated).toBe(false);
         expect(item.classList.contains('widget-unlocked')).toBe(false);
+        expect(item.classList.contains('widget-unlocking')).toBe(false);
         expect(removeSpy).toHaveBeenCalledWith('touchmove', touchmove);
         expect(removeSpy).toHaveBeenCalledWith('touchend', touchend);
         expect(removeSpy).toHaveBeenCalledWith('touchcancel', touchend);
 
         vi.advanceTimersByTime(500);
         expect(item.classList.contains('widget-unlocked')).toBe(false);
+        expect(item.classList.contains('widget-unlocking')).toBe(false);
         removeSpy.mockRestore();
     });
 
@@ -110,10 +117,12 @@ describe('pendingHoldCancel', () => {
         expect(DDTouch.touchHandled).toBe(false);
         expect(DDManager.touchActivated).toBe(false);
         expect(item.classList.contains('widget-unlocked')).toBe(false);
+        expect(item.classList.contains('widget-unlocking')).toBe(false);
         expect(removeSpy).toHaveBeenCalledWith('touchcancel', touchend);
 
         vi.advanceTimersByTime(500);
         expect(item.classList.contains('widget-unlocked')).toBe(false);
+        expect(item.classList.contains('widget-unlocking')).toBe(false);
         removeSpy.mockRestore();
     });
 
@@ -127,9 +136,40 @@ describe('pendingHoldCancel', () => {
         expect(DDTouch.touchHandled).toBe(false);
         expect(DDManager.touchActivated).toBe(false);
         expect(item.classList.contains('widget-unlocked')).toBe(false);
+        expect(item.classList.contains('widget-unlocking')).toBe(false);
 
         vi.advanceTimersByTime(500);
         expect(item.classList.contains('widget-unlocked')).toBe(false);
+        expect(item.classList.contains('widget-unlocking')).toBe(false);
+    });
+
+    it('quick tap under 50ms never paints the unlock ramp', () => {
+        const item = appendGridItem();
+
+        touchstart(makeTouchEvent(item, 10, 10));
+        vi.advanceTimersByTime(40);
+        expect(item.classList.contains('widget-unlocking')).toBe(false);
+
+        touchend(makeTouchEvent(item, 10, 10, 'touchend'));
+        vi.advanceTimersByTime(500);
+        expect(item.classList.contains('widget-unlocking')).toBe(false);
+        expect(item.classList.contains('widget-unlocked')).toBe(false);
+    });
+
+    it('hold past 50ms ramps, then swaps to unlocked at the hold threshold', () => {
+        stubSimulatedMouseDown();
+        const item = appendGridItem();
+
+        touchstart(makeTouchEvent(item, 10, 10));
+        vi.advanceTimersByTime(50);
+        expect(item.classList.contains('widget-unlocking')).toBe(true);
+        expect(item.classList.contains('widget-unlocked')).toBe(false);
+        expect(item.style.getPropertyValue('--unlock-ramp-ms')).toBe('300ms');
+
+        vi.advanceTimersByTime(300);
+        expect(DDManager.touchActivated).toBe(true);
+        expect(item.classList.contains('widget-unlocked')).toBe(true);
+        expect(item.classList.contains('widget-unlocking')).toBe(false);
     });
 
     it('touchmove within tolerance does not cancel; timer still fires a healthy hold', () => {
@@ -143,6 +183,7 @@ describe('pendingHoldCancel', () => {
 
         expect(DDManager.touchActivated).toBe(true);
         expect(item.classList.contains('widget-unlocked')).toBe(true);
+        expect(item.classList.contains('widget-unlocking')).toBe(false);
     });
 
     it('resize-handle touchstart is unaffected (no pending phase, no passive:true touchmove arm)', () => {

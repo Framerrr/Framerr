@@ -70,7 +70,7 @@ export function MobileTabBar() {
     const [holdChromeHidden, setHoldChromeHidden] = useState(false);
     const [newDashboardOpen, setNewDashboardOpen] = useState(false);
     const { activeDashboardId, dashboards, homeDashboardId, switchDashboard } = useActiveDashboard();
-    const { slots } = useMobileTabBarLayout();
+    const { slots, layoutReady } = useMobileTabBarLayout();
     const dashboardLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const dashboardTouchStartRef = useRef<{ x: number; y: number } | null>(null);
     const dashboardLongPressTriggeredRef = useRef(false);
@@ -141,14 +141,16 @@ export function MobileTabBar() {
     const isOnDashboard = isAlreadyOnDashboardPage();
     const activeTabBarSlotId = useMemo(
         () =>
-            resolveActiveTabBarSlotId({
-                slots,
-                hash,
-                activeDashboardId,
-                homeDashboardId,
-                tabs,
-            }),
-        [slots, hash, activeDashboardId, homeDashboardId, tabs],
+            layoutReady
+                ? resolveActiveTabBarSlotId({
+                      slots,
+                      hash,
+                      activeDashboardId,
+                      homeDashboardId,
+                      tabs,
+                  })
+                : null,
+        [layoutReady, slots, hash, activeDashboardId, homeDashboardId, tabs],
     );
 
     // Swipe-to-edit handlers
