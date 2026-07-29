@@ -9,6 +9,7 @@ import React, { CSSProperties } from 'react';
 import { Loader, CheckCircle2, XCircle } from 'lucide-react';
 import { getIconComponent } from '../../../utils/iconUtils';
 import { triggerHaptic } from '../../../utils/haptics';
+import { consumeGridDragSuppression } from '../../../utils/gridDragClickSuppression';
 import { useLinkAction } from '../hooks/useLinkAction';
 import { useDashboardEdit } from '../../../context/useDashboardEdit';
 import { useActiveDashboard } from '../../../context/ActiveDashboardContext';
@@ -116,6 +117,14 @@ export const LinkItem: React.FC<LinkItemProps> = ({
 
     // Click handler
     const handleLinkClick = (e: React.MouseEvent): void => {
+        if (consumeGridDragSuppression(e.currentTarget as Element)) {
+            e.preventDefault();
+            e.stopPropagation();
+            return; // FRAMERR: swallow the native click that follows a real
+                    // mouse drag-drop on this widget — see
+                    // src/utils/gridDragClickSuppression.ts and
+                    // TASK-20260727-004_PLAN.md §5.
+        }
         if (editMode) {
             e.preventDefault();
             e.stopPropagation();
@@ -125,12 +134,15 @@ export const LinkItem: React.FC<LinkItemProps> = ({
         }
     };
 
-    // Shared props for both link and button
-    // Note: edit-clickable class makes links clickable in edit mode despite global pointer-events: none
-    // Always cursor-pointer — in-app/dashboard links have no href, so the browser won't apply it.
+    // Shared props for both link and action tile.
+    // Neither tile type carries `.no-drag` — touch/mouse hold-vs-tap arbitration
+    // is owned by GridStack's dd-touch.ts / dd-draggable.ts once that class is
+    // absent. The action tile must not be a native form-control tag (skipMouseDown,
+    // dd-draggable.ts:45) or the touch-stall risk in TASK-20260727-004_PLAN.md §3
+    // returns. See that plan before re-introducing `.no-drag` or a native button.
     const sharedProps = {
         'data-link-id': link.id,
-        className: `${classes} cursor-pointer edit-clickable no-drag`,
+        className: `${classes} cursor-pointer edit-clickable`,
         style,
     };
 
@@ -146,6 +158,7 @@ export const LinkItem: React.FC<LinkItemProps> = ({
                 href={editMode || isInApp ? undefined : nav.url}
                 target={openInNewTab ? '_blank' : undefined}
                 rel={openInNewTab ? 'noopener noreferrer' : undefined}
+                tabIndex={editMode ? 0 : undefined}
                 onClick={(e) => {
                     if (editMode) {
                         handleLinkClick(e);
@@ -174,6 +187,13 @@ export const LinkItem: React.FC<LinkItemProps> = ({
                     }
                     handleLinkClick(e);
                 }}
+                onKeyDown={(e) => {
+                    // Edit-mode keyboard opens the editor; view-mode keyboard is unchanged.
+                    if (!editMode) return;
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    e.preventDefault();
+                    onLinkClick(link.id);
+                }}
             >
                 {renderIcon()}
                 {renderText()}
@@ -181,11 +201,16 @@ export const LinkItem: React.FC<LinkItemProps> = ({
         );
     }
 
-    // HTTP action button
+    // HTTP action tile (div role="button" — not a native button so GridStack drag works)
     return (
-        <button
+        <div
             {...sharedProps}
+            role="button"
+            tabIndex={isLoading ? -1 : 0}
+            aria-disabled={isLoading || undefined}
+            className={`${sharedProps.className} ${isLoading ? 'cursor-wait' : ''}`}
             onClick={(e) => {
+                if (isLoading) return;
                 if (editMode) {
                     handleLinkClick(e);
                     return;
@@ -193,12 +218,21 @@ export const LinkItem: React.FC<LinkItemProps> = ({
                 triggerHaptic('light');
                 executeAction();
             }}
-            disabled={isLoading}
-            className={`${sharedProps.className} ${isLoading ? 'cursor-wait' : ''}`}
+            onKeyDown={(e) => {
+                if (isLoading) return;
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                e.preventDefault();
+                if (editMode) {
+                    onLinkClick(link.id);
+                    return;
+                }
+                triggerHaptic('light');
+                executeAction();
+            }}
         >
             {renderIcon()}
             {renderText()}
-        </button>
+        </div>
     );
 };
 

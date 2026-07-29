@@ -44,6 +44,7 @@ import type { DropTransitionEvent } from './DropTransitionOverlay';
 
 // Logger
 import logger from '../../../utils/logger';
+import { markGridDragStarted, markGridDragStopped } from '../../../utils/gridDragClickSuppression';
 
 // ============================================================================
 // TYPES
@@ -397,11 +398,17 @@ function GridStackInner({
     useEffect(() => {
         if (!gridStack || !gridStack.engine) return;
 
-        const onDragStart = () => handlersRef.current.onDragStart?.();
+        const onDragStart = (_event: Event, el: HTMLElement) => {
+            // FRAMERR: TASK-20260727-004 — arm click suppression at dragstart so the
+            // desktop post-drop native click cannot race GridStack's late dragstop.
+            markGridDragStarted(el);
+            handlersRef.current.onDragStart?.();
+        };
         const onResizeStart = () => handlersRef.current.onResizeStart?.();
 
         const onDragResizeStop = (event: Event, el: HTMLElement) => {
             if (event.type === 'dragstop') {
+                markGridDragStopped(el); // FRAMERR: TASK-20260727-004 — refresh window
                 handlersRef.current.onDragStop?.();
             }
             if (!handlersRef.current.onLayoutCommit) return;

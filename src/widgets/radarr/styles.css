@@ -363,12 +363,10 @@
     background: rgba(var(--missing-rgb), 0.15);
 }
 
-/* Borrows --physical (purple) rather than --cinema — this row already uses
- * amber for "Cinema", so "upgrade" needs a visually distinct color even
- * though the Needs Attention list's severity stripe uses amber for cutoff. */
+/* Cutoff unmet = upgrade — shared --upgrade green-gold (not --cinema premiere). */
 .rdr-header-chip--cutoff {
-    color: var(--physical);
-    background: rgba(var(--physical-rgb), 0.15);
+    color: var(--upgrade);
+    background: rgba(var(--upgrade-rgb), 0.15);
 }
 
 .rdr-header-chip--downloading {
@@ -493,7 +491,7 @@
 }
 
 .rdr-attention-item--cutoff::before {
-    background: var(--cinema);
+    background: var(--upgrade);
 }
 
 .rdr-attention-item--error::before {

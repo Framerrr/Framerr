@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../../api/client';
-import { Star, Calendar, Clock, User, Check, XCircle, Film, Tv, ExternalLink } from 'lucide-react';
+import { Star, Calendar, Clock, User, Check, XCircle, Film, Tv } from 'lucide-react';
 import { Modal, Button } from '../../../shared/ui';
 import { useMediaServerMeta } from '../../../shared/hooks/useMediaServerMeta';
 import { openMediaInApp } from '../../../shared/utils/mediaDeepLinks';
+import { getIconComponent } from '../../../utils/iconUtils';
 import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
 import { useAuth } from '../../../context/useAuth';
 import { isAdmin } from '../../../utils/permissions';
@@ -385,16 +386,17 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                                 </div>
 
                                 {canOpenInMediaServer && (
-                                    <Button
-                                        size="sm"
-                                        textSize="sm"
-                                        icon={ExternalLink}
-                                        onClick={handleOpenInMediaServer}
-                                        customColor={{ background: MEDIA_SERVER_COLORS[mediaServerInfo!.type], text: '#000' }}
-                                        style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}
-                                    >
-                                        Open in {mediaServerInfo!.type === 'plex' ? 'Plex' : 'Jellyfin'}
-                                    </Button>
+                                    <div style={{ marginTop: '1rem' }}>
+                                        <Button
+                                            size="md"
+                                            textSize="sm"
+                                            icon={getIconComponent(`system:${mediaServerInfo!.type}`)}
+                                            onClick={handleOpenInMediaServer}
+                                            customColor={{ background: MEDIA_SERVER_COLORS[mediaServerInfo!.type], text: '#000' }}
+                                        >
+                                            Open in {mediaServerInfo!.type === 'plex' ? 'Plex' : 'Jellyfin'}
+                                        </Button>
+                                    </div>
                                 )}
 
                                 <ExternalMediaLinks

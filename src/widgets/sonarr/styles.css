@@ -56,13 +56,10 @@
     background: rgba(var(--missing-rgb), 0.15);
 }
 
-/* Borrows --physical (purple) rather than --cinema — matches Radarr's
- * equivalent "upgrade" chip: visually distinct from the amber "premiering"
- * chip on the same row even though the Needs Attention stripe uses amber
- * for cutoff-unmet. */
+/* Cutoff unmet = upgrade — shared --upgrade green-gold (not --cinema premiere). */
 .snr-header-chip--upgrade {
-    color: var(--physical);
-    background: rgba(var(--physical-rgb), 0.15);
+    color: var(--upgrade);
+    background: rgba(var(--upgrade-rgb), 0.15);
 }
 
 .snr-header-chip--downloading {
@@ -542,7 +539,7 @@
 }
 
 .snr-attention-item--cutoff::before {
-    background: var(--cinema);
+    background: var(--upgrade);
 }
 
 .snr-attention-item--error::before {

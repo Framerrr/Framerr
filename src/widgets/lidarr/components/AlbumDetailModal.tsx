@@ -77,7 +77,7 @@ function resolveAlbumStatus(album: WantedAlbum | CalendarAlbum): AlbumStatusResu
 
     if (album.hasFile) {
         return album.cutoffNotMet
-            ? { status: 'cutoffUnmet', label: 'Cutoff Unmet', color: 'var(--warning)' }
+            ? { status: 'cutoffUnmet', label: 'Cutoff Unmet', color: 'var(--upgrade)' }
             : { status: 'available', label: 'Available', color: 'var(--success)' };
     }
 

@@ -45,6 +45,7 @@ function formatSpeed(bytesPerSec: number): string {
 interface NetworkMetricCardProps {
     metric: PackedMetric;
     value: number | null;
+    shellMode?: boolean;
 }
 
 interface SparkPoint {
@@ -78,7 +79,7 @@ const HoverCapture: React.FC<{
     return null;
 };
 
-const NetworkMetricCard: React.FC<NetworkMetricCardProps> = ({ metric, value }) => {
+const NetworkMetricCard: React.FC<NetworkMetricCardProps> = ({ metric, value, shellMode = false }) => {
     // Buffer of recent values — resets when component mounts
     const bufferRef = useRef<SparkPoint[]>([]);
     const counterRef = useRef(0);
@@ -125,6 +126,14 @@ const NetworkMetricCard: React.FC<NetworkMetricCardProps> = ({ metric, value }) 
 
     // Push new value into buffer on each update
     useEffect(() => {
+        if (shellMode) {
+            bufferRef.current = [];
+            counterRef.current = 0;
+            setChartData([]);
+            setHoveredValue(null);
+            return;
+        }
+
         const numVal = Number(value || 0);
         const point: SparkPoint = { idx: counterRef.current++, value: numVal };
         bufferRef.current.push(point);
@@ -135,11 +144,13 @@ const NetworkMetricCard: React.FC<NetworkMetricCardProps> = ({ metric, value }) 
         }
 
         setChartData([...bufferRef.current]);
-    }, [value]);
+    }, [value, shellMode]);
 
     // Display: show hovered value when hovering, otherwise live value
-    const isHovering = hoveredValue !== null;
-    const displayValue = formatSpeed(isHovering ? hoveredValue : Number(value || 0));
+    const isHovering = !shellMode && hoveredValue !== null;
+    const displayValue = shellMode
+        ? '--'
+        : formatSpeed(isHovering ? hoveredValue : Number(value || 0));
     const cssColor = NETWORK_COLORS[metric.key] || 'var(--accent)';
 
     // Card classes

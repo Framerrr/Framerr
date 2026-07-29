@@ -24,6 +24,9 @@ type DashboardPickerOverlayBox = {
 
 /** Same insets as Highlight boundsOffset (left: 8, width: -16) */
 const DASHBOARD_PICKER_INSET = 8;
+/** Match mobile tab bar hold-to-switch timing */
+const DASHBOARD_HOLD_MS = 350;
+const DASHBOARD_HOLD_MOVE_CANCEL_PX = 8;
 
 /**
  * Desktop Sidebar Component
@@ -38,8 +41,19 @@ export function DesktopSidebar() {
     const hideTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     // Pointer over the aside — used so dropdown portal doesn't collapse the sidebar
     const pointerOverSidebarRef = React.useRef(false);
+    /**
+     * Touch/pen pointerdown sets this so the subsequent synthesized mouseenter
+     * does not auto-expand — condensed tab taps can navigate without expanding.
+     * Cleared on mouseleave so real mouse hover-expand still works.
+     */
+    const suppressHoverExpandRef = React.useRef(false);
     const asideRef = React.useRef<HTMLElement | null>(null);
     const dashboardAnchorRef = React.useRef<HTMLDivElement>(null);
+    const dashboardHoldTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const dashboardHoldTriggeredRef = React.useRef(false);
+    const dashboardHoldStartRef = React.useRef<{ x: number; y: number } | null>(null);
+    /** Open switcher after expand animation settles (hold-from-condensed path). */
+    const pendingOpenDashboardPickerRef = React.useRef(false);
     const dashboardPickerOverlayRef = React.useRef<HTMLDivElement>(null);
     const sidebarFooterRef = React.useRef<HTMLDivElement>(null);
     const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
@@ -131,8 +145,65 @@ export function DesktopSidebar() {
             clearTimeout(hideTimeoutRef.current);
             hideTimeoutRef.current = null;
         }
-        setIsExpanded(true);
+        // Morph geometry is wrong while width is still 80→280 — expand first, then open.
+        if (!isExpanded) {
+            pendingOpenDashboardPickerRef.current = true;
+            setAsideSettled(false);
+            setIsExpanded(true);
+            return;
+        }
+        if (!asideSettled) {
+            pendingOpenDashboardPickerRef.current = true;
+            return;
+        }
         setDashboardMenuOpenSafe(true);
+    };
+
+    // Finish deferred hold-open once the sidebar width spring has settled
+    useEffect(() => {
+        if (!isExpanded) {
+            pendingOpenDashboardPickerRef.current = false;
+            return;
+        }
+        if (!pendingOpenDashboardPickerRef.current || !asideSettled) return;
+        pendingOpenDashboardPickerRef.current = false;
+        setDashboardMenuOpenSafe(true);
+    }, [isExpanded, asideSettled]);
+
+    const clearDashboardHold = (): void => {
+        if (dashboardHoldTimerRef.current) {
+            clearTimeout(dashboardHoldTimerRef.current);
+            dashboardHoldTimerRef.current = null;
+        }
+        dashboardHoldStartRef.current = null;
+    };
+
+    const handleDashboardHoldPointerDown = (e: React.PointerEvent): void => {
+        // Primary button / touch only
+        if (e.button !== 0 && e.pointerType === 'mouse') return;
+        dashboardHoldTriggeredRef.current = false;
+        clearDashboardHold();
+        dashboardHoldStartRef.current = { x: e.clientX, y: e.clientY };
+        dashboardHoldTimerRef.current = setTimeout(() => {
+            dashboardHoldTimerRef.current = null;
+            dashboardHoldTriggeredRef.current = true;
+            triggerHaptic('light');
+            openDashboardPicker();
+        }, DASHBOARD_HOLD_MS);
+    };
+
+    const handleDashboardHoldPointerMove = (e: React.PointerEvent): void => {
+        const start = dashboardHoldStartRef.current;
+        if (!start || dashboardHoldTriggeredRef.current) return;
+        const dx = e.clientX - start.x;
+        const dy = e.clientY - start.y;
+        if (Math.hypot(dx, dy) > DASHBOARD_HOLD_MOVE_CANCEL_PX) {
+            clearDashboardHold();
+        }
+    };
+
+    const handleDashboardHoldPointerEnd = (): void => {
+        clearDashboardHold();
     };
 
     const closeDashboardPicker = (): void => {
@@ -423,6 +494,14 @@ export function DesktopSidebar() {
                     borderRadius: '20px',
                     transformOrigin: 'left center',
                 }}
+                onPointerDown={(e) => {
+                    // Touch synthesizes mouseenter before click; skip hover-expand for that path.
+                    if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+                        suppressHoverExpandRef.current = true;
+                    } else {
+                        suppressHoverExpandRef.current = false;
+                    }
+                }}
                 onMouseEnter={() => {
                     pointerOverSidebarRef.current = true;
                     // Cancel any pending hide (prevents flicker)
@@ -437,6 +516,9 @@ export function DesktopSidebar() {
                     // When peeking, don't auto-expand — user must click to expand
                     if (isPeeking) return;
 
+                    // Touch/pen: leave condensed so a tab tap navigates without expanding first
+                    if (suppressHoverExpandRef.current) return;
+
                     if (!isSidebarHidden || isOnSettingsPage) {
                         // Normal behavior: expand on hover
                         setIsExpanded(true);
@@ -450,6 +532,7 @@ export function DesktopSidebar() {
                 }}
                 onMouseLeave={() => {
                     pointerOverSidebarRef.current = false;
+                    suppressHoverExpandRef.current = false;
                     // Keep expanded while the dashboard picker dropdown is open
                     // (menu content is portaled outside the aside)
                     if (dashboardMenuOpenRef.current) return;
@@ -503,10 +586,20 @@ export function DesktopSidebar() {
                     null
                 ) : (
                     <div className="h-20 flex items-center border-b border-theme-light text-accent font-semibold text-lg whitespace-nowrap overflow-hidden relative z-10">
-                        {/* Icon - locked in 80px container */}
-                        <div className="w-20 flex items-center justify-center flex-shrink-0 text-accent drop-shadow-lg">
+                        {/* Icon — tap toggles expand (touch desktop); mouse still uses hover */}
+                        <button
+                            type="button"
+                            className="w-20 h-full flex items-center justify-center flex-shrink-0 text-accent drop-shadow-lg bg-transparent border-0 cursor-pointer"
+                            aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+                            aria-expanded={isExpanded}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (dashboardEdit?.editMode) return;
+                                setIsExpanded((expanded) => !expanded);
+                            }}
+                        >
                             {renderIcon(serverIcon, 28)}
-                        </div>
+                        </button>
                         {/* Text - appears when expanded */}
                         <AnimatePresence mode="wait">
                             {isExpanded && (
@@ -651,6 +744,19 @@ export function DesktopSidebar() {
                                 <div
                                     ref={dashboardAnchorRef}
                                     className="relative group flex items-center min-h-[48px] rounded-xl"
+                                    onPointerDown={handleDashboardHoldPointerDown}
+                                    onPointerMove={handleDashboardHoldPointerMove}
+                                    onPointerUp={handleDashboardHoldPointerEnd}
+                                    onPointerCancel={handleDashboardHoldPointerEnd}
+                                    onPointerLeave={handleDashboardHoldPointerEnd}
+                                    onContextMenu={(e) => {
+                                        // Avoid OS callout interfering with hold-to-switch on touch
+                                        e.preventDefault();
+                                    }}
+                                    style={{
+                                        WebkitTouchCallout: 'none',
+                                        userSelect: 'none',
+                                    } as React.CSSProperties}
                                 >
                                     <a
                                         href={
@@ -659,6 +765,11 @@ export function DesktopSidebar() {
                                                 : '/#dashboard'
                                         }
                                         onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                                            if (dashboardHoldTriggeredRef.current) {
+                                                dashboardHoldTriggeredRef.current = false;
+                                                e.preventDefault();
+                                                return;
+                                            }
                                             if (dashboardMenuOpen) {
                                                 e.preventDefault();
                                                 return;

@@ -32,6 +32,8 @@ import { buttonSizeClasses } from './buttonSizeClasses';
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 export type IconPosition = 'left' | 'right';
+/** Anything renderable as a button icon: a Lucide icon, or any component accepting size/className (e.g. iconUtils' getIconComponent()) */
+export type ButtonIcon = LucideIcon | React.ComponentType<{ size?: number; className?: string }>;
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     /** Button content */
@@ -47,8 +49,8 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
         background: string;
         text?: string;  // defaults to #000
     };
-    /** Lucide icon component */
-    icon?: LucideIcon;
+    /** Icon to render — a Lucide icon, or any component accepting size/className */
+    icon?: ButtonIcon;
     /** Icon position relative to text */
     iconPosition?: IconPosition;
     /** Show loading spinner and disable button */

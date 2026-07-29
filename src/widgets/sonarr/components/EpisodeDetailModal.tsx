@@ -123,7 +123,7 @@ function resolveEpisodeStatus(ep: WantedEpisode | CalendarEpisode): EpisodeStatu
     // If Sonarr says it has a file, it's available — unless it's below the quality cutoff
     if (ep.hasFile) {
         return ep.cutoffNotMet
-            ? { status: 'cutoffUnmet', label: 'Cutoff Unmet', color: 'var(--warning)' }
+            ? { status: 'cutoffUnmet', label: 'Cutoff Unmet', color: 'var(--upgrade)' }
             : { status: 'available', label: 'Available', color: 'var(--success)' };
     }
 
