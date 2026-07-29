@@ -1,8 +1,19 @@
+<p align="center">
+  <img src="docs/branding/framerr-banner.png" alt="Framerr" width="100%">
+</p>
 
+<p align="center">
+  Self-hosted homelab dashboard with iframe tabs, real-time widgets, and Plex SSO.
+</p>
 
-Self-hosted homelab dashboard with iframe tabs, real-time widgets, and Plex SSO.
-
-
+<p align="center">
+  <a href="https://framerrr.github.io/Framerr/"><img src="https://img.shields.io/badge/Docs-Wiki-blue" alt="Documentation"></a>
+  <a href="https://hub.docker.com/r/pickels23/framerr"><img src="https://img.shields.io/docker/pulls/pickels23/framerr" alt="Docker Pulls"></a>
+  <img src="https://img.shields.io/github/package-json/v/Framerrr/Framerr" alt="Version">
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Changelog-📋-blue" alt="Changelog"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/Framerrr/Framerr" alt="License"></a>
+  <a href="https://buymeacoffee.com/framerr"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-☕-yellow" alt="Buy Me a Coffee"></a>
+</p>
 
 > [!WARNING]
 > Framerr is in early development (`0.x.x`). Potentially breaking changes between releases.
@@ -11,21 +22,20 @@ Self-hosted homelab dashboard with iframe tabs, real-time widgets, and Plex SSO.
 
 ---
 
+<p align="center">
+  <img src="docs/branding/screenshots/framerr-dashboard-desktop-1.png" alt="Framerr Dashboard" width="100%">
+</p>
+<h3 align="center">⚡ Powerful, Modern Dashboard</h3>
+<p align="center">Real-time widgets, drag-and-drop layout, and deep integration with your homelab services — all in one customizable view.</p>
 
+<p align="center">
+  <img src="docs/branding/screenshots/framerr-dashboard-mobile-1.png" alt="Framerr Mobile" width="280">
+</p>
+<h3 align="center">📱 Responsive Mobile Design</h3>
+<p align="center">Dedicated mobile layout with independent widget arrangement and touch-friendly controls. Your dashboard, anywhere.</p>
 
-### ⚡ Powerful, Modern Dashboard
-
-Real-time widgets, drag-and-drop layout, and deep integration with your homelab services — all in one customizable view.
-
-
-
-### 📱 Responsive Mobile Design
-
-Dedicated mobile layout with independent widget arrangement and touch-friendly controls. Your dashboard, anywhere.
-
-### Your homelab. Every user.
-
-Deep integration and full admin control where it counts. A clean, intuitive experience for the friends and family who share your server. Framerr delivers what you need and what your users want.
+<h3 align="center">Your homelab. Every user.</h3>
+<p align="center">Deep integration and full admin control where it counts. A clean, intuitive experience for the friends and family who share your server. Framerr delivers what you need and what your users want.</p>
 
 ## Features
 
@@ -44,8 +54,6 @@ Deep integration and full admin control where it counts. A clean, intuitive expe
 
 
 ## Quick Start
-
-
 
 ### Docker Compose
 
@@ -72,20 +80,19 @@ Then open `http://localhost:3001` and follow the setup wizard.
 
 ### Unraid
 
-An Unraid template is available at `[docs/unraid/Framerr.xml](docs/unraid/Framerr.xml)`. Copy it to `/boot/config/plugins/dockerMan/templates/` on your Unraid server, then add the container from the Docker tab.
+An Unraid template is available at [`docs/unraid/Framerr.xml`](docs/unraid/Framerr.xml). Copy it to `/boot/config/plugins/dockerMan/templates/` on your Unraid server, then add the container from the Docker tab.
+
 
 ## Configuration
 
-
-| Variable                | Default   | Description                                           |
-| ----------------------- | --------- | ----------------------------------------------------- |
-| `SECRET_ENCRYPTION_KEY` | —         | **Required.** Encryption key for integration secrets. |
-| `PORT`                  | `3001`    | Application port                                      |
-| `PUID`                  | `0`       | User ID for file permissions                          |
-| `PGID`                  | `0`       | Group ID for file permissions                         |
-| `TZ`                    | `UTC`     | Timezone                                              |
-| `DATA_DIR`              | `/config` | Data directory                                        |
-
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SECRET_ENCRYPTION_KEY` | — | **Required.** Encryption key for integration secrets. |
+| `PORT` | `3001` | Application port |
+| `PUID` | `0` | User ID for file permissions |
+| `PGID` | `0` | Group ID for file permissions |
+| `TZ` | `UTC` | Timezone |
+| `DATA_DIR` | `/config` | Data directory |
 
 All persistent data (database, uploads, backups) is stored in `/config`.
 
@@ -99,8 +106,6 @@ Plex, Jellyfin, Emby, Sonarr, Radarr, Lidarr, Seerr, qBittorrent, Glances, Uptim
 - **Backend:** Node.js 20, Express, SQLite
 - **Deployment:** Docker (Alpine)
 
-
-
 ## Development
 
 ```bash
@@ -111,13 +116,11 @@ cd server && npm install && cd ..
 npm run dev:all
 ```
 
-
-
 ## Support
 
 If you enjoy Framerr, consider buying me a coffee! ☕
 
-
+<a href="https://buymeacoffee.com/framerr"><img src="https://img.shields.io/badge/Buy_Me_a_Coffee-FFDD00?logo=buymeacoffee&logoColor=000" alt="Buy Me a Coffee" height="28"></a>
 
 ## License
 
