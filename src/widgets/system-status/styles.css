@@ -888,9 +888,25 @@
     color: var(--text-tertiary);
 }
 
-/* Collapsed expansion popover */
+/* Collapsed expansion popover
+ * Reuses .metric-card__* (label/value/progress/bar-label) for the disk
+ * rows inside, but this content is portaled to <body> (see Popover.tsx),
+ * so it's not a DOM descendant of .system-status-grid — the --ss-* tokens
+ * defined there don't inherit here. Redeclare them locally (same base
+ * values as .system-status-grid) so bar height/label sizing don't fall
+ * back to var()'s invalid-at-computed-value default (auto / inherited
+ * ambient font-size), which is what was collapsing the bar and blowing
+ * up the label text.
+ */
 .disk-popover {
     padding: 0.375rem !important;
+    --ss-label-size: 0.75rem;
+    --ss-value-size: 1.05rem;
+    --ss-icon-size: 13px;
+    --ss-label-gap: 0.3rem;
+    --ss-stack-gap: 0.4rem;
+    --ss-bar-h: 14px;
+    --ss-bar-gap: 4px;
 }
 
 .disk-popover__list {

@@ -11,7 +11,7 @@
 
 import { useCallback, MutableRefObject } from 'react';
 import { getWidgetMetadata } from '@/widgets/registry';
-import { deriveLinkedMobileLayout, snapshotToMobileLayout } from '@/shared/grid/core/ops';
+import { deriveLinkedMobileLayout, snapshotToMobileLayout, isDifferent } from '@/shared/grid/core/ops';
 
 import type {
     FramerrWidget,
@@ -136,6 +136,28 @@ export function useGridCallbacks(deps: GridCallbackDeps): GridCallbackReturn {
 
         // Determine which stack we're using
         const isUsingMobileStack = isMobile && (mobileLayoutMode === 'independent' || pendingUnlink);
+
+        // No-op drag/resize (picked up and dropped in the same cell): do not push undo
+        // or rewrite widget state. Without this, GridStack still fires dragstop and we
+        // pushed dragStartState even when x/y/w/h were unchanged.
+        if (!event.undoState && !isUndoRedoRef.current) {
+            const preDrag = isUsingMobileStack
+                ? mobileDragStartStateRef.current
+                : dragStartStateRef.current;
+            if (preDrag) {
+                const breakpoint = isMobile ? 'sm' : 'lg';
+                const layoutChanged = isDifferent(updatedWidgets, preDrag, {
+                    breakpoint,
+                    compareConfig: false,
+                });
+                if (!layoutChanged) {
+                    dragStartStateRef.current = null;
+                    mobileDragStartStateRef.current = null;
+                    setIsUserDragging(false);
+                    return;
+                }
+            }
+        }
 
         // Push to undo stack if not from undo/redo operation
         if (!isUndoRedoRef.current) {

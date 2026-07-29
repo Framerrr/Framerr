@@ -58,6 +58,7 @@ export const userSettingsCategories: SidebarSettingsCategory[] = [
         children: [
             { id: 'general', label: 'General', icon: 'SlidersHorizontal' },
             { id: 'colors', label: 'Colors', icon: 'Palette' },
+            { id: 'tabbar', label: 'Mobile Tab Bar', icon: 'Smartphone' },
             { id: 'favicon', label: 'Favicon', icon: 'Image', adminOnly: true },
         ]
     },

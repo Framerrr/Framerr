@@ -122,11 +122,12 @@ interface DiskRowProps {
     disk: DiskInfo;
     isInline: boolean;
     viz?: 'bar' | 'gauge';
+    shellMode?: boolean;
 }
 
-const DiskRow: React.FC<DiskRowProps> = ({ disk, isInline, viz = 'bar' }) => {
-    const usage = disk.usagePercent ?? 0;
-    const tooltip = buildTooltip(disk, isInline); // inline: temp in tooltip
+const DiskRow: React.FC<DiskRowProps> = ({ disk, isInline, viz = 'bar', shellMode = false }) => {
+    const usage = shellMode ? 0 : (disk.usagePercent ?? 0);
+    const tooltip = shellMode ? '' : buildTooltip(disk, isInline); // inline: temp in tooltip
     const usedBytes = disk.fsSize !== null && disk.fsFree !== null ? disk.fsSize - disk.fsFree : null;
     const freeBytes = disk.fsFree;
 
@@ -150,24 +151,24 @@ const DiskRow: React.FC<DiskRowProps> = ({ disk, isInline, viz = 'bar' }) => {
                 </span>
                 {viz !== 'gauge' && (
                     <span className="metric-card__value">
-                        {disk.usagePercent !== null ? `${disk.usagePercent}%` : '--'}
+                        {shellMode ? '--' : (disk.usagePercent !== null ? `${disk.usagePercent}%` : '--')}
                     </span>
                 )}
             </div>
-            {disk.usagePercent !== null && (
+            {(shellMode || disk.usagePercent !== null) && (
                 viz === 'gauge' ? (
                     <div className="metric-card__gauge-row">
                         <CircularGauge
                             value={usage}
                             color={getUsageColor(usage)}
-                            label={`${usage}%`}
+                            label={shellMode ? '--' : `${usage}%`}
                             caption={
                                 <>
                                     <HardDrive size={14} />
                                     {disk.name}
                                 </>
                             }
-                            ariaLabel={`${disk.name} usage ${usage}%`}
+                            ariaLabel={shellMode ? `${disk.name} loading` : `${disk.name} usage ${usage}%`}
                         />
                         {tooltip && <span className="metric-card__gauge-caption">{tooltip}</span>}
                     </div>
@@ -180,11 +181,11 @@ const DiskRow: React.FC<DiskRowProps> = ({ disk, isInline, viz = 'bar' }) => {
                                 backgroundColor: getUsageColor(usage),
                             }}
                         >
-                            {usedBytes !== null && (
+                            {!shellMode && usedBytes !== null && (
                                 <span className="metric-card__bar-label metric-card__bar-label--used">{formatBytes(usedBytes)}</span>
                             )}
                         </div>
-                        {freeBytes !== null && freeBytes > 0 && (
+                        {!shellMode && freeBytes !== null && freeBytes > 0 && (
                             <span className="metric-card__bar-label metric-card__bar-label--free">{formatBytes(freeBytes)}</span>
                         )}
                     </div>
@@ -255,6 +256,7 @@ export interface DiskMetricCardProps {
     /** Span class for grid positioning */
     spanClass: string;
     viz?: 'bar' | 'gauge';
+    shellMode?: boolean;
 }
 
 const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
@@ -264,6 +266,7 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
     isInline,
     spanClass,
     viz = 'bar',
+    shellMode = false,
 }) => {
     const [popoverOpen, setPopoverOpen] = useState(false);
     const triggerRef = useRef<HTMLDivElement>(null);
@@ -280,7 +283,55 @@ const DiskMetricCard: React.FC<DiskMetricCardProps> = ({
     if (!isAggregate && disk) {
         return (
             <div className={`metric-card metric-card--disk${viz === 'gauge' ? ' metric-card--gauge' : ''} ${spanClass}`}>
-                <DiskRow disk={disk} isInline={isInline} viz={viz} />
+                <DiskRow disk={disk} isInline={isInline} viz={viz} shellMode={shellMode} />
+            </div>
+        );
+    }
+
+    if (shellMode) {
+        return (
+            <div className={`metric-card metric-card--disk${viz === 'gauge' ? ' metric-card--gauge' : ''} ${spanClass}`}>
+                <div className="metric-card__inner">
+                    <div className="metric-card__header">
+                        <span className="metric-card__label">
+                            {viz !== 'gauge' && (
+                                <>
+                                    <HardDrive size={14} />
+                                    Disks
+                                </>
+                            )}
+                        </span>
+                        {viz !== 'gauge' && (
+                            <span className="metric-card__value">--</span>
+                        )}
+                    </div>
+                    {viz === 'gauge' ? (
+                        <div className="metric-card__gauge-row">
+                            <CircularGauge
+                                value={0}
+                                color={getUsageColor(0)}
+                                label="--"
+                                caption={
+                                    <>
+                                        <HardDrive size={14} />
+                                        Disks
+                                    </>
+                                }
+                                ariaLabel="Disks loading"
+                            />
+                        </div>
+                    ) : (
+                        <div className="metric-card__progress metric-card__progress--labeled">
+                            <div
+                                className="metric-card__progress-fill"
+                                style={{
+                                    width: '0%',
+                                    backgroundColor: getUsageColor(0),
+                                }}
+                            />
+                        </div>
+                    )}
+                </div>
             </div>
         );
     }

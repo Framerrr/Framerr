@@ -5,10 +5,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../../widgets/registry', () => ({
     getWidgetMetadata: vi.fn((type: string) => {
-        const map: Record<string, { name: string; multiIntegration?: boolean }> = {
-            tautulli: { name: 'Tautulli' },
-            downloads: { name: 'Downloads' },
-            sonarr: { name: 'Sonarr' },
+        const map: Record<string, { name: string; multiIntegration?: boolean; compatibleIntegrations?: string[] }> = {
+            tautulli: { name: 'Tautulli', compatibleIntegrations: ['tautulli'] },
+            downloads: { name: 'Downloads', compatibleIntegrations: ['qbittorrent'] },
+            sonarr: { name: 'Sonarr', compatibleIntegrations: ['sonarr'] },
             calendar: { name: 'Calendar', multiIntegration: true },
         };
         return map[type] || { name: 'Widget' };
@@ -47,7 +47,7 @@ describe('resolveWidgetChrome', () => {
         const result = resolveWidgetChrome({
             widget: { type: 'tautulli', config: {} },
             schemas,
-            integrations,
+            integrations: [],
         });
         expect(result).toEqual({ title: 'Tautulli', iconName: 'BarChart3' });
     });
@@ -144,7 +144,7 @@ describe('resolveWidgetChrome', () => {
         const result = resolveWidgetChrome({
             widget: { type: 'downloads', config: {} },
             schemas,
-            integrations,
+            integrations: [],
         });
         expect(result).toEqual({ title: 'Downloads', iconName: 'Download' });
     });
@@ -205,5 +205,23 @@ describe('resolveWidgetChrome', () => {
             integrations,
         });
         expect(result).toEqual({ title: 'Media Calendar', iconName: 'Calendar' });
+    });
+
+    it('single-slot derives chrome from effective bind when stored integrationId is missing', () => {
+        const result = resolveWidgetChrome({
+            widget: { type: 'tautulli', config: {} },
+            schemas,
+            integrations,
+        });
+        expect(result).toEqual({ title: 'Home Tautulli', iconName: 'system:tautulli' });
+    });
+
+    it('single-slot with forceClearIntegration stays on plugin defaults', () => {
+        const result = resolveWidgetChrome({
+            widget: { type: 'tautulli', config: { forceClearIntegration: true } },
+            schemas,
+            integrations,
+        });
+        expect(result).toEqual({ title: 'Tautulli', iconName: 'BarChart3' });
     });
 });

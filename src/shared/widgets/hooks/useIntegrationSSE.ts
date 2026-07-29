@@ -26,6 +26,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
+import { useOptionalDashboardSurface } from '@/app/dashboard/DashboardSurfaceContext';
 import logger from '../../../utils/logger';
 
 export interface UseIntegrationSSEOptions<T> {
@@ -69,6 +70,9 @@ export function useIntegrationSSE<T>({
     enabled = true,
 }: UseIntegrationSSEOptions<T>): UseIntegrationSSEResult {
     const { subscribeToTopic, connectionId, isConnected } = useRealtimeSSE();
+    // Pause subscriptions on keep-alive dashboards that are not the visible surface
+    const surfaceActive = useOptionalDashboardSurface()?.isActive ?? true;
+    const effectivelyEnabled = enabled && surfaceActive;
 
     // Use ref for unsubscribe to fix async cleanup race condition
     // The ref persists across renders, so cleanup can access it even when
@@ -90,7 +94,7 @@ export function useIntegrationSSE<T>({
 
     useEffect(() => {
         // If explicitly disabled, set loading false and exit
-        if (!enabled) {
+        if (!effectivelyEnabled) {
             setLoading(false);
             setIsSubscribed(false);
             return;
@@ -171,7 +175,7 @@ export function useIntegrationSSE<T>({
             }
             setIsSubscribed(false);
         };
-    }, [enabled, integrationType, subtype, integrationId, connectionId, subscribeToTopic]);
+    }, [effectivelyEnabled, integrationType, subtype, integrationId, connectionId, subscribeToTopic]);
 
     return {
         loading,

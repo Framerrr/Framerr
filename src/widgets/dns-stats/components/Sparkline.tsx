@@ -1,4 +1,4 @@
-import React, { useCallback, useId, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface SparklinePoint {
@@ -79,7 +79,12 @@ const SparklineTooltip: React.FC<{
 const Sparkline: React.FC<SparklineProps> = ({ points }) => {
     const gradientId = useId().replace(/:/g, '');
     const chartRef = useRef<HTMLDivElement>(null);
+    /** null = mouse mode, true = touching, false = just released — see handleMouseMove/native touchend below */
+    const isTouchingRef = useRef<boolean | null>(null);
     const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | undefined>();
+    /** Explicit visibility, since Recharts' own internal active state (Redux)
+     *  never clears on touch release — only on mouse leave. */
+    const [tooltipActive, setTooltipActive] = useState(false);
 
     const chartData = useMemo(
         () =>
@@ -102,6 +107,13 @@ const Sparkline: React.FC<SparklineProps> = ({ points }) => {
     }, []);
 
     const handleMouseMove = useCallback((state: unknown) => {
+        // Touch just ended — ignore Recharts' stale "active" state from a
+        // RAF-queued callback that resolves after the native touchend below
+        // has already cleared the tooltip (see NetworkMetricCard.tsx for the
+        // same pattern: Recharts never clears its internal active state on
+        // touch release, only on mouse leave).
+        if (isTouchingRef.current === false) return;
+
         const s = state as {
             isTooltipActive?: boolean;
             activeCoordinate?: { x?: number; y?: number };
@@ -109,16 +121,47 @@ const Sparkline: React.FC<SparklineProps> = ({ points }) => {
 
         if (!s?.isTooltipActive || !s.activeCoordinate || !chartRef.current) {
             setTooltipPos(undefined);
+            setTooltipActive(false);
             return;
         }
 
         const chartW = chartRef.current.clientWidth;
         const cursorX = Number(s.activeCoordinate.x ?? 0);
         setTooltipPos(clampTooltipPosition(cursorX, chartW));
+        setTooltipActive(true);
     }, []);
 
     const handleMouseLeave = useCallback(() => {
+        isTouchingRef.current = null;
         setTooltipPos(undefined);
+        setTooltipActive(false);
+    }, []);
+
+    // Native touch listeners on the chart container (capture phase, ahead of
+    // Recharts' own RAF-queued touch handling) so release/cancel clears the
+    // tooltip immediately instead of leaving Recharts' internal active state
+    // stuck at the last touch position.
+    useEffect(() => {
+        const el = chartRef.current;
+        if (!el) return;
+
+        const onTouchStart = () => {
+            isTouchingRef.current = true;
+        };
+        const onTouchEnd = () => {
+            isTouchingRef.current = false;
+            setTooltipPos(undefined);
+            setTooltipActive(false);
+        };
+
+        el.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
+        el.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
+        el.addEventListener('touchcancel', onTouchEnd, { capture: true, passive: true });
+        return () => {
+            el.removeEventListener('touchstart', onTouchStart, true);
+            el.removeEventListener('touchend', onTouchEnd, true);
+            el.removeEventListener('touchcancel', onTouchEnd, true);
+        };
     }, []);
 
     if (chartData.length < 2) return null;
@@ -146,6 +189,7 @@ const Sparkline: React.FC<SparklineProps> = ({ points }) => {
                         margin={{ top: 4, right: 2, left: 2, bottom: 0 }}
                         onMouseMove={handleMouseMove}
                         onMouseLeave={handleMouseLeave}
+                        onTouchMove={handleMouseMove}
                     >
                         <defs>
                             <linearGradient id={`queries-${gradientId}`} x1="0" y1="0" x2="0" y2="1">
@@ -158,6 +202,7 @@ const Sparkline: React.FC<SparklineProps> = ({ points }) => {
                             </linearGradient>
                         </defs>
                         <Tooltip
+                            active={tooltipActive}
                             content={<SparklineTooltip />}
                             cursor={{
                                 stroke: 'var(--text-tertiary)',
@@ -177,12 +222,12 @@ const Sparkline: React.FC<SparklineProps> = ({ points }) => {
                             fill={`url(#queries-${gradientId})`}
                             dot={false}
                             isAnimationActive={false}
-                            activeDot={{
+                            activeDot={tooltipActive ? {
                                 r: 3,
                                 fill: colors.queries,
                                 stroke: 'var(--bg-primary)',
                                 strokeWidth: 1.5,
-                            }}
+                            } : false}
                         />
                         <Area
                             type="monotone"
@@ -192,12 +237,12 @@ const Sparkline: React.FC<SparklineProps> = ({ points }) => {
                             fill={`url(#blocked-${gradientId})`}
                             dot={false}
                             isAnimationActive={false}
-                            activeDot={{
+                            activeDot={tooltipActive ? {
                                 r: 3,
                                 fill: colors.blocked,
                                 stroke: 'var(--bg-primary)',
                                 strokeWidth: 1.5,
-                            }}
+                            } : false}
                         />
                     </AreaChart>
                 </ResponsiveContainer>

@@ -21,6 +21,7 @@ import { getLinkedAccount } from '../../../db/linkedAccounts';
 import { getPlugin } from '../../../integrations/registry';
 import { toPluginInstance } from '../../../integrations/utils';
 import { PluginInstance } from '../../../integrations/types';
+import { resolveMediaServer } from './mediaServerResolver';
 
 const router = Router();
 const adapter = getPlugin('overseerr')!.adapter;
@@ -212,6 +213,11 @@ router.get('/:id/proxy/request/:requestId/details', requireAuth, async (req: Req
 
         const requestData = requestResponse.data;
 
+        const overseerrDb = integrationInstancesDb.getInstanceById(id);
+        const mediaServer = overseerrDb
+            ? await resolveMediaServer(overseerrDb, requestData.media)
+            : null;
+
         // Fetch TMDB data if we have a tmdbId
         let tmdbData = null;
         if (requestData.media?.tmdbId) {
@@ -315,6 +321,7 @@ router.get('/:id/proxy/request/:requestId/details', requireAuth, async (req: Req
             request: requestData,
             tmdb: tmdbData,
             ...(allSeasons && { allSeasons }),
+            mediaServer,
         });
     } catch (error) {
         logger.error(`[Overseerr Proxy] Request details error: error="${(error as Error).message}"`);

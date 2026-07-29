@@ -5,7 +5,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { widgetSharesApi, SaveSharesData } from '../endpoints/widgetShares';
-import { templatesApi, CreateTemplateData, UpdateTemplateData, Template, TemplatesResponse } from '../endpoints/templates';
+import { templatesApi, CreateTemplateData, UpdateTemplateData, Template, TemplatesResponse, ApplyTemplateTarget } from '../endpoints/templates';
 import { queryKeys } from '../queryKeys';
 import { filterRegisteredWidgets } from '../../widgets/registry';
 
@@ -209,9 +209,11 @@ export function useApplyTemplate() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (id: string) => templatesApi.apply(id),
+        mutationFn: ({ id, target }: { id: string; target: ApplyTemplateTarget }) =>
+            templatesApi.apply(id, target),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.widgets.dashboard() });
+            queryClient.invalidateQueries({ queryKey: queryKeys.dashboards.list() });
         },
     });
 }

@@ -159,7 +159,8 @@ const ServiceStatusWidget: React.FC<ServiceStatusWidgetProps> = ({ widget, isEdi
 
     // Get integration ID from widget config
     const config = widget.config as { integrationId?: string } | undefined;
-    const configuredIntegrationId = config?.integrationId;
+    const cfg = config as Record<string, unknown> | undefined;
+    const configuredIntegrationId = cfg?.forceClearIntegration ? null : config?.integrationId;
 
     // Use the unified access hook for widget + integration access
     const {

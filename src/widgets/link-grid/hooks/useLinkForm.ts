@@ -10,6 +10,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Link, LinkFormData, LinkGridWidgetConfig } from '../types';
 import { DEFAULT_FORM_DATA } from '../types';
+import { inferLinkTargetFields } from '../utils/linkNavigation';
+import { buildLinkFromFormData, buildLibraryPayloadFromFormData } from '../utils/linkFormBuilders';
 import { linkLibraryApi } from '../../../api/endpoints/linkLibrary';
 import { queryKeys } from '../../../api/queryKeys';
 import logger from '../../../utils/logger';
@@ -59,12 +61,16 @@ export function useLinkForm({
         if (editingLinkId) {
             const linkToEdit = linksRef.current.find(l => l.id === editingLinkId);
             if (linkToEdit) {
+                const target = inferLinkTargetFields(linkToEdit);
                 setFormData({
                     title: linkToEdit.title || '',
                     icon: linkToEdit.icon || 'Link',
                     size: linkToEdit.size || 'circle',
                     type: linkToEdit.type || 'link',
-                    url: linkToEdit.url || '',
+                    linkTarget: target.linkTarget,
+                    url: target.url,
+                    dashboardId: target.dashboardId,
+                    openInNewTab: target.openInNewTab,
                     showIcon: linkToEdit.style?.showIcon !== false,
                     showText: linkToEdit.style?.showText !== false,
                     action: linkToEdit.action || {
@@ -94,20 +100,7 @@ export function useLinkForm({
      * Save link to widget config only (no library involvement)
      */
     const handleSaveLink = useCallback((): void => {
-        // Build link object
-        const newLink: Link = {
-            id: editingLinkId || `link-${Date.now()}`,
-            title: formData.title,
-            icon: formData.icon,
-            size: formData.size,
-            type: formData.type,
-            url: formData.url,
-            style: {
-                showIcon: formData.showIcon,
-                showText: formData.showText
-            },
-            action: formData.type === 'action' ? formData.action : undefined
-        };
+        const newLink = buildLinkFromFormData(formData, editingLinkId ?? undefined);
 
         // Update links array
         const updatedLinks = editingLinkId
@@ -134,18 +127,8 @@ export function useLinkForm({
      */
     const handleSaveToLibrary = useCallback(async (): Promise<void> => {
         try {
-            await linkLibraryApi.create({
-                title: formData.title,
-                icon: formData.icon,
-                size: formData.size,
-                type: formData.type,
-                url: formData.url,
-                style: {
-                    showIcon: formData.showIcon,
-                    showText: formData.showText
-                },
-                action: formData.type === 'action' ? formData.action : undefined,
-            });
+            const payload = buildLibraryPayloadFromFormData(formData);
+            await linkLibraryApi.create(payload);
 
             // Invalidate library cache so picker shows the new template
             queryClient.invalidateQueries({ queryKey: queryKeys.linkLibrary.list() });

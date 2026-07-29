@@ -4,7 +4,7 @@
  * Shared types for the customization feature extracted from CustomizationSettings.tsx
  */
 
-export type SubTabId = 'general' | 'colors' | 'favicon';
+export type SubTabId = 'general' | 'colors' | 'favicon' | 'tabbar';
 
 export interface CustomColors {
     'bg-primary': string;

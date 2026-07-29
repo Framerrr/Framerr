@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { useAuth } from '../../../context/useAuth';
+import { useAppBranding } from '../../../app/providers/useAppBranding';
 import { isAdmin } from '../../../utils/permissions';
 import { SettingsPage } from '../../../shared/ui/settings';
 import { BrandingSection } from './BrandingSection';
@@ -20,14 +21,15 @@ interface GeneralSectionProps {
 export function GeneralSection({ state }: GeneralSectionProps) {
     const { user } = useAuth();
     const userIsAdmin = isAdmin(user);
+    const { brandingLoaded } = useAppBranding();
 
     return (
         <SettingsPage
             title="General"
             description="Customize your dashboard appearance and branding"
         >
-            {/* Application Branding Section - Admin Only */}
-            {userIsAdmin && (
+            {/* Application Branding Section - Admin Only (wait for app branding to avoid default flash) */}
+            {userIsAdmin && brandingLoaded && (
                 <BrandingSection
                     applicationName={state.applicationName}
                     setApplicationName={state.setApplicationName}

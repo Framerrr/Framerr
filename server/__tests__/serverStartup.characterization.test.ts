@@ -27,7 +27,7 @@ const EXPECTED_ROUTE_BASES = [
     '/api/integrations',
     '/api/tabs',
     '/api/tab-groups',
-    '/api/widgets',
+    '/api/dashboards',
     '/api/theme',
     '/api/backup',
     '/api/custom-icons',

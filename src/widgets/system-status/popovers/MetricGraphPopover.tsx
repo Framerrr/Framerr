@@ -80,6 +80,7 @@ interface MetricGraphPopoverProps {
     integrationId?: string;
     /** Set to false to disable the graph popover (e.g., for non-recordable metrics) */
     historyEnabled?: boolean;
+    shellMode?: boolean;
     /** CSS class for grid column span (e.g., 'metric-card--span-2') */
     spanClass?: string;
     viz?: 'bar' | 'gauge';
@@ -90,21 +91,19 @@ function renderVizBody(
     fillPct: number,
     fillStyle: React.CSSProperties,
     color: string,
-    config: MetricConfig,
-    value: number,
-    metric: string,
+    displayLabel: React.ReactNode,
+    ariaLabel: string,
     caption?: React.ReactNode
 ) {
     if (viz === 'gauge') {
-        const label = `${Number(value || 0).toFixed(metric === 'temperature' ? 0 : 1)}${config.unit}`;
         return (
             <div className="metric-card__gauge-wrap">
                 <CircularGauge
                     value={fillPct}
                     color={color}
-                    label={label}
+                    label={displayLabel}
                     caption={caption}
-                    ariaLabel={`${config.label} ${label}`}
+                    ariaLabel={ariaLabel}
                 />
             </div>
         );
@@ -243,7 +242,16 @@ function getTickFormat(range: string): string {
 // Component
 // ============================================================================
 
-const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, icon: Icon, integrationId, historyEnabled = true, spanClass = '', viz = 'bar' }) => {
+const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({
+    metric,
+    value,
+    icon: Icon,
+    integrationId,
+    historyEnabled = true,
+    shellMode = false,
+    spanClass = '',
+    viz = 'bar',
+}) => {
     const { isOpen, onOpenChange } = usePopoverState();
     const [currentRange, setCurrentRange] = useState<TimeRange>('1h');
     const [apiData, setApiData] = useState<HistoryDataPoint[]>([]);
@@ -364,12 +372,16 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
         return 'var(--error)';
     };
 
-    const fillPct = metric === 'temperature' ? Math.min(value, 100) : value;
+    const fillPct = shellMode ? 0 : (metric === 'temperature' ? Math.min(value, 100) : value);
     const fillStyle = {
         width: `${fillPct}%`,
         backgroundColor: getColor(value),
         transition: 'width 0.4s ease, background-color 0.4s ease',
     };
+    const displayValue = shellMode
+        ? '--'
+        : `${Number(value || 0).toFixed(metric === 'temperature' ? 0 : 1)}${config.unit}`;
+    const gaugeAriaLabel = shellMode ? `${config.label} loading` : `${config.label} ${displayValue}`;
 
     // Custom tooltip component for Recharts
     const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ value: number; payload: ChartDataPoint }> }) => {
@@ -407,11 +419,11 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
                     </span>
                     {viz !== 'gauge' && (
                         <span className="metric-card__value">
-                            {Number(value || 0).toFixed(metric === 'temperature' ? 0 : 1)}{config.unit}
+                            {displayValue}
                         </span>
                     )}
                 </div>
-                {renderVizBody(viz, fillPct, fillStyle, getColor(value), config, value, metric, (
+                {renderVizBody(viz, fillPct, fillStyle, getColor(value), displayValue, gaugeAriaLabel, (
                     <>
                         <Icon size={14} />
                         {config.label}
@@ -422,7 +434,7 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
     );
 
     // If history is disabled, render static bar without popover
-    if (!historyEnabled) {
+    if (!historyEnabled || shellMode) {
         return StaticMetricBar;
     }
 
@@ -441,11 +453,11 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({ metric, value, 
                             </span>
                             {viz !== 'gauge' && (
                                 <span className="metric-card__value">
-                                    {Number(value || 0).toFixed(metric === 'temperature' ? 0 : 1)}{config.unit}
+                                    {displayValue}
                                 </span>
                             )}
                         </div>
-                        {renderVizBody(viz, fillPct, fillStyle, getColor(value), config, value, metric, (
+                        {renderVizBody(viz, fillPct, fillStyle, getColor(value), displayValue, gaugeAriaLabel, (
                             <>
                                 <Icon size={14} />
                                 {config.label}

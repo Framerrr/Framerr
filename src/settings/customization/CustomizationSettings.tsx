@@ -14,6 +14,7 @@ import { isAdmin } from '../../utils/permissions';
 import { GeneralPage } from './pages/GeneralPage';
 import { ColorsPage } from './pages/ColorsPage';
 import { FaviconPage } from './pages/FaviconPage';
+import { TabBarPage } from './pages/TabBarPage';
 import type { CustomizationSettingsProps, SubTabId } from './types';
 
 const CustomizationSettings: React.FC<CustomizationSettingsProps> = ({ activeSubTab: propSubTab }) => {
@@ -26,6 +27,7 @@ const CustomizationSettings: React.FC<CustomizationSettingsProps> = ({ activeSub
     // Simple conditional routing - each page handles its own state
     if (activeSubTab === 'general') return <GeneralPage />;
     if (activeSubTab === 'colors') return <ColorsPage />;
+    if (activeSubTab === 'tabbar') return <TabBarPage />;
     if (activeSubTab === 'favicon' && hasAdminAccess) return <FaviconPage />;
 
     // Default fallback

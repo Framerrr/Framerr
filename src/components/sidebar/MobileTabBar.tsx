@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, LayoutDashboard, ChevronUp, LogOut, UserCircle, Mail, LayoutGrid, Settings as SettingsIcon, Undo2, Redo2, Plus, Save, Link } from 'lucide-react';
+import { Menu, X, LayoutDashboard, ChevronUp, LogOut, Mail, LayoutGrid, Settings as SettingsIcon, Undo2, Redo2, Plus, Save, Link } from 'lucide-react';
 import { useSharedSidebar } from '@/app/sidebar/context/useSharedSidebar';
 import { sidebarSpring } from '@/app/sidebar/types';
 import MenuContentShell from '@/app/sidebar/MenuContentShell';
@@ -8,6 +8,25 @@ import { NotificationCenter, NotificationCenterHeader } from '../../features/not
 import type { NotificationFilterType } from '../../features/notifications';
 import { triggerHaptic } from '@/utils/haptics';
 import { guardedNavigate } from '@/settings/navigation';
+import { NewDashboardModal } from '@/app/dashboard/components/NewDashboardModal';
+import { useActiveDashboard } from '@/context/ActiveDashboardContext';
+import { isAlreadyOnDashboardPage, isDashboardHashActive } from './dashboardNavUtils';
+import {
+    DashboardHoldSwitcher,
+    TAB_BAR_ACTIONS,
+    TabBarActionButton,
+    TabBarLinkButton,
+    TabBarIframeTabButton,
+    TabBarSelectionScope,
+    TabBarSelectionTarget,
+    resolveActiveTabBarSlotId,
+    tabBarSlotKey,
+    useMobileTabBarLayout,
+    type DashboardHoldSwitcherHandle,
+} from '@/app/sidebar/mobile-tabbar';
+
+const DASHBOARD_LONG_PRESS_MS = 350;
+const DASHBOARD_MOVE_CANCEL_PX = 8;
 
 /**
  * Mobile Tab Bar Component
@@ -29,6 +48,7 @@ export function MobileTabBar() {
         handleLogout,
         renderIcon,
         lastSettingsPath,
+        location,
     } = useSharedSidebar();
 
     // Swipe-to-edit confirm state
@@ -45,14 +65,97 @@ export function MobileTabBar() {
     // Lifted notification filter state (shared between header and body slots)
     const [notificationFilter, setNotificationFilter] = useState<NotificationFilterType>('all');
 
-    // Check if currently on Dashboard page (for swipe-to-edit feature)
-    const isOnDashboard = !window.location.hash || window.location.hash === '#dashboard';
+    const [holdSwitcher, setHoldSwitcher] = useState<{ anchorRect: DOMRect } | null>(null);
+    /** Hides dashboard icon/label while the hold surface covers the slot; restored as soon as close starts. */
+    const [holdChromeHidden, setHoldChromeHidden] = useState(false);
+    const [newDashboardOpen, setNewDashboardOpen] = useState(false);
+    const { activeDashboardId, dashboards, homeDashboardId, switchDashboard } = useActiveDashboard();
+    const { slots, layoutReady } = useMobileTabBarLayout();
+    const dashboardLongPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const dashboardTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+    const dashboardLongPressTriggeredRef = useRef(false);
+    const dashboardTouchTargetRef = useRef<HTMLButtonElement | null>(null);
+    const holdSwitcherRef = useRef<DashboardHoldSwitcherHandle>(null);
+    const holdChromeRevealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const holdChromeHiddenRef = useRef(false);
 
-    // Parse current route for active state detection
-    const hash = window.location.hash.slice(1);
+    const clearHoldChromeRevealTimer = (): void => {
+        if (holdChromeRevealTimerRef.current) {
+            clearTimeout(holdChromeRevealTimerRef.current);
+            holdChromeRevealTimerRef.current = null;
+        }
+    };
+
+    const setHoldChromeHiddenSafe = (hidden: boolean): void => {
+        holdChromeHiddenRef.current = hidden;
+        setHoldChromeHidden(hidden);
+    };
+
+    const clearDashboardLongPress = (): void => {
+        if (dashboardLongPressTimerRef.current) {
+            clearTimeout(dashboardLongPressTimerRef.current);
+            dashboardLongPressTimerRef.current = null;
+        }
+        dashboardTouchStartRef.current = null;
+    };
+
+    const handleDashboardTouchStart = (e: React.TouchEvent<HTMLButtonElement>): void => {
+        dashboardLongPressTriggeredRef.current = false;
+        dashboardTouchTargetRef.current = e.currentTarget;
+        const touch = e.touches[0];
+        dashboardTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
+        clearDashboardLongPress();
+        dashboardLongPressTimerRef.current = setTimeout(() => {
+            dashboardLongPressTriggeredRef.current = true;
+            triggerHaptic();
+            const anchor = dashboardTouchTargetRef.current;
+            if (anchor) {
+                setHoldChromeHiddenSafe(true);
+                setHoldSwitcher({ anchorRect: anchor.getBoundingClientRect() });
+            }
+        }, DASHBOARD_LONG_PRESS_MS);
+    };
+
+    const handleDashboardTouchMove = (e: React.TouchEvent): void => {
+        const touch = e.touches[0];
+        if (holdSwitcher) {
+            holdSwitcherRef.current?.updatePointer(touch.clientX, touch.clientY);
+            return;
+        }
+        const start = dashboardTouchStartRef.current;
+        if (!start) return;
+        const dx = touch.clientX - start.x;
+        const dy = touch.clientY - start.y;
+        if (Math.hypot(dx, dy) > DASHBOARD_MOVE_CANCEL_PX) {
+            clearDashboardLongPress();
+        }
+    };
+
+    const handleDashboardTouchEnd = (): void => {
+        // Hold-switcher stays open until outside tap or row select (a11y: release then tap).
+        clearDashboardLongPress();
+    };
+
+    // Parse current route for active state detection (location from router so hash changes re-render)
+    const hash = location.hash.replace(/^#/, '');
+    const isOnDashboard = isAlreadyOnDashboardPage();
+    const activeTabBarSlotId = useMemo(
+        () =>
+            layoutReady
+                ? resolveActiveTabBarSlotId({
+                      slots,
+                      hash,
+                      activeDashboardId,
+                      homeDashboardId,
+                      tabs,
+                  })
+                : null,
+        [layoutReady, slots, hash, activeDashboardId, homeDashboardId, tabs],
+    );
 
     // Swipe-to-edit handlers
     const handleTabBarTouchStart = (e: React.TouchEvent): void => {
+        if (holdSwitcher !== null) return;
         // Only enable on Dashboard page when menu is closed
         if (!isOnDashboard || dashboardEdit?.editMode || isMobileMenuOpen) return;
         swipeStartYRef.current = e.touches[0].clientY;
@@ -65,6 +168,12 @@ export function MobileTabBar() {
     };
 
     const handleTabBarTouchEnd = (e: React.TouchEvent): void => {
+        // Hold-switcher open, or long-press just fired this gesture — do not arm swipe-edit.
+        // (Ref is cleared in hold-switcher onClose / activeDashboardId change.)
+        if (holdSwitcher !== null || dashboardLongPressTriggeredRef.current) {
+            swipeStartYRef.current = null;
+            return;
+        }
         if (swipeStartYRef.current === null) return;
 
         const swipeEndY = e.changedTouches[0].clientY;
@@ -141,6 +250,16 @@ export function MobileTabBar() {
             }
         };
     }, []);
+
+    // Dashboard switches (incl. hold-switcher) must reset swipe-to-edit gesture state.
+    useEffect(() => {
+        dashboardLongPressTriggeredRef.current = false;
+        if (confirmTimeoutRef.current) {
+            clearTimeout(confirmTimeoutRef.current);
+            confirmTimeoutRef.current = null;
+        }
+        setShowEditConfirm(false);
+    }, [activeDashboardId]);
 
     // Dismiss confirm on any tap outside (allows tap-through to underlying elements)
     useEffect(() => {
@@ -301,8 +420,90 @@ export function MobileTabBar() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isMobileMenuOpen]);
 
+    // While the opening finger is still down, track slide-to-highlight on the window.
+    // On lift, listeners detach — switcher stays open for tap selection.
+    useEffect(() => {
+        if (!holdSwitcher) return;
+
+        let tracking = true;
+        const onTouchMove = (e: TouchEvent): void => {
+            if (!tracking) return;
+            const touch = e.touches[0];
+            if (!touch) return;
+            e.preventDefault();
+            holdSwitcherRef.current?.updatePointer(touch.clientX, touch.clientY);
+        };
+        const detach = (): void => {
+            tracking = false;
+            window.removeEventListener('touchmove', onTouchMove);
+            window.removeEventListener('touchend', onTouchEnd);
+            window.removeEventListener('touchcancel', onTouchEnd);
+        };
+        const onTouchEnd = (): void => {
+            if (!tracking) return;
+            // Slide+release on a highlighted row switches; empty release keeps picker open.
+            holdSwitcherRef.current?.releasePointer();
+            detach();
+        };
+
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('touchend', onTouchEnd);
+        window.addEventListener('touchcancel', onTouchEnd);
+        return () => {
+            detach();
+        };
+    }, [holdSwitcher]);
+
+    const invokeCtx = {
+        setIsMobileMenuOpen,
+        setShowNotificationCenter,
+    };
+
+    const closeMenuIfAllowed = (): void => {
+        if (!dashboardEdit?.editMode || !dashboardEdit?.hasUnsavedChanges) {
+            setIsMobileMenuOpen(false);
+        }
+    };
+
     return (
         <>
+            {holdSwitcher && (
+                <DashboardHoldSwitcher
+                    ref={holdSwitcherRef}
+                    anchorRect={holdSwitcher.anchorRect}
+                    onSelect={result => {
+                        if (result.type === 'dashboard') {
+                            switchDashboard(result.id);
+                        } else if (result.type === 'new') {
+                            setNewDashboardOpen(true);
+                        }
+                    }}
+                    onCloseStart={() => {
+                        clearHoldChromeRevealTimer();
+                        // Match surface opacity delay — chrome fades in as the pill goes transparent.
+                        holdChromeRevealTimerRef.current = setTimeout(() => {
+                            holdChromeRevealTimerRef.current = null;
+                            setHoldChromeHiddenSafe(false);
+                        }, 120);
+                    }}
+                    onClose={() => {
+                        clearHoldChromeRevealTimer();
+                        setHoldSwitcher(null);
+                        // Long-press latch must clear when the switcher closes — otherwise
+                        // tab-bar swipe-to-edit stays suppressed until the next dashboard-slot tap
+                        // (or a full refresh).
+                        dashboardLongPressTriggeredRef.current = false;
+                        // If the crossfade timer never fired, fade in after the pill is gone
+                        // (never set visible under an opaque pill — that reads as a snap).
+                        if (holdChromeHiddenRef.current) {
+                            requestAnimationFrame(() => setHoldChromeHiddenSafe(false));
+                        }
+                    }}
+                />
+            )}
+
+            <NewDashboardModal open={newDashboardOpen} onOpenChange={setNewDashboardOpen} />
+
             {/* Backdrop */}
             <AnimatePresence>
                 {isMobileMenuOpen && (
@@ -430,10 +631,10 @@ export function MobileTabBar() {
                                                                 }}
                                                                 whileTap={{ scale: 0.97 }}
                                                             >
-                                                                {/* Active Indicator for Menu List */}
+                                                                {/* Menu-sheet indicator — separate layoutId from bottom bar */}
                                                                 {isActive && (
                                                                     <motion.div
-                                                                        layoutId="mobileTabIndicator"
+                                                                        layoutId="mobileMenuTabIndicator"
                                                                         className="absolute inset-0 bg-accent/20 rounded-xl shadow-lg"
                                                                         transition={sidebarSpring}
                                                                     />
@@ -647,161 +848,223 @@ export function MobileTabBar() {
                                 animate={{ y: 0, opacity: 1 }}
                                 exit={{ y: '-100%', opacity: 0 }}
                                 transition={{ type: 'spring', stiffness: 700, damping: 50 }}
-                                className="flex justify-around items-center w-full"
+                                className="w-full"
                             >
-                                <button
-                                    onClick={() => { triggerHaptic(); setIsMobileMenuOpen(!isMobileMenuOpen); }}
-                                    className="flex flex-col items-center gap-1 text-theme-tertiary active:text-theme-primary transition-all py-2 px-3 rounded-lg active:bg-theme-hover"
-                                    style={{
-                                        transition: 'transform 300ms ease-out',
-                                    }}
+                                <TabBarSelectionScope
+                                    activeId={activeTabBarSlotId}
+                                    className="flex justify-around items-center w-full"
                                 >
-                                    <div className="relative" style={{
-                                        transition: 'transform 300ms ease-out',
-                                        transform: isMobileMenuOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-                                    }}>
-                                        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-                                        {/* Notification badge on hamburger icon */}
-                                        {!isMobileMenuOpen && unreadCount > 0 && (
-                                            <motion.div
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: 1 }}
-                                                className="absolute -top-1 -right-2 bg-error text-white 
+                                {slots.map((slot, slotIndex) => {
+                                    const slotKey = tabBarSlotKey(slot, slotIndex);
+
+                                    if (slot.kind === 'menu') {
+                                        return (
+                                            <button
+                                                key={slotKey}
+                                                onClick={() => { triggerHaptic(); setIsMobileMenuOpen(!isMobileMenuOpen); }}
+                                                className="flex flex-col items-center gap-1 text-theme-tertiary active:text-theme-primary transition-all py-2 px-3 rounded-lg active:bg-theme-hover"
+                                                style={{ transition: 'transform 300ms ease-out' }}
+                                            >
+                                                <div className="relative" style={{
+                                                    transition: 'transform 300ms ease-out',
+                                                    transform: isMobileMenuOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                }}>
+                                                    {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                                                    {!isMobileMenuOpen && unreadCount > 0 && (
+                                                        <motion.div
+                                                            initial={{ scale: 0 }}
+                                                            animate={{ scale: 1 }}
+                                                            className="absolute -top-1 -right-2 bg-error text-white 
                                         text-[8px] font-bold rounded-full min-w-[16px] h-[16px] 
                                         flex items-center justify-center shadow-lg"
+                                                        >
+                                                            {unreadCount > 99 ? '99+' : unreadCount}
+                                                        </motion.div>
+                                                    )}
+                                                </div>
+                                                <span className="text-[10px] font-medium">{isMobileMenuOpen ? 'Close' : 'Menu'}</span>
+                                            </button>
+                                        );
+                                    }
+
+                                    if (slot.kind === 'dashboard') {
+                                        const boundId = slot.dashboardId ?? homeDashboardId;
+                                        const boundDash = boundId
+                                            ? dashboards.find(d => d.id === boundId)
+                                            : undefined;
+                                        const label = boundDash?.name?.trim() || 'Dashboard';
+                                        const dashIcon = boundDash?.icon || 'LayoutDashboard';
+                                        const isBoundActive =
+                                            boundId != null &&
+                                            boundId === activeDashboardId &&
+                                            isDashboardHashActive(hash);
+                                        const chromeHidden = holdChromeHidden && holdSwitcher !== null;
+                                        return (
+                                            <TabBarSelectionTarget key={slotKey} id={slotKey}>
+                                            <button
+                                                type="button"
+                                                aria-label={label}
+                                                draggable={false}
+                                                onContextMenu={e => e.preventDefault()}
+                                                onDragStart={e => e.preventDefault()}
+                                                style={{
+                                                    WebkitTouchCallout: 'none',
+                                                    WebkitUserSelect: 'none',
+                                                    userSelect: 'none',
+                                                    WebkitUserDrag: 'none',
+                                                } as React.CSSProperties}
+                                                onTouchStart={handleDashboardTouchStart}
+                                                onTouchMove={handleDashboardTouchMove}
+                                                onTouchEnd={handleDashboardTouchEnd}
+                                                onTouchCancel={handleDashboardTouchEnd}
+                                                onClick={() => {
+                                                    if (dashboardLongPressTriggeredRef.current) {
+                                                        dashboardLongPressTriggeredRef.current = false;
+                                                        return;
+                                                    }
+                                                    if (holdSwitcher) return;
+                                                    triggerHaptic();
+
+                                                    if (!boundId) {
+                                                        const result = guardedNavigate('#dashboard', dashboardEdit);
+                                                        if (result === 'proceed') {
+                                                            window.location.hash = 'dashboard';
+                                                        }
+                                                        closeMenuIfAllowed();
+                                                        return;
+                                                    }
+
+                                                    // Bound shortcut — switchDashboard sets #dashboard/{id}.
+                                                    const onThisDashboard =
+                                                        isAlreadyOnDashboardPage() &&
+                                                        (window.location.hash === `#dashboard/${boundId}` ||
+                                                            (boundId === activeDashboardId &&
+                                                                (window.location.hash === '' ||
+                                                                    window.location.hash === '#dashboard')));
+                                                    if (onThisDashboard) {
+                                                        setIsMobileMenuOpen(false);
+                                                        document.getElementById('dashboard-layer')?.scrollTo({
+                                                            top: 0,
+                                                            behavior: 'smooth',
+                                                        });
+                                                        closeMenuIfAllowed();
+                                                        return;
+                                                    }
+                                                    switchDashboard(boundId);
+                                                    closeMenuIfAllowed();
+                                                }}
+                                                className="flex flex-col items-center gap-1 transition-colors py-2 px-3 rounded-xl relative text-theme-tertiary active:text-theme-primary"
                                             >
-                                                {unreadCount > 99 ? '99+' : unreadCount}
-                                            </motion.div>
-                                        )}
-                                    </div>
-                                    <span className="text-[10px] font-medium">{isMobileMenuOpen ? 'Close' : 'Menu'}</span>
-                                </button>
-                                <a
-                                    href="/#dashboard"
-                                    onClick={(e) => {
-                                        triggerHaptic();
-                                        const isAlreadyOnDashboard = !window.location.hash || window.location.hash === '#dashboard';
-                                        if (isAlreadyOnDashboard) {
-                                            e.preventDefault();
-                                            setIsMobileMenuOpen(false);
-                                            document.getElementById('dashboard-layer')?.scrollTo({ top: 0, behavior: 'smooth' });
-                                            return;
-                                        }
-                                        handleNavigation(e, '#dashboard');
-                                        if (!dashboardEdit?.editMode || !dashboardEdit?.hasUnsavedChanges) setIsMobileMenuOpen(false);
-                                    }}
-                                    className="flex flex-col items-center gap-1 transition-colors py-2 px-3 rounded-xl relative text-theme-tertiary active:text-theme-primary"
-                                >
-                                    {/* Animated sliding indicator - active state only */}
-                                    {(() => {
-                                        const isActive = !hash || hash === 'dashboard';
+                                                <motion.div
+                                                    initial={false}
+                                                    animate={{ opacity: chromeHidden ? 0 : 1 }}
+                                                    transition={
+                                                        chromeHidden
+                                                            ? { duration: 0.1 }
+                                                            : { duration: 0.2, ease: 'easeOut' }
+                                                    }
+                                                    className="relative z-[53] flex flex-col items-center gap-1"
+                                                >
+                                                    <div className={`relative z-10 ${isBoundActive ? 'text-accent' : ''}`}>
+                                                        {renderIcon(dashIcon, 24)}
+                                                    </div>
+                                                    <span
+                                                        title={label}
+                                                        className={`text-[10px] font-medium relative z-10 max-w-[4.5rem] truncate ${isBoundActive ? 'text-accent' : ''}`}
+                                                    >
+                                                        {label}
+                                                    </span>
+                                                </motion.div>
+                                            </button>
+                                            </TabBarSelectionTarget>
+                                        );
+                                    }
 
-                                        return isActive && (
-                                            <motion.div
-                                                layoutId="mobileTabIndicator"
-                                                className="absolute left-0 right-0 top-[-2px] bottom-[2px] rounded-xl bg-accent/20 shadow-sm"
-                                                transition={sidebarSpring}
+                                    if (slot.kind === 'settings') {
+                                        const isProfilePage = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
+                                        const isSettingsActive = hash.startsWith('settings') && !isProfilePage;
+                                        return (
+                                            <TabBarSelectionTarget key={slotKey} id={slotKey}>
+                                            <a
+                                                href="/#settings"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    triggerHaptic();
+                                                    const currentHash = window.location.hash.slice(1);
+                                                    const isOnSettings = currentHash.startsWith('settings');
+                                                    const dest = isOnSettings ? '#settings' : (lastSettingsPath || '#settings');
+                                                    const result = guardedNavigate(dest, dashboardEdit);
+                                                    if (result === 'blocked') {
+                                                        setIsMobileMenuOpen(false);
+                                                        return;
+                                                    }
+                                                    window.location.hash = dest;
+                                                    setIsMobileMenuOpen(false);
+                                                }}
+                                                className="flex flex-col items-center gap-1 transition-colors py-2 px-3 rounded-xl relative text-theme-tertiary active:text-theme-primary"
+                                            >
+                                                <div className={`relative z-10 ${isSettingsActive ? 'text-accent' : ''}`}>
+                                                    <SettingsIcon size={24} />
+                                                </div>
+                                                <span className={`text-[10px] font-medium relative z-10 ${isSettingsActive ? 'text-accent' : ''}`}>Settings</span>
+                                            </a>
+                                            </TabBarSelectionTarget>
+                                        );
+                                    }
+
+                                    if (slot.kind === 'link') {
+                                        return (
+                                            <TabBarLinkButton
+                                                key={slotKey}
+                                                link={slot.link}
+                                                onMenuClose={closeMenuIfAllowed}
                                             />
                                         );
-                                    })()}
-                                    {/* Icon - with relative z-index to stay above indicator */}
-                                    <div className={`relative z-10 ${(() => {
-                                        const isActive = !hash || hash === 'dashboard';
-                                        return isActive ? 'text-accent' : '';
-                                    })()}`}>
-                                        <LayoutDashboard size={24} />
-                                    </div>
-                                    <span className={`text-[10px] font-medium relative z-10 ${(() => {
-                                        const isActive = !hash || hash === 'dashboard';
-                                        return isActive ? 'text-accent' : '';
-                                    })()}`}>Dashboard</span>
-                                </a>
-                                <a
-                                    href="/#settings/account/profile"
-                                    onClick={(e) => { triggerHaptic(); handleNavigation(e, '#settings/account/profile'); if (!dashboardEdit?.editMode || !dashboardEdit?.hasUnsavedChanges) setIsMobileMenuOpen(false); }}
-                                    className="flex flex-col items-center gap-1 transition-colors py-2 px-3 rounded-xl relative text-theme-tertiary active:text-theme-primary"
-                                >
-                                    {/* Animated sliding indicator - active state only */}
-                                    {(() => {
-                                        const isActive = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
+                                    }
 
-                                        return isActive && (
-                                            <motion.div
-                                                layoutId="mobileTabIndicator"
-                                                className="absolute left-0 right-0 top-[-2px] bottom-[2px] rounded-xl bg-accent/20 shadow-sm"
-                                                transition={sidebarSpring}
-                                            />
+                                    if (slot.kind === 'iframeTab') {
+                                        const tab = tabs?.find(
+                                            t => t.id === slot.tabId && t.enabled !== false,
                                         );
-                                    })()}
-                                    {/* Icon - with relative z-index to stay above indicator */}
-                                    <div className={`relative z-10 ${(() => {
-                                        const isActive = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
-                                        return isActive ? 'text-accent' : '';
-                                    })()}`}>
-                                        {currentUser?.profilePicture ? (
-                                            <img
-                                                src={currentUser.profilePicture}
-                                                alt="Profile"
-                                                className="w-6 h-6 rounded-full object-cover border border-slate-600"
+                                        if (!tab) return null;
+                                        return (
+                                            <TabBarSelectionTarget key={slotKey} id={slotKey}>
+                                            <TabBarIframeTabButton
+                                                tab={tab}
+                                                hash={hash}
+                                                renderIcon={renderIcon}
+                                                handleNavigation={handleNavigation}
+                                                onMenuClose={closeMenuIfAllowed}
                                             />
-                                        ) : (
-                                            <UserCircle size={24} />
-                                        )}
-                                    </div>
-                                    <span className={`text-[10px] font-medium relative z-10 ${(() => {
-                                        const isActive = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
-                                        return isActive ? 'text-accent' : '';
-                                    })()}`}>Profile</span>
-                                </a>
-                                <a
-                                    href="/#settings"
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        triggerHaptic();
-                                        // Read current hash fresh (not stale render-time value)
-                                        const currentHash = window.location.hash.slice(1);
-                                        // If already on a settings page, go back to root settings menu
-                                        const isOnSettings = currentHash.startsWith('settings');
-                                        const dest = isOnSettings ? '#settings' : (lastSettingsPath || '#settings');
-
-                                        // Use shared guard helper
-                                        const result = guardedNavigate(dest, dashboardEdit);
-                                        if (result === 'blocked') {
-                                            setIsMobileMenuOpen(false);
-                                            return;
-                                        }
-                                        window.location.hash = dest;
-                                        setIsMobileMenuOpen(false);
-                                    }}
-                                    className="flex flex-col items-center gap-1 transition-colors py-2 px-3 rounded-xl relative text-theme-tertiary active:text-theme-primary"
-                                >
-                                    {/* Animated sliding indicator - active state only */}
-                                    {(() => {
-                                        const isProfilePage = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
-                                        const isActive = hash.startsWith('settings') && !isProfilePage;
-
-                                        return isActive && (
-                                            <motion.div
-                                                layoutId="mobileTabIndicator"
-                                                className="absolute left-0 right-0 top-[-2px] bottom-[2px] rounded-xl bg-accent/20 shadow-sm"
-                                                transition={sidebarSpring}
-                                            />
+                                            </TabBarSelectionTarget>
                                         );
-                                    })()}
-                                    {/* Icon - with relative z-index to stay above indicator */}
-                                    <div className={`relative z-10 ${(() => {
-                                        const isProfilePage = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
-                                        const isActive = hash.startsWith('settings') && !isProfilePage;
-                                        return isActive ? 'text-accent' : '';
-                                    })()}`}>
-                                        <SettingsIcon size={24} />
-                                    </div>
-                                    <span className={`text-[10px] font-medium relative z-10 ${(() => {
-                                        const isProfilePage = hash === 'settings/account/profile' || hash.startsWith('settings/account/profile?');
-                                        const isActive = hash.startsWith('settings') && !isProfilePage;
-                                        return isActive ? 'text-accent' : '';
-                                    })()}`}>Settings</span>
-                                </a>
+                                    }
+
+                                    if (slot.kind !== 'action') return null;
+                                    const def = TAB_BAR_ACTIONS[slot.actionId];
+                                    if (!def) return null;
+                                    const actionButton = (
+                                        <TabBarActionButton
+                                            def={def}
+                                            hash={hash}
+                                            currentUser={currentUser}
+                                            unreadCount={unreadCount}
+                                            handleNavigation={handleNavigation}
+                                            onMenuClose={closeMenuIfAllowed}
+                                            invokeCtx={invokeCtx}
+                                        />
+                                    );
+                                    // Only navigate actions participate in the selection pill.
+                                    if (def.kind !== 'navigate') {
+                                        return <React.Fragment key={slotKey}>{actionButton}</React.Fragment>;
+                                    }
+                                    return (
+                                        <TabBarSelectionTarget key={slotKey} id={slotKey}>
+                                            {actionButton}
+                                        </TabBarSelectionTarget>
+                                    );
+                                })}
+                                </TabBarSelectionScope>
                             </motion.div>
                         )}
                     </AnimatePresence>

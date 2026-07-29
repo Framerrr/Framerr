@@ -118,6 +118,21 @@ function simulatePointerMouseEvent(e: PointerEvent, simulatedType: string) {
 }
 
 
+/**
+ * FRAMERR: Resolve hold-to-drag delay for a touch target.
+ * External drag-in sources (Add Widget modal / palette) use externalTouchDelay
+ * when set; dashboard grid widgets use the standard touchDelay.
+ */
+export function resolveTouchHoldDelayMs(
+  target: HTMLElement | null | undefined,
+  touchDelay: number,
+  externalTouchDelay: number,
+): number {
+  const isExternalDragIn = !!target?.closest?.('.modal-widget, .palette-item');
+  if (isExternalDragIn && externalTouchDelay > 0) return externalTouchDelay;
+  return touchDelay;
+}
+
 // FRAMERR: Helper to check if movement exceeds tolerance
 function hasExceededTolerance(e: TouchEvent): boolean {
   const touch = e.changedTouches[0];
@@ -126,10 +141,90 @@ function hasExceededTolerance(e: TouchEvent): boolean {
   return deltaX > DDManager.touchTolerance || deltaY > DDManager.touchTolerance;
 }
 
+/** FRAMERR: ignore quick taps — ramp class only after this hold duration. */
+const UNLOCK_RAMP_MIN_MS = 50;
+
+// FRAMERR: remove unlock / unlocking visuals (defensive sweep — savedTouchEvent may be gone)
+function clearUnlockVisual(): void {
+  if (DDManager.unlockRampTimeoutId) {
+    clearTimeout(DDManager.unlockRampTimeoutId);
+    DDManager.unlockRampTimeoutId = null;
+  }
+  document.querySelectorAll('.grid-stack-item.widget-unlocked, .grid-stack-item.widget-unlocking')
+    .forEach(el => {
+      el.classList.remove('widget-unlocked', 'widget-unlocking');
+      (el as HTMLElement).style.removeProperty('--unlock-ramp-ms');
+    });
+}
+
+/** FRAMERR: after UNLOCK_RAMP_MIN_MS, start paint-only glow ramp until hold threshold. */
+function armUnlockRamp(item: HTMLElement | null | undefined, delayMs: number): void {
+  if (!item || delayMs <= UNLOCK_RAMP_MIN_MS) return;
+  const rampMs = delayMs - UNLOCK_RAMP_MIN_MS;
+  if (DDManager.unlockRampTimeoutId) {
+    clearTimeout(DDManager.unlockRampTimeoutId);
+    DDManager.unlockRampTimeoutId = null;
+  }
+  DDManager.unlockRampTimeoutId = setTimeout(() => {
+    DDManager.unlockRampTimeoutId = null;
+    if (!DDTouch.touchHandled || DDManager.touchActivated) return;
+    item.style.setProperty('--unlock-ramp-ms', `${rampMs}ms`);
+    item.classList.add('widget-unlocking');
+  }, UNLOCK_RAMP_MIN_MS);
+}
+
+// FRAMERR: arm pending-phase document listeners so an early lift or a
+// scroll-tolerance breach cancels the hold cleanly instead of leaving the
+// pending timer to fire activateDrag() after the gesture has already ended.
+// touchmove is passive:true here because the pending branches of touchmove()
+// never call preventDefault (see touchmove() below) — this avoids blocking
+// the compositor on every held-widget scroll. Disarmed in activateDrag()
+// BEFORE the synthetic mousedown fires, so dd-draggable/dd-resizable-handle's
+// _mouseDown can register the passive:false listeners the activated phase
+// needs for scroll-blocking preventDefault() (addEventListener identity is
+// (type, listener, capture) — passive is not part of it, so re-adding with a
+// different passive value silently no-ops unless the prior entry is removed
+// first; see GOTCHAS.md).
+function armPendingCancelListeners(): void {
+  document.addEventListener('touchmove', touchmove, { passive: true });
+  document.addEventListener('touchend', touchend);
+  document.addEventListener('touchcancel', touchend);
+}
+
+// FRAMERR: counterpart to armPendingCancelListeners — idempotent (safe to call
+// even if nothing was armed, e.g. resize-handle immediate activation).
+function disarmPendingCancelListeners(): void {
+  document.removeEventListener('touchmove', touchmove);
+  document.removeEventListener('touchend', touchend);
+  document.removeEventListener('touchcancel', touchend);
+}
+
 // FRAMERR: Activate drag after delay (called by timer or immediately)
 function activateDrag(): void {
   if (DDManager.touchActivated) return; // Already activated
+  // FRAMERR: disarm pending-phase listeners before the synthetic mousedown so
+  // _mouseDown's passive:false registration lands on a clean slate (see
+  // armPendingCancelListeners comment). No-op if nothing was armed (resize
+  // handles / delayMs<=0 activate immediately, skipping the pending phase).
+  disarmPendingCancelListeners();
   DDManager.touchActivated = true;
+  DDManager.touchActivatedAt = Date.now(); // FRAMERR: watchdog orphan-recovery timestamp
+
+  // FRAMERR: unlock visual — swap ramp → full bloom at the hold threshold.
+  // Resize handles activate instantly and need no unlock signal.
+  if (DDManager.unlockRampTimeoutId) {
+    clearTimeout(DDManager.unlockRampTimeoutId);
+    DDManager.unlockRampTimeoutId = null;
+  }
+  const t = DDManager.savedTouchEvent?.target as HTMLElement | null;
+  if (t && !t.closest?.('.ui-resizable-handle')) {
+    const item = t.closest?.('.grid-stack-item') as HTMLElement | null;
+    if (item) {
+      item.classList.remove('widget-unlocking');
+      item.style.removeProperty('--unlock-ramp-ms');
+      item.classList.add('widget-unlocked');
+    }
+  }
 
   // Now simulate mousedown using the saved touchstart event
   if (DDManager.savedTouchEvent) {
@@ -144,8 +239,11 @@ function cancelPendingDrag(): void {
     DDManager.touchTimeoutId = null;
   }
   DDManager.touchActivated = false;
+  DDManager.touchActivatedAt = undefined; // FRAMERR
   DDManager.savedTouchEvent = null;
   DDTouch.touchHandled = false;
+  clearUnlockVisual();
+  disarmPendingCancelListeners(); // FRAMERR
 }
 
 /**
@@ -174,20 +272,31 @@ export function touchstart(e: TouchEvent): void {
 
   // FRAMERR: Resize handles should respond instantly (no hold delay).
   // Only drag (widget body) needs hold-to-drag to allow scrolling.
+  // External drag-in (Add Widget modal / palette) uses a shorter delay so
+  // grabbing a catalog card stays snappy without the dashboard hold-to-unlock wait.
   const isResizeHandle = target?.closest?.('.ui-resizable-handle');
-  if (isResizeHandle || DDManager.touchDelay <= 0) {
+  const delayMs = resolveTouchHoldDelayMs(
+    target,
+    DDManager.touchDelay,
+    DDManager.externalTouchDelay,
+  );
+  if (isResizeHandle || delayMs <= 0) {
     activateDrag();
     return;
   }
 
   // Start delay timer - activate after delay if still within tolerance
+  // FRAMERR: arm pending-phase cancel listeners now — see armPendingCancelListeners.
+  armPendingCancelListeners();
+  const item = target?.closest?.('.grid-stack-item') as HTMLElement | null;
+  armUnlockRamp(item, delayMs);
   DDManager.touchTimeoutId = setTimeout(() => {
     DDManager.touchTimeoutId = null;
     // Only activate if we haven't been cancelled and finger hasn't moved too much
     if (DDTouch.touchHandled && !DDManager.touchActivated) {
       activateDrag();
     }
-  }, DDManager.touchDelay);
+  }, delayMs);
 
   // DON'T simulate mousedown yet - allow scrolling during pending period!
 }
@@ -230,6 +339,9 @@ export function touchend(e: TouchEvent): void {
   // Ignore event if not handled
   if (!DDTouch.touchHandled) return;
 
+  // FRAMERR: touchcancel is wired to this same handler — no synthetic click on cancel
+  const isCancel = e.type === 'touchcancel';
+
   // Clear any pending timeout
   if (DDManager.touchTimeoutId) {
     clearTimeout(DDManager.touchTimeoutId);
@@ -251,7 +363,8 @@ export function touchend(e: TouchEvent): void {
   }
 
   // If the touch interaction was not a drag, it should trigger a click
-  if (!wasDragging && wasActivated) {
+  // FRAMERR: skip synthetic click when the system cancelled the touch
+  if (!wasDragging && wasActivated && !isCancel) {
     simulateMouseEvent(e, 'click');
   }
 
@@ -259,9 +372,12 @@ export function touchend(e: TouchEvent): void {
   DDManager.touchInitialX = 0;
   DDManager.touchInitialY = 0;
   DDManager.touchActivated = false;
+  DDManager.touchActivatedAt = undefined; // FRAMERR
   DDManager.savedTouchEvent = null;
   DDManager.lastTouchX = undefined;
   DDManager.lastTouchY = undefined;
+  clearUnlockVisual();
+  disarmPendingCancelListeners(); // FRAMERR: no-op if already removed by _mouseUp
 
   // Unset the flag to allow other widgets to inherit the touch event
   DDTouch.touchHandled = false;

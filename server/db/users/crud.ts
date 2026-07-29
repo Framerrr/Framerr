@@ -163,8 +163,7 @@ export async function createUser(userData: CreateUserData): Promise<Omit<User, '
                         {
                             stripConfigs: true,       // Strip sensitive config (links, custom HTML)
                             shareIntegrations: true,  // Share required integrations
-                            applyToDashboard: true,   // Apply to user's dashboard
-                            createBackup: false       // No backup for new users
+                            applyToDashboard: true,
                         }
                     );
 

@@ -67,6 +67,7 @@ export interface DashboardModalStackProps {
             resume: () => void;
             skip: () => void;
         } | null;
+        fixedDisplay: boolean;
     };
     // Layout hook methods needed by modals
     setEditMode: (mode: boolean) => void;
@@ -122,6 +123,7 @@ const DashboardModalStack: React.FC<DashboardModalStackProps> = ({
         pendingUnlink,
         pendingDestination,
         walkthrough,
+        fixedDisplay,
     } = context;
 
     return (
@@ -261,6 +263,8 @@ const DashboardModalStack: React.FC<DashboardModalStackProps> = ({
                             setResizeModalWidgetId(null);
                         }}
                         onConfigUpdate={updateWidgetConfig}
+                        // GATE: to re-tighten fixed-display to desktop-only, change to {fixedDisplay && !isMobile}.
+                        relaxConstraints={fixedDisplay}
                     />
                 );
             })()}

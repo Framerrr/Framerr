@@ -30,6 +30,10 @@ vi.mock('../../../context/useLayout', () => ({
     useLayout: () => ({ isMobile: mockIsMobile }),
 }));
 
+vi.mock('../../../context/ActiveDashboardContext', () => ({
+    useActiveDashboard: () => ({ activeDashboardId: 'dash-test-1' }),
+}));
+
 vi.mock('../../../context/notification', () => ({
     useNotifications: () => ({
         error: mockShowError,

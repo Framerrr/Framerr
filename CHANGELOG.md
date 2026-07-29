@@ -2,6 +2,34 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.4.0] - 2026-07-29
+
+### Added
+- **Personal multi-dashboard** — create, name, switch, and manage multiple dashboards
+- **Dashboard icons** — assign an icon to individual dashboards
+- **Mobile tab bar customization** — rearrange, edit, add, and remove buttons
+- **Custom Links + My Tab pins** on the mobile tab bar
+- **Hold-to-switch dashboards** on mobile — long-press the Dashboard tab to change the active dashboard
+- **Fixed Display Mode** *(experimental, per dashboard)* — full-width square-cell layout for a dedicated screen
+- **Open in Plex / Jellyfin** on Seerr request info
+
+### Changed
+- **Desktop sidebar** — smoother expand/collapse; better touch behavior on desktop touchscreens
+- **Square Cells** — folded into Fixed Display Mode; old global preference is migrated
+- **Mobile edit mode** — longer hold-to-move, clearer unlock feedback, larger resize handles
+- **Link Grid edit mode** — hold/drag moves the widget; quick tap opens the editor
+
+### Fixed
+- Sidebar highlight lag/ghosting when expanding, collapsing, or switching modes
+- qBittorrent 5.2.x login after the session cookie rename
+- Widget integration binding sticking after edit/save/switch/refresh
+- Mobile resize jump / stall / stuck-unlock cases
+- System Status reconnect no longer flashes a generic spinner over your layout
+- DNS Stats Activity tooltip overflow on touch swipe
+- False "Session expired" toast for anonymous visitors on `/`
+
+---
+
 ## [0.3.0] - 2026-07-24
 
 ### Added

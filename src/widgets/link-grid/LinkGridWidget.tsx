@@ -25,6 +25,7 @@ import {
     getRemainingCapacity,
     calculateGridDimensions
 } from './utils/gridLayout';
+import { inferLinkTargetFields } from './utils/linkNavigation';
 
 // Hooks
 import { useLinkForm } from './hooks/useLinkForm';
@@ -255,12 +256,16 @@ export const LinkGridWidget: React.FC<LinkGridWidgetProps> = ({
                     libraryLinks={libraryLinks as LibraryLink[]}
                     onLibrarySelect={(link) => {
                         // Pre-fill form from library template
+                        const target = inferLinkTargetFields(link);
                         setFormData({
                             title: link.title || '',
                             icon: link.icon || 'Link',
                             size: link.size || 'circle',
                             type: link.type || 'link',
-                            url: link.url || '',
+                            linkTarget: target.linkTarget,
+                            url: target.url,
+                            dashboardId: target.dashboardId,
+                            openInNewTab: target.openInNewTab,
                             showIcon: link.style?.showIcon !== false,
                             showText: link.style?.showText !== false,
                             action: link.action || { method: 'GET', url: '', headers: {}, body: null }

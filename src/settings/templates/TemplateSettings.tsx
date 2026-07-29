@@ -1,16 +1,9 @@
 /**
  * TemplateSettings - Templates section in Settings (thin orchestrator)
- * 
- * Features:
- * - Create New Template button
- * - Save Current Dashboard as Template button
- * - Template list with management actions
- * - Revert to previous dashboard (if backup exists)
  */
 
 import React from 'react';
 import { FileText } from 'lucide-react';
-import { ConfirmDialog } from '../../shared/ui';
 import { SettingsPage, SettingsSection } from '../../shared/ui/settings';
 import TemplateBuilder from './builder/TemplateBuilder';
 import TemplateList from './components/TemplateList';
@@ -21,48 +14,24 @@ import type { Template, TemplateSettingsProps } from './types';
 
 export const TemplateSettings: React.FC<TemplateSettingsProps> = ({ className = '' }) => {
     const {
-        // Auth & layout
         isAdmin,
         isMobile,
-
-        // Builder state
         showBuilder,
         builderMode,
         editingTemplate,
         fileInputRef,
-
-        // Backup state
-        hasBackup,
-        backupInfo,
-        reverting,
-        showRevertConfirm,
-
-        // Sharing state
         sharingTemplate,
         setSharingTemplate,
-
-        // Refresh trigger
         refreshTrigger,
-
-        // Handlers - template actions
         handleCreateNew,
         handleSaveCurrent,
         handleEdit,
         handleDuplicate,
         handleImportFile,
-
-        // Handlers - builder
         handleBuilderClose,
         handleTemplateSaved,
         handleDraftSaved,
         getBuilderInitialData,
-
-        // Handlers - revert
-        handleRevert,
-        executeRevert,
-        setShowRevertConfirm,
-
-        // Notifications
         success,
         error,
     } = useTemplateSettings();
@@ -73,20 +42,14 @@ export const TemplateSettings: React.FC<TemplateSettingsProps> = ({ className = 
             description="Create and manage reusable dashboard layouts"
             className={className}
         >
-            {/* Template Actions Section */}
             <ActionsSection
                 isMobile={isMobile}
-                hasBackup={hasBackup}
-                backupInfo={backupInfo}
-                reverting={reverting}
                 fileInputRef={fileInputRef}
                 onCreateNew={handleCreateNew}
                 onSaveCurrent={handleSaveCurrent}
                 onImportFile={handleImportFile}
-                onRevert={handleRevert}
             />
 
-            {/* Your Templates Section */}
             <SettingsSection title="Your Templates" icon={FileText}>
                 <TemplateList
                     onEdit={handleEdit}
@@ -97,7 +60,6 @@ export const TemplateSettings: React.FC<TemplateSettingsProps> = ({ className = 
                 />
             </SettingsSection>
 
-            {/* Template Builder Modal */}
             <TemplateBuilder
                 isOpen={showBuilder}
                 onClose={handleBuilderClose}
@@ -106,40 +68,23 @@ export const TemplateSettings: React.FC<TemplateSettingsProps> = ({ className = 
                 editingTemplateId={builderMode === 'edit' ? editingTemplate?.id : undefined}
                 onSave={handleTemplateSaved}
                 onShare={(template) => {
-                    // After saving, open share/export modal with the saved template
                     setSharingTemplate(template as unknown as Template);
                 }}
                 onDraftSaved={handleDraftSaved}
                 isAdmin={isAdmin}
             />
 
-            {/* Share Template Modal */}
             <ShareModal
                 template={sharingTemplate}
                 isAdmin={isAdmin}
                 onClose={() => setSharingTemplate(null)}
                 onShareComplete={() => {
                     setSharingTemplate(null);
-                    handleDraftSaved(); // Triggers refresh
+                    handleDraftSaved();
                     success('Template Shared', `"${sharingTemplate?.name}" sharing settings updated.`);
                 }}
                 onSuccess={success}
                 onError={error}
-            />
-
-            {/* Revert Confirmation Dialog */}
-            <ConfirmDialog
-                open={showRevertConfirm}
-                onOpenChange={(open) => !open && setShowRevertConfirm(false)}
-                onConfirm={executeRevert}
-                title="Revert Dashboard"
-                message={backupInfo
-                    ? `Revert to your previous dashboard from ${new Date(backupInfo.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} with ${backupInfo.widgetCount} widget${backupInfo.widgetCount !== 1 ? 's' : ''}?\n\nYour current dashboard will be replaced.`
-                    : `Revert to your previous dashboard?\n\nYour current dashboard will be replaced.`
-                }
-                confirmLabel="Revert"
-                variant="danger"
-                loading={reverting}
             />
         </SettingsPage>
     );

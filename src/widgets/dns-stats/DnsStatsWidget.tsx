@@ -83,7 +83,8 @@ const DnsStatsWidget: React.FC<WidgetProps> = ({ widget, previewMode = false }) 
     }
 
     const config = widget.config as DnsStatsWidgetConfig | undefined;
-    const configuredIntegrationId = config?.integrationId;
+    const cfg = config as Record<string, unknown> | undefined;
+    const configuredIntegrationId = cfg?.forceClearIntegration ? null : config?.integrationId;
     const showTopBlocked = config?.showTopBlocked !== false;
     const showTopClients = config?.showTopClients !== false;
     const showSparkline = config?.showSparkline !== false;

@@ -78,6 +78,10 @@ export const DEFAULT_MIN_HEIGHT = 2;
 /** Default maximum height (doubled for new row height) */
 export const DEFAULT_MAX_HEIGHT = 20;
 
+/** Max height offered by the resize modal in fixed-display (relaxed) mode.
+ * GridStack itself is unbounded; this only keeps the modal's stepper range sane. */
+export const FIXED_DISPLAY_MAX_H = 100;
+
 // =============================================================================
 // Type Exports
 // =============================================================================

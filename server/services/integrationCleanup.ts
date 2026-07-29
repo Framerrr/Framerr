@@ -20,7 +20,7 @@ import { getDb } from '../database/db';
  * - Multi-integration widgets: config.*IntegrationIds (string[])
  * 
  * Updates:
- * - user_preferences.dashboard_config (user dashboards)
+ * - dashboards.widgets + mobile_widgets (user dashboards)
  * - dashboard_templates.widgets + mobile_widgets (templates)
  */
 export function scrubIntegrationFromConfigs(deletedId: string): void {
@@ -75,35 +75,54 @@ export function scrubIntegrationFromConfigs(deletedId: string): void {
         return anyModified;
     }
 
-    // 1. Scrub user dashboard configs
-    interface DashboardRow { user_id: string; dashboard_config: string | null }
+    // 1. Scrub user dashboard rows
+    interface LiveDashboardRow {
+        id: string;
+        widgets: string;
+        mobile_widgets: string | null;
+    }
     const dashboardRows = db.prepare(
-        'SELECT user_id, dashboard_config FROM user_preferences WHERE dashboard_config IS NOT NULL'
-    ).all() as DashboardRow[];
+        'SELECT id, widgets, mobile_widgets FROM dashboards'
+    ).all() as LiveDashboardRow[];
 
     let dashboardCount = 0;
     for (const row of dashboardRows) {
-        if (!row.dashboard_config) continue;
+        let modified = false;
+        let widgets: Record<string, unknown>[] | null = null;
+        let mobileWidgets: Record<string, unknown>[] | null = null;
+
         try {
-            const dashboard = JSON.parse(row.dashboard_config);
-            let modified = false;
-
-            // Scrub desktop widgets
-            if (Array.isArray(dashboard.widgets)) {
-                if (scrubWidgetsArray(dashboard.widgets)) modified = true;
-            }
-            // Scrub mobile widgets
-            if (Array.isArray(dashboard.mobileWidgets)) {
-                if (scrubWidgetsArray(dashboard.mobileWidgets)) modified = true;
-            }
-
-            if (modified) {
-                db.prepare('UPDATE user_preferences SET dashboard_config = ? WHERE user_id = ?')
-                    .run(JSON.stringify(dashboard), row.user_id);
-                dashboardCount++;
+            widgets = JSON.parse(row.widgets);
+            if (Array.isArray(widgets) && scrubWidgetsArray(widgets)) {
+                modified = true;
             }
         } catch {
-            // Skip malformed JSON
+            continue;
+        }
+
+        if (row.mobile_widgets) {
+            try {
+                mobileWidgets = JSON.parse(row.mobile_widgets);
+                if (Array.isArray(mobileWidgets) && scrubWidgetsArray(mobileWidgets)) {
+                    modified = true;
+                }
+            } catch {
+                // skip malformed mobile_widgets
+            }
+        }
+
+        if (modified) {
+            const mobileWidgetsParam =
+                row.mobile_widgets != null && mobileWidgets != null
+                    ? JSON.stringify(mobileWidgets)
+                    : null;
+
+            db.prepare(
+                `UPDATE dashboards
+                 SET widgets = ?, mobile_widgets = ?, updated_at = strftime('%s', 'now')
+                 WHERE id = ?`
+            ).run(JSON.stringify(widgets), mobileWidgetsParam, row.id);
+            dashboardCount++;
         }
     }
 

@@ -1,15 +1,22 @@
 /**
  * qBittorrent Adapter
- * 
+ *
  * Extends BaseAdapter with cookie-based authentication lifecycle.
- * qBittorrent uses session cookies (SID) instead of API keys.
- * 
+ * qBittorrent uses session cookies instead of API keys.
+ *
  * Auth flow:
- *   1. POST /api/v2/auth/login with username/password → receive SID cookie
- *   2. Attach Cookie: SID=xxx header to all subsequent requests
- *   3. Cache SID with 5-minute TTL
+ *   1. POST /api/v2/auth/login with username/password → session cookie
+ *   2. Attach Cookie: <name>=<value> on subsequent requests
+ *   3. Cache cookie with 5-minute TTL
  *   4. On AUTH_FAILED → clear cache, re-login, retry once
- * 
+ *
+ * Cookie names:
+ *   - Pre-5.2: `SID`
+ *   - 5.2+: `QBT_SID_<webui-port>` (and optional custom names matching SID*)
+ * Login success:
+ *   - Pre-5.2: HTTP 200 + body "Ok."
+ *   - 5.2+: HTTP 204 + empty body
+ *
  * Cookie cache and login lock are shared across poller, proxy, and any
  * future callers since they all go through this singleton adapter.
  */
@@ -22,21 +29,53 @@ import { AdapterError, extractAdapterErrorMessage } from '../errors';
 import logger from '../../utils/logger';
 
 // ============================================================================
+// SESSION COOKIE PARSING
+// ============================================================================
+
+export interface QbSessionCookie {
+    name: string;
+    value: string;
+}
+
+/**
+ * Extract qBittorrent WebUI session cookie from Set-Cookie header(s).
+ * Supports legacy `SID` and 5.2+ `QBT_SID_<port>` (also custom SID* names).
+ */
+export function parseQbittorrentSessionCookie(
+    setCookieHeader: string | string[] | undefined
+): QbSessionCookie | null {
+    if (!setCookieHeader) return null;
+    const headers = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+
+    let legacy: QbSessionCookie | null = null;
+    for (const cookie of headers) {
+        // SID=… | QBT_SID=… | QBT_SID_8080=…
+        const match = cookie.match(/((?:QBT_)?SID[^=]*)=([^;]+)/i);
+        if (!match) continue;
+        const parsed = { name: match[1], value: match[2] };
+        if (parsed.name.toUpperCase().startsWith('QBT_')) {
+            return parsed;
+        }
+        legacy = parsed;
+    }
+    return legacy;
+}
+
+// ============================================================================
 // QBITTORRENT ADAPTER
 // ============================================================================
 
-interface CachedCookie {
-    sid: string;
+interface CachedCookie extends QbSessionCookie {
     timestamp: number;
 }
 
 export class QBittorrentAdapter extends BaseAdapter {
     readonly testEndpoint = '/api/v2/app/version';
 
-    // Cache SID cookies per instance ID with TTL
+    // Cache session cookies per instance ID with TTL
     private cookieCache: Map<string, CachedCookie> = new Map();
     // Lock to prevent simultaneous logins for same instance
-    private loginLocks: Map<string, Promise<string>> = new Map();
+    private loginLocks: Map<string, Promise<QbSessionCookie>> = new Map();
     // Cookie TTL: 5 minutes
     private readonly COOKIE_TTL_MS = 5 * 60 * 1000;
 
@@ -55,12 +94,12 @@ export class QBittorrentAdapter extends BaseAdapter {
     // ========================================================================
 
     /**
-     * Get cached SID if still valid (within TTL).
+     * Get cached session cookie if still valid (within TTL).
      */
-    private getCachedCookie(instanceId: string): string | null {
+    private getCachedCookie(instanceId: string): QbSessionCookie | null {
         const cached = this.cookieCache.get(instanceId);
         if (cached && Date.now() - cached.timestamp < this.COOKIE_TTL_MS) {
-            return cached.sid;
+            return { name: cached.name, value: cached.value };
         }
         // Expired or not found — clean up
         this.cookieCache.delete(instanceId);
@@ -68,10 +107,10 @@ export class QBittorrentAdapter extends BaseAdapter {
     }
 
     /**
-     * Login to qBittorrent and cache the SID cookie.
+     * Login to qBittorrent and cache the session cookie.
      * Uses a lock to prevent multiple simultaneous logins for the same instance.
      */
-    private async login(instance: PluginInstance): Promise<string> {
+    private async login(instance: PluginInstance): Promise<QbSessionCookie> {
         const instanceId = instance.id;
 
         // Check if another request is already logging in
@@ -81,16 +120,13 @@ export class QBittorrentAdapter extends BaseAdapter {
             return existingLogin;
         }
 
-        const loginPromise = (async () => {
-            const baseUrl = this.getBaseUrl(instance);
+        const loginPromise = (async (): Promise<QbSessionCookie> => {
             const username = (instance.config.username as string) || '';
             const password = (instance.config.password as string) || '';
 
             logger.debug(`[Adapter:qbittorrent] Logging in: instance=${instanceId}`);
 
-            // Use super.post() to get structured error handling, but we need to
-            // build the request manually since login uses form-urlencoded body
-            // and doesn't need cookie auth itself.
+            // Login uses form-urlencoded body and does not need cookie auth itself.
             const response = await super.post(
                 instance,
                 '/api/v2/auth/login',
@@ -98,10 +134,11 @@ export class QBittorrentAdapter extends BaseAdapter {
                 {
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     timeout: 10000,
+                    // Pre-5.2: 200 + "Ok."; 5.2+: 204 empty — both are 2xx (axios default).
                 }
             );
 
-            // qBittorrent returns "Fails." on bad credentials
+            // Pre-5.2 bad credentials: 200 + "Fails."
             if (response.data === 'Fails.') {
                 throw new AdapterError('AUTH_FAILED',
                     'Authentication failed — check username/password',
@@ -109,27 +146,23 @@ export class QBittorrentAdapter extends BaseAdapter {
                 );
             }
 
-            // Extract SID from Set-Cookie header
-            const setCookies = response.headers['set-cookie'] || [];
-            let sid = '';
-            for (const cookie of setCookies) {
-                const match = cookie.match(/SID=([^;]+)/);
-                if (match) {
-                    sid = match[1];
-                    break;
-                }
-            }
-
-            if (!sid) {
+            const session = parseQbittorrentSessionCookie(response.headers['set-cookie']);
+            if (!session) {
                 throw new AdapterError('AUTH_FAILED',
-                    'Login succeeded but no SID cookie received',
+                    'Login succeeded but no session cookie received',
                     { instanceId, type: 'qbittorrent' }
                 );
             }
 
-            this.cookieCache.set(instanceId, { sid, timestamp: Date.now() });
-            logger.debug(`[Adapter:qbittorrent] Login successful, SID cached: instance=${instanceId}`);
-            return sid;
+            this.cookieCache.set(instanceId, {
+                name: session.name,
+                value: session.value,
+                timestamp: Date.now(),
+            });
+            logger.debug(
+                `[Adapter:qbittorrent] Login successful, cookie cached: instance=${instanceId} name=${session.name}`
+            );
+            return session;
         })();
 
         // Store the promise so concurrent requests can wait on it
@@ -143,16 +176,16 @@ export class QBittorrentAdapter extends BaseAdapter {
     }
 
     /**
-     * Get a valid SID — from cache or via fresh login.
-     * Returns empty string if no credentials configured (auth disabled).
+     * Get a valid session cookie — from cache or via fresh login.
+     * Returns null if no credentials configured (auth disabled).
      */
-    private async ensureCookie(instance: PluginInstance): Promise<string> {
+    private async ensureCookie(instance: PluginInstance): Promise<QbSessionCookie | null> {
         const username = instance.config.username as string | undefined;
         const password = instance.config.password as string | undefined;
 
         // No credentials → no auth needed (qBittorrent auth disabled)
         if (!username && !password) {
-            return '';
+            return null;
         }
 
         // Check cache first
@@ -169,15 +202,15 @@ export class QBittorrentAdapter extends BaseAdapter {
      * Build Cookie header opts for a request.
      * Returns opts with Cookie header merged in, or original opts if no cookie needed.
      */
-    private buildCookieOpts(sid: string, opts?: HttpOpts): HttpOpts {
-        if (!sid) {
+    private buildCookieOpts(session: QbSessionCookie | null, opts?: HttpOpts): HttpOpts {
+        if (!session) {
             return opts || {};
         }
         return {
             ...opts,
             headers: {
                 ...opts?.headers,
-                'Cookie': `SID=${sid}`,
+                Cookie: `${session.name}=${session.value}`,
             },
         };
     }
@@ -195,16 +228,16 @@ export class QBittorrentAdapter extends BaseAdapter {
             return super.get(instance, path, opts);
         }
 
-        const sid = await this.ensureCookie(instance);
+        const session = await this.ensureCookie(instance);
         try {
-            return await super.get(instance, path, this.buildCookieOpts(sid, opts));
+            return await super.get(instance, path, this.buildCookieOpts(session, opts));
         } catch (error) {
             // Retry once on auth failure
             if (error instanceof AdapterError && error.code === 'AUTH_FAILED') {
                 logger.debug(`[Adapter:qbittorrent] Auth failed on GET ${path}, re-logging in`);
                 this.cookieCache.delete(instance.id);
-                const freshSid = await this.login(instance);
-                return super.get(instance, path, this.buildCookieOpts(freshSid, opts));
+                const fresh = await this.login(instance);
+                return super.get(instance, path, this.buildCookieOpts(fresh, opts));
             }
             throw error;
         }
@@ -219,16 +252,16 @@ export class QBittorrentAdapter extends BaseAdapter {
             return super.post(instance, path, body, opts);
         }
 
-        const sid = await this.ensureCookie(instance);
+        const session = await this.ensureCookie(instance);
         try {
-            return await super.post(instance, path, body, this.buildCookieOpts(sid, opts));
+            return await super.post(instance, path, body, this.buildCookieOpts(session, opts));
         } catch (error) {
             // Retry once on auth failure
             if (error instanceof AdapterError && error.code === 'AUTH_FAILED') {
                 logger.debug(`[Adapter:qbittorrent] Auth failed on POST ${path}, re-logging in`);
                 this.cookieCache.delete(instance.id);
-                const freshSid = await this.login(instance);
-                return super.post(instance, path, body, this.buildCookieOpts(freshSid, opts));
+                const fresh = await this.login(instance);
+                return super.post(instance, path, body, this.buildCookieOpts(fresh, opts));
             }
             throw error;
         }

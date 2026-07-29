@@ -12,7 +12,7 @@
  * config modal via MetricLayoutEditor.
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/useAuth';
 import { useLayout } from '../../context/useLayout';
 import { isAdmin } from '../../utils/permissions';
@@ -30,6 +30,7 @@ import NetworkMetricCard from './components/NetworkMetricCard';
 import DiskMetricCard from './components/DiskMetricCard';
 import CircularGauge from './components/CircularGauge';
 import { useMetricConfig, PackedMetric } from './hooks/useMetricConfig';
+import { useShrinkToFit } from './hooks/useShrinkToFit';
 import { StatusData, SystemStatusWidgetProps } from './types';
 import './styles.css';
 
@@ -104,19 +105,32 @@ interface MetricCardProps {
     metric: PackedMetric;
     value: number | string | null;
     visibleCount: number;
+    shellMode?: boolean;
     /** Array status string for disk card badge (Unraid only) */
     arrayStatus?: string | null;
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ metric, value, visibleCount, arrayStatus }) => {
-    const numValue = Number(value || 0);
+const MetricCard: React.FC<MetricCardProps> = ({ metric, value, visibleCount, shellMode = false, arrayStatus }) => {
+    const numValue = shellMode ? 0 : Number(value || 0);
     const cardClasses = buildCardClasses(metric, visibleCount);
     const isGauge = metric.vizType === 'progress' && metric.viz === 'gauge';
+    const formattedValue = shellMode ? '--' : formatValue(metric.key, value, metric.unit);
+    const isVerticalText = metric.vizType === 'text';
+    const headerRef = useRef<HTMLDivElement>(null);
+    const scale = useShrinkToFit(headerRef, [formattedValue, metric.label, isVerticalText], 0.5);
 
     return (
         <div className={cardClasses}>
             <div className="metric-card__inner">
-                <div className="metric-card__header">
+                <div
+                    className="metric-card__header"
+                    ref={isVerticalText ? headerRef : undefined}
+                    style={
+                        isVerticalText
+                            ? { transform: `scale(${scale})`, transformOrigin: 'center center' }
+                            : undefined
+                    }
+                >
                     <span className="metric-card__label">
                         <metric.icon size={14} />
                         {metric.label}
@@ -129,7 +143,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ metric, value, visibleCount, ar
                     </span>
                     {!isGauge && (
                         <span className="metric-card__value">
-                            {formatValue(metric.key, value, metric.unit)}
+                            {formattedValue}
                         </span>
                     )}
                 </div>
@@ -139,7 +153,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ metric, value, visibleCount, ar
                             <CircularGauge
                                 value={getProgressWidth(metric.key, numValue)}
                                 color={getValueColor(numValue)}
-                                label={formatValue(metric.key, value, metric.unit)}
+                                label={formattedValue}
                                 caption={
                                     <>
                                         <metric.icon size={14} />
@@ -151,7 +165,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ metric, value, visibleCount, ar
                                         )}
                                     </>
                                 }
-                                ariaLabel={`${metric.label} ${formatValue(metric.key, value, metric.unit)}`}
+                                ariaLabel={shellMode ? `${metric.label} loading` : `${metric.label} ${formattedValue}`}
                             />
                         </div>
                     ) : (
@@ -199,6 +213,134 @@ const DEFAULT_DATA: StatusData = {
     disks: [],
 };
 
+type SystemStatusRenderMode = 'live' | 'shell';
+
+interface RenderMetricGridArgs {
+    packedMetrics: PackedMetric[];
+    visibleCount: number;
+    isInline: boolean;
+    layout: string;
+    config: Record<string, unknown> | undefined;
+    statusData: StatusData;
+    renderMode: SystemStatusRenderMode;
+    integrationId?: string;
+    historyEnabled?: boolean;
+    recordableKeys?: Set<string>;
+}
+
+function renderMetricGrid({
+    packedMetrics,
+    visibleCount,
+    isInline,
+    layout,
+    config,
+    statusData,
+    renderMode,
+    integrationId,
+    historyEnabled = false,
+    recordableKeys = new Set<string>(),
+}: RenderMetricGridArgs): React.ReactElement {
+    const gridClassName = `system-status-grid${layout === 'stacked' ? ' system-status-grid--stacked' : ''}`;
+    const widgetClassName = `system-status-widget${isInline ? ' system-status--inline' : ''}`;
+    const shellMode = renderMode === 'shell';
+
+    return (
+        <div className={widgetClassName}>
+            <div className={gridClassName}>
+                {packedMetrics.map((metric) => {
+                    const value = shellMode ? DEFAULT_DATA[metric.key as StatusScalarKey] : statusData[metric.key as StatusScalarKey];
+                    const numValue = Number(value || 0);
+
+                    if (metric.key === 'diskUsage' || metric.key.startsWith('disk-')) {
+                        const diskCollapsed = config?.diskCollapsed !== 'individual';
+                        const diskSelection = config?.diskSelection as string[] | undefined;
+                        const selectedDisks = statusData.disks.filter((d) =>
+                            !diskSelection || diskSelection.length === 0 || diskSelection.includes(d.id)
+                        );
+
+                        if (metric.key === 'diskUsage') {
+                            if (diskCollapsed || selectedDisks.length === 0) {
+                                if (selectedDisks.length > 0 || shellMode) {
+                                    return (
+                                        <DiskMetricCard
+                                            key="disk-aggregate"
+                                            disks={selectedDisks}
+                                            isAggregate={true}
+                                            isInline={isInline}
+                                            shellMode={shellMode}
+                                            spanClass={`metric-card--span-${metric.effectiveSpan} metric-card--row-span-${metric.rowSpan || 1}`}
+                                            viz={metric.viz}
+                                        />
+                                    );
+                                }
+                            } else {
+                                return null;
+                            }
+                        }
+
+                        if (metric.key.startsWith('disk-')) {
+                            const diskId = metric.key.slice(5);
+                            const disk = selectedDisks.find((d) => d.id === diskId);
+                            if (disk) {
+                                return (
+                                    <DiskMetricCard
+                                        key={disk.id}
+                                        disk={disk}
+                                        isAggregate={false}
+                                        isInline={isInline}
+                                        shellMode={shellMode}
+                                        spanClass={`metric-card--span-${metric.effectiveSpan} metric-card--row-span-${metric.rowSpan || 1}`}
+                                        viz={metric.viz}
+                                    />
+                                );
+                            }
+                            return null;
+                        }
+                    }
+
+                    if (metric.hasGraph) {
+                        return (
+                            <MetricGraphPopover
+                                key={metric.key}
+                                metric={metric.key}
+                                value={numValue}
+                                icon={metric.icon}
+                                integrationId={integrationId}
+                                historyEnabled={!shellMode && historyEnabled && recordableKeys.has(metric.key)}
+                                shellMode={shellMode}
+                                spanClass={`metric-card--span-${metric.effectiveSpan} metric-card--row-span-${metric.rowSpan || 1}`}
+                                viz={metric.viz}
+                            />
+                        );
+                    }
+
+                    if (metric.key === 'networkUp' || metric.key === 'networkDown') {
+                        return (
+                            <NetworkMetricCard
+                                key={metric.key}
+                                metric={metric}
+                                value={typeof value === 'number' ? value : null}
+                                shellMode={shellMode}
+                            />
+                        );
+                    }
+
+                    return (
+                        <MetricCard
+                            key={metric.key}
+                            metric={metric}
+                            value={value}
+                            visibleCount={visibleCount}
+                            shellMode={shellMode}
+                            arrayStatus={metric.key === 'diskUsage' && !shellMode ? statusData.arrayStatus : undefined}
+                        />
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 // ============================================================================
 // LIVE MODE CHILD COMPONENT
 // ============================================================================
@@ -219,7 +361,10 @@ const SystemStatusLive: React.FC<SystemStatusLiveProps> = ({
     const { user } = useAuth();
     const userIsAdmin = isAdmin(user);
 
-    const configuredIntegrationId = config?.integrationId as string | undefined;
+    const cfg = config as Record<string, unknown> | undefined;
+    const configuredIntegrationId = cfg?.forceClearIntegration
+        ? null
+        : (config?.integrationId as string | undefined);
 
     const {
         effectiveIntegrationId,
@@ -300,6 +445,8 @@ const SystemStatusLive: React.FC<SystemStatusLiveProps> = ({
             : DEFAULT_DATA;
     }, [statusState, integrationId]);
 
+    const renderMode: SystemStatusRenderMode = loading || !isConnected ? 'shell' : 'live';
+
     // Re-compute metrics with integration type and live data for availability filtering
     // Only pass statusData for null-filtering AFTER we've received real SSE data
     // (otherwise DEFAULT_DATA's nulls hide metrics before they have a chance to appear)
@@ -315,7 +462,8 @@ const SystemStatusLive: React.FC<SystemStatusLiveProps> = ({
         widgetH,
         showHeader,
         integrationType,
-        statusData: hasReceivedData ? statusData : undefined,
+        statusData: renderMode === 'live' && hasReceivedData ? statusData : undefined,
+        renderMode,
         schemaMetricKeys,
     });
 
@@ -337,10 +485,6 @@ const SystemStatusLive: React.FC<SystemStatusLiveProps> = ({
         return <WidgetStateMessage variant="notConfigured" serviceName="System Health" isAdmin={userIsAdmin} />;
     }
 
-    if (loading || !isConnected) {
-        return <WidgetStateMessage variant="loading" />;
-    }
-
     if (isUnavailable) {
         // Auth errors: admin sees specific message, users see generic unavailable
         if (isAuthError && userIsAdmin) {
@@ -349,110 +493,18 @@ const SystemStatusLive: React.FC<SystemStatusLiveProps> = ({
         return <WidgetStateMessage variant="unavailable" serviceName="System Health" instanceName={effectiveDisplayName} onRetry={handleRetry} />;
     }
 
-    const liveGridClassName = `system-status-grid${liveLayout === 'stacked' ? ' system-status-grid--stacked' : ''}`;
-    const liveWidgetClassName = `system-status-widget${liveIsInline ? ' system-status--inline' : ''}`;
-
-    return (
-        <div className={liveWidgetClassName}>
-            <div className={liveGridClassName}>
-                {livePackedMetrics.map((metric) => {
-                    const value = statusData[metric.key as StatusScalarKey];
-                    const numValue = Number(value || 0);
-
-                    // Disk metrics — individual or collapsed card
-                    if (metric.key === 'diskUsage' || metric.key.startsWith('disk-')) {
-                        const diskCollapsed = config?.diskCollapsed !== 'individual'; // default collapsed
-                        const diskSelection = config?.diskSelection as string[] | undefined;
-
-                        // Filter disks by selection (empty/undefined = all)
-                        const selectedDisks = statusData.disks.filter((d) =>
-                            !diskSelection || diskSelection.length === 0 || diskSelection.includes(d.id)
-                        );
-
-                        if (metric.key === 'diskUsage') {
-                            if (diskCollapsed || selectedDisks.length === 0) {
-                                // Collapsed aggregate card (or no disk data: fall through to standard MetricCard)
-                                if (selectedDisks.length > 0) {
-                                    return (
-                                        <DiskMetricCard
-                                            key="disk-aggregate"
-                                            disks={selectedDisks}
-                                            isAggregate={true}
-                                            isInline={liveIsInline}
-                                            spanClass={`metric-card--span-${metric.effectiveSpan} metric-card--row-span-${metric.rowSpan || 1}`}
-                                            viz={metric.viz}
-                                        />
-                                    );
-                                }
-                                // No disks: fall through to standard MetricCard
-                            } else {
-                                // Individual mode: skip the diskUsage metric slot,
-                                // individual disk-{id} metrics handle rendering
-                                return null;
-                            }
-                        }
-
-                        // Individual disk card (key = "disk-{id}")
-                        if (metric.key.startsWith('disk-')) {
-                            const diskId = metric.key.slice(5); // strip "disk-" prefix
-                            const disk = selectedDisks.find((d) => d.id === diskId);
-                            if (disk) {
-                                return (
-                                    <DiskMetricCard
-                                        key={disk.id}
-                                        disk={disk}
-                                        isAggregate={false}
-                                        isInline={liveIsInline}
-                                        spanClass={`metric-card--span-${metric.effectiveSpan} metric-card--row-span-${metric.rowSpan || 1}`}
-                                        viz={metric.viz}
-                                    />
-                                );
-                            }
-                            return null;
-                        }
-                    }
-
-                    // Metrics with graph popover
-                    if (metric.hasGraph) {
-                        return (
-                            <MetricGraphPopover
-                                key={metric.key}
-                                metric={metric.key}
-                                value={numValue}
-                                icon={metric.icon}
-                                integrationId={integrationId}
-                                historyEnabled={historyEnabled && recordableKeys.has(metric.key)}
-                                spanClass={`metric-card--span-${metric.effectiveSpan} metric-card--row-span-${metric.rowSpan || 1}`}
-                                viz={metric.viz}
-                            />
-                        );
-                    }
-
-                    // Network metrics — inline sparkline card
-                    if (metric.key === 'networkUp' || metric.key === 'networkDown') {
-                        return (
-                            <NetworkMetricCard
-                                key={metric.key}
-                                metric={metric}
-                                value={typeof value === 'number' ? value : null}
-                            />
-                        );
-                    }
-
-                    // Static metrics (no popover)
-                    return (
-                        <MetricCard
-                            key={metric.key}
-                            metric={metric}
-                            value={value}
-                            visibleCount={liveVisibleCount}
-                            arrayStatus={metric.key === 'diskUsage' ? statusData.arrayStatus : undefined}
-                        />
-                    );
-                })}
-            </div>
-        </div>
-    );
+    return renderMetricGrid({
+        packedMetrics: livePackedMetrics,
+        visibleCount: liveVisibleCount,
+        isInline: liveIsInline,
+        layout: liveLayout,
+        config,
+        statusData,
+        renderMode,
+        integrationId,
+        historyEnabled,
+        recordableKeys,
+    });
 };
 
 // ============================================================================
@@ -484,28 +536,19 @@ const SystemStatusWidget: React.FC<SystemStatusWidgetProps> = ({
         showHeader,
     });
 
-    // Grid class based on layout mode
-    const gridClassName = `system-status-grid${layout === 'stacked' ? ' system-status-grid--stacked' : ''}`;
-    const widgetClassName = `system-status-widget${isInline ? ' system-status--inline' : ''}`;
-
     // ========================================================================
     // PREVIEW MODE — render mock data, no live hooks needed
     // ========================================================================
     if (previewMode) {
-        return (
-            <div className={widgetClassName}>
-                <div className={gridClassName}>
-                    {packedMetrics.map((metric) => (
-                        <MetricCard
-                            key={metric.key}
-                            metric={metric}
-                            value={PREVIEW_DATA[metric.key as StatusScalarKey]}
-                            visibleCount={visibleCount}
-                        />
-                    ))}
-                </div>
-            </div>
-        );
+        return renderMetricGrid({
+            packedMetrics,
+            visibleCount,
+            isInline,
+            layout,
+            config,
+            statusData: PREVIEW_DATA,
+            renderMode: 'live',
+        });
     }
 
     // ========================================================================

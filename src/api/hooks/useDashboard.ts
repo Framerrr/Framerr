@@ -1,6 +1,6 @@
 /**
  * Dashboard React Query Hooks
- * 
+ *
  * Hooks for dashboard data: widgets, user preferences, debug settings
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,14 +15,13 @@ import { filterRegisteredWidgets } from '../../widgets/registry';
 // ============================================================================
 
 /**
- * Fetch all widgets (desktop + mobile layouts)
- * Automatically filters out widget types not in the registry.
+ * Fetch widgets for a specific dashboard
  */
-export function useWidgets() {
+export function useWidgets(dashboardId: string) {
     return useQuery({
-        queryKey: queryKeys.widgets.dashboard(),
+        queryKey: queryKeys.widgets.dashboard(dashboardId),
         queryFn: async (): Promise<WidgetsResponse> => {
-            const data = await widgetsApi.getAll();
+            const data = await widgetsApi.getAll(dashboardId);
             return {
                 ...data,
                 widgets: filterRegisteredWidgets(data.widgets || [], 'dashboard'),
@@ -31,49 +30,21 @@ export function useWidgets() {
                     : data.mobileWidgets,
             };
         },
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        enabled: !!dashboardId,
+        staleTime: 5 * 60 * 1000,
     });
 }
 
 /**
- * Save widgets (full layout update)
+ * Save widgets for a specific dashboard
  */
-export function useSaveWidgets() {
+export function useSaveWidgets(dashboardId: string) {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: (data: SaveWidgetsData) => widgetsApi.saveAll(data),
+        mutationFn: (data: SaveWidgetsData) => widgetsApi.saveAll(dashboardId, data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.widgets.dashboard() });
-        },
-    });
-}
-
-/**
- * Add widget to dashboard
- */
-export function useAddWidget() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: (widget: Parameters<typeof widgetsApi.addWidget>[0]) =>
-            widgetsApi.addWidget(widget),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.widgets.dashboard() });
-        },
-    });
-}
-
-/**
- * Remove widget from dashboard
- */
-export function useRemoveWidget() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: (id: string) => widgetsApi.removeWidget(id),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.widgets.dashboard() });
+            queryClient.invalidateQueries({ queryKey: queryKeys.widgets.dashboard(dashboardId) });
         },
     });
 }
@@ -85,7 +56,7 @@ export function useWidgetAccess() {
     return useQuery({
         queryKey: queryKeys.widgets.access(),
         queryFn: () => widgetsApi.getMyAccess(),
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 5 * 60 * 1000,
     });
 }
 
@@ -100,7 +71,7 @@ export function useUserPreferences() {
     return useQuery({
         queryKey: queryKeys.config.user(),
         queryFn: () => configApi.getUser(),
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 5 * 60 * 1000,
     });
 }
 
@@ -125,13 +96,12 @@ export function useUpdateUserPreferences() {
 
 /**
  * Fetch debug overlay setting (admin only)
- * Use enabled: false for non-admin users to prevent 403 errors
  */
 export function useDebugOverlay(options?: { enabled?: boolean }) {
     return useQuery({
         queryKey: queryKeys.system.debug(),
         queryFn: () => systemApi.getFullConfig(),
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 5 * 60 * 1000,
         select: (data: SystemConfigResponse) => data.config?.debug?.overlayEnabled ?? false,
         enabled: options?.enabled ?? true,
     });
@@ -156,20 +126,14 @@ export function useUpdateDebugConfig() {
 // DEBUG LOGS (Admin only - with polling)
 // ============================================================================
 
-/**
- * Fetch debug config including log level (admin only)
- */
 export function useDebugConfig() {
     return useQuery({
         queryKey: queryKeys.system.debug(),
         queryFn: () => systemApi.getFullConfig(),
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 5 * 60 * 1000,
     });
 }
 
-/**
- * Fetch logs with optional auto-refresh polling (admin only)
- */
 export function useLogs(options?: { enabled?: boolean; refetchInterval?: number | false }) {
     return useQuery({
         queryKey: queryKeys.system.logs(),
@@ -178,14 +142,11 @@ export function useLogs(options?: { enabled?: boolean; refetchInterval?: number 
             return response.logs || [];
         },
         enabled: options?.enabled ?? true,
-        refetchInterval: options?.refetchInterval ?? false, // Consumer controls polling
-        staleTime: 0, // Logs are always fresh
+        refetchInterval: options?.refetchInterval ?? false,
+        staleTime: 0,
     });
 }
 
-/**
- * Set log level mutation (admin only)
- */
 export function useSetLogLevel() {
     const queryClient = useQueryClient();
 
@@ -197,9 +158,6 @@ export function useSetLogLevel() {
     });
 }
 
-/**
- * Clear logs mutation (admin only)
- */
 export function useClearLogs() {
     const queryClient = useQueryClient();
 
@@ -215,46 +173,34 @@ export function useClearLogs() {
 // SYSTEM INFO & HEALTH (Admin diagnostics)
 // ============================================================================
 
-/**
- * Fetch system info (version, uptime, etc.)
- */
 export function useSystemInfo() {
     return useQuery({
         queryKey: queryKeys.system.info(),
         queryFn: () => systemApi.getSystemInfo(),
-        staleTime: 30 * 1000, // 30 seconds - relatively fresh
+        staleTime: 30 * 1000,
     });
 }
 
-/**
- * Fetch system resources (CPU, memory, disk)
- */
 export function useSystemResources() {
     return useQuery({
         queryKey: queryKeys.system.resources(),
         queryFn: () => systemApi.getResources(),
-        staleTime: 10 * 1000, // 10 seconds - needs to be fresh
+        staleTime: 10 * 1000,
     });
 }
 
-/**
- * Fetch SSE connection status
- */
 export function useSseStatus() {
     return useQuery({
         queryKey: queryKeys.system.sseStatus(),
         queryFn: () => systemApi.getSseStatus(),
-        staleTime: 30 * 1000, // 30 seconds
+        staleTime: 30 * 1000,
     });
 }
 
-/**
- * Fetch API health check
- */
 export function useApiHealth() {
     return useQuery({
         queryKey: queryKeys.system.apiHealth(),
         queryFn: () => systemApi.testApiHealth(),
-        staleTime: 30 * 1000, // 30 seconds
+        staleTime: 30 * 1000,
     });
 }

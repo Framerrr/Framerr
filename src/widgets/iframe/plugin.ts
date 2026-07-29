@@ -49,11 +49,17 @@ export const plugin: WidgetPlugin = {
                 label: 'Allow Interaction',
                 type: 'toggle',
             },
+            {
+                key: 'hideScrollbar',
+                label: 'Hide Scrollbar',
+                type: 'toggle',
+            },
         ],
     },
     defaultConfig: {
         url: '',
         refreshInterval: '0',
         allowInteraction: true,
+        hideScrollbar: false,
     },
 };

@@ -79,8 +79,9 @@ export interface FramerrDashboardGridProps {
     /** Pending unlink state (for debug coloring) */
     pendingUnlink?: boolean;
 
-    /** Whether to use square cells (cellHeight = 'auto') */
-    squareCells?: boolean;
+    /** Per-dashboard fixed-display/kiosk mode: square cells + relaxed size constraints.
+     * Drives rowHeight AND relaxConstraints — do not infer one from the other downstream. */
+    fixedDisplay?: boolean;
 }
 
 // ============================================================================
@@ -103,7 +104,7 @@ export function FramerrDashboardGrid({
     mobileLayoutMode = 'linked',
     pendingUnlink = false,
     emptyOverlay,
-    squareCells = false,
+    fixedDisplay = false,
 }: FramerrDashboardGridProps): ReactElement {
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -114,11 +115,13 @@ export function FramerrDashboardGrid({
             responsive: true,
             cols: { lg: GRID_COLS.lg, sm: GRID_COLS.sm },
             breakpoints: { lg: GRID_BREAKPOINTS.lg, sm: GRID_BREAKPOINTS.sm },
-            rowHeight: (squareCells && currentBreakpoint === 'lg') ? 'auto' : ROW_HEIGHT,
+            // GATE: to re-tighten fixed-display to desktop-only, add `&& currentBreakpoint === 'lg'` to both lines.
+            rowHeight: fixedDisplay ? 'auto' : ROW_HEIGHT,
             margin: GRID_MARGIN,
             containerPadding: [0, 0] as [number, number],
             compactType: COMPACT_TYPE,
             preventCollision: false,
+            relaxConstraints: fixedDisplay,
         },
         interaction: {
             // GridStack handles all drag and resize
@@ -145,7 +148,7 @@ export function FramerrDashboardGrid({
         editMode,
         isGlobalDragEnabled,
         currentBreakpoint,
-        squareCells,
+        fixedDisplay,
     ]);
 
     // ========== EVENT HANDLERS ==========

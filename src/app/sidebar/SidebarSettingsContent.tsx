@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getLucideIcon } from '../../utils/iconUtils';
 import { useSharedSidebar } from './context/useSharedSidebar';
@@ -30,6 +30,25 @@ export function SidebarSettingsContent() {
     // Current active category and sub-tab from URL path
     const activeCategory = settingsNavPath[0] || 'tabs';
     const activeSubTab = settingsNavPath[1] || null;
+
+    // Keep the open settings tab visible in the scrollable sidebar nav
+    useEffect(() => {
+        if (!isExpanded) return;
+
+        const highlightValue = activeSubTab
+            ? `settings-${activeCategory}-${activeSubTab}`
+            : `settings-${activeCategory}`;
+
+        // Wait for accordion expand (0.2s) so the target exists and has layout
+        const timer = window.setTimeout(() => {
+            const el = document.querySelector(
+                `[data-highlight-value="${highlightValue}"]`,
+            ) as HTMLElement | null;
+            el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 220);
+
+        return () => window.clearTimeout(timer);
+    }, [isExpanded, activeCategory, activeSubTab, expandedSettingsCategory]);
 
     // Render icon dynamically using centralized utility
     const renderIcon = (iconName: string, size: number = 20): React.ReactNode => {
@@ -113,7 +132,7 @@ export function SidebarSettingsContent() {
 
                 return (
                     <div key={category.id}>
-                        <HighlightItem value={`settings-${category.id}`}>
+                        <HighlightItem value={`settings-${category.id}`} className="scroll-mt-3 scroll-mb-3">
                             <a
                                 href={`/#settings/${category.id}`}
                                 onClick={(e) => handleCategoryClick(e, category.id, hasChildren)}
@@ -167,11 +186,15 @@ export function SidebarSettingsContent() {
                                         {visibleChildren.map(child => {
                                             const isChildActive = activeCategory === category.id && activeSubTab === child.id;
                                             return (
-                                                <HighlightItem key={child.id} value={`settings-${category.id}-${child.id}`}>
+                                                <HighlightItem
+                                                    key={child.id}
+                                                    value={`settings-${category.id}-${child.id}`}
+                                                    className="mr-2 scroll-mt-3 scroll-mb-3"
+                                                >
                                                     <a
                                                         href={`/#settings/${category.id}/${child.id}`}
                                                         onClick={(e) => handleSubTabClick(e, category.id, child.id)}
-                                                        className={`block w-full py-2 pl-5 pr-3 mr-2 text-sm rounded-lg transition-colors ${isChildActive
+                                                        className={`block w-full py-2 pl-5 pr-3 text-sm rounded-lg transition-colors ${isChildActive
                                                             ? 'text-accent font-medium'
                                                             : 'text-theme-secondary hover:text-theme-primary'
                                                             }`}

@@ -6,9 +6,10 @@
  */
 
 import React from 'react';
-import { Star, Calendar, Users, ExternalLink } from 'lucide-react';
+import { Star, Calendar, Users } from 'lucide-react';
 import { Modal, Button } from '../../../shared/ui';
 import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
+import { getIconComponent } from '../../../utils/iconUtils';
 import type { MediaItem } from '../types';
 
 // ============================================================================
@@ -157,7 +158,7 @@ const MediaSearchInfoModal: React.FC<MediaSearchInfoModalProps> = ({
                             <Button
                                 size="md"
                                 textSize="sm"
-                                icon={ExternalLink}
+                                icon={getIconComponent(`system:${integrationType}`)}
                                 onClick={handleOpenInApp}
                                 customColor={{ background: brandColor, text: '#000' }}
                                 style={{ marginTop: '1rem' }}

@@ -37,6 +37,14 @@ vi.mock('@/context/useTheme', () => ({
 }));
 
 const mockUser = { id: '1', username: 'testuser', displayName: 'Test User', role: 'admin' };
+vi.mock('@/app/providers/useAppBranding', () => ({
+    useAppBranding: () => ({
+        serverName: 'Framerr',
+        serverIcon: 'Server',
+        brandingLoaded: true,
+    }),
+}));
+
 vi.mock('@/context/useAuth', () => ({
     useAuth: () => ({
         user: mockUser,

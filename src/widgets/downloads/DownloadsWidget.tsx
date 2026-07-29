@@ -143,7 +143,8 @@ const DownloadsWidget: React.FC<WidgetProps> = ({ widget, previewMode = false })
     const userIsAdmin = isAdmin(user);
 
     const config = widget.config as { integrationId?: string; showStatsBar?: string } | undefined;
-    const configuredIntegrationId = config?.integrationId;
+    const cfg = config as Record<string, unknown> | undefined;
+    const configuredIntegrationId = cfg?.forceClearIntegration ? null : config?.integrationId;
     const showStatsBar = config?.showStatsBar !== 'false';
 
     // Use the 'downloads' widget type — the hook resolves compatible integrations

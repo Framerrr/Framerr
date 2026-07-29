@@ -155,7 +155,7 @@ export class DDResizable extends DDBaseImplement implements HTMLElementExtendOpt
       .map(dir => dir.trim())
       .map(dir => new DDResizableHandle(this.el, dir, {
         start: (event: MouseEvent) => {
-          this._resizeStart(event);
+          this._resizeStart(event, dir);
         },
         stop: (event: MouseEvent) => {
           this._resizeStop(event);
@@ -168,7 +168,8 @@ export class DDResizable extends DDBaseImplement implements HTMLElementExtendOpt
   }
 
   /** @internal */
-  protected _resizeStart(event: MouseEvent): DDResizable {
+  protected _resizeStart(event: MouseEvent, dir?: string): DDResizable {
+    DDManager.resizeDir = dir; // FRAMERR: expose active handle dir (see dd-manager.ts)
     this.sizeToContent = Utils.shouldSizeToContent(this.el.gridstackNode, true); // strick true only and not number
     this.originalRect = this.el.getBoundingClientRect();
     this.scrollEl = Utils.getScrollElement(this.el);
@@ -213,6 +214,7 @@ export class DDResizable extends DDBaseImplement implements HTMLElementExtendOpt
     delete this.temporalRect;
     delete this.scrollY;
     delete this.scrolled;
+    delete DDManager.resizeDir; // FRAMERR
     return this;
   }
 

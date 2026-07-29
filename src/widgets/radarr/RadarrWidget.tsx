@@ -269,7 +269,7 @@ const RadarrWidget = ({ widget, previewMode = false }: RadarrWidgetProps): React
 
     // Check if integration is bound
     const config = widget.config as RadarrConfig | undefined;
-    const configuredIntegrationId = config?.integrationId;
+    const configuredIntegrationId = config?.forceClearIntegration ? null : config?.integrationId;
     const configViewMode = config?.viewMode ?? 'auto';
     const showStatsBar = config?.showStatsBar !== 'false';
     const sortBy: RadarrSortBy = config?.sortBy ?? 'nextDate';

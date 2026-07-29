@@ -26,6 +26,7 @@ Added state properties for the pending touch pattern:
 - `touchTimeoutId` - Timer reference for delay
 - `touchActivated` - Whether drag has been activated
 - `savedTouchEvent` - Original touchstart for mousedown simulation
+- `touchActivatedAt` - Timestamp when touchActivated last became true (FRAMERR orphan watchdog)
 
 ### dd-touch.ts
 Implemented dnd-kit's "Pending Gate" pattern:
@@ -33,7 +34,7 @@ Implemented dnd-kit's "Pending Gate" pattern:
 **Key Concept**: `preventDefault()` is ONLY called AFTER activation.
 
 1. **touchstart**: Record position, start timer, DON'T preventDefault
-2. **Pending period**: Timer running, checking if finger moves
+2. **Pending period**: Timer running, checking if finger moves — **`document` `touchmove`/`touchend`/`touchcancel` are armed at `touchstart`** (passive `touchmove` during pending) so lift or tolerance breach can cancel before the timer fires. Disarmed in `activateDrag()` before synthetic `mousedown`; `_mouseDown` then registers activated-phase listeners (`passive: false` on `touchmove`). Matches the intended dnd-kit Pending Gate (TASK-20260726-003).
 3. **touchmove (during pending)**: If moved >tolerance → cancel (scrolling)
 4. **Timer fires**: Activate → simulate mousedown
 5. **touchmove (after activation)**: Now call preventDefault, move widget
@@ -49,8 +50,8 @@ Helper functions:
 import { DDManager } from 'gridstack';
 
 // Configure before GridStack.init()
-DDManager.touchDelay = 200;      // 200ms hold required
-DDManager.touchTolerance = 10;   // 10px movement cancels
+DDManager.touchDelay = 350;      // hold-to-move (see TOUCH_HOLD_DELAY_MS in GridStackAdapterV2)
+DDManager.touchTolerance = 8;    // 8px movement cancels (TOUCH_HOLD_TOLERANCE_PX)
 ```
 
 ## Next Steps: Production Integration

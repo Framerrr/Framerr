@@ -15,6 +15,16 @@ export type { IntegrationInstance, IntegrationConfig, CreateIntegrationData, Upd
 export { widgetsApi } from './widgets';
 export type { Widget, WidgetLayout, WidgetConfig, UpdateWidgetData, MobileLayoutMode, WidgetsResponse, SaveWidgetsData } from './widgets';
 
+export { dashboardsApi } from './dashboards';
+export type {
+    DashboardMeta,
+    DashboardsResponse,
+    DashboardDetail,
+    CreateDashboardData,
+    UpdateDashboardData,
+    DashboardPreferencesData,
+} from './dashboards';
+
 export { systemApi } from './system';
 export type {
     SystemConfig,
@@ -52,7 +62,8 @@ export type {
     Template,
     TemplateWidget,
     Category,
-    BackupData,
+    ApplyTemplateTarget,
+    ApplyTemplateResponse,
     TemplatesResponse,
     CategoriesResponse,
     TemplateSharesResponse,

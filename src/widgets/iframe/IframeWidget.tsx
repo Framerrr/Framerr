@@ -12,7 +12,8 @@ import './styles.css';
 
 const IframeWidget = ({ widget, previewMode = false }: IframeWidgetProps): React.JSX.Element => {
     const config = widget.config as IframeConfig | undefined;
-    const { url = '', refreshInterval = '0', allowInteraction = true } = config || {};
+    const { url = '', refreshInterval = '0', allowInteraction = true, hideScrollbar = false } =
+        config || {};
     const refreshMs = Number(refreshInterval) * 1000;
 
     const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -49,7 +50,15 @@ const IframeWidget = ({ widget, previewMode = false }: IframeWidgetProps): React
     }
 
     return (
-        <div className={`iframe-container${!allowInteraction ? ' iframe-no-interact' : ''}`}>
+        <div
+            className={[
+                'iframe-container',
+                !allowInteraction && 'iframe-no-interact',
+                hideScrollbar && 'iframe-hide-scrollbar',
+            ]
+                .filter(Boolean)
+                .join(' ')}
+        >
             <iframe
                 ref={iframeRef}
                 src={url}

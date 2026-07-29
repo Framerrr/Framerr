@@ -330,6 +330,8 @@ interface UseMetricConfigOptions {
     integrationType?: string;
     /** Current SSE data — used to hide metrics whose value is null */
     statusData?: StatusData;
+    /** Rendering intent for visibility semantics. */
+    renderMode?: 'live' | 'shell';
     /** Metric keys from the plugin schemas API (replaces hardcoded INTEGRATION_METRICS) */
     schemaMetricKeys?: string[];
 }
@@ -359,7 +361,15 @@ interface UseMetricConfigReturn {
     gridCssVars: Record<string, string>;
 }
 
-export function useMetricConfig({ config, widgetH, showHeader, integrationType, statusData, schemaMetricKeys }: UseMetricConfigOptions): UseMetricConfigReturn {
+export function useMetricConfig({
+    config,
+    widgetH,
+    showHeader,
+    integrationType,
+    statusData,
+    renderMode = 'live',
+    schemaMetricKeys,
+}: UseMetricConfigOptions): UseMetricConfigReturn {
     // Get the metrics available for this integration type (schema-driven when available)
     const availableMetrics = useMemo(
         () => getMetricDefsForIntegration(integrationType, schemaMetricKeys),
@@ -417,6 +427,7 @@ export function useMetricConfig({ config, widgetH, showHeader, integrationType, 
     }
 
     const visibleMetrics = useMemo(() => {
+        const diskCollapsed = config?.diskCollapsed !== 'individual'; // default collapsed
         const base = localOrder
             .filter(key => {
                 // disk-{id} keys pass if diskUsage is available
@@ -445,6 +456,8 @@ export function useMetricConfig({ config, widgetH, showHeader, integrationType, 
                 if (!m) return false;
                 const visible = config?.[m.configKey];
                 if (visible === false) return false;
+                // Shell mode shows configured structure even before real data arrives.
+                if (renderMode === 'shell') return true;
                 // If we have live data, hide metrics that have NEVER reported a value
                 // Once a metric has been seen, it stays visible (sticky)
                 if (statusData && !m.key.startsWith('disk-')) {
@@ -455,10 +468,13 @@ export function useMetricConfig({ config, widgetH, showHeader, integrationType, 
                 return true;
             });
 
+        if (renderMode === 'shell' && !diskCollapsed) {
+            return base.filter((metric) => metric.key !== 'diskUsage' && !metric.key.startsWith('disk-'));
+        }
+
         // Individual disk mode: expand diskUsage into per-disk entries
         // Only needed when there's no saved diskMetricOrder (first-time initialization)
         // When hasSavedDiskLayout, the order already contains disk-{id} keys
-        const diskCollapsed = config?.diskCollapsed !== 'individual'; // default collapsed
         if (!diskCollapsed && !hasSavedDiskLayout && statusData?.disks?.length) {
             const diskSelection = config?.diskSelection as string[] | undefined;
             const selectedDisks = statusData.disks.filter((d) =>
@@ -512,7 +528,7 @@ export function useMetricConfig({ config, widgetH, showHeader, integrationType, 
         }
 
         return base;
-    }, [localOrder, config, availableKeys, statusData, hasSavedDiskLayout]);
+    }, [localOrder, config, availableKeys, statusData, hasSavedDiskLayout, renderMode]);
 
     // Pack metrics into grid
     const allPackedMetrics = useMemo(() => packMetrics(visibleMetrics, localSpans), [visibleMetrics, localSpans]);

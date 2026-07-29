@@ -37,10 +37,18 @@ export interface DashboardGreeting {
     loadingMessages?: boolean;
 }
 
+/** Canonical shape: `src/app/sidebar/mobile-tabbar/tabBarLayout.ts` (`MobileTabBarPrefs`). */
+export type MobileTabBarPreferences =
+    | { version: 2; slots: unknown[] }
+    | { version: 1; left: string[]; right: string[] }
+    | { version?: number; left?: string[]; right?: string[]; slots?: unknown[] };
+
 export interface UserPreferences {
     notifications?: NotificationPreferences;
     dashboardGreeting?: DashboardGreeting;
     ui?: UIPreferences;
+    /** Mobile tab bar custom action zones — see `tabBarLayout.ts`. */
+    mobileTabBar?: MobileTabBarPreferences;
     [key: string]: unknown;
 }
 

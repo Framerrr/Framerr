@@ -34,9 +34,13 @@ Templates can be grouped into categories for organization. Admins can create and
 
 ## Applying a Template
 
-Click **Apply** on any template card to replace your current dashboard with that template's layout. Before applying, Framerr automatically creates a backup of your existing dashboard.
+Click **Apply** on any template card, then choose where it goes:
 
-If you change your mind, use **Revert to Previous Dashboard** to restore your pre-template layout. Only one backup is stored at a time — applying another template overwrites the previous backup.
+- An existing dashboard — its current layout is replaced
+- A new dashboard created from the template
+
+This cannot be undone. If you want to keep what you have, apply the template
+to a new dashboard instead.
 
 ## Managing Templates
 
@@ -44,7 +48,7 @@ Each template card shows a preview thumbnail, name, category, and available acti
 
 | Action | Description |
 |--------|-------------|
-| **Apply** | Replace your dashboard with this template |
+| **Apply** | Apply this template to a dashboard you choose, or create a new one |
 | **Edit** | Open the builder to modify the template |
 | **Duplicate** | Create a copy you can modify independently |
 | **Share / Export** | Share with users (admin) or export as `.framerr` file |

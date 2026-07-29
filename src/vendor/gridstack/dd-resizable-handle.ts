@@ -73,6 +73,7 @@ export class DDResizableHandle {
       // FRAMERR: passive:false is CRITICAL on iOS Safari so preventDefault() works
       document.addEventListener('touchmove', touchmove, { passive: false });
       document.addEventListener('touchend', touchend);
+      document.addEventListener('touchcancel', touchend); // FRAMERR: iOS system gestures cancel touches mid-resize
     }
     e.stopPropagation();
     e.preventDefault();
@@ -106,6 +107,7 @@ export class DDResizableHandle {
     if (isTouch) {
       document.removeEventListener('touchmove', touchmove);
       document.removeEventListener('touchend', touchend);
+      document.removeEventListener('touchcancel', touchend);
     }
     delete this.moving;
     delete this.mouseDownEvent;

@@ -18,11 +18,15 @@ import logger from '../../../utils/logger';
 import { LoadingSpinner } from '@/shared/ui';
 import { useSidebarUI } from '@/app/sidebar/context/useSidebarUI';
 import { useWalkthrough } from '../../../features/walkthrough';
+import { useActiveDashboard } from '../../../context/ActiveDashboardContext';
+import { useDashboards, useUpdateDashboard } from '../../../api/hooks/useDashboards';
 
 type MobileLayoutMode = 'linked' | 'independent';
 
 interface LayoutSectionProps {
     className?: string;
+    /** When true, omit outer SettingsPage (parent provides it). */
+    embedded?: boolean;
 }
 
 /**
@@ -46,57 +50,41 @@ function SidebarAutoHideToggle() {
 }
 
 /**
- * Square cells toggle - experimental feature for auto cell height
+ * Per-dashboard fixed-display (kiosk) toggle
  */
-function SquareCellsToggle() {
-    const [squareCells, setSquareCells] = useState(false);
+function FixedDisplayToggle() {
+    const { activeDashboardId } = useActiveDashboard();
+    const { data: dashboardsData } = useDashboards();
+    const updateDashboard = useUpdateDashboard();
 
-    useEffect(() => {
-        const load = async () => {
-            try {
-                const response = await configApi.getUser();
-                if (response?.preferences?.squareCells) setSquareCells(true);
-            } catch { /* ignore */ }
-        };
-        load();
-    }, []);
-
-    const handleChange = async (checked: boolean) => {
-        setSquareCells(checked);
-        try {
-            await configApi.updateUser({
-                preferences: { squareCells: checked }
-            });
-            window.dispatchEvent(new CustomEvent('user-preferences-changed', {
-                detail: { squareCells: checked }
-            }));
-        } catch (error) {
-            logger.error('Failed to save square cells preference:', { error });
-            setSquareCells(!checked);
-        }
-    };
+    const dashboard = dashboardsData?.dashboards.find(d => d.id === activeDashboardId);
+    const checked = dashboard?.fixedDisplay ?? false;
 
     return (
         <SettingsItem
             label={
                 <span className="flex items-center gap-2">
-                    Square Cells
+                    Fixed Display Mode
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent font-medium uppercase tracking-wider">Experimental</span>
                 </span>
             }
-            description="Make each grid cell height equal to its width, creating square proportions. Widget heights will change dynamically with window size."
-            icon={LayoutGrid}
+            description="Makes this dashboard full-width with square cells and no size limits — useful for a dedicated display. Other dashboards stay normal. Widget sizing and content are not optimized for this mode and may behave oddly."
+            icon={Monitor}
             iconColor="text-accent"
         >
             <Switch
-                checked={squareCells}
-                onCheckedChange={handleChange}
+                checked={checked}
+                disabled={!activeDashboardId || updateDashboard.isPending}
+                onCheckedChange={(value) => {
+                    if (!activeDashboardId) return;
+                    updateDashboard.mutate({ id: activeDashboardId, data: { fixedDisplay: value } });
+                }}
             />
         </SettingsItem>
     );
 }
 
-export function LayoutSection({ className = '' }: LayoutSectionProps) {
+export function LayoutSection({ className = '', embedded = false }: LayoutSectionProps) {
     const [mobileLayoutMode, setMobileLayoutMode] = useState<MobileLayoutMode>('linked');
     const [widgetCount, setWidgetCount] = useState<number>(0);
     const [loading, setLoading] = useState(true);
@@ -106,11 +94,18 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
     const [hideMobileEditButton, setHideMobileEditButton] = useState(false);
     const [tourReset, setTourReset] = useState(false);
     const walkthrough = useWalkthrough();
+    const { activeDashboardId } = useActiveDashboard();
+    const { data: dashboardsData } = useDashboards();
+    const activeDashboardName = dashboardsData?.dashboards.find(d => d.id === activeDashboardId)?.name;
 
     // Load current state
     const loadDashboardState = async (): Promise<void> => {
+        if (!activeDashboardId) {
+            setLoading(false);
+            return;
+        }
         try {
-            const response = await widgetsApi.getAll();
+            const response = await widgetsApi.getAll(activeDashboardId);
             setMobileLayoutMode(response.mobileLayoutMode || 'linked');
             setWidgetCount(response.widgets?.length || 0);
         } catch (error) {
@@ -154,7 +149,7 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
     useEffect(() => {
         loadDashboardState();
         loadUserPreferences();
-    }, []);
+    }, [activeDashboardId]);
 
     // Listen for dashboard updates to refresh state automatically
     useEffect(() => {
@@ -168,12 +163,13 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
             window.removeEventListener('widgets-added', handleWidgetsUpdate);
             window.removeEventListener('mobile-layout-mode-changed', handleWidgetsUpdate);
         };
-    }, []);
+    }, [activeDashboardId]);
 
     const handleReconnect = async (): Promise<void> => {
+        if (!activeDashboardId) return;
         try {
             setActionLoading(true);
-            await widgetsApi.reconnectMobile();
+            await widgetsApi.reconnectMobile(activeDashboardId);
             setMobileLayoutMode('linked');
             setShowReconnectModal(false);
             // Reload dashboard
@@ -186,9 +182,10 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
     };
 
     const handleReset = async (): Promise<void> => {
+        if (!activeDashboardId) return;
         try {
             setActionLoading(true);
-            await widgetsApi.reset();
+            await widgetsApi.reset(activeDashboardId);
             setMobileLayoutMode('linked');
             setShowResetModal(false);
             // Reload dashboard
@@ -210,14 +207,16 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
         );
     }
 
-    return (
-        <SettingsPage
-            title="General"
-            description="Manage your dashboard layout and preferences"
-        >
-            {/* General Section */}
-            <SettingsSection title="General" icon={LayoutGrid}>
-                {/* Reset All Widgets */}
+    const content = (
+        <>
+            {/* Layout Section */}
+            <SettingsSection title="Layout" icon={LayoutGrid}>
+                {activeDashboardName && (
+                    <p className="text-sm text-theme-tertiary mb-3">
+                        Actions apply to: <span className="text-theme-primary font-medium">{activeDashboardName}</span>
+                    </p>
+                )}
+                <FixedDisplayToggle />
                 <SettingsItem
                     label="Reset Dashboard"
                     description="Remove all widgets from your dashboard. This cannot be undone."
@@ -234,36 +233,12 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
                         Reset All Widgets
                     </Button>
                 </SettingsItem>
-
-                {/* Reset Welcome Tour */}
-                <SettingsItem
-                    label="Reset Welcome Tour"
-                    description="Replay the walkthrough that introduces you to Framerr. The tour will start next time you visit the dashboard."
-                    icon={RefreshCw}
-                    iconColor="text-accent"
-                >
-                    <Button
-                        variant="secondary"
-                        size="md"
-                        textSize="sm"
-                        onClick={() => {
-                            walkthrough?.resetAndStartFlow('onboarding');
-                            setTourReset(true);
-                        }}
-                        disabled={tourReset}
-                    >
-                        {tourReset ? 'Tour Reset!' : 'Reset Tour'}
-                    </Button>
-                </SettingsItem>
             </SettingsSection>
 
             {/* Desktop Section */}
             <SettingsSection title="Desktop" icon={Monitor}>
                 {/* Auto-hide Sidebar Toggle */}
                 <SidebarAutoHideToggle />
-
-                {/* Square Cells Toggle (Experimental) */}
-                <SquareCellsToggle />
             </SettingsSection>
 
             {/* Mobile Section */}
@@ -319,6 +294,29 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
                 </AnimatePresence>
             </SettingsSection>
 
+            {/* Welcome Tour */}
+            <SettingsSection title="Welcome Tour" icon={RefreshCw}>
+                <SettingsItem
+                    label="Reset Welcome Tour"
+                    description="Replay the walkthrough that introduces you to Framerr. The tour will start next time you visit the dashboard."
+                    icon={RefreshCw}
+                    iconColor="text-accent"
+                >
+                    <Button
+                        variant="secondary"
+                        size="md"
+                        textSize="sm"
+                        onClick={() => {
+                            walkthrough?.resetAndStartFlow('onboarding');
+                            setTourReset(true);
+                        }}
+                        disabled={tourReset}
+                    >
+                        {tourReset ? 'Tour Reset!' : 'Reset Tour'}
+                    </Button>
+                </SettingsItem>
+            </SettingsSection>
+
             {/* Reconnect Confirmation Dialog */}
             <ConfirmDialog
                 open={showReconnectModal}
@@ -342,6 +340,20 @@ export function LayoutSection({ className = '' }: LayoutSectionProps) {
                 variant="danger"
                 loading={actionLoading}
             />
+        </>
+    );
+
+    if (embedded) {
+        return content;
+    }
+
+    return (
+        <SettingsPage
+            title="General"
+            description="Manage your dashboard layout and preferences"
+            className={className}
+        >
+            {content}
         </SettingsPage>
     );
 }

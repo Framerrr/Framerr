@@ -97,6 +97,14 @@ export interface GridPolicy {
         cols: Record<string, number>;
         /** Row height in pixels */
         rowHeight: number | 'auto';
+        /**
+         * Fixed-display (kiosk) mode: when true, widget registry minSize/maxSize are
+         * NOT stamped onto GridStack nodes and live nodes are relaxed so widgets
+         * resize freely (both breakpoints; engine still bounds w to column count).
+         * Toggling off re-stamps registry constraints WITHOUT auto-clamping existing
+         * w/h — they re-clamp on next resize (or visually on next load). Default false.
+         */
+        relaxConstraints?: boolean;
         /** Margin between items [horizontal, vertical] */
         margin: [number, number];
         /** Container padding [horizontal, vertical] */
@@ -133,7 +141,12 @@ export interface GridPolicy {
         commitStrategy: 'on-stop' | 'on-change';
         /** Selection mode */
         selectionMode: 'single' | 'none';
-        /** Mobile unlock pattern */
+        /** Mobile unlock pattern. NOTE: currently declarative only — buildGridStackOptions
+         * (GridStackAdapterV2.tsx) does not read this field; actual hold-to-drag timing is
+         * driven globally by DDManager.touchDelay/externalTouchDelay (set once, shared by
+         * every GridPolicy surface). See TASK-20260726-003 deep analysis before wiring this
+         * to per-surface behavior — doing so needs surface-aware delay resolution and a
+         * verified Template Builder touch smoke pass, both out of that task's scope. */
         touchActivation: 'long-press' | 'none';
         /** Enable auto-scroll during drag */
         autoScroll: boolean;

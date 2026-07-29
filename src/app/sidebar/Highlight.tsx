@@ -1,7 +1,7 @@
 
 
 import * as React from 'react';
-import { AnimatePresence, motion, type Transition } from 'framer-motion';
+import { AnimatePresence, motion, useSpring, useTransform, type Transition } from 'framer-motion';
 
 // Simplified Highlight primitive for sidebar indicator
 // Adapted from Animate UI: https://animate-ui.com
@@ -21,12 +21,11 @@ type Bounds = {
 type HighlightContextType = {
     activeValue: string | null;
     setActiveValue: (value: string | null) => void;
-    setBounds: (rect: DOMRect) => void;
-    clearBounds: () => void;
+    registerItem: (value: string, el: HTMLElement) => () => void;
+    trackActiveItem: () => void;
     hover: boolean;
     enabled: boolean;
     transition: Transition;
-    exitDelay: number;
     hoverLeaveDelay: number;
     hoverLeaveTimeoutRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>;
     mode: HighlightMode;
@@ -49,7 +48,7 @@ function useHighlight(): HighlightContextType {
 const defaultTransition: Transition = {
     type: 'spring',
     stiffness: 350,
-    damping: 35
+    damping: 35,
 };
 
 type HighlightProps = {
@@ -64,8 +63,6 @@ type HighlightProps = {
     enabled?: boolean;
     /** Animation transition config */
     transition?: Transition;
-    /** Delay in ms before indicator fades out */
-    exitDelay?: number;
     /** Delay in ms before hover state clears when leaving an item */
     hoverLeaveDelay?: number;
     /** Additional class for the container */
@@ -93,7 +90,6 @@ function Highlight({
     hover = true,
     enabled = true,
     transition = defaultTransition,
-    exitDelay = 200,
     hoverLeaveDelay = 0,
     containerClassName = '',
     boundsOffset,
@@ -107,45 +103,58 @@ function Highlight({
     const hoverLeaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const contextId = React.useId();
 
-    // Bounds offset with defaults (for parent mode)
     const offsetTop = boundsOffset?.top ?? 0;
     const offsetLeft = boundsOffset?.left ?? 0;
     const offsetWidth = boundsOffset?.width ?? 0;
     const offsetHeight = boundsOffset?.height ?? 0;
 
-    // State
     const [activeValue, setActiveValueState] = React.useState<string | null>(
         value ?? defaultValue ?? null
     );
-    const [bounds, setBoundsState] = React.useState<Bounds | null>(null);
+    const [hasTarget, setHasTarget] = React.useState(false);
 
-    // Scroll clip bounds state (parent mode)
-    const [scrollClipBounds, setScrollClipBounds] = React.useState<{ top: number; bottom: number } | null>(null);
-    const [isActiveInScrollContainer, setIsActiveInScrollContainer] = React.useState(false);
+    const itemsRef = React.useRef(new Map<string, HTMLElement>());
+    const [registryVersion, bumpRegistry] = React.useReducer((x: number) => x + 1, 0);
 
-    // Track if mouse is hovering the container (for clip-path decision)
-    const [, setIsContainerHovered] = React.useState(false);
+    const scrollClipRef = React.useRef<{ top: number; bottom: number } | null>(null);
+    const isActiveInScrollContainerRef = React.useRef(false);
+    const lastCommandedTargetRef = React.useRef<Bounds | null>(null);
+    const previousTargetValueRef = React.useRef<string | null>(null);
+    const wasHiddenRef = React.useRef(true);
 
-    // Controlled vs uncontrolled - when setting to null, fall back to defaultValue
-    const setActiveValue = React.useCallback((newValue: string | null) => {
-        const resolvedValue = newValue ?? defaultValue ?? null;
-        if (value === undefined) {
-            setActiveValueState(resolvedValue);
-        }
-        onValueChange?.(resolvedValue);
-    }, [value, defaultValue, onValueChange]);
+    const springConfig =
+        transition.type === 'spring'
+            ? {
+                  stiffness: transition.stiffness ?? 350,
+                  damping: transition.damping ?? 35,
+                  mass: transition.mass ?? 1,
+              }
+            : { stiffness: 350, damping: 35, mass: 1 };
 
-    // Sync with controlled value
+    const top = useSpring(0, springConfig);
+    const left = useSpring(0, springConfig);
+    const width = useSpring(0, springConfig);
+    const height = useSpring(0, springConfig);
+
+    const setActiveValue = React.useCallback(
+        (newValue: string | null) => {
+            const resolvedValue = newValue ?? defaultValue ?? null;
+            if (value === undefined) {
+                setActiveValueState(resolvedValue);
+            }
+            onValueChange?.(resolvedValue);
+        },
+        [value, defaultValue, onValueChange]
+    );
+
     React.useEffect(() => {
         if (value !== undefined) {
             setActiveValueState(value);
         }
     }, [value]);
 
-    // Sync with defaultValue changes (e.g., when navigating to a different page)
     React.useEffect(() => {
         if (defaultValue !== undefined && value === undefined) {
-            // Clear any pending hover-leave timeout to prevent snap-back to old value
             if (hoverLeaveTimeoutRef.current) {
                 clearTimeout(hoverLeaveTimeoutRef.current);
                 hoverLeaveTimeoutRef.current = null;
@@ -154,57 +163,192 @@ function Highlight({
         }
     }, [defaultValue, value]);
 
-    // Calculate bounds relative to container (for parent mode)
-    const setBounds = React.useCallback((rect: DOMRect) => {
-        if (!containerRef.current || mode !== 'parent') return;
-
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const newBounds: Bounds = {
-            top: rect.top - containerRect.top + offsetTop,
-            left: rect.left - containerRect.left + offsetLeft,
-            width: rect.width + offsetWidth,
-            height: rect.height + offsetHeight,
-        };
-
-        setBoundsState(prev => {
-            if (prev &&
-                prev.top === newBounds.top &&
-                prev.left === newBounds.left &&
-                prev.width === newBounds.width &&
-                prev.height === newBounds.height) {
-                return prev;
+    const measureTarget = React.useCallback(
+        (el: HTMLElement): Bounds => {
+            if (!containerRef.current) {
+                return { top: 0, left: 0, width: 0, height: 0 };
             }
-            return newBounds;
-        });
-    }, [mode, offsetTop, offsetLeft, offsetWidth, offsetHeight]);
+            const containerRect = containerRef.current.getBoundingClientRect();
+            const elRect = el.getBoundingClientRect();
+            // Scale-correct: aside may be Framer-scaled; ratios cancel for local CSS px
+            const scaleX = containerRect.width / (containerRef.current.offsetWidth || 1) || 1;
+            const scaleY = containerRect.height / (containerRef.current.offsetHeight || 1) || 1;
+            return {
+                top: (elRect.top - containerRect.top) / scaleY + offsetTop,
+                left: (elRect.left - containerRect.left) / scaleX + offsetLeft,
+                width: elRect.width / scaleX + offsetWidth,
+                height: elRect.height / scaleY + offsetHeight,
+            };
+        },
+        [offsetTop, offsetLeft, offsetWidth, offsetHeight]
+    );
 
-    const clearBounds = React.useCallback(() => {
-        setBoundsState(null);
-    }, []);
+    const targetsEqual = (a: Bounds, b: Bounds): boolean =>
+        Math.abs(a.top - b.top) <= 0.5 &&
+        Math.abs(a.left - b.left) <= 0.5 &&
+        Math.abs(a.width - b.width) <= 0.5 &&
+        Math.abs(a.height - b.height) <= 0.5;
 
-    // Handle scroll to update bounds (parent mode only)
+    const retarget = React.useCallback(
+        (el: HTMLElement, { snap }: { snap: boolean }) => {
+            const target = measureTarget(el);
+            const last = lastCommandedTargetRef.current;
+            if (last && targetsEqual(last, target)) return;
+
+            if (snap) {
+                top.jump(target.top);
+                left.jump(target.left);
+                width.jump(target.width);
+                height.jump(target.height);
+            } else {
+                top.set(target.top);
+                left.set(target.left);
+                width.set(target.width);
+                height.set(target.height);
+            }
+            lastCommandedTargetRef.current = target;
+        },
+        [measureTarget, top, left, width, height]
+    );
+
+    const registerItem = React.useCallback(
+        (itemValue: string, el: HTMLElement) => {
+            itemsRef.current.set(itemValue, el);
+            bumpRegistry();
+            return () => {
+                const current = itemsRef.current.get(itemValue);
+                if (current === el) {
+                    itemsRef.current.delete(itemValue);
+                    bumpRegistry();
+                }
+            };
+        },
+        []
+    );
+
+    const trackActiveItem = React.useCallback(() => {
+        if (mode !== 'parent') return;
+        const targetValue =
+            value !== undefined
+                ? value
+                : activeValue ?? defaultValue ?? null;
+        if (!targetValue) return;
+        const el = itemsRef.current.get(targetValue);
+        if (!el) return;
+        retarget(el, { snap: true });
+    }, [mode, value, activeValue, defaultValue, retarget]);
+
+    const resolveTargetValue = React.useCallback((): string | null => {
+        if (value !== undefined) {
+            if (value === null) return null;
+            return itemsRef.current.has(value) ? value : null;
+        }
+        if (activeValue && itemsRef.current.has(activeValue)) return activeValue;
+        if (defaultValue && itemsRef.current.has(defaultValue)) return defaultValue;
+        return null;
+    }, [value, activeValue, defaultValue]);
+
+    // Parent mode: resolve target on registry / value changes (ghost fix + controlled fallback)
+    React.useLayoutEffect(() => {
+        if (mode !== 'parent') return;
+
+        const resolved = resolveTargetValue();
+
+        if (value === undefined && resolved !== activeValue) {
+            setActiveValueState(resolved);
+        }
+
+        const prevTargetValue = previousTargetValueRef.current;
+
+        if (resolved === null) {
+            wasHiddenRef.current = true;
+            previousTargetValueRef.current = null;
+            setHasTarget(false);
+            return;
+        }
+
+        const el = itemsRef.current.get(resolved)!;
+        isActiveInScrollContainerRef.current = scrollContainerRef?.current
+            ? scrollContainerRef.current.contains(el)
+            : false;
+
+        const snap =
+            wasHiddenRef.current ||
+            (prevTargetValue !== null && !itemsRef.current.has(prevTargetValue));
+
+        if (snap && wasHiddenRef.current) {
+            const target = measureTarget(el);
+            top.jump(target.top);
+            left.jump(target.left);
+            width.jump(target.width);
+            height.jump(target.height);
+            lastCommandedTargetRef.current = target;
+            wasHiddenRef.current = false;
+            previousTargetValueRef.current = resolved;
+            setHasTarget(true);
+        } else if (snap) {
+            retarget(el, { snap: true });
+            wasHiddenRef.current = false;
+            previousTargetValueRef.current = resolved;
+            setHasTarget(true);
+        } else {
+            retarget(el, { snap: false });
+            wasHiddenRef.current = false;
+            previousTargetValueRef.current = resolved;
+            setHasTarget(true);
+        }
+    }, [
+        mode,
+        registryVersion,
+        activeValue,
+        defaultValue,
+        value,
+        resolveTargetValue,
+        measureTarget,
+        retarget,
+        scrollContainerRef,
+        top,
+        left,
+        width,
+        height,
+    ]);
+
+    // Morph height / boundsOffset changes — spring retarget
+    React.useLayoutEffect(() => {
+        if (mode !== 'parent' || !hasTarget) return;
+        const resolved = resolveTargetValue();
+        if (!resolved) return;
+        const el = itemsRef.current.get(resolved);
+        if (el) retarget(el, { snap: false });
+    }, [
+        mode,
+        offsetTop,
+        offsetLeft,
+        offsetWidth,
+        offsetHeight,
+        hasTarget,
+        resolveTargetValue,
+        retarget,
+    ]);
+
+    // Scroll: snap tracking write
     React.useEffect(() => {
         if (mode !== 'parent') return;
         const container = containerRef.current;
-        if (!container || !activeValue) return;
+        if (!container) return;
 
         const onScroll = () => {
-            const activeEl = container.querySelector<HTMLElement>(
-                `[data-highlight-value="${activeValue}"]`
-            );
-            if (activeEl) {
-                setBounds(activeEl.getBoundingClientRect());
-            }
+            trackActiveItem();
         };
 
         container.addEventListener('scroll', onScroll, { passive: true });
         return () => container.removeEventListener('scroll', onScroll);
-    }, [mode, activeValue, setBounds]);
+    }, [mode, trackActiveItem]);
 
-    // Track scroll container bounds for clip-path (parent mode)
+    // Scroll clip bounds (ref) + resize re-measure
     React.useEffect(() => {
         if (mode !== 'parent' || !scrollContainerRef?.current || !containerRef.current) {
-            setScrollClipBounds(null);
+            scrollClipRef.current = null;
             return;
         }
 
@@ -214,16 +358,14 @@ function Highlight({
         const updateClipBounds = () => {
             const containerRect = container.getBoundingClientRect();
             const scrollRect = scrollContainer.getBoundingClientRect();
-            setScrollClipBounds({
+            scrollClipRef.current = {
                 top: scrollRect.top - containerRect.top,
                 bottom: scrollRect.bottom - containerRect.top,
-            });
+            };
+            trackActiveItem();
         };
 
-        // Initial calculation
         updateClipBounds();
-
-        // Update on scroll (in case container moves)
         scrollContainer.addEventListener('scroll', updateClipBounds, { passive: true });
         window.addEventListener('resize', updateClipBounds, { passive: true });
 
@@ -231,38 +373,56 @@ function Highlight({
             scrollContainer.removeEventListener('scroll', updateClipBounds);
             window.removeEventListener('resize', updateClipBounds);
         };
-    }, [mode, scrollContainerRef]);
+    }, [mode, scrollContainerRef, trackActiveItem]);
 
-    React.useEffect(() => {
-        if (mode !== 'parent' || !scrollContainerRef?.current || !containerRef.current || !activeValue) {
-            setIsActiveInScrollContainer(false);
-            return;
+    const clipPath = useTransform([top, height], ([t, h]) => {
+        if (!isActiveInScrollContainerRef.current || !scrollClipRef.current) {
+            return 'none';
         }
+        const clipBounds = scrollClipRef.current;
+        const indicatorTop = t as number;
+        const indicatorBottom = indicatorTop + (h as number);
+        const visibleTop = clipBounds.top;
+        const visibleBottom = clipBounds.bottom;
+        const clipFromTop = Math.max(0, visibleTop - indicatorTop);
+        const clipFromBottom = Math.max(0, indicatorBottom - visibleBottom);
+        if (clipFromTop > 0 || clipFromBottom > 0) {
+            return `inset(${clipFromTop}px 0 ${clipFromBottom}px 0)`;
+        }
+        return 'none';
+    });
 
-        const activeEl = containerRef.current.querySelector<HTMLElement>(
-            `[data-highlight-value="${activeValue}"]`
-        );
-        setIsActiveInScrollContainer(
-            !!activeEl && scrollContainerRef.current.contains(activeEl)
-        );
-    }, [mode, scrollContainerRef, activeValue]);
-
-    const contextValue = React.useMemo<HighlightContextType>(() => ({
-        activeValue,
-        setActiveValue,
-        setBounds,
-        clearBounds,
-        hover,
-        enabled,
-        transition,
-        exitDelay,
-        hoverLeaveDelay,
-        hoverLeaveTimeoutRef,
-        mode,
-        contextId,
-        indicatorClassName: className,
-        indicatorStyle: style,
-    }), [activeValue, setActiveValue, setBounds, clearBounds, hover, enabled, transition, exitDelay, hoverLeaveDelay, mode, contextId, className, style]);
+    const contextValue = React.useMemo<HighlightContextType>(
+        () => ({
+            activeValue,
+            setActiveValue,
+            registerItem,
+            trackActiveItem,
+            hover,
+            enabled,
+            transition,
+            hoverLeaveDelay,
+            hoverLeaveTimeoutRef,
+            mode,
+            contextId,
+            indicatorClassName: className,
+            indicatorStyle: style,
+        }),
+        [
+            activeValue,
+            setActiveValue,
+            registerItem,
+            trackActiveItem,
+            hover,
+            enabled,
+            transition,
+            hoverLeaveDelay,
+            mode,
+            contextId,
+            className,
+            style,
+        ]
+    );
 
     if (!enabled) {
         return <>{children}</>;
@@ -274,10 +434,7 @@ function Highlight({
                 ref={containerRef}
                 className={containerClassName}
                 style={{ position: 'relative' }}
-                onMouseEnter={() => setIsContainerHovered(true)}
                 onMouseLeave={() => {
-                    setIsContainerHovered(false);
-                    // When leaving the container entirely, immediately snap back (no delay)
                     if (hoverLeaveTimeoutRef.current) {
                         clearTimeout(hoverLeaveTimeoutRef.current);
                         hoverLeaveTimeoutRef.current = null;
@@ -285,64 +442,31 @@ function Highlight({
                     setActiveValue(null);
                 }}
             >
-                {/* Parent mode: Single indicator with location-based clipping */}
-                {mode === 'parent' && (() => {
-                    // Calculate clip-path only for items inside scroll container
-                    let clipPath: string | undefined;
-                    if (isActiveInScrollContainer && scrollClipBounds && bounds) {
-                        // Indicator position (relative to container)
-                        const indicatorTop = bounds.top;
-                        const indicatorBottom = bounds.top + bounds.height;
-
-                        // Visible scroll area (relative to container)
-                        const visibleTop = scrollClipBounds.top;
-                        const visibleBottom = scrollClipBounds.bottom;
-
-                        // Calculate how much indicator extends OUTSIDE visible area
-                        // Clip from top if indicator extends above visible top
-                        const clipFromTop = Math.max(0, visibleTop - indicatorTop);
-                        // Clip from bottom if indicator extends below visible bottom
-                        const clipFromBottom = Math.max(0, indicatorBottom - visibleBottom);
-
-                        // Only apply clip if there's something to clip
-                        if (clipFromTop > 0 || clipFromBottom > 0) {
-                            clipPath = `inset(${clipFromTop}px 0 ${clipFromBottom}px 0)`;
-                        }
-                    }
-
-                    // Shared layoutId for smooth animation
-                    const layoutId = `highlight-indicator-${contextId}`;
-
-                    return (
-                        <AnimatePresence initial={false}>
-                            {bounds && (
-                                <motion.div
-                                    data-highlight-indicator
-                                    layoutId={layoutId}
-                                    initial={{ opacity: 0 }}
-                                    animate={{
-                                        top: bounds.top,
-                                        left: bounds.left,
-                                        width: bounds.width,
-                                        height: bounds.height,
-                                        opacity: 1
-                                    }}
-                                    exit={{ opacity: 0 }}
-                                    transition={transition}
-                                    className={className}
-                                    style={{
-                                        position: 'absolute',
-                                        pointerEvents: 'none',
-                                        zIndex: 0,
-                                        clipPath,
-                                        ...style
-                                    }}
-                                />
-                            )}
-                        </AnimatePresence>
-                    );
-                })()}
-                {/* Children mode: Each HighlightItem renders its own indicator */}
+                {mode === 'parent' && (
+                    <AnimatePresence initial={false}>
+                        {hasTarget && (
+                            <motion.div
+                                data-highlight-indicator
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                                className={className}
+                                style={{
+                                    position: 'absolute',
+                                    top,
+                                    left,
+                                    width,
+                                    height,
+                                    pointerEvents: 'none',
+                                    zIndex: 0,
+                                    clipPath,
+                                    ...style,
+                                }}
+                            />
+                        )}
+                    </AnimatePresence>
+                )}
                 {children}
             </div>
         </HighlightContext.Provider>
@@ -357,6 +481,8 @@ type HighlightItemProps = {
     disabled?: boolean;
     /** Additional className for the wrapper */
     className?: string;
+    /** Stacking order relative to the parent-mode indicator (default 1) */
+    zIndex?: number;
 };
 
 function HighlightItem({
@@ -364,13 +490,14 @@ function HighlightItem({
     value,
     disabled = false,
     className = '',
+    zIndex = 1,
 }: HighlightItemProps) {
     const itemRef = React.useRef<HTMLDivElement>(null);
     const {
         activeValue,
         setActiveValue,
-        setBounds,
-        clearBounds,
+        registerItem,
+        trackActiveItem,
         hover,
         enabled,
         mode,
@@ -384,17 +511,13 @@ function HighlightItem({
 
     const isActive = activeValue === value;
 
-    // Parent mode: Update bounds when this item becomes active
-    React.useEffect(() => {
-        if (mode !== 'parent') return;
-        if (isActive && itemRef.current) {
-            setBounds(itemRef.current.getBoundingClientRect());
-        } else if (!activeValue) {
-            clearBounds();
-        }
-    }, [mode, isActive, activeValue, setBounds, clearBounds]);
+    React.useLayoutEffect(() => {
+        if (mode !== 'parent' || !itemRef.current) return;
+        return registerItem(value, itemRef.current);
+    }, [mode, value, registerItem]);
 
-    // Parent mode: Handle resize with RAF polling
+    // Parent mode: active-value changes retarget via Highlight resolution effect.
+    // ResizeObserver poll — render-free tracking (300 ms window).
     React.useEffect(() => {
         if (mode !== 'parent' || !isActive || !itemRef.current) return;
 
@@ -402,14 +525,8 @@ function HighlightItem({
         let isPolling = false;
         let pollEndTimeout: ReturnType<typeof setTimeout> | null = null;
 
-        const updateBounds = () => {
-            if (itemRef.current) {
-                setBounds(itemRef.current.getBoundingClientRect());
-            }
-        };
-
         const pollPosition = () => {
-            updateBounds();
+            trackActiveItem();
             if (isPolling) {
                 rafId = requestAnimationFrame(pollPosition);
             }
@@ -424,7 +541,7 @@ function HighlightItem({
             pollEndTimeout = setTimeout(() => {
                 isPolling = false;
                 if (rafId) cancelAnimationFrame(rafId);
-            }, 500);
+            }, 300);
         };
 
         const resizeObserver = new ResizeObserver(startPolling);
@@ -436,33 +553,34 @@ function HighlightItem({
             if (pollEndTimeout) clearTimeout(pollEndTimeout);
             resizeObserver.disconnect();
         };
-    }, [mode, isActive, setBounds]);
+    }, [mode, isActive, trackActiveItem]);
 
     if (!enabled) {
         return <>{children}</>;
     }
 
-    const handlers = hover && !disabled
-        ? {
-            onMouseEnter: () => {
-                if (hoverLeaveTimeoutRef.current) {
-                    clearTimeout(hoverLeaveTimeoutRef.current);
-                    hoverLeaveTimeoutRef.current = null;
-                }
-                setActiveValue(value);
-            },
-            onMouseLeave: () => {
-                if (hoverLeaveDelay > 0) {
-                    hoverLeaveTimeoutRef.current = setTimeout(() => {
-                        setActiveValue(null);
-                        hoverLeaveTimeoutRef.current = null;
-                    }, hoverLeaveDelay);
-                } else {
-                    setActiveValue(null);
-                }
-            },
-        }
-        : {};
+    const handlers =
+        hover && !disabled
+            ? {
+                  onMouseEnter: () => {
+                      if (hoverLeaveTimeoutRef.current) {
+                          clearTimeout(hoverLeaveTimeoutRef.current);
+                          hoverLeaveTimeoutRef.current = null;
+                      }
+                      setActiveValue(value);
+                  },
+                  onMouseLeave: () => {
+                      if (hoverLeaveDelay > 0) {
+                          hoverLeaveTimeoutRef.current = setTimeout(() => {
+                              setActiveValue(null);
+                              hoverLeaveTimeoutRef.current = null;
+                          }, hoverLeaveDelay);
+                      } else {
+                          setActiveValue(null);
+                      }
+                  },
+              }
+            : {};
 
     return (
         <div
@@ -471,10 +589,9 @@ function HighlightItem({
             data-highlight-active={isActive}
             data-highlight-disabled={disabled}
             className={`${className} ${mode === 'children' ? 'relative' : ''}`}
-            style={{ position: 'relative', zIndex: 1 }}
+            style={{ position: 'relative', zIndex }}
             {...handlers}
         >
-            {/* Children mode: Render indicator inside each item with shared layoutId */}
             {mode === 'children' && isActive && !disabled && (
                 <motion.div
                     layoutId={`highlight-indicator-${contextId}`}
@@ -490,10 +607,7 @@ function HighlightItem({
                     transition={transition}
                 />
             )}
-            {/* Content sits above indicator */}
-            <div style={{ position: 'relative', zIndex: 1 }}>
-                {children}
-            </div>
+            <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
         </div>
     );
 }

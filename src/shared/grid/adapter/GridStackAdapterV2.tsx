@@ -35,7 +35,7 @@ import '../../../vendor/gridstack/gridstack-columns.css';
 import type { FramerrWidget, GridPolicy, GridEventHandlers, Breakpoint } from '../core/types';
 
 // Widget registry for constraints
-import { getWidgetMetadata } from '../../../widgets/registry';
+import { resolveWidgetConstraints } from './resolveWidgetConstraints';
 
 // FLIP animation support
 import { getLastHelperRect, getLastMorphContent } from './setupExternalDragSources';
@@ -44,6 +44,7 @@ import type { DropTransitionEvent } from './DropTransitionOverlay';
 
 // Logger
 import logger from '../../../utils/logger';
+import { markGridDragStarted, markGridDragStopped } from '../../../utils/gridDragClickSuppression';
 
 // ============================================================================
 // TYPES
@@ -71,13 +72,70 @@ export interface GridStackAdapterV2Props {
 }
 
 // ============================================================================
+// TOUCH INTERACTION CONSTANTS (mobile hold-to-move)
+// ============================================================================
+
+/** Hold-to-move delay before a touch drag arms (ms). Longer than stock 200 so slow
+ * scrolling cancels instead of arming; unlock lift+glow appears at exactly this instant. */
+export const TOUCH_HOLD_DELAY_MS = 350;
+
+/** Hold delay for external drag-in (Add Widget modal / palette cards). Shorter than
+ * dashboard hold-to-move so catalog grabs stay responsive. */
+export const TOUCH_EXTERNAL_HOLD_DELAY_MS = 300;
+
+/** Finger travel that cancels a pending hold (px). Slow scrolls ≥ ~23px/s exceed this
+ * within the hold window; intentional hold jitter (<5px) does not. */
+export const TOUCH_HOLD_TOLERANCE_PX = 8;
+
+/** FRAMERR: how long touchActivated can sit true with zero drag/resize progress
+ * before the stall watchdog treats it as an orphan (lost touchend) rather than a
+ * legitimate "armed, not yet moving" hold. Generous on purpose — this only fires
+ * as defense-in-depth once the pending-cancel wiring (dd-touch.ts) removes the
+ * normal path to this state. Builder-tunable; record final value in IMPLEMENTATION_LOG
+ * if device smoke suggests a change. */
+export const TOUCH_ORPHAN_ACTIVATION_TIMEOUT_MS = 8000;
+
+/**
+ * FRAMERR: Predicate for the DD stall watchdog.
+ * Must NOT reset while a touch resize/drag gesture is still live — resize never sets
+ * `DDManager.dragElement`, so a naive `!dragElement` check falsely "recovers" mid-resize,
+ * clears `touchHandled`, stalls `touchmove`, and leaves document listeners armed (next tap
+ * jumps the widget size to the tap point).
+ */
+export function shouldResetStalledTouchState(state: {
+    mouseHandled: boolean;
+    touchHandled: boolean;
+    hasDragElement: boolean;
+    touchActivated: boolean;
+    touchActivatedElapsedMs?: number;
+    resizeDir?: string;
+    hasUiDragging: boolean;
+    hasUiResizing: boolean;
+}): boolean {
+    if (!(state.mouseHandled || state.touchHandled)) return false;
+    if (state.hasDragElement) return false;
+    // FRAMERR: live resize/drag progress is sacred regardless of activation
+    // dwell time — checked before the time-gated touchActivated branch below.
+    if (state.resizeDir) return false;
+    if (state.hasUiDragging || state.hasUiResizing) return false;
+    if (state.touchActivated) {
+        // FRAMERR: orphan recovery — activated with zero drag/resize progress
+        // for longer than any plausible "hold and decide" pause is presumed a
+        // lost touchend (browser/OS event loss), not a live gesture. Below the
+        // timeout, this is identical to the pre-existing blanket skip.
+        return (state.touchActivatedElapsedMs ?? 0) >= TOUCH_ORPHAN_ACTIVATION_TIMEOUT_MS;
+    }
+    return true;
+}
+
+// ============================================================================
 // HELPER FUNCTIONS (same interface as V1 for consistency)
 // ============================================================================
 
 /**
  * Build GridStack options from our policy format.
  */
-function buildGridStackOptions(policy: GridPolicy): GridStackOptions {
+export function buildGridStackOptions(policy: GridPolicy): GridStackOptions {
     return {
         // Layout
         column: policy.view.breakpoint === 'sm'
@@ -113,6 +171,12 @@ function buildGridStackOptions(policy: GridPolicy): GridStackOptions {
         resizable: {
             handles: policy.interaction.resizeHandles?.join(',') || 'se',
         },
+
+        // FRAMERR: disable GridStack's smooth-scroll resize driver ONLY on surfaces that
+        // declare their own auto-scroll driver (dashboard: useDragAutoScroll via
+        // behavior.autoScroll=true). Template Builder declares autoScroll=false and keeps
+        // stock GridStack resize-scroll — see FramerrTemplateGrid policy.
+        framerrDisableResizeScroll: policy.behavior.autoScroll === true,
     };
 }
 
@@ -122,16 +186,14 @@ function buildGridStackOptions(policy: GridPolicy): GridStackOptions {
  */
 function toGridStackWidget(
     widget: FramerrWidget,
-    breakpoint: Breakpoint
+    breakpoint: Breakpoint,
+    relaxConstraints: boolean,
 ): GridStackWidget {
     const layout = (breakpoint === 'sm' && widget.mobileLayout)
         ? widget.mobileLayout
         : widget.layout;
 
-    // Get constraints from registry
-    const metadata = getWidgetMetadata(widget.type);
-    const isMobile = breakpoint === 'sm';
-    const mobileCols = 4;
+    const { minW, maxW, minH, maxH } = resolveWidgetConstraints(widget.type, breakpoint, relaxConstraints);
 
     return {
         id: widget.id,
@@ -139,10 +201,10 @@ function toGridStackWidget(
         y: layout.y,
         w: layout.w,
         h: layout.h,
-        minW: isMobile ? 1 : metadata?.minSize?.w,
-        maxW: isMobile ? mobileCols : metadata?.maxSize?.w,
-        minH: metadata?.minSize?.h,
-        maxH: metadata?.maxSize?.h,
+        minW,
+        maxW,
+        minH,
+        maxH,
         // Use empty div as portal target - React will render content here
         content: `<div data-widget-portal="${widget.id}" style="position:absolute;top:0;left:0;right:0;bottom:0;"></div>`,
     };
@@ -167,10 +229,11 @@ function toGridStackWidgets(
     widgets: FramerrWidget[],
     breakpoint: Breakpoint,
     widgetVisibility?: Record<string, boolean>,
-    canDrag: boolean = true
+    canDrag: boolean = true,
+    relaxConstraints: boolean = false,
 ): GridStackWidget[] {
     const visibleWidgets = filterVisibleWidgets(widgets, widgetVisibility, canDrag);
-    return visibleWidgets.map(w => toGridStackWidget(w, breakpoint));
+    return visibleWidgets.map(w => toGridStackWidget(w, breakpoint, relaxConstraints));
 }
 
 /**
@@ -273,30 +336,53 @@ function GridStackInner({
     // moving widgets to stale React positions after an add/remove operation
     const skipPositionSyncUntilRef = useRef<number>(0);
 
-    // Configure touch delay
+    // Configure touch delay (dashboard hold vs shorter external/modal drag-in)
     useEffect(() => {
-        DDManager.touchDelay = 200;
-        DDManager.touchTolerance = 10;
+        DDManager.touchDelay = TOUCH_HOLD_DELAY_MS;
+        DDManager.externalTouchDelay = TOUCH_EXTERNAL_HOLD_DELAY_MS;
+        DDManager.touchTolerance = TOUCH_HOLD_TOLERANCE_PX;
     }, []);
 
     // FRAMERR: Watchdog timer — safety net for stalled DD state.
-    // If mouseHandled is stuck true with no active drag for 3 seconds, auto-reset.
+    // If mouseHandled/touchHandled is stuck with no live drag/resize for 3 seconds, auto-reset.
+    // Must skip active resize: resize never sets dragElement (only .ui-resizable-resizing /
+    // resizeDir / touchActivated). Clearing touchHandled mid-resize stalls touchmove while
+    // document listeners remain — next tap jumps size to the tap point.
     useEffect(() => {
         const watchdogInterval = setInterval(() => {
-            if (DDManager.mouseHandled && !DDManager.dragElement) {
-                // Check if any element is actually being dragged in the DOM
-                const activeDrag = document.querySelector('.ui-draggable-dragging');
-                if (!activeDrag) {
-                    // Stalled! Reset DD state to recover
-                    DDManager.mouseHandled = false;
-                    DDTouch.touchHandled = false;
-                    DDManager.touchActivated = false;
-                    DDManager.savedTouchEvent = null;
-                    if (DDManager.touchTimeoutId) {
-                        clearTimeout(DDManager.touchTimeoutId);
-                        DDManager.touchTimeoutId = null;
-                    }
+            const touchActivatedElapsedMs = DDManager.touchActivatedAt
+                ? Date.now() - DDManager.touchActivatedAt
+                : undefined;
+            if (
+                shouldResetStalledTouchState({
+                    mouseHandled: !!DDManager.mouseHandled,
+                    touchHandled: !!DDTouch.touchHandled,
+                    hasDragElement: !!DDManager.dragElement,
+                    touchActivated: !!DDManager.touchActivated,
+                    touchActivatedElapsedMs,
+                    resizeDir: DDManager.resizeDir,
+                    hasUiDragging: !!document.querySelector('.ui-draggable-dragging'),
+                    hasUiResizing: !!document.querySelector('.ui-resizable-resizing'),
+                })
+            ) {
+                DDManager.mouseHandled = false;
+                DDTouch.touchHandled = false;
+                DDManager.touchActivated = false;
+                DDManager.touchActivatedAt = undefined; // FRAMERR
+                DDManager.savedTouchEvent = null;
+                if (DDManager.touchTimeoutId) {
+                    clearTimeout(DDManager.touchTimeoutId);
+                    DDManager.touchTimeoutId = null;
                 }
+                if (DDManager.unlockRampTimeoutId) {
+                    clearTimeout(DDManager.unlockRampTimeoutId);
+                    DDManager.unlockRampTimeoutId = null;
+                }
+                document.querySelectorAll('.grid-stack-item.widget-unlocked, .grid-stack-item.widget-unlocking')
+                    .forEach(el => {
+                        el.classList.remove('widget-unlocked', 'widget-unlocking');
+                        (el as HTMLElement).style.removeProperty('--unlock-ramp-ms');
+                    });
             }
         }, 3000);
 
@@ -319,11 +405,17 @@ function GridStackInner({
     useEffect(() => {
         if (!gridStack || !gridStack.engine) return;
 
-        const onDragStart = () => handlersRef.current.onDragStart?.();
+        const onDragStart = (_event: Event, el: HTMLElement) => {
+            // FRAMERR: TASK-20260727-004 — arm click suppression at dragstart so the
+            // desktop post-drop native click cannot race GridStack's late dragstop.
+            markGridDragStarted(el);
+            handlersRef.current.onDragStart?.();
+        };
         const onResizeStart = () => handlersRef.current.onResizeStart?.();
 
         const onDragResizeStop = (event: Event, el: HTMLElement) => {
             if (event.type === 'dragstop') {
+                markGridDragStopped(el); // FRAMERR: TASK-20260727-004 — refresh window
                 handlersRef.current.onDragStop?.();
             }
             if (!handlersRef.current.onLayoutCommit) return;
@@ -492,7 +584,8 @@ function GridStackInner({
             widgets,
             policy.view.breakpoint,
             widgetVisibility,
-            policy.interaction.canDrag
+            policy.interaction.canDrag,
+            policy.layout.relaxConstraints === true,
         );
         const visibleIds = new Set(gsWidgets.map(w => w.id as string));
 
@@ -636,7 +729,7 @@ function GridStackInner({
             // Call synchronously - don't wait for RAF
             updatePortalContainersRef.current?.(widgets);
         }
-    }, [widgets, gridStack, policy.view.breakpoint, widgetVisibility, policy.interaction.canDrag, mainGridSelector, getUpdatedWidgets]);
+    }, [widgets, gridStack, policy.view.breakpoint, widgetVisibility, policy.interaction.canDrag, policy.layout.relaxConstraints, mainGridSelector, getUpdatedWidgets]);
 
     // Handle breakpoint/column changes
     const prevColsRef = useRef(
@@ -658,7 +751,8 @@ function GridStackInner({
                 widgets,
                 policy.view.breakpoint,
                 widgetVisibility,
-                policy.interaction.canDrag
+                policy.interaction.canDrag,
+                policy.layout.relaxConstraints === true,
             );
 
             gridStack.batchUpdate();
@@ -694,13 +788,37 @@ function GridStackInner({
 
             prevColsRef.current = newCols;
         }
-    }, [widgets, gridStack, policy.view.breakpoint, policy.layout.cols, widgetVisibility, policy.interaction.canDrag, mainGridSelector]);
+    }, [widgets, gridStack, policy.view.breakpoint, policy.layout.cols, widgetVisibility, policy.interaction.canDrag, policy.layout.relaxConstraints, mainGridSelector]);
 
     // Handle cellHeight changes (e.g. square cells toggle)
     useEffect(() => {
         if (!gridStack || !gridStack.engine) return;
         gridStack.cellHeight(policy.layout.rowHeight === 'auto' ? 'auto' : policy.layout.rowHeight);
     }, [gridStack, policy.layout.rowHeight]);
+
+    // Live-apply constraint relaxation (fixed-display mode) to existing nodes.
+    // Direct node mutation ONLY: gridStack.update() with min/max forces an
+    // immediate moveNode/nodeBoundFix clamp (vendor gridstack.ts:1321,1352;
+    // engine :388-391) which would auto-resize oversized widgets on mode-off.
+    // Node values are enforced by GridStack at the next resize via dd resizable
+    // options set at resize start (vendor gridstack.ts:2616-2621).
+    useEffect(() => {
+        if (!gridStack || !gridStack.engine) return;
+        const relax = policy.layout.relaxConstraints === true;
+        const breakpoint = policy.view.breakpoint;
+        const typeById = new Map(widgetsRef.current.map(w => [w.id, w.type]));
+        for (const node of gridStack.engine.nodes) {
+            const type = node.id !== undefined ? typeById.get(String(node.id)) : undefined;
+            if (!type) continue;
+            const c = resolveWidgetConstraints(type, breakpoint, relax);
+            /* eslint-disable react-hooks/immutability -- imperative GridStack engine API, mirrors existing node-removal pattern above */
+            if (c.minW) node.minW = c.minW; else delete node.minW;
+            if (c.maxW) node.maxW = c.maxW; else delete node.maxW;
+            if (c.minH) node.minH = c.minH; else delete node.minH;
+            if (c.maxH) node.maxH = c.maxH; else delete node.maxH;
+            /* eslint-enable react-hooks/immutability */
+        }
+    }, [gridStack, widgets, policy.layout.relaxConstraints, policy.view.breakpoint]);
 
     // Handle drag/resize enable state
     useEffect(() => {
@@ -824,7 +942,8 @@ export function GridStackAdapterV2({
                 widgets,
                 policy.view.breakpoint,
                 widgetVisibility,
-                policy.interaction.canDrag
+                policy.interaction.canDrag,
+                policy.layout.relaxConstraints === true,
             ),
         };
     }

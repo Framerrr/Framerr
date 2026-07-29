@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useState, useCallback, useMemo, useRef, ReactNode } from 'react';
 
 /**
  * DashboardEditContext - Central state store for dashboard editing
@@ -7,6 +7,10 @@ import React, { createContext, useState, useCallback, useMemo, ReactNode } from 
  * Dashboard registers itself and updates the state when edit mode changes.
  * Sidebar reads the state to decide whether to block navigation and
  * to transform into edit controls on mobile.
+ *
+ * With session keep-alive, multiple Dashboard instances can be mounted.
+ * Only the visible surface may own handlers / push edit state — registration
+ * is keyed by dashboardId so a hidden instance cannot steal or wipe the owner.
  */
 
 export interface DashboardEditContextValue {
@@ -29,9 +33,9 @@ export interface DashboardEditContextValue {
     handlers: DashboardHandlers | null;
 
     // Registration for Dashboard to push its state
-    registerDashboard: (handlers: DashboardHandlers) => void;
-    unregisterDashboard: () => void;
-    updateEditState: (state: EditStateUpdate) => void;
+    registerDashboard: (ownerId: string, handlers: DashboardHandlers) => void;
+    unregisterDashboard: (ownerId: string) => void;
+    updateEditState: (ownerId: string, state: EditStateUpdate) => void;
 }
 
 export interface DashboardHandlers {
@@ -75,14 +79,9 @@ export function DashboardEditProvider({ children }: DashboardEditProviderProps):
 
     // Dashboard handlers - set when Dashboard registers
     const [dashboardHandlers, setDashboardHandlers] = useState<DashboardHandlers | null>(null);
+    const ownerIdRef = useRef<string | null>(null);
 
-    const registerDashboard = useCallback((handlers: DashboardHandlers) => {
-        setDashboardHandlers(handlers);
-    }, []);
-
-    const unregisterDashboard = useCallback(() => {
-        setDashboardHandlers(null);
-        // Reset state when Dashboard unmounts
+    const resetEditState = useCallback(() => {
         setEditMode(false);
         setHasUnsavedChanges(false);
         setPendingUnlink(false);
@@ -93,7 +92,22 @@ export function DashboardEditProvider({ children }: DashboardEditProviderProps):
         setMobileLayoutMode('linked');
     }, []);
 
-    const updateEditState = useCallback((state: EditStateUpdate) => {
+    const registerDashboard = useCallback((ownerId: string, handlers: DashboardHandlers) => {
+        ownerIdRef.current = ownerId;
+        setDashboardHandlers(handlers);
+    }, []);
+
+    const unregisterDashboard = useCallback((ownerId: string) => {
+        // Keep-alive: an inactive surface must not wipe the newly-active owner.
+        if (ownerIdRef.current !== ownerId) return;
+        ownerIdRef.current = null;
+        setDashboardHandlers(null);
+        resetEditState();
+    }, [resetEditState]);
+
+    const updateEditState = useCallback((ownerId: string, state: EditStateUpdate) => {
+        // Ignore pushes from hidden keep-alive dashboards.
+        if (ownerIdRef.current !== ownerId) return;
         setEditMode(state.editMode);
         setHasUnsavedChanges(state.hasUnsavedChanges);
         setPendingUnlink(state.pendingUnlink);

@@ -201,7 +201,7 @@ const TautulliWidget = ({ widget, previewMode = false }: TautulliWidgetProps): R
     const userIsAdmin = isAdmin(user);
 
     const config = widget.config as TautulliConfig | undefined;
-    const configuredIntegrationId = config?.integrationId;
+    const configuredIntegrationId = config?.forceClearIntegration ? null : config?.integrationId;
     const itemCount = resolveListItemCount(config?.itemCount);
     const showStatsBar = config?.showStatsBar !== 'false';
     const statsTimeRange = parseInt(config?.statsTimeRange || '90', 10);

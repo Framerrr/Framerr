@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../../api/client';
 import { Star, Calendar, Clock, User, Check, XCircle, Film, Tv } from 'lucide-react';
-import { Modal } from '../../../shared/ui';
+import { Modal, Button } from '../../../shared/ui';
+import { useMediaServerMeta } from '../../../shared/hooks/useMediaServerMeta';
+import { openMediaInApp } from '../../../shared/utils/mediaDeepLinks';
+import { getIconComponent } from '../../../utils/iconUtils';
 import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
 import { useAuth } from '../../../context/useAuth';
 import { isAdmin } from '../../../utils/permissions';
@@ -35,6 +38,10 @@ interface RequestDetails {
             seasonNumber: number;
             status: number;
         }>;
+        media?: {
+            ratingKey?: string;
+            jellyfinMediaId?: string;
+        };
     };
     tmdb: {
         title?: string;
@@ -59,6 +66,7 @@ interface RequestDetails {
         seasonNumber: number;
         status: number;
     }>;
+    mediaServer?: { type: 'plex' | 'jellyfin'; integrationId: string } | null;
 }
 
 const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
@@ -130,6 +138,12 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
 
         return null;
     }, [request.media?.tmdbId, request.type, radarrQueue, sonarrQueue, initialDownloadInfo]);
+
+    const mediaServerInfo = details?.mediaServer;
+    const { machineIds, serverUrls, serverIds } = useMediaServerMeta(
+        mediaServerInfo ? [mediaServerInfo.integrationId] : [],
+        'overseerr-request-info'
+    );
 
     // Fetch detailed request info
     useEffect(() => {
@@ -224,6 +238,22 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
             ? `https://image.tmdb.org/t/p/w342${request.media.posterPath}`
             : null;
     const hasPoster = !!(localCacheSrc || cdnFallbackSrc);
+
+    const mediaItemId = mediaServerInfo?.type === 'plex'
+        ? details?.request?.media?.ratingKey
+        : mediaServerInfo?.type === 'jellyfin'
+            ? details?.request?.media?.jellyfinMediaId
+            : undefined;
+    const canOpenInMediaServer = !!(mediaServerInfo && mediaItemId);
+    const MEDIA_SERVER_COLORS: Record<'plex' | 'jellyfin', string> = { plex: '#E5A00D', jellyfin: '#9B59B6' };
+    const handleOpenInMediaServer = (): void => {
+        if (!mediaServerInfo || !mediaItemId) return;
+        openMediaInApp(mediaServerInfo.type, mediaItemId, {
+            machineId: machineIds[mediaServerInfo.integrationId],
+            serverUrl: serverUrls[mediaServerInfo.integrationId],
+            serverId: serverIds[mediaServerInfo.integrationId],
+        });
+    };
 
     return (
         <Modal open={true} onOpenChange={(open) => !open && onClose()} size="lg" fixedHeight>
@@ -354,6 +384,20 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                                     <span className="overseerr-status-chip__dot" aria-hidden="true" />
                                     {statusInfo.label}
                                 </div>
+
+                                {canOpenInMediaServer && (
+                                    <div style={{ marginTop: '1rem' }}>
+                                        <Button
+                                            size="md"
+                                            textSize="sm"
+                                            icon={getIconComponent(`system:${mediaServerInfo!.type}`)}
+                                            onClick={handleOpenInMediaServer}
+                                            customColor={{ background: MEDIA_SERVER_COLORS[mediaServerInfo!.type], text: '#000' }}
+                                        >
+                                            Open in {mediaServerInfo!.type === 'plex' ? 'Plex' : 'Jellyfin'}
+                                        </Button>
+                                    </div>
+                                )}
 
                                 <ExternalMediaLinks
                                     tmdbId={request.media?.tmdbId}

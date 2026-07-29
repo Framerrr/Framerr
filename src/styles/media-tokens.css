@@ -9,10 +9,12 @@
  *    Hex values are taken from the accent fills in each project's official
  *    Logo/*.svg on GitHub (not Tailwind approximations / not Simple Icons).
  *
- * 2. Release-type colors (--cinema / --digital / --physical / --missing)
- *    Identify what *kind* of date a Radarr (or shared) pill represents.
+ * 2. Release-type colors (--cinema / --digital / --physical / --missing / --upgrade)
+ *    Identify what *kind* of date a Radarr (or shared) pill represents, plus
+ *    cutoff-unmet / quality-upgrade chrome shared by *arr widgets.
  *    Cinema/premiere is orange vs Radarr yellow; digital is royal blue vs
  *    Sonarr cyan — both tuned for contrast against source colors.
+ *    Upgrade is #C45AD8 (purple-pink) — separated from --physical #8B5CF6.
  *
  * --tv and --music are kept as aliases of --sonarr / --lidarr so existing
  * ReleasePill type classes and calendar event-type keys keep working.
@@ -41,11 +43,14 @@
     --digital: #2563EB;
     --physical: #8B5CF6;
     --missing: #EF4444;
+    /* Cutoff unmet / quality upgrade — pinker than --physical purple */
+    --upgrade: #C45AD8;
 
     --cinema-rgb: 249, 115, 22;
     --digital-rgb: 37, 99, 235;
     --physical-rgb: 139, 92, 246;
     --missing-rgb: 239, 68, 68;
+    --upgrade-rgb: 196, 90, 216;
 
     /* Aliases → source colors (ReleasePill --tv / --music, calendar type keys) */
     --tv: #00CCFF;

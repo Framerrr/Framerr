@@ -7,6 +7,7 @@ const SettingsPage = React.lazy(() => import('./settings/SettingsPage'));
 import LoadingSpinner from '@/shared/ui/LoadingSpinner/LoadingSpinner';
 import { useSharedSidebar } from '@/app/sidebar/context/useSharedSidebar';
 import { useLayout } from '../context/useLayout';
+import { useActiveDashboard } from '@/context/ActiveDashboardContext';
 import { LAYOUT } from '../constants/layout';
 import { signalAppReady } from '../utils/splash';
 
@@ -66,7 +67,12 @@ function PageLayer({
  * Returns: 'dashboard' | 'settings' | 'dev/*' | tab slug
  */
 function parsePageFromHash(hash: string): string {
-    if (!hash || hash === 'dashboard' || hash.startsWith('dashboard?')) {
+    if (
+        !hash ||
+        hash === 'dashboard' ||
+        hash.startsWith('dashboard?') ||
+        hash.startsWith('dashboard/')
+    ) {
         return 'dashboard';
     }
     if (hash === 'settings' || hash.startsWith('settings?') || hash.startsWith('settings/')) {
@@ -88,20 +94,20 @@ function isTabPage(page: string): boolean {
 
 /**
  * MainContent - Unified page layer manager
- * 
- * Manages visibility of all main app pages using keep-alive pattern:
- * - Dashboard (always mounted)
- * - Tabs (mounted once visited, closeable)
- * - Settings (mounted once visited)
- * - Dev pages (conditional render)
- * 
- * All pages stay mounted and are shown/hidden via opacity.
- * This eliminates re-navigation animations and measurement race conditions.
+ *
+ * Keep-alive pattern:
+ * - Dashboards: mount on first visit, stay mounted for the browser session
+ *   (hidden when inactive); do not preload every dashboard up front.
+ *   Inactive surfaces pause widget SSE via DashboardSurfaceContext.
+ * - Tabs: mounted once visited, closeable
+ * - Settings: mounted once visited
+ * - Dev pages: conditional render
  */
 const MainContent = (): React.JSX.Element => {
     const location = useLocation();
     const { isExpanded, isSidebarHidden } = useSharedSidebar();
     const { isMobile } = useLayout();
+    const { activeDashboardId } = useActiveDashboard();
 
     // Current active page
     const [currentPage, setCurrentPage] = useState<string>(() =>
@@ -113,14 +119,20 @@ const MainContent = (): React.JSX.Element => {
         () => new Set(['dashboard'])
     );
 
+    // Dashboard instances visited this session (lazy mount, session keep-alive)
+    const [visitedDashboardIds, setVisitedDashboardIds] = useState<Set<string>>(() => new Set());
+
     // Track hash changes and update current page
     useEffect(() => {
         const updatePage = (): void => {
             const hash = window.location.hash.slice(1);
 
-            // Auto-redirect root with no hash to /#dashboard
+            // Auto-redirect root with no hash to dashboard; ActiveDashboardContext
+            // then canonicalizes to #dashboard/{id} (remember-last or Home).
             if (!hash && location.pathname === '/') {
-                window.location.hash = 'dashboard';
+                window.location.hash = activeDashboardId
+                    ? `dashboard/${activeDashboardId}`
+                    : 'dashboard';
                 return;
             }
 
@@ -139,7 +151,16 @@ const MainContent = (): React.JSX.Element => {
         updatePage();
         window.addEventListener('hashchange', updatePage);
         return () => window.removeEventListener('hashchange', updatePage);
-    }, [location.pathname]);
+    }, [location.pathname, activeDashboardId]);
+
+    // Record dashboard visits — first navigation mounts; later switches reuse the instance
+    useEffect(() => {
+        if (currentPage !== 'dashboard' || !activeDashboardId) return;
+        setVisitedDashboardIds(prev => {
+            if (prev.has(activeDashboardId)) return prev;
+            return new Set([...prev, activeDashboardId]);
+        });
+    }, [currentPage, activeDashboardId]);
 
     // Close a tab (remove from visited set to unmount it)
     const closeTab = useCallback((tabSlug: string) => {
@@ -148,9 +169,11 @@ const MainContent = (): React.JSX.Element => {
             next.delete(tabSlug);
             return next;
         });
-        // Navigate back to dashboard
-        window.location.hash = 'dashboard';
-    }, []);
+        // Navigate back to dashboard (concrete id when known)
+        window.location.hash = activeDashboardId
+            ? `dashboard/${activeDashboardId}`
+            : 'dashboard';
+    }, [activeDashboardId]);
 
     // Calculate extra padding for settings container when sidebar is expanded
     const settingsExtraPadding = (!isMobile && isExpanded)
@@ -194,14 +217,27 @@ const MainContent = (): React.JSX.Element => {
 
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            {/* Dashboard Layer - always mounted */}
-            <PageLayer
-                id="dashboard-layer"
-                active={currentPage === 'dashboard'}
-                scrollable={true}
-            >
-                <Dashboard />
-            </PageLayer>
+            {/* Dashboard layers — mount on first visit, keep for session; hide when inactive */}
+            {Array.from(visitedDashboardIds).map(id => {
+                const isVisible = currentPage === 'dashboard' && id === activeDashboardId;
+                return (
+                    <PageLayer
+                        key={id}
+                        id={isVisible ? 'dashboard-layer' : `dashboard-layer-${id}`}
+                        active={isVisible}
+                        scrollable={true}
+                    >
+                        <Dashboard dashboardId={id} isActive={isVisible} />
+                    </PageLayer>
+                );
+            })}
+            {currentPage === 'dashboard' && !activeDashboardId && (
+                <PageLayer id="dashboard-layer" active scrollable={true}>
+                    <div className="flex items-center justify-center w-full h-full">
+                        <LoadingSpinner size="lg" />
+                    </div>
+                </PageLayer>
+            )}
 
             {/* Tab Layers - mounted once visited, closeable */}
             {visitedTabs.map(tabSlug => (

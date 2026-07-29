@@ -12,7 +12,9 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Modal } from '../../../shared/ui';
-import { getWidgetMetadata, getWidgetIcon, getWidgetConfigConstraints } from '../../../widgets/registry';
+import { getWidgetIcon, getWidgetConfigConstraints, getWidgetMetadata } from '../../../widgets/registry';
+import { resolveWidgetConstraints } from '../../../shared/grid/adapter/resolveWidgetConstraints';
+import { DEFAULT_MAX_HEIGHT, FIXED_DISPLAY_MAX_H } from '../../../constants/gridConfig';
 import { Move, Minus, Plus } from 'lucide-react';
 
 // ============================================================================
@@ -31,6 +33,7 @@ export interface WidgetResizeModalProps {
     allLayouts: Array<{ id: string; x: number; y: number; w: number; h: number }>; // All widgets' layouts for Y max
     onSave: (widgetId: string, layout: { x: number; y: number; w: number; h: number }) => void;
     onConfigUpdate?: (widgetId: string, config: Record<string, unknown>) => void;
+    relaxConstraints?: boolean;
 }
 
 type FieldKey = 'x' | 'y' | 'w' | 'h';
@@ -161,7 +164,8 @@ const WidgetResizeModal: React.FC<WidgetResizeModalProps> = ({
     isMobile,
     allLayouts,
     onSave,
-    onConfigUpdate
+    onConfigUpdate,
+    relaxConstraints = false,
 }) => {
     // Local form state
     const [x, setX] = useState(currentLayout.x);
@@ -169,21 +173,33 @@ const WidgetResizeModal: React.FC<WidgetResizeModalProps> = ({
     const [w, setW] = useState(currentLayout.w);
     const [h, setH] = useState(currentLayout.h);
 
-    // Get widget constraints
-    const metadata = useMemo(() => getWidgetMetadata(widgetType), [widgetType]);
     const widgetIconElement = useMemo(
         () => React.createElement(getWidgetIcon(widgetType), { size: 16, className: 'text-theme-secondary' }),
         [widgetType]
     );
 
-    // Grid constraints based on breakpoint
+    // Grid constraints based on breakpoint.
+    // Off-mode: preserve pre-task modal registry width/height parity on both breakpoints
+    // (adapter sm stamp uses 1..4 width — that must NOT leak into the modal).
+    // On-mode: shared resolver (unconstrained) + FIXED_DISPLAY_MAX_H modal ceiling.
     const maxCols = isMobile ? 4 : 24;
-
-    // Widget-specific min/max (fallback to sensible defaults)
-    const minW = metadata?.minSize?.w ?? 1;
-    const maxW = Math.min(metadata?.maxSize?.w ?? maxCols, maxCols);
-    const minH = metadata?.minSize?.h ?? 1;
-    const maxH = metadata?.maxSize?.h ?? 20;
+    const metadata = getWidgetMetadata(widgetType);
+    let minW: number;
+    let maxW: number;
+    let minH: number;
+    let maxH: number;
+    if (relaxConstraints) {
+        const effective = resolveWidgetConstraints(widgetType, isMobile ? 'sm' : 'lg', true);
+        minW = effective.minW ?? 1;
+        maxW = Math.min(effective.maxW ?? maxCols, maxCols);
+        minH = effective.minH ?? 1;
+        maxH = effective.maxH ?? FIXED_DISPLAY_MAX_H;
+    } else {
+        minW = metadata?.minSize?.w ?? 1;
+        maxW = Math.min(metadata?.maxSize?.w ?? maxCols, maxCols);
+        minH = metadata?.minSize?.h ?? 1;
+        maxH = metadata?.maxSize?.h ?? DEFAULT_MAX_HEIGHT;
+    }
 
     // Compute max Y from grid height: bottom edge of lowest OTHER widget + 2 row buffer
     const maxY = useMemo(() => {

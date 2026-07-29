@@ -18,6 +18,7 @@ interface SidebarTabsContextType {
     tabs: Tab[];
     groups: TabGroup[];
     currentUser: UserProfile | null;
+    tabsLoaded: boolean;
     refreshTabs: () => void;
     refreshGroups: () => void;
 }
@@ -32,6 +33,7 @@ export function SidebarTabsProvider({ children }: SidebarTabsProviderProps) {
     const [tabs, setTabs] = useState<Tab[]>([]);
     const [groups, setGroups] = useState<TabGroup[]>([]);
     const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+    const [tabsLoaded, setTabsLoaded] = useState(false);
 
     // Fetch tabs from API
     const fetchTabs = useCallback(async (): Promise<void> => {
@@ -40,6 +42,8 @@ export function SidebarTabsProvider({ children }: SidebarTabsProviderProps) {
             setTabs(data.tabs || []);
         } catch {
             // Silent fail for tabs
+        } finally {
+            setTabsLoaded(true);
         }
     }, []);
 
@@ -112,9 +116,10 @@ export function SidebarTabsProvider({ children }: SidebarTabsProviderProps) {
         tabs,
         groups,
         currentUser,
+        tabsLoaded,
         refreshTabs: fetchTabs,
         refreshGroups: fetchGroups,
-    }), [tabs, groups, currentUser, fetchTabs, fetchGroups]);
+    }), [tabs, groups, currentUser, tabsLoaded, fetchTabs, fetchGroups]);
 
     return (
         <SidebarTabsContext.Provider value={value}>

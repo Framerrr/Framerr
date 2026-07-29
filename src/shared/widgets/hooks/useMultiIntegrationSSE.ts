@@ -18,6 +18,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import useRealtimeSSE from '@/features/realtime/useRealtimeSSE';
+import { useOptionalDashboardSurface } from '@/app/dashboard/DashboardSurfaceContext';
 import logger from '../../../utils/logger';
 
 // ============================================================================
@@ -67,6 +68,8 @@ export function useMultiIntegrationSSE<T>({
     enabled = true,
 }: UseMultiIntegrationSSEOptions<T>): UseMultiIntegrationSSEResult {
     const { subscribeToTopic, connectionId, isConnected } = useRealtimeSSE();
+    const surfaceActive = useOptionalDashboardSurface()?.isActive ?? true;
+    const effectivelyEnabled = enabled && surfaceActive;
 
     // Track subscription state per instance
     const [loadingInstances, setLoadingInstances] = useState<string[]>([]);
@@ -102,7 +105,7 @@ export function useMultiIntegrationSSE<T>({
         const currentIds: string[] = JSON.parse(stableIdsKey);
 
         // If disabled or no IDs, cleanup and exit
-        if (!enabled || currentIds.length === 0) {
+        if (!effectivelyEnabled || currentIds.length === 0) {
             setLoadingInstances([]);
             setConnectedInstances([]);
             setErroredInstances([]);
@@ -193,7 +196,7 @@ export function useMultiIntegrationSSE<T>({
             });
             unsubs.clear();
         };
-    }, [enabled, connectionId, stableIdsKey, buildTopic, subscribeToTopic]);
+    }, [effectivelyEnabled, connectionId, stableIdsKey, buildTopic, subscribeToTopic]);
 
     // Parse stable key for return value calculation
     const currentIdsForReturn: string[] = useMemo(() =>

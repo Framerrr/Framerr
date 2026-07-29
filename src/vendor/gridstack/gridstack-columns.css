@@ -410,15 +410,24 @@
         display: none !important;
     }
 
-    /* Corner handles - 30px touch targets */
+    /* Corner handles - 42px touch targets (FRAMERR: enlarged from 30px for grab reliability) */
     .grid-stack-item>.ui-resizable-se,
     .grid-stack-item>.ui-resizable-sw,
     .grid-stack-item>.ui-resizable-nw {
-        width: 30px !important;
-        height: 30px !important;
+        width: 42px !important;
+        height: 42px !important;
         background-image: none !important;
         transform: none !important;
         touch-action: none;
+    }
+
+    /* FRAMERR: h=1 widgets have NO gs-h attribute (GridStack removes it for h===1).
+     * Clamp handle height on 1-row widgets so the config button (.no-drag, top-right,
+     * y 6-30 of a 50px card) and the body-drag band stay reachable. */
+    .grid-stack-item:not([gs-h])>.ui-resizable-se,
+    .grid-stack-item:not([gs-h])>.ui-resizable-sw,
+    .grid-stack-item:not([gs-h])>.ui-resizable-nw {
+        height: 24px !important;
     }
 
     /* Position corner handles - slightly outside widget bounds */

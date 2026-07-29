@@ -152,8 +152,6 @@ export interface ShareTemplateOptions {
     shareIntegrations?: boolean;
     /** Apply template to user's dashboard (default: false) */
     applyToDashboard?: boolean;
-    /** Create backup before applying (default: true, ignored if applyToDashboard=false) */
-    createBackup?: boolean;
 }
 
 export interface ShareTemplateResult {

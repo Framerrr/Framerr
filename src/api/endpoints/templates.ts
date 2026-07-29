@@ -1,6 +1,6 @@
 /**
  * Templates API Endpoints
- * Template CRUD, categories, sharing, and dashboard backup/restore
+ * Template CRUD, categories, sharing, and apply-to-dashboard
  */
 import { api } from '../client';
 import { ApiResponse, UserId } from '../types';
@@ -43,11 +43,6 @@ export interface Template {
 export interface Category {
     id: string;
     name: string;
-}
-
-export interface BackupData {
-    widgets: unknown[];
-    createdAt: string;
 }
 
 // Request/Response types
@@ -97,6 +92,16 @@ export interface SaveDraftData {
     mobileWidgets?: TemplateWidget[];
 }
 
+export type ApplyTemplateTarget =
+    | { dashboardId: string }
+    | { createNew: true; name?: string };
+
+export interface ApplyTemplateResponse {
+    success: boolean;
+    widgets: TemplateWidget[];
+    dashboardId: string;
+}
+
 // Endpoints
 export const templatesApi = {
     // ========== Template CRUD ==========
@@ -142,10 +147,10 @@ export const templatesApi = {
     // ========== Actions ==========
 
     /**
-     * Apply template to user's dashboard
+     * Apply template to a dashboard target
      */
-    apply: (id: string) =>
-        api.post<ApiResponse<void>>(`/api/templates/${id}/apply`),
+    apply: (id: string, target: ApplyTemplateTarget) =>
+        api.post<ApplyTemplateResponse>(`/api/templates/${id}/apply`, { target }),
 
     /**
      * Sync shared template with parent (get latest version)
@@ -178,20 +183,6 @@ export const templatesApi = {
      */
     deleteCategory: (id: string) =>
         api.delete<ApiResponse<void>>(`/api/templates/categories/${id}`),
-
-    // ========== Backup/Restore ==========
-
-    /**
-     * Get current dashboard backup (created when template applied)
-     */
-    getBackup: () =>
-        api.get<{ backup: BackupData | null }>('/api/templates/backup'),
-
-    /**
-     * Revert to previous dashboard from backup
-     */
-    revert: () =>
-        api.post<ApiResponse<void>>('/api/templates/backup/revert'),
 
     // ========== Sharing ==========
 

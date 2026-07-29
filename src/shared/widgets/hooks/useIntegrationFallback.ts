@@ -17,6 +17,7 @@
 import { useMemo, useRef } from 'react';
 import { useRoleAwareIntegrations } from '../../../api/hooks/useIntegrations';
 import logger from '../../../utils/logger';
+import { resolveEffectiveIntegrationId } from '../resolveEffectiveIntegrationId';
 
 export interface IntegrationFallbackResult {
     /** The resolved integration ID to use (or null if none available) */
@@ -42,6 +43,8 @@ interface UseIntegrationFallbackOptions {
     compatibleTypes: string[];
     /** Widget type for logging */
     widgetType?: string;
+    /** When true, user intentionally cleared — do not auto-bind */
+    explicitlyCleared?: boolean;
 }
 
 // Export AccessibleInstance for consumers
@@ -54,7 +57,8 @@ export interface AccessibleInstance {
 export function useIntegrationFallback({
     configuredId,
     compatibleTypes,
-    widgetType = 'unknown'
+    widgetType = 'unknown',
+    explicitlyCleared,
 }: UseIntegrationFallbackOptions): IntegrationFallbackResult {
     // Use React Query hook for real-time reactivity (role-aware)
     // React Query keeps previous data during background refetches, so accessibleInstances
@@ -112,74 +116,46 @@ export function useIntegrationFallback({
             return lastStableResultRef.current;
         }
 
-        // No configured ID — auto-select first compatible integration if available
-        // Consistent with useMultiWidgetIntegration behavior for unconfigured slots.
-        // Persistence logic in useWidgetIntegration auto-saves this choice.
-        if (!configuredId) {
-            const autoSelect = compatible[0];
-            if (autoSelect) {
-                logger.info(`[useIntegrationFallback] ${widgetType}: Auto-binding to ${autoSelect.id} (${autoSelect.displayName})`);
-                return {
-                    integrationId: autoSelect.id,
-                    isOriginal: false,
-                    isFallback: true,
-                    reason: 'accessible',
-                    loading: false,
-                    fallbackInstance: { id: autoSelect.id, name: autoSelect.displayName },
-                    compatibleInstances: compatible,
-                };
-            }
+        const effectiveId = resolveEffectiveIntegrationId(
+            configuredId,
+            compatible,
+            explicitlyCleared === true,
+        );
+
+        if (effectiveId === null) {
             return {
                 integrationId: null,
                 isOriginal: false,
                 isFallback: false,
-                reason: 'not_configured',
+                reason: configuredId && !explicitlyCleared ? 'no_access' : 'not_configured',
                 loading: false,
                 compatibleInstances: compatible,
             };
         }
 
-        // Check if configured ID is accessible
-        const configuredIsAccessible = accessibleInstances.some(i => i.id === configuredId);
+        const isOriginal = effectiveId === configuredId;
+        const inst = compatible.find((i) => i.id === effectiveId);
 
-        if (configuredIsAccessible) {
-            return {
-                integrationId: configuredId,
-                isOriginal: true,
-                isFallback: false,
-                reason: 'accessible',
-                loading: false,
-                compatibleInstances: compatible,
-            };
+        if (!isOriginal && inst) {
+            logger.info(
+                `[useIntegrationFallback] ${widgetType}: Effective bind ${effectiveId} (${inst.displayName})`,
+            );
         }
 
-        // Configured ID is NOT accessible - try fallback
-        // Find first compatible accessible instance
-        const fallback = compatible[0]; // Already filtered to compatible
-
-        if (fallback) {
-            logger.info(`[useIntegrationFallback] ${widgetType}: Falling back from ${configuredId} to ${fallback.id} (${fallback.displayName})`);
-            return {
-                integrationId: fallback.id,
-                isOriginal: false,
-                isFallback: true,
-                reason: 'accessible',
-                loading: false,
-                fallbackInstance: { id: fallback.id, name: fallback.displayName },
-                compatibleInstances: compatible,
-            };
-        }
-
-        // No fallback available - expected for non-admin users without shared access
         return {
-            integrationId: null,
-            isOriginal: false,
-            isFallback: false,
-            reason: 'no_access',
+            integrationId: effectiveId,
+            isOriginal,
+            isFallback: !isOriginal,
+            reason: 'accessible',
             loading: false,
+            fallbackInstance: isOriginal
+                ? undefined
+                : inst
+                  ? { id: inst.id, name: inst.displayName }
+                  : undefined,
             compatibleInstances: compatible,
         };
-    }, [loading, isError, configuredId, accessibleInstances, compatibleTypes, widgetType]);
+    }, [loading, isError, configuredId, accessibleInstances, compatibleTypes, widgetType, explicitlyCleared]);
 
     // Cache stable results for use during network errors
     // Any non-loading, non-error result is valid to cache (including 'not_configured' and 'no_access')

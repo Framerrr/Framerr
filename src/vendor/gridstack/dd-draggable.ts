@@ -179,6 +179,7 @@ export class DDDraggable extends DDBaseImplement implements HTMLElementExtendOpt
       // on iOS Safari so preventDefault() works and prevents scroll hijacking.
       document.addEventListener('touchmove', touchmove, { passive: false });
       document.addEventListener('touchend', touchend);
+      document.addEventListener('touchcancel', touchend); // FRAMERR
     }
 
     e.preventDefault();
@@ -252,8 +253,10 @@ export class DDDraggable extends DDBaseImplement implements HTMLElementExtendOpt
     document.removeEventListener('mousemove', this._mouseMove, true);
     document.removeEventListener('mouseup', this._mouseUp, true);
     if (isTouch) {
-      document.removeEventListener('touchmove', touchmove, true);
-      document.removeEventListener('touchend', touchend, true);
+      document.removeEventListener('touchcancel', touchend);
+      document.removeEventListener('touchmove', touchmove);
+      document.removeEventListener('touchend', touchend);
+      // FRAMERR: removal flags must match addEventListener (no capture) or listeners leak
     }
     if (this.dragging) {
       delete this.dragging;

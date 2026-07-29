@@ -202,6 +202,31 @@ function setupLiveMocks(
     });
 }
 
+function setupLoadingShellMocks(
+    integrationOverrides?: Partial<ReturnType<typeof mockWidgetIntegration>>,
+) {
+    mockWidgetIntegration.mockReturnValue({
+        effectiveIntegrationId: 'glances-abc123',
+        effectiveDisplayName: 'Test Glances',
+        status: 'ok',
+        loading: false,
+        isFallback: false,
+        availableIntegrations: [],
+        isAdmin: true,
+        ...integrationOverrides,
+    });
+
+    mockIntegrationSSE.mockReturnValue({
+        loading: true,
+        connectionId: 'test-conn',
+        isSubscribed: true,
+        isConnected: true,
+        isUnavailable: false,
+        isConfigError: false,
+        isAuthError: false,
+    });
+}
+
 // ============================================================================
 // TESTS
 // ============================================================================
@@ -351,6 +376,27 @@ describe('SystemStatusWidget — Characterization Tests', () => {
             expect(screen.getByText('65°C')).toBeInTheDocument();
             expect(screen.getByText('3d 12h')).toBeInTheDocument();
         });
+
+        it('renders the configured loading shell instead of the generic loading spinner while awaiting live data', () => {
+            setupLoadingShellMocks();
+
+            const { container } = renderWidget({
+                widget: makeWidget({
+                    config: {
+                        showNetworkUp: true,
+                        showNetworkDown: true,
+                    },
+                }),
+            });
+
+            expect(container.querySelector('.widget-state--loading')).toBeNull();
+            expect(screen.getByText('CPU')).toBeInTheDocument();
+            expect(screen.getByText('Memory')).toBeInTheDocument();
+            expect(screen.getByText('Temp')).toBeInTheDocument();
+            expect(screen.getByText('Uptime')).toBeInTheDocument();
+            expect(screen.getByText('Net ↑')).toBeInTheDocument();
+            expect(screen.getAllByText('--').length).toBeGreaterThan(0);
+        });
     });
 
     // ========================================================================
@@ -376,9 +422,9 @@ describe('SystemStatusWidget — Characterization Tests', () => {
                 expect(screen.getByText('50.0%')).toBeInTheDocument();
             });
 
-            // Network cards should NOT be rendered when values are null
-            expect(screen.queryByText('Upload')).not.toBeInTheDocument();
-            expect(screen.queryByText('Download')).not.toBeInTheDocument();
+            // Network cards should NOT be rendered when values are null in live mode
+            expect(screen.queryByText('Net ↑')).not.toBeInTheDocument();
+            expect(screen.queryByText('Net ↓')).not.toBeInTheDocument();
         });
     });
 

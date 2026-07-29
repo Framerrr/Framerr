@@ -9,8 +9,6 @@
  * 
  * Endpoints:
  * - /categories/* - Category CRUD
- * - /backup - Get user's dashboard backup
- * - /revert - Revert to backup
  * - /draft - Save draft
  * - / - Template CRUD
  * - /:id/apply - Apply template
@@ -21,7 +19,6 @@
  */
 import { Router } from 'express';
 import categoriesRouter from './categories';
-import backupRouter from './backup';
 import crudRouter from './crud';
 import operationsRouter from './operations';
 import sharingRouter from './sharing';
@@ -30,7 +27,6 @@ const router = Router();
 
 // Mount specific routes BEFORE parameterized routes
 router.use('/categories', categoriesRouter);
-router.use('/backup', backupRouter);
 
 // Draft route - needs to be before CRUD to prevent /:id matching 'draft'
 import draftRouter from './draft';

@@ -130,7 +130,7 @@ function resolveMovieStatus(movie: WantedMovie | CalendarMovie): MovieStatusResu
     // If Radarr has the file downloaded → available, unless it's below the quality cutoff
     if (movie.hasFile) {
         return movie.cutoffNotMet
-            ? { status: 'cutoffUnmet', label: 'Cutoff Unmet', color: 'var(--warning)' }
+            ? { status: 'cutoffUnmet', label: 'Cutoff Unmet', color: 'var(--upgrade)' }
             : { status: 'available', label: 'Available', color: 'var(--success)' };
     }
 
