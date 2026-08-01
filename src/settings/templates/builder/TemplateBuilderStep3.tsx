@@ -14,7 +14,8 @@
  */
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Monitor, Smartphone, Link, Unlink } from 'lucide-react';
+import { Link, Unlink } from 'lucide-react';
+import { ViewModeToggle } from '../../../shared/ui';
 import { TemplateGrid } from '../../../shared/widgets/TemplateGrid';
 import type { TemplateData } from './TemplateBuilder';
 
@@ -90,51 +91,40 @@ const TemplateBuilderStep3: React.FC<Step3Props> = ({
             {/* Live Grid Preview - matches Step 2 / Preview Modal styling */}
             <div className="rounded-lg border border-theme overflow-hidden">
                 {/* Toolbar - matches Step 2 styling */}
-                <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 border-b border-theme bg-theme-secondary">
-                    <div className="flex items-center gap-2">
-                        {/* Desktop/Mobile Toggle - with text labels like Step 2 */}
-                        <div className="flex items-center gap-1 bg-theme-primary rounded-lg p-1">
-                            <button
-                                onClick={() => setViewMode('desktop')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'desktop'
-                                    ? 'bg-accent text-white'
-                                    : 'text-theme-secondary hover:text-theme-primary'
-                                    }`}
-                            >
-                                <Monitor size={14} />
-                                Desktop
-                            </button>
-                            <button
-                                onClick={() => setViewMode('mobile')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'mobile'
-                                    ? 'bg-accent text-white'
-                                    : 'text-theme-secondary hover:text-theme-primary'
-                                    }`}
-                            >
-                                <Smartphone size={14} />
-                                Mobile
-                            </button>
-                        </div>
-                    </div>
+                <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2 border-b border-theme bg-theme-secondary">
+                    <ViewModeToggle
+                        viewMode={viewMode}
+                        onViewModeChange={setViewMode}
+                    />
 
                     {/* Widget count */}
-                    <div className="text-xs text-theme-tertiary">
+                    <div className="text-xs text-theme-tertiary shrink-0">
                         {displayWidgets.length} widget{displayWidgets.length !== 1 ? 's' : ''}
                     </div>
                 </div>
 
                 {/* Mobile Layout Mode Status Banner - matches Step 2 */}
-                <div className="flex-shrink-0 px-4 py-2 border-b border-theme bg-theme-secondary flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-sm">
+                <div className="@container flex-shrink-0 px-4 py-2 border-b border-theme bg-theme-secondary flex items-center gap-4">
+                    <div className="flex items-center gap-2 text-sm min-w-0">
                         {mobileLayoutMode === 'linked' ? (
-                            <Link size={14} className="text-info" />
+                            <Link size={14} className="text-info flex-shrink-0" />
                         ) : (
-                            <Unlink size={14} className="text-warning" />
+                            <Unlink size={14} className="text-warning flex-shrink-0" />
                         )}
-                        <span className="text-theme-secondary">
-                            {mobileLayoutMode === 'linked'
-                                ? 'Mobile layout auto-generated from desktop'
-                                : 'Mobile layout customized independently'}
+                        <span className="text-theme-secondary truncate">
+                            {mobileLayoutMode === 'linked' ? (
+                                <>
+                                    <span className="@[520px]:hidden">Auto-generated</span>
+                                    <span className="hidden @[520px]:inline @[720px]:hidden">Auto from desktop</span>
+                                    <span className="hidden @[720px]:inline">Mobile layout auto-generated from desktop</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="@[520px]:hidden">Independent</span>
+                                    <span className="hidden @[520px]:inline @[720px]:hidden">Customized independently</span>
+                                    <span className="hidden @[720px]:inline">Mobile layout customized independently</span>
+                                </>
+                            )}
                         </span>
                     </div>
                 </div>

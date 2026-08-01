@@ -32,11 +32,14 @@ interface DashboardEditBarProps {
 
 /**
  * DashboardEditBar - Floating action bar for desktop edit mode
- * 
+ *
  * Pure presentational component — renders the glass bar UI.
  * Animation is orchestrated by Dashboard.tsx's edit section wrapper.
- * 
+ *
  * Shows: Cancel | Undo | Redo | Link Status | Add | Save
+ *
+ * Spacing uses the parent @container so gaps/padding compress when the
+ * content column is narrow (sidebar open) instead of overflowing.
  */
 const DashboardEditBar: React.FC<DashboardEditBarProps> = ({
     canUndo,
@@ -56,9 +59,15 @@ const DashboardEditBar: React.FC<DashboardEditBarProps> = ({
     const showAsIndependent = mobileLayoutMode === 'independent' || pendingUnlink;
     const showRelinkButton = showAsIndependent;
 
+    // Compact by default; expand when the edit-bar container has room
+    const btn =
+        'flex items-center gap-1 @[520px]:gap-1.5 px-1.5 @[480px]:px-2 @[600px]:px-3 py-1.5 rounded-lg text-sm transition-colors shrink-0';
+    const saveBtn =
+        'flex items-center gap-1 @[520px]:gap-1.5 px-2 @[480px]:px-3 @[600px]:px-4 py-1.5 rounded-lg text-sm font-medium transition-colors shrink-0';
+
     return (
         <div
-            className="glass-subtle flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-xl mx-auto max-w-fit"
+            className="glass-subtle flex items-center justify-center gap-0.5 @[480px]:gap-1 @[600px]:gap-2 px-1.5 @[480px]:px-2 @[600px]:px-4 py-2 rounded-xl mx-auto w-max max-w-full min-w-0 box-border"
             style={{
                 borderWidth: '1px',
                 borderColor: 'var(--border)',
@@ -67,106 +76,97 @@ const DashboardEditBar: React.FC<DashboardEditBarProps> = ({
             {/* Cancel Button */}
             <button
                 onClick={onCancel}
-                className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg 
-                    text-error hover:bg-theme-tertiary transition-colors text-sm cursor-pointer"
+                className={`${btn} text-error hover:bg-theme-tertiary cursor-pointer`}
                 title="Cancel editing"
             >
                 <XIcon size={16} />
-                <span className="hidden sm:inline">Cancel</span>
+                <span>Cancel</span>
             </button>
 
             {/* Divider */}
-            <div className="w-px h-6 bg-theme-tertiary/30" />
+            <div className="w-px h-6 bg-theme-tertiary/30 shrink-0" />
 
             {/* Undo Button */}
             <button
                 onClick={onUndo}
                 disabled={!canUndo}
-                className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg 
-                    transition-colors text-sm
-                    ${canUndo
-                        ? 'text-theme-secondary hover:text-theme-primary hover:bg-theme-tertiary cursor-pointer'
-                        : 'text-theme-tertiary cursor-not-allowed opacity-50'
+                className={`${btn} ${canUndo
+                    ? 'text-theme-secondary hover:text-theme-primary hover:bg-theme-tertiary cursor-pointer'
+                    : 'text-theme-tertiary cursor-not-allowed opacity-50'
                     }`}
                 title="Undo (Ctrl+Z)"
             >
                 <Undo2 size={16} />
-                <span className="hidden sm:inline">Undo</span>
+                <span>Undo</span>
             </button>
 
             {/* Redo Button */}
             <button
                 onClick={onRedo}
                 disabled={!canRedo}
-                className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg 
-                    transition-colors text-sm
-                    ${canRedo
-                        ? 'text-theme-secondary hover:text-theme-primary hover:bg-theme-tertiary cursor-pointer'
-                        : 'text-theme-tertiary cursor-not-allowed opacity-50'
+                className={`${btn} ${canRedo
+                    ? 'text-theme-secondary hover:text-theme-primary hover:bg-theme-tertiary cursor-pointer'
+                    : 'text-theme-tertiary cursor-not-allowed opacity-50'
                     }`}
                 title="Redo (Ctrl+Shift+Z)"
             >
                 <Redo2 size={16} />
-                <span className="hidden sm:inline">Redo</span>
+                <span>Redo</span>
             </button>
 
             {/* Divider */}
-            <div className="w-px h-6 bg-theme-tertiary/30" />
+            <div className="w-px h-6 bg-theme-tertiary/30 shrink-0" />
 
             {/* Mobile Status Badge */}
             <div
-                className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium
+                className={`flex items-center gap-1 @[520px]:gap-1.5 px-1.5 @[480px]:px-2 @[600px]:px-3 py-1.5 rounded-lg text-xs font-medium shrink-0
                     ${showAsIndependent
                         ? 'bg-warning/20 text-warning'
                         : 'bg-success/20 text-success'
                     }`}
             >
                 {showAsIndependent ? <Unlink size={14} /> : <Link size={14} />}
-                <span className="hidden sm:inline">{showAsIndependent ? 'Independent' : 'Linked'}</span>
+                <span>{showAsIndependent ? 'Independent' : 'Linked'}</span>
             </div>
 
             {/* Relink Button (only shown when independent) */}
             {showRelinkButton && (
                 <button
                     onClick={onRelink}
-                    className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg 
-                        text-accent hover:bg-theme-tertiary transition-colors text-sm cursor-pointer"
+                    className={`${btn} text-accent hover:bg-theme-tertiary cursor-pointer`}
                     title="Re-link mobile to desktop layout"
                 >
                     <Link size={16} />
-                    <span className="hidden sm:inline">Relink</span>
+                    <span>Relink</span>
                 </button>
             )}
 
             {/* Divider */}
-            <div className="w-px h-6 bg-theme-tertiary/30" />
+            <div className="w-px h-6 bg-theme-tertiary/30 shrink-0" />
 
             {/* Add Widget Button */}
             <button
                 onClick={onAddWidget}
                 data-walkthrough="add-widget-button"
-                className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg 
-                    text-accent hover:bg-theme-tertiary transition-colors text-sm cursor-pointer"
+                className={`${btn} text-accent hover:bg-theme-tertiary cursor-pointer`}
                 title="Add widget"
             >
                 <Plus size={16} />
-                <span className="hidden sm:inline">Add</span>
+                <span>Add</span>
             </button>
 
             {/* Save Button */}
             <button
                 onClick={onSave}
                 disabled={!hasUnsavedChanges || saving}
-                className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-lg 
-                    text-sm font-medium transition-colors
-                    ${hasUnsavedChanges && !saving
-                        ? 'text-accent hover:bg-theme-tertiary cursor-pointer'
-                        : 'text-theme-tertiary cursor-not-allowed opacity-50'
+                className={`${saveBtn} ${hasUnsavedChanges && !saving
+                    ? 'text-accent hover:bg-theme-tertiary cursor-pointer'
+                    : 'text-theme-tertiary cursor-not-allowed opacity-50'
                     }`}
                 title="Save changes"
             >
                 <Save size={16} />
-                <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save'}</span>
+                <span>{saving ? 'Saving...' : 'Save'}</span>
             </button>
         </div>
     );

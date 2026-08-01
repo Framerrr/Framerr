@@ -52,9 +52,9 @@
     /* ============================================
        BORDERS - Subtle definition
        ============================================ */
-    --border: #2a2a30;
-    /* Dark with cool tint */
-    --border-light: #1e1e22;
+    --border: rgba(136, 136, 136, 0.16);
+    /* Cool gray @ 16% */
+    --border-light: rgba(136, 136, 136, 0.09);
     /* Barely visible */
     --border-accent: rgba(138, 155, 168, 0.3);
 

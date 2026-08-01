@@ -28,9 +28,9 @@
    --text-tertiary: #9ca3af;
    /* Gray 400 */
 
-   /* Borders */
-   --border: #e5e7eb;
-   --border-light: #ebebf0;
+   /* Borders - soft edge on white cards */
+   --border: rgba(107, 114, 128, 0.16);
+   --border-light: rgba(107, 114, 128, 0.09);
 
    /* Status Colors */
    --success: #10b981;

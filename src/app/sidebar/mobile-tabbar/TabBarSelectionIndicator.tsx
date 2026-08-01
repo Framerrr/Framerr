@@ -47,12 +47,18 @@ function targetsEqual(a: Bounds, b: Bounds): boolean {
 
 export interface TabBarSelectionScopeProps {
     activeId: string | null;
+    /**
+     * When true, drop the last measured geometry so the next `activeId` snaps
+     * instead of springing from a ghost position (unbound multi-dashboard).
+     */
+    resetSelectionAnchor?: boolean;
     className?: string;
     children: ReactNode;
 }
 
 export function TabBarSelectionScope({
     activeId,
+    resetSelectionAnchor = false,
     className = '',
     children,
 }: TabBarSelectionScopeProps): React.JSX.Element {
@@ -118,6 +124,16 @@ export function TabBarSelectionScope({
         [measure, top, left, width, height],
     );
 
+    // Unbound dashboard (no bar slot): forget last geometry while the pill is
+    // hidden so the next real slot (Settings, My Tab, …) snaps on, not from
+    // the stale bound-dashboard position.
+    useLayoutEffect(() => {
+        if (resetSelectionAnchor) {
+            lastTargetRef.current = null;
+            prevActiveIdRef.current = null;
+        }
+    }, [resetSelectionAnchor]);
+
     useLayoutEffect(() => {
         if (!activeId) {
             prevActiveIdRef.current = null;
@@ -136,7 +152,8 @@ export function TabBarSelectionScope({
         // target vanished from the registry (sibling layout correction). A
         // transient activeId gap (e.g. a brief null during route/hash churn)
         // must not force a snap on reappearance — it springs from the last
-        // known position instead.
+        // known position instead. Unbound-dashboard clears lastTarget via
+        // resetSelectionAnchor so the next show snaps correctly.
         const snap =
             lastTargetRef.current === null ||
             (prevActiveIdRef.current !== null &&

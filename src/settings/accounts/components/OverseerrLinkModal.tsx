@@ -1,7 +1,6 @@
 import React, { ChangeEvent } from 'react';
-import { X, User, Lock, AlertCircle, Loader, Link2 } from 'lucide-react';
-import { Button } from '../../../shared/ui';
-import { Input } from '@/shared/ui';
+import { User, Lock, AlertCircle, Loader, Link2 } from 'lucide-react';
+import { Modal, Button, Input } from '../../../shared/ui';
 
 interface OverseerrLinkModalProps {
     isOpen: boolean;
@@ -29,25 +28,18 @@ export const OverseerrLinkModal: React.FC<OverseerrLinkModalProps> = ({
     onUsernameChange,
     onPasswordChange
 }) => {
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div
-                className="glass-subtle w-full max-w-md rounded-2xl shadow-xl border border-theme p-6"
-                onClick={e => e.stopPropagation()}
-            >
-                <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-theme-primary">Sign in with Overseerr</h3>
-                    <button
-                        onClick={onClose}
-                        className="p-2 rounded-lg hover:bg-theme-tertiary transition-colors text-theme-secondary hover:text-theme-primary"
-                    >
-                        <X size={20} />
-                    </button>
-                </div>
-
-                <form onSubmit={onSubmit} className="space-y-4">
+        <Modal
+            open={isOpen}
+            onOpenChange={(open) => !open && onClose()}
+            size="sm"
+        >
+            <Modal.Header
+                title="Sign in with Overseerr"
+                icon={<Link2 size={20} className="text-accent" />}
+            />
+            <Modal.Body>
+                <form id="overseerr-link-form" onSubmit={onSubmit} className="space-y-4">
                     <p className="text-sm text-theme-secondary">
                         Enter your Overseerr credentials to link your account. Your password is only used for verification.
                     </p>
@@ -77,27 +69,26 @@ export const OverseerrLinkModal: React.FC<OverseerrLinkModalProps> = ({
                         icon={Lock}
                         required
                     />
-
-                    <div className="flex gap-3 pt-2">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={onClose}
-                            className="flex-1"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="submit"
-                            disabled={linking || !username || !password}
-                            icon={linking ? Loader : Link2}
-                            className="flex-1"
-                        >
-                            {linking ? 'Linking...' : 'Link Account'}
-                        </Button>
-                    </div>
                 </form>
-            </div>
-        </div>
+            </Modal.Body>
+            <Modal.Footer>
+                <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={onClose}
+                    disabled={linking}
+                >
+                    Cancel
+                </Button>
+                <Button
+                    type="submit"
+                    form="overseerr-link-form"
+                    disabled={linking || !username || !password}
+                    icon={linking ? Loader : Link2}
+                >
+                    {linking ? 'Linking...' : 'Link Account'}
+                </Button>
+            </Modal.Footer>
+        </Modal>
     );
 };

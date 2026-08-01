@@ -1,13 +1,18 @@
 /**
- * ViewModeToggle - Shared desktop/mobile toggle component
- * 
- * Reusable toggle button group for switching between desktop and mobile view modes.
- * Used by TemplateBuilderStep2, TemplateBuilderStep3, TemplatePreviewModal,
- * ActiveSection, and ActiveWidgetsPage.
+ * ViewModeToggle - Shared desktop/mobile toggle
+ *
+ * Uses SlidingTabBar (same control as Tautulli/DNS/Prowlarr) with a left-hugging
+ * max width so labels adapt via container queries as space shrinks.
+ *
+ * Width uses a definite flex-basis (not % of a shrink-wrapped parent) so toolbar
+ * layouts don't collapse the bar to zero.
+ *
+ * Used by TemplateBuilder (incl. preview), TemplateBuilderStep3, ActiveWidgetsPage.
  */
 
 import React from 'react';
 import { Monitor, Smartphone } from 'lucide-react';
+import { SlidingTabBar, type SlidingTabBarItem } from '../SlidingTabBar';
 
 export type ViewMode = 'desktop' | 'mobile';
 
@@ -16,48 +21,46 @@ interface ViewModeToggleProps {
     viewMode: ViewMode;
     /** Callback when view mode changes */
     onViewModeChange: (mode: ViewMode) => void;
-    /** Show labels (Desktop/Mobile) next to icons */
+    /** @deprecated Adaptive labels come from SlidingTabBar container queries */
     showLabels?: boolean;
     /** Additional class name for the container */
     className?: string;
-    /** Suffix text after the toggle (e.g., "widgets") */
+    /** Suffix text after the toggle (e.g., "widgets" → "Editing desktop widgets") */
     suffix?: string;
+    /** Disable both buttons (e.g. while a view switch is settling) */
+    disabled?: boolean;
 }
 
+const VIEW_TABS: SlidingTabBarItem[] = [
+    { id: 'desktop', label: 'Desktop', shortLabel: 'Desktop', icon: Monitor },
+    { id: 'mobile', label: 'Mobile', shortLabel: 'Mobile', icon: Smartphone },
+];
+
 /**
- * Toggle button group for switching between desktop and mobile views.
+ * Toggle for switching between desktop and mobile views.
  */
 export const ViewModeToggle: React.FC<ViewModeToggleProps> = ({
     viewMode,
     onViewModeChange,
-    showLabels = true,
     className = '',
     suffix,
+    disabled = false,
 }) => {
     return (
-        <div className={`flex items-center gap-2 ${className}`}>
-            <div className="flex items-center gap-1 bg-theme-primary rounded-lg p-1">
-                <button
-                    onClick={() => onViewModeChange('desktop')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'desktop'
-                            ? 'bg-accent text-white'
-                            : 'text-theme-secondary hover:text-theme-primary'
-                        }`}
-                >
-                    <Monitor size={14} />
-                    {showLabels && 'Desktop'}
-                </button>
-                <button
-                    onClick={() => onViewModeChange('mobile')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'mobile'
-                            ? 'bg-accent text-white'
-                            : 'text-theme-secondary hover:text-theme-primary'
-                        }`}
-                >
-                    <Smartphone size={14} />
-                    {showLabels && 'Mobile'}
-                </button>
-            </div>
+        <div
+            className={`flex flex-col gap-2 min-w-0 w-80 max-w-full shrink ${disabled ? 'opacity-60 pointer-events-none' : ''} ${className}`}
+            style={{ containerType: 'inline-size' }}
+            aria-disabled={disabled || undefined}
+        >
+            <SlidingTabBar
+                tabs={VIEW_TABS}
+                activeId={viewMode}
+                onChange={(id) => {
+                    if (disabled) return;
+                    onViewModeChange(id as ViewMode);
+                }}
+                aria-label="Desktop or mobile view"
+            />
             {suffix && (
                 <span className="text-xs text-theme-tertiary">
                     Editing {viewMode} {suffix}

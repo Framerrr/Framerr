@@ -9,6 +9,7 @@ import { Router, Request, Response } from 'express';
 import Fuse, { FuseResult } from 'fuse.js';
 import { getDb } from '../database/db';
 import { requireAuth } from '../middleware/auth';
+import { proxyRateLimit } from '../middleware/rateLimit';
 import logger from '../utils/logger';
 import {
     startFullSync,
@@ -17,6 +18,7 @@ import {
 } from '../services/librarySync';
 import { getLocalLibraryImageUrl } from '../services/libraryImageCache';
 import { getInstanceById } from '../db/integrationInstances';
+import { lookupRottenTomatoes } from '../services/rottenTomatoes';
 
 const router = Router();
 
@@ -618,6 +620,41 @@ router.get('/external-ids', requireAuth, async (req: Request, res: Response) => 
     } catch (error) {
         logger.error(`[Media] External IDs lookup failed: error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Failed to look up external IDs' });
+    }
+});
+
+/**
+ * GET /api/media/rotten-tomatoes
+ *
+ * Best-effort RT page lookup (Overseerr-style Algolia title+year match).
+ * Query: title (required), year (required), type=movie|tv (default movie)
+ */
+router.get('/rotten-tomatoes', requireAuth, proxyRateLimit, async (req: Request, res: Response) => {
+    try {
+        const title = String(req.query.title || '').trim();
+        const year = parseInt(String(req.query.year || ''), 10);
+        const typeRaw = String(req.query.type || 'movie').toLowerCase();
+        const kind = typeRaw === 'tv' || typeRaw === 'show' ? 'tv' : 'movie';
+
+        if (!title || title.length > 200) {
+            res.status(400).json({ error: 'Valid title is required' });
+            return;
+        }
+        if (!Number.isFinite(year) || year < 1800 || year > 2100) {
+            res.status(400).json({ error: 'Valid year is required' });
+            return;
+        }
+
+        const result = await lookupRottenTomatoes(title, year, kind);
+        if (!result) {
+            res.status(404).json({ error: 'Rotten Tomatoes listing not found' });
+            return;
+        }
+
+        res.json(result);
+    } catch (error) {
+        logger.error(`[Media] RT lookup failed: error="${(error as Error).message}"`);
+        res.status(500).json({ error: 'Failed to look up Rotten Tomatoes' });
     }
 });
 

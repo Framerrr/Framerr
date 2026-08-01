@@ -37,6 +37,10 @@ export const SYSTEM_ICONS: SystemIconEntry[] = [
     { name: 'navidrome', displayName: 'Navidrome', category: 'media' },
     { name: 'kavita', displayName: 'Kavita', category: 'media' },
     { name: 'calibre-web', displayName: 'Calibre Web', category: 'media' },
+    { name: 'tmdb', displayName: 'TMDB', category: 'media' },
+    { name: 'imdb', displayName: 'IMDb', category: 'media' },
+    { name: 'tvdb', displayName: 'TVDB', category: 'media' },
+    { name: 'rotten-tomatoes', displayName: 'Rotten Tomatoes', category: 'media' },
 
     // Arr Suite
     { name: 'sonarr', displayName: 'Sonarr', category: 'arr' },

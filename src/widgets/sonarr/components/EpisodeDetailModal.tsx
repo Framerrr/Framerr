@@ -1,22 +1,23 @@
 /**
  * EpisodeDetailModal - Detail view for a Sonarr episode
  * 
- * Hero layout matches RequestInfoModal exactly:
- * - 150x225 poster, 1.5rem/700 title, metadata row, status badge, ExternalMediaLinks
- * - Floating X close button (uses Modal's relative content wrapper)
- * - Hidden Dialog.Title/Description for Radix a11y
- * 
- * Two modes:
- * 1. Missing mode: Episode details + search actions in footer
- * 2. Upcoming mode: Episode details + countdown + other upcoming eps
+ * Hero/body shared with other media detail modals via MediaDetail primitives.
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
     Search, Download, ArrowLeft, Check, AlertCircle,
-    Loader2, MonitorPlay, Calendar, Star, Tv, Radio, UserCheck
+    Loader2, MonitorPlay, Calendar, Star, Radio, UserCheck
 } from 'lucide-react';
-import { Modal } from '@/shared/ui';
+import {
+    Modal,
+    MediaPoster,
+    MediaHeroCol,
+    MediaTypeBadge,
+    MediaSectionHeading,
+    MediaSynopsis,
+    MediaGenres,
+} from '@/shared/ui';
 import { Button } from '@/shared/ui/Button/Button';
 import { ExternalMediaLinks } from '@/shared/ui/ExternalMediaLinks';
 import { useAutoSearchState } from '../../radarr/hooks/useAutoSearchState';
@@ -317,185 +318,61 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
                 {/* ============ INFO VIEW ============ */}
                 {view === 'info' && (
                     <div className="space-y-6">
-                        {/* Poster and Basic Info — matches RequestInfoModal exactly */}
-                        <div style={{ display: 'flex', gap: '1.5rem' }}>
-                            {/* Poster */}
-                            {posterUrl ? (
-                                <div style={{
-                                    width: '150px',
-                                    height: '225px',
-                                    minHeight: '225px',
-                                    flexShrink: 0,
-                                    alignSelf: 'flex-start',
-                                    borderRadius: '8px',
-                                    overflow: 'hidden',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-                                }}>
-                                    <img
-                                        src={posterUrl}
-                                        alt={seriesTitle}
-                                        style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            objectFit: 'cover',
-                                            display: 'block'
-                                        }}
-                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                    />
-                                </div>
-                            ) : (
-                                <div style={{
-                                    width: '150px',
-                                    height: '225px',
-                                    flexShrink: 0,
-                                    borderRadius: '8px',
-                                    background: 'var(--bg-tertiary)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}>
-                                    <MonitorPlay size={48} style={{ color: 'var(--text-tertiary)' }} />
-                                </div>
-                            )}
+                        <div className="media-hero">
+                            <MediaPoster
+                                src={posterUrl}
+                                alt={seriesTitle}
+                                placeholderIcon={<MonitorPlay size={48} />}
+                                statusLabel={episodeStatusResult.label}
+                                statusColor={episodeStatusResult.color}
+                                onImgError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
 
-                            {/* Title and Metadata */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                {/* Series title */}
-                                <h2 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '1.5rem',
-                                    fontWeight: 700,
-                                    color: 'var(--text-primary)'
-                                }}>
-                                    {seriesTitle}
-                                </h2>
+                            <MediaHeroCol>
+                                <h2 className="media-hero__title">{seriesTitle}</h2>
 
-                                {/* Episode subtitle (lighter) */}
-                                <p style={{
-                                    margin: '0 0 0.75rem 0',
-                                    color: 'var(--text-secondary)',
-                                    fontSize: '0.95rem'
-                                }}>
+                                <p className="media-hero__subtitle">
                                     {epCode && <span style={{ fontWeight: 600, color: 'var(--text-primary)', marginRight: '0.35rem' }}>{epCode}</span>}
                                     {epTitle}
                                 </p>
 
-                                {/* Type Badge — matches Request Info */}
-                                <div style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.25rem',
-                                    padding: '0.25rem 0.5rem',
-                                    background: 'var(--bg-hover)',
-                                    borderRadius: '4px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 600,
-                                    color: 'var(--text-secondary)',
-                                    marginBottom: '0.75rem'
-                                }}>
-                                    <Tv size={12} />
-                                    TV Show
-                                </div>
+                                <MediaTypeBadge type="tv" />
 
-                                {/* Metadata Row — matches Request Info layout */}
-                                <div style={{
-                                    display: 'flex',
-                                    flexWrap: 'wrap',
-                                    gap: '1rem',
-                                    fontSize: '0.9rem'
-                                }}>
+                                <div className="media-hero__meta">
                                     {airDate && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-primary)' }}>
+                                        <div className="media-hero__meta-item">
                                             <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
                                             <span>{airDate}</span>
                                         </div>
                                     )}
                                     {(typeof rating === 'number' && rating > 0) && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-primary)' }}>
+                                        <div className="media-hero__meta-item">
                                             <Star size={14} style={{ color: 'var(--warning)' }} />
                                             <span>{rating.toFixed(1)}/10</span>
                                         </div>
                                     )}
                                     {network && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-primary)' }}>
+                                        <div className="media-hero__meta-item">
                                             <Radio size={14} style={{ color: 'var(--text-secondary)' }} />
                                             <span>{network}</span>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Status Badge — matches Request Info */}
-                                <div style={{
-                                    display: 'inline-block',
-                                    marginTop: '0.75rem',
-                                    padding: '0.25rem 0.75rem',
-                                    background: `${episodeStatusResult.color}20`,
-                                    border: `1px solid ${episodeStatusResult.color}40`,
-                                    borderRadius: '6px',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 600,
-                                    color: episodeStatusResult.color
-                                }}>
-                                    {episodeStatusResult.label}
-                                </div>
-
-                                {/* External links — IMDB + TVDB */}
                                 <ExternalMediaLinks
                                     imdbId={imdbId}
                                     tvdbId={tvdbId}
+                                    title={seriesTitle}
+                                    year={series?.year}
                                     mediaType="tv"
-                                    className="mt-2"
                                 />
-                            </div>
+                            </MediaHeroCol>
                         </div>
 
-                        {/* Genres */}
-                        {genres.length > 0 && (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                {genres.map(genre => (
-                                    <span
-                                        key={genre}
-                                        style={{
-                                            padding: '0.25rem 0.75rem',
-                                            background: 'var(--bg-hover)',
-                                            border: '1px solid var(--border)',
-                                            borderRadius: '999px',
-                                            fontSize: '0.8rem',
-                                            color: 'var(--text-secondary)',
-                                            fontWeight: 500
-                                        }}
-                                    >
-                                        {genre}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
+                        {overview ? <MediaSynopsis text={overview} /> : null}
+                        <MediaGenres genres={genres} />
 
-                        {/* Synopsis */}
-                        {overview && (
-                            <div>
-                                <h4 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)'
-                                }}>
-                                    Synopsis
-                                </h4>
-                                <p style={{
-                                    margin: 0,
-                                    lineHeight: 1.6,
-                                    color: 'var(--text-primary)',
-                                    fontSize: '0.95rem'
-                                }}>
-                                    {overview}
-                                </p>
-                            </div>
-                        )}
-
-                        {/* Air time range (e.g., 9:00 PM – 9:48 PM) */}
+                        {/* Domain: schedule / season context */}
                         {airDateRaw && airDateRaw.includes('T') && (() => {
                             const startDate = new Date(airDateRaw);
                             const timeFmt: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' };
@@ -541,16 +418,7 @@ const EpisodeDetailModal: React.FC<EpisodeDetailModalProps> = ({
                         {/* Season progress — only rendered when statistics are present */}
                         {seasonProgress && (
                             <div>
-                                <h4 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)'
-                                }}>
-                                    Season Progress
-                                </h4>
+                                <MediaSectionHeading>Season Progress</MediaSectionHeading>
                                 <div className="snr-modal-season-progress">
                                     <div className="snr-modal-season-progress-fill" style={{ width: `${seasonProgress.fraction * 100}%` }} />
                                 </div>

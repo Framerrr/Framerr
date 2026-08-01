@@ -2,6 +2,27 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.4.1] - 2026-08-01
+
+### Added
+- **External media links** — TMDB, IMDb, TVDB, and Rotten Tomatoes pills (RT scores when a title+year match is found)
+
+### Fixed
+- Mobile tab bar selection indicator stuck after switching to a dashboard that isn’t pinned on the bar
+- Media Search Focus Mode morph clipping
+- Desktop sidebar pushing iFrame tabs container when expanded
+- Plex SSO shared-user login / server refresh — clearer reconnect prompts; stable client id
+- Template builder Desktop ↔ Mobile switch crashing / reloading Safari on iOS
+- Metric history retention slider thumb clipping at the ends of the bar
+- Widget integration fallback waiting for auth/integrations before swapping away a configured instance
+
+### Changed
+- Mobile dashboard hold-switcher spacing under the list
+- Onboarding tour temporarily shows the mobile edit button when it’s hidden in settings
+- Various visual refinements and animation improvements
+
+---
+
 ## [0.4.0] - 2026-07-29
 
 ### Added

@@ -6,12 +6,14 @@
  */
 
 import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, X } from 'lucide-react';
 import { motion, LayoutGroup } from 'framer-motion';
 import { SearchDropdown } from '../../shared/ui';
 import { WidgetStateMessage } from '../../shared/widgets';
 import { useRoleAwareIntegrations } from '../../api/hooks/useIntegrations';
 import { useRealtimeSSE } from '@/features/realtime/useRealtimeSSE';
+import { useScrollLock } from '../../shared/hooks/useScrollLock';
 import { useMediaSearch } from './useMediaSearch';
 import { useMediaSearchConfig } from './hooks/useMediaSearchConfig';
 import { useRequestFlow } from './hooks/useRequestFlow';
@@ -31,15 +33,47 @@ import './styles.css';
 
 type MediaSearchWidgetProps = WidgetProps;
 
+type CloseFlightRect = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+};
+
+type CloseFlight = {
+    from: CloseFlightRect;
+    to: CloseFlightRect;
+    /** Resolved colors so Framer can interpolate theme backgrounds */
+    fromBackground: string;
+    toBackground: string;
+};
+
+const MORPH_SPRING = { type: 'spring' as const, damping: 28, stiffness: 300 };
+
+/** Probe computed widget-bar background under the same theme cascade */
+function resolveWidgetBarBackground(host: HTMLElement): string {
+    const probe = document.createElement('div');
+    probe.className = 'media-search-input';
+    probe.style.cssText =
+        'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;visibility:hidden;';
+    host.appendChild(probe);
+    const background = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return background;
+}
+
 const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
     widget,
     previewMode = false
 }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isTakeoverActive, setIsTakeoverActive] = useState(false);
+    const [isMorphing, setIsMorphing] = useState(false);
+    const [closeFlight, setCloseFlight] = useState<CloseFlight | null>(null);
     const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const takeoverInputRef = useRef<HTMLInputElement>(null);
+    const slotRef = useRef<HTMLDivElement>(null);
 
     // Get all integrations to filter out deleted/orphaned IDs
     const { data: allIntegrations } = useRoleAwareIntegrations();
@@ -230,20 +264,53 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
     // Handle input focus
     const handleFocus = useCallback(() => {
         if (isTakeoverEnabled && !previewMode) {
+            setIsMorphing(true);
             setIsTakeoverActive(true);
         } else {
             setIsDropdownOpen(true);
         }
     }, [isTakeoverEnabled, previewMode]);
 
-    // Handle closing the takeover
+    // Handle closing the takeover — return path uses a body-level fixed flight
+    // so the bar never paints under sibling grid widgets (layoutId close FLIP does).
     const handleTakeoverClose = useCallback(() => {
+        const barEl = document.querySelector(
+            '.search-takeover-bar-layer .search-takeover-bar'
+        ) as HTMLElement | null;
+        const slotEl = slotRef.current;
+        if (barEl && slotEl) {
+            const from = barEl.getBoundingClientRect();
+            const to = slotEl.getBoundingClientRect();
+            const face = barEl.querySelector('.search-takeover-input') as HTMLElement | null;
+            const fromBackground = face
+                ? getComputedStyle(face).backgroundColor
+                : 'transparent';
+            const toBackground = resolveWidgetBarBackground(
+                slotEl.closest('.media-search-widget') ?? slotEl
+            );
+            setCloseFlight({
+                from: { x: from.left, y: from.top, width: from.width, height: from.height },
+                to: { x: to.left, y: to.top, width: to.width, height: to.height },
+                fromBackground,
+                toBackground,
+            });
+        }
+        setIsMorphing(true);
         setIsTakeoverActive(false);
-        // Add query to recent searches on close if there was a query
         if (query.trim()) {
             addRecentSearch(query);
         }
     }, [query, addRecentSearch]);
+
+    const handleMorphSettle = useCallback(() => setIsMorphing(false), []);
+
+    const handleCloseFlightComplete = useCallback(() => {
+        setCloseFlight(null);
+        setIsMorphing(false);
+    }, []);
+
+    // Keep scroll locked for the whole close flight (takeover unmounts mid-animation)
+    useScrollLock(isTakeoverActive || !!closeFlight);
 
     // Count total results and integrations
     const { integrationCount } = useMemo(() => {
@@ -323,32 +390,39 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
     };
 
     return (
-        <div className="media-search-widget">
+        <div className="media-search-widget" data-search-morphing={isMorphing ? 'true' : undefined}>
             {/* Takeover Mode: search bar in widget is just a trigger */}
             {isTakeoverEnabled && !previewMode ? (
                 <LayoutGroup>
-                    {/* In-widget trigger bar — animates to takeover via layoutId */}
+                    {/* In-widget trigger bar — open uses layoutId; close uses body flight */}
                     <div className="search-dropdown-anchor">
-                        {!isTakeoverActive ? (
+                        {!isTakeoverActive && !closeFlight ? (
                             <motion.div
                                 layoutId={`search-bar-${widget.id}`}
                                 className="media-search-input-container media-search-input-container--trigger"
                                 onClick={handleFocus}
-                                transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                                onLayoutAnimationComplete={handleMorphSettle}
+                                transition={MORPH_SPRING}
                                 style={{ borderRadius: '1rem' }}
                             >
-                                <Search size={14} className="media-search-icon" />
-                                <div className="media-search-input media-search-input--placeholder">
+                                <Search size={16} className="media-search-icon" />
+                                <div
+                                    className="media-search-input media-search-input--placeholder"
+                                    data-has-query={query.trim() ? 'true' : undefined}
+                                >
                                     {query || 'Search movies, shows, actors...'}
                                 </div>
                             </motion.div>
                         ) : (
-                            /* Invisible spacer holds layout space while bar is in the portal */
-                            <div className="media-search-input-container media-search-input-container--spacer" />
+                            /* Spacer while bar is in takeover or flying back above the grid */
+                            <div
+                                ref={slotRef}
+                                className="media-search-input-container media-search-input-container--spacer"
+                            />
                         )}
                     </div>
 
-                    {/* Takeover portal */}
+                    {/* Takeover portal (open FLIP only — close is handled by closeFlight) */}
                     <SearchTakeover
                         isActive={isTakeoverActive}
                         onClose={handleTakeoverClose}
@@ -358,9 +432,59 @@ const MediaSearchWidget: React.FC<MediaSearchWidgetProps> = ({
                         inputRef={takeoverInputRef}
                         previewMode={previewMode}
                         layoutId={`search-bar-${widget.id}`}
+                        onBarLayoutAnimationComplete={handleMorphSettle}
+                        lockScroll={false}
                     >
                         {showTakeoverDropdown && <SearchDropdownContent {...dropdownContentProps} />}
                     </SearchTakeover>
+
+                    {/* Body-level return flight — geometry + chrome morph to widget bar */}
+                    {closeFlight &&
+                        createPortal(
+                            <motion.div
+                                className="media-search-close-flight"
+                                initial={{
+                                    left: closeFlight.from.x,
+                                    top: closeFlight.from.y,
+                                    width: closeFlight.from.width,
+                                    height: closeFlight.from.height,
+                                }}
+                                animate={{
+                                    left: closeFlight.to.x,
+                                    top: closeFlight.to.y,
+                                    width: closeFlight.to.width,
+                                    height: closeFlight.to.height,
+                                }}
+                                transition={MORPH_SPRING}
+                                onAnimationComplete={handleCloseFlightComplete}
+                                style={{
+                                    position: 'fixed',
+                                    zIndex: 10000,
+                                    margin: 0,
+                                    pointerEvents: 'none',
+                                }}
+                            >
+                                <div className="media-search-close-flight-icon" style={{ left: 16, top: '50%', transform: 'translateY(-50%)' }}>
+                                    <Search size={16} />
+                                </div>
+                                <motion.div
+                                    className="media-search-close-flight-face"
+                                    data-has-query={query.trim() ? 'true' : undefined}
+                                    initial={{
+                                        backgroundColor: closeFlight.fromBackground,
+                                        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2)',
+                                    }}
+                                    animate={{
+                                        backgroundColor: closeFlight.toBackground,
+                                        boxShadow: '0 0 0px rgba(0, 0, 0, 0)',
+                                    }}
+                                    transition={MORPH_SPRING}
+                                >
+                                    {query || 'Search movies, shows, actors...'}
+                                </motion.div>
+                            </motion.div>,
+                            document.body
+                        )}
                 </LayoutGroup>
             ) : (
                 /* Inline Mode: current SearchDropdown behavior */

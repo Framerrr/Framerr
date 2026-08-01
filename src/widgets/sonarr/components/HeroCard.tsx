@@ -84,7 +84,11 @@ const HeroCard: React.FC<HeroCardProps> = ({
                 <div className="snr-hero-title">{seriesTitle}</div>
                 <div className="snr-hero-meta-row">
                     {epCode && <span className="snr-hero-meta">{epCode}{episode.title ? ` · ${episode.title}` : ''}</span>}
-                    {network && <span className="snr-network-badge">{network.slice(0, 8)}</span>}
+                    {network && (
+                        <span className="snr-network-badge" title={network}>
+                            {network}
+                        </span>
+                    )}
                 </div>
                 {seasonProgress && (
                     <div className="snr-hero-season-progress-wrap">

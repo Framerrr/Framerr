@@ -16,6 +16,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { LucideIcon } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Popover } from '../../../shared/ui';
 import {
     AreaChart,
@@ -474,7 +475,7 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({
                 className="w-[550px] max-w-[90vw]"
             >
                 {/* Header */}
-                <div className="flex justify-between items-center mb-3">
+                <div className="flex flex-col gap-2 mb-3">
                     <div className="flex items-center gap-2">
                         <h3 className="text-sm font-semibold text-theme-primary">
                             {config.label} History
@@ -485,20 +486,31 @@ const MetricGraphPopover: React.FC<MetricGraphPopoverProps> = ({
                             </span>
                         )}
                     </div>
-                    {/* Range selector - dynamic based on available data */}
-                    <div className="flex gap-1">
-                        {availableRanges.map((range) => (
-                            <button
-                                key={range}
-                                onClick={() => setCurrentRange(range)}
-                                className={`text-xs px-2 py-1 rounded transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${currentRange === range
-                                    ? 'bg-accent text-white'
-                                    : 'bg-theme-secondary text-theme-secondary hover:text-theme-primary'
-                                    }`}
-                            >
-                                {range}
-                            </button>
-                        ))}
+                    {/* Hybrid: SegmentedControl track + Tautulli SlidingTabBar soft indicator */}
+                    <div className="metric-range-tabs" role="tablist" aria-label={`${config.label} history range`}>
+                        {availableRanges.map((range) => {
+                            const selected = currentRange === range;
+                            return (
+                                <button
+                                    key={range}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={selected}
+                                    onClick={() => setCurrentRange(range)}
+                                    className={`metric-range-tabs__tab${selected ? ' metric-range-tabs__tab--active' : ''}`}
+                                >
+                                    {selected && (
+                                        <motion.div
+                                            layoutId={`metric-range-indicator-${metric}`}
+                                            className="absolute inset-y-0 inset-x-1 rounded-xl pointer-events-none bg-accent/20 shadow-lg z-0"
+                                            initial={false}
+                                            transition={{ type: 'spring', stiffness: 300, damping: 38 }}
+                                        />
+                                    )}
+                                    <span className="metric-range-tabs__label">{range}</span>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 

@@ -9,24 +9,85 @@
     box-sizing: border-box;
 }
 
-/* Trigger bar - looks like input but is a clickable div in takeover mode */
+/* Trigger bar - looks like input but is a clickable div in takeover mode.
+   Typography/icon metrics match .search-takeover-input so open/close don't snap text. */
 .media-search-input-container--trigger {
     cursor: pointer;
+}
+
+.media-search-input-container--trigger .media-search-input {
+    font-size: 1rem;
+    line-height: 1.25;
+    padding: 0 1rem;
+    padding-left: 2.75rem;
+    padding-right: 2.5rem;
+}
+
+.media-search-input-container--trigger .media-search-icon {
+    left: 1rem;
 }
 
 .media-search-input--placeholder {
     display: flex;
     align-items: center;
-    color: var(--text-tertiary);
+    /* Match takeover input: typed text primary, empty hint tertiary */
+    color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     pointer-events: none;
 }
 
+.media-search-input--placeholder:not([data-has-query='true']) {
+    color: var(--text-tertiary);
+}
+
 /* Invisible spacer holds layout space while bar is in the takeover portal */
 .media-search-input-container--spacer {
     visibility: hidden;
+}
+
+/* Body-level close morph — chrome lerps takeover → widget during flight */
+.media-search-close-flight {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+}
+
+.media-search-close-flight-icon {
+    position: absolute;
+    color: var(--text-tertiary);
+    pointer-events: none;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform-origin: center center;
+}
+
+.media-search-close-flight-face {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1.25;
+    padding: 0 1rem;
+    padding-left: 2.75rem;
+    padding-right: 2.5rem;
+    outline: none;
+}
+
+.media-search-close-flight-face:not([data-has-query='true']) {
+    color: var(--text-tertiary);
 }
 
 /* Anchor wrapper - centers bar vertically in larger widgets */
@@ -472,4 +533,17 @@
     background-size: 400px 100%;
     animation: media-search-shimmer 1.5s ease-in-out infinite;
     animation-delay: 0.2s;
+}
+
+/* Focus Mode morph stacking only. Close uses a body-level flight; open
+   layoutId projects to a body portal — do NOT force overflow:visible on
+   grid/widget ancestors (bleeds into #dashboard-layer scroll overflow).
+   Clear glass mask so the departing bar isn't radius-clipped mid-flight. */
+.widget-wrapper.glass-card:has(.media-search-widget[data-search-morphing="true"]) {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+}
+
+.grid-stack-item:has(.media-search-widget[data-search-morphing="true"]) {
+    z-index: 250 !important;
 }

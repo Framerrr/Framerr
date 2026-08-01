@@ -369,9 +369,16 @@
     padding: 1px 6px;
     border-radius: 4px;
     white-space: nowrap;
-    /* Keep natural size so the title/episode truncates first; when the row
-     * is still too tight the parent (.snr-missing-meta / hero meta) clips
-     * the badge at the edge — no ellipsis inside the badge itself. */
+    min-width: 0;
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* Prefer shrinking episode/title first; badge ellipsizes only when needed. */
+    flex-shrink: 1;
+}
+
+.snr-hero-meta-row .snr-network-badge {
+    max-width: 12rem;
     flex-shrink: 0;
 }
 

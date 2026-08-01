@@ -53,10 +53,10 @@
     /* ============================================
        BORDERS - Subtle and refined
        ============================================ */
-    --border: #374151;
-    /* Gray 700 */
-    --border-light: #1f2937;
-    /* Gray 800 */
+    --border: rgba(148, 163, 184, 0.12);
+    /* Slate 400 @ 12% — soft edge on cards/modals */
+    --border-light: rgba(148, 163, 184, 0.07);
+    /* Even quieter nested/divider edges */
     --border-accent: rgba(59, 130, 246, 0.3);
 
     /* ============================================

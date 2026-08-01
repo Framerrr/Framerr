@@ -19,8 +19,8 @@ export const defaultColors: CustomColors = {
     'text-primary': '#f1f5f9',
     'text-secondary': '#94a3b8',
     'text-tertiary': '#64748b',
-    'border': '#374151',
-    'border-light': '#1f2937',
+    'border': 'rgba(148, 163, 184, 0.12)',
+    'border-light': 'rgba(148, 163, 184, 0.07)',
 
     // Tier 2: Status Colors (4)
     'success': '#10b981',

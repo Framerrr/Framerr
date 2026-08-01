@@ -1,7 +1,14 @@
 
 
 import * as React from 'react';
-import { AnimatePresence, motion, useSpring, useTransform, type Transition } from 'framer-motion';
+import {
+    AnimatePresence,
+    motion,
+    useMotionValue,
+    useSpring,
+    useTransform,
+    type Transition,
+} from 'framer-motion';
 
 // Simplified Highlight primitive for sidebar indicator
 // Adapted from Animate UI: https://animate-ui.com
@@ -79,6 +86,17 @@ type HighlightProps = {
     mode?: HighlightMode;
     /** Ref to scrollable container for visibility detection (parent mode) */
     scrollContainerRef?: React.RefObject<HTMLElement | null>;
+    /**
+     * When true, bottom clip uses the Highlight container bottom instead of the
+     * scroll container bottom. Top clip still follows the scroll container.
+     * Used so the dashboard picker morph can paint over the sidebar footer.
+     */
+    extendClipBottomToContainer?: boolean;
+    /**
+     * When true, skip scroll-container clipping entirely so the indicator can
+     * paint outside the nav scrollport (e.g. open dashboard picker over footer).
+     */
+    disableScrollClip?: boolean;
     /** Delay before fading out when item scrolls out of view (ms) */
     scrollFadeDelay?: number;
 };
@@ -98,6 +116,8 @@ function Highlight({
     onValueChange,
     mode = 'children',
     scrollContainerRef,
+    extendClipBottomToContainer = false,
+    disableScrollClip = false,
 }: HighlightProps) {
     const containerRef = React.useRef<HTMLDivElement>(null);
     const hoverLeaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -135,6 +155,11 @@ function Highlight({
     const left = useSpring(0, springConfig);
     const width = useSpring(0, springConfig);
     const height = useSpring(0, springConfig);
+    // Motion values so clipPath recomputes when scroll/footer clip bounds change
+    // (not only when the indicator moves).
+    const clipTopMv = useMotionValue(0);
+    const clipBottomMv = useMotionValue(0);
+    const clipActiveMv = useMotionValue(0);
 
     const setActiveValue = React.useCallback(
         (newValue: string | null) => {
@@ -345,10 +370,16 @@ function Highlight({
         return () => container.removeEventListener('scroll', onScroll);
     }, [mode, trackActiveItem]);
 
-    // Scroll clip bounds (ref) + resize re-measure
+    // Scroll clip bounds (ref + motion values) + resize re-measure
     React.useEffect(() => {
-        if (mode !== 'parent' || !scrollContainerRef?.current || !containerRef.current) {
+        if (
+            mode !== 'parent' ||
+            disableScrollClip ||
+            !scrollContainerRef?.current ||
+            !containerRef.current
+        ) {
             scrollClipRef.current = null;
+            clipActiveMv.set(0);
             return;
         }
 
@@ -358,10 +389,17 @@ function Highlight({
         const updateClipBounds = () => {
             const containerRect = container.getBoundingClientRect();
             const scrollRect = scrollContainer.getBoundingClientRect();
-            scrollClipRef.current = {
+            const next = {
                 top: scrollRect.top - containerRect.top,
-                bottom: scrollRect.bottom - containerRect.top,
+                // Optionally extend past the nav into footer / siblings below the scroll area
+                bottom: extendClipBottomToContainer
+                    ? containerRect.height
+                    : scrollRect.bottom - containerRect.top,
             };
+            scrollClipRef.current = next;
+            clipTopMv.set(next.top);
+            clipBottomMv.set(next.bottom);
+            clipActiveMv.set(1);
             trackActiveItem();
         };
 
@@ -373,24 +411,35 @@ function Highlight({
             scrollContainer.removeEventListener('scroll', updateClipBounds);
             window.removeEventListener('resize', updateClipBounds);
         };
-    }, [mode, scrollContainerRef, trackActiveItem]);
+    }, [
+        mode,
+        scrollContainerRef,
+        extendClipBottomToContainer,
+        disableScrollClip,
+        trackActiveItem,
+        clipTopMv,
+        clipBottomMv,
+        clipActiveMv,
+    ]);
 
-    const clipPath = useTransform([top, height], ([t, h]) => {
-        if (!isActiveInScrollContainerRef.current || !scrollClipRef.current) {
+    const clipPath = useTransform(
+        [top, height, clipTopMv, clipBottomMv, clipActiveMv],
+        ([t, h, vt, vb, active]) => {
+            if (!isActiveInScrollContainerRef.current || !active) {
+                return 'none';
+            }
+            const indicatorTop = t as number;
+            const indicatorBottom = indicatorTop + (h as number);
+            const visibleTop = vt as number;
+            const visibleBottom = vb as number;
+            const clipFromTop = Math.max(0, visibleTop - indicatorTop);
+            const clipFromBottom = Math.max(0, indicatorBottom - visibleBottom);
+            if (clipFromTop > 0 || clipFromBottom > 0) {
+                return `inset(${clipFromTop}px 0 ${clipFromBottom}px 0)`;
+            }
             return 'none';
-        }
-        const clipBounds = scrollClipRef.current;
-        const indicatorTop = t as number;
-        const indicatorBottom = indicatorTop + (h as number);
-        const visibleTop = clipBounds.top;
-        const visibleBottom = clipBounds.bottom;
-        const clipFromTop = Math.max(0, visibleTop - indicatorTop);
-        const clipFromBottom = Math.max(0, indicatorBottom - visibleBottom);
-        if (clipFromTop > 0 || clipFromBottom > 0) {
-            return `inset(${clipFromTop}px 0 ${clipFromBottom}px 0)`;
-        }
-        return 'none';
-    });
+        },
+    );
 
     const contextValue = React.useMemo<HighlightContextType>(
         () => ({

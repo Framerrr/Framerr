@@ -232,7 +232,7 @@ const ModalHeader = forwardRef<HTMLDivElement, ModalHeaderProps>(
             <div
                 ref={ref}
                 className={`
-          flex items-center justify-between p-3 sm:p-4 border-b border-theme
+          flex items-center justify-between p-3 sm:p-4
           flex-shrink-0
           ${className}
         `}
@@ -340,7 +340,7 @@ const ModalFooter = forwardRef<HTMLDivElement, ModalFooterProps>(
             <div
                 ref={ref}
                 className={`
-          p-3 sm:p-4 border-t border-theme bg-theme-primary/30
+          p-3 sm:p-4 bg-theme-primary/30
           flex-shrink-0
           flex items-center justify-end gap-3
           ${className}

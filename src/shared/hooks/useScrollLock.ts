@@ -1,73 +1,104 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 /**
  * useScrollLock - Prevents page scrolling when modal/overlay is open
- * 
- * iOS Safari Compatible:
- * - Uses body overflow hidden for desktop
- * - Uses touchmove preventDefault for iOS (required for Safari)
- * - Preserves scroll position on lock/unlock
- * 
+ *
+ * Framerr / iOS notes:
+ * - Do NOT set `position: fixed` on body. `src/index.css` documents that it
+ *   fights `viewport-fit=cover` and shifts content (safe-area / home indicator).
+ * - Dashboard/settings scroll inside `#dashboard-layer` / `#settings-layer`,
+ *   not `window`. Those layers are frozen for the lock duration.
+ * - Match SidebarUIContext: overflow + overscroll + touchmove lock.
+ *
  * Scroll-in-scroll support:
- * - Dynamically detects scrollable containers (overflow-y: auto/scroll)
- * - Allows scrolling within ANY scrollable child (popovers, dropdowns, lists)
+ * - Allows scrolling within nested overflow:auto/scroll containers
  * - Clamps at scroll boundaries to prevent page overscroll
- * - No per-element opt-in needed — works globally
- * 
+ * - Page layers themselves are never treated as allowed scroll targets
+ *
  * Usage:
  * useScrollLock(isModalOpen);
  */
-export function useScrollLock(isLocked: boolean) {
-    const scrollPositionRef = useRef(0);
 
-    useEffect(() => {
+/** Keep-alive page layers that own real scroll (see MainContent PageLayer) */
+const PAGE_SCROLL_LAYER_IDS = ['dashboard-layer', 'settings-layer'] as const;
+
+type FrozenLayer = {
+    el: HTMLElement;
+    scrollTop: number;
+    overflowY: string;
+};
+
+type StyleSnapshot = {
+    overflow: string;
+    overscrollBehavior: string;
+    touchAction: string;
+};
+
+export function useScrollLock(isLocked: boolean) {
+    const frozenLayersRef = useRef<FrozenLayer[]>([]);
+
+    // Layout effect so page layers freeze before child useEffects focus inputs.
+    useLayoutEffect(() => {
         if (!isLocked) return;
 
-        // Save current scroll position
-        scrollPositionRef.current = window.scrollY;
+        const html = document.documentElement;
+        const body = document.body;
 
-        // Get scrollbar width to prevent layout shift
-        const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-
-        // Apply lock styles to body
-        const originalStyles = {
-            overflow: document.body.style.overflow,
-            position: document.body.style.position,
-            top: document.body.style.top,
-            left: document.body.style.left,
-            right: document.body.style.right,
-            paddingRight: document.body.style.paddingRight,
+        const prevHtml: StyleSnapshot = {
+            overflow: html.style.overflow,
+            overscrollBehavior: html.style.overscrollBehavior,
+            touchAction: html.style.touchAction,
+        };
+        const prevBody: StyleSnapshot = {
+            overflow: body.style.overflow,
+            overscrollBehavior: body.style.overscrollBehavior,
+            touchAction: body.style.touchAction,
         };
 
-        document.body.style.overflow = 'hidden';
-        document.body.style.position = 'fixed';
-        document.body.style.top = `-${scrollPositionRef.current}px`;
-        document.body.style.left = '0';
-        document.body.style.right = '0';
-
-        // Compensate for scrollbar to prevent layout shift
-        if (scrollbarWidth > 0) {
-            document.body.style.paddingRight = `${scrollbarWidth}px`;
+        // Freeze app page layers (dashboard scrolls here, not on window)
+        const frozen: FrozenLayer[] = [];
+        for (const id of PAGE_SCROLL_LAYER_IDS) {
+            const el = document.getElementById(id);
+            if (!el) continue;
+            const scrollTop = el.scrollTop;
+            frozen.push({
+                el,
+                scrollTop,
+                overflowY: el.style.overflowY,
+            });
+            el.style.overflowY = 'hidden';
+            el.scrollTop = scrollTop;
         }
+        frozenLayersRef.current = frozen;
 
-        // Track touch start Y for direction detection
+        const pinLayerScroll = () => {
+            for (const layer of frozenLayersRef.current) {
+                if (layer.el.scrollTop !== layer.scrollTop) {
+                    layer.el.scrollTop = layer.scrollTop;
+                }
+            }
+        };
+
+        // Sidebar-style lock — never position:fixed on body (viewport-fit fight)
+        html.style.overflow = 'hidden';
+        html.style.overscrollBehavior = 'none';
+        body.style.overflow = 'hidden';
+        body.style.overscrollBehavior = 'none';
+        body.style.touchAction = 'none';
+
         let touchStartY = 0;
 
         const handleTouchStart = (e: TouchEvent) => {
             touchStartY = e.touches[0].clientY;
         };
 
-        // iOS Safari: prevent touchmove from scrolling the page
-        // but allow scrolling within any scrollable container
         const handleTouchMove = (e: TouchEvent) => {
             const target = e.target as HTMLElement;
             if (!target) return;
 
-            // Walk up from touch target to find nearest scrollable element
             const scrollable = findScrollableAncestor(target);
 
             if (scrollable) {
-                // Found a scrollable container — allow scroll but clamp at boundaries
                 const { scrollTop, scrollHeight, clientHeight } = scrollable;
                 const touchY = e.touches[0].clientY;
                 const deltaY = touchStartY - touchY;
@@ -80,45 +111,48 @@ export function useScrollLock(isLocked: boolean) {
                 if (atTop || atBottom) {
                     e.preventDefault();
                 }
-                // Otherwise allow natural scroll within the container
             } else {
-                // No scrollable container found — prevent page scroll
                 e.preventDefault();
             }
         };
 
-        // Use non-passive listeners so we can preventDefault
         document.addEventListener('touchstart', handleTouchStart, { passive: true });
         document.addEventListener('touchmove', handleTouchMove, { passive: false });
+        document.addEventListener('scroll', pinLayerScroll, true);
 
         return () => {
-            // Restore original styles
-            document.body.style.overflow = originalStyles.overflow;
-            document.body.style.position = originalStyles.position;
-            document.body.style.top = originalStyles.top;
-            document.body.style.left = originalStyles.left;
-            document.body.style.right = originalStyles.right;
-            document.body.style.paddingRight = originalStyles.paddingRight;
+            html.style.overflow = prevHtml.overflow;
+            html.style.overscrollBehavior = prevHtml.overscrollBehavior;
+            html.style.touchAction = prevHtml.touchAction;
+            body.style.overflow = prevBody.overflow;
+            body.style.overscrollBehavior = prevBody.overscrollBehavior;
+            body.style.touchAction = prevBody.touchAction;
 
-            // Restore scroll position
-            window.scrollTo(0, scrollPositionRef.current);
+            for (const layer of frozenLayersRef.current) {
+                layer.el.style.overflowY = layer.overflowY;
+                layer.el.scrollTop = layer.scrollTop;
+            }
+            frozenLayersRef.current = [];
 
-            // Remove iOS handlers
             document.removeEventListener('touchstart', handleTouchStart);
             document.removeEventListener('touchmove', handleTouchMove);
+            document.removeEventListener('scroll', pinLayerScroll, true);
         };
     }, [isLocked]);
 }
 
 /**
  * Walk up from element to find the nearest scrollable ancestor.
- * Stops at body (never returns body itself — that's what we're locking).
- * Returns null if no scrollable ancestor found.
+ * Stops at body. Skips keep-alive page layers (frozen separately).
  */
 function findScrollableAncestor(element: HTMLElement): HTMLElement | null {
     let current: HTMLElement | null = element;
 
     while (current && current !== document.body) {
+        if ((PAGE_SCROLL_LAYER_IDS as readonly string[]).includes(current.id)) {
+            return null;
+        }
+
         if (current.scrollHeight > current.clientHeight) {
             const overflow = getComputedStyle(current).overflowY;
             if (overflow === 'auto' || overflow === 'scroll') {

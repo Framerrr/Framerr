@@ -52,10 +52,13 @@ export function WalkthroughProvider({
         role: userRole,
         stepData: {},
     });
+    /** Flow id scheduled to start (route deferral + 850ms delay) before isActive flips */
+    const [pendingStartFlowId, setPendingStartFlowId] = useState<string | null>(null);
 
     const hasFetchedRef = useRef(false);
     const enterDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const exitDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pendingStartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
     // Get filtered steps (respecting conditions) for current flow
@@ -119,6 +122,7 @@ export function WalkthroughProvider({
         return () => {
             if (enterDelayTimerRef.current) clearTimeout(enterDelayTimerRef.current);
             if (exitDelayTimerRef.current) clearTimeout(exitDelayTimerRef.current);
+            if (pendingStartTimerRef.current) clearTimeout(pendingStartTimerRef.current);
         };
     }, []);
 
@@ -149,6 +153,7 @@ export function WalkthroughProvider({
 
         logger.debug(`[Walkthrough] Starting flow: ${flowId}`);
         prevStepIndexRef.current = -1; // Reset so phase effect fires
+        setPendingStartFlowId(null); // isActive takes over for chrome reveal
 
         // Determine initial phase based on first visible step's enterDelay
         const firstStep = steps.find(step => !step.condition || step.condition({ role: userRole, stepData: {} }));
@@ -199,6 +204,7 @@ export function WalkthroughProvider({
                     // Flow complete
                     completeFlow(prev.flowId!);
                     logger.debug(`[Walkthrough] Flow completed: ${prev.flowId}`);
+                    setPendingStartFlowId(null);
                     setState(s => ({
                         ...s,
                         isActive: false,
@@ -238,6 +244,11 @@ export function WalkthroughProvider({
 
     // ─── Skip ────────────────────────────────────────────────────────
     const skip = useCallback(() => {
+        setPendingStartFlowId(null);
+        if (pendingStartTimerRef.current) {
+            clearTimeout(pendingStartTimerRef.current);
+            pendingStartTimerRef.current = null;
+        }
         setState(prev => {
             if (prev.flowId) {
                 completeFlow(prev.flowId);
@@ -336,8 +347,14 @@ export function WalkthroughProvider({
         const requiredRoute = flowConfig?.requiredRoute;
 
         const doStart = () => {
+            // Reveal tour-required chrome (e.g. mobile edit button) during the delay
+            setPendingStartFlowId(flowId);
+            if (pendingStartTimerRef.current) clearTimeout(pendingStartTimerRef.current);
             // Delay so user sees the page before the tutorial starts
-            setTimeout(() => startFlow(flowId), 850);
+            pendingStartTimerRef.current = setTimeout(() => {
+                pendingStartTimerRef.current = null;
+                startFlow(flowId);
+            }, 850);
         };
 
         if (requiredRoute) {
@@ -390,6 +407,8 @@ export function WalkthroughProvider({
         })();
     }, [startFlowRouteAware, autoStartFlowId, persistence]);
 
+    const isFlowPendingOrActive = state.isActive || pendingStartFlowId != null;
+
     // ─── Context Value ───────────────────────────────────────────────
     const value = useMemo((): WalkthroughContextValue => ({
         state,
@@ -407,7 +426,8 @@ export function WalkthroughProvider({
         suspend,
         resume,
         resetAndStartFlow,
-    }), [state, currentStep, stepPhase, filteredSteps.length, startFlow, advance, skip, emit, isModalProtected, setStepData, getStepData, suspend, resume, resetAndStartFlow]);
+        isFlowPendingOrActive,
+    }), [state, currentStep, stepPhase, filteredSteps.length, startFlow, advance, skip, emit, isModalProtected, setStepData, getStepData, suspend, resume, resetAndStartFlow, isFlowPendingOrActive]);
 
     return (
         <WalkthroughContext.Provider value={value}>

@@ -119,7 +119,11 @@ const AttentionRow: React.FC<RowProps> = ({ episode, group, integrationId, queue
                 <span className="snr-missing-series">{seriesTitle}</span>
                 <div className="snr-missing-meta">
                     <ReleasePill type={pill.type} date={pill.date} dimmed={pill.dimmed} />
-                    {network && <span className="snr-network-badge">{network.slice(0, 8)}</span>}
+                    {network && (
+                        <span className="snr-network-badge" title={network}>
+                            {network}
+                        </span>
+                    )}
                     {epCode && <span className="snr-missing-episode">{epCode} · {epTitle}</span>}
                 </div>
                 {queueInfo && (

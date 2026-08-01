@@ -300,7 +300,9 @@ const Dashboard = ({
                 taglineText={taglineText}
                 editMode={editMode}
                 isMobile={isMobile}
-                hideMobileEditButton={hideMobileEditButton}
+                hideMobileEditButton={
+                    hideMobileEditButton && !walkthrough?.isFlowPendingOrActive
+                }
                 mobileLayoutMode={mobileLayoutMode}
                 pendingUnlink={pendingUnlink}
                 debugOverlayEnabled={debugOverlayEnabled}

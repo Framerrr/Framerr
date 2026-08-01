@@ -42,6 +42,9 @@ import { GRID_COLS, GRID_MARGIN, ROW_HEIGHT } from '../../../constants/gridConfi
 const VIRTUAL_DESKTOP_WIDTH = 1200;
 const VIRTUAL_MOBILE_WIDTH = 390;
 
+/** Cooldown after a desktop↔mobile switch so GridStack can settle (iOS Safari OOM guard). */
+const VIEW_SWITCH_COOLDOWN_MS = 400;
+
 interface Step2Props {
     data: TemplateData;
     onChange: (updates: Partial<TemplateData>) => void;
@@ -74,21 +77,33 @@ interface ScaledGridContainerProps {
 
 function ScaledGridContainer({ virtualWidth, scaleFactor, children }: ScaledGridContainerProps) {
     const innerRef = useRef<HTMLDivElement>(null);
+    const scaleFactorRef = useRef(scaleFactor);
+    scaleFactorRef.current = scaleFactor;
     const [scaledHeight, setScaledHeight] = useState<number | undefined>(undefined);
 
+    // Keep one ResizeObserver — reading scale from a ref avoids disconnect/reconnect
+    // thrash on every desktop↔mobile scale change (hurts iOS Safari).
     useEffect(() => {
         if (!innerRef.current) return;
 
         const observer = new ResizeObserver((entries) => {
             for (const entry of entries) {
                 const contentHeight = entry.contentRect.height;
-                const next = contentHeight * scaleFactor;
+                const next = contentHeight * scaleFactorRef.current;
                 setScaledHeight(prev => (prev !== undefined && Math.abs(prev - next) < 0.5) ? prev : next);
             }
         });
 
         observer.observe(innerRef.current);
         return () => observer.disconnect();
+    }, []);
+
+    // Apply scale change to current height without re-creating the observer
+    useEffect(() => {
+        if (!innerRef.current) return;
+        const contentHeight = innerRef.current.offsetHeight;
+        const next = contentHeight * scaleFactor;
+        setScaledHeight(prev => (prev !== undefined && Math.abs(prev - next) < 0.5) ? prev : next);
     }, [scaleFactor]);
 
     return (
@@ -113,6 +128,27 @@ const TemplateBuilderStep2: React.FC<Step2Props> = ({ data, onChange, onDraftSav
     // In preview mode, sidebar is always closed
     const [sidebarOpen, setSidebarOpen] = useState(!isPreviewMode);
     const [viewMode, setViewMode] = useState<ViewMode>('desktop');
+    // Lock rapid Desktop/Mobile toggles — each switch reflows GridStack columns + scaled
+    // widgets; hammering it on iOS Safari OOMs the tab ("A problem repeatedly occurred").
+    const [viewSwitchLocked, setViewSwitchLocked] = useState(false);
+    const viewSwitchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleViewModeChange = useCallback((mode: ViewMode) => {
+        if (viewSwitchLocked || mode === viewMode) return;
+        setViewMode(mode);
+        setViewSwitchLocked(true);
+        if (viewSwitchTimerRef.current) clearTimeout(viewSwitchTimerRef.current);
+        viewSwitchTimerRef.current = setTimeout(() => {
+            viewSwitchTimerRef.current = null;
+            setViewSwitchLocked(false);
+        }, VIEW_SWITCH_COOLDOWN_MS);
+    }, [viewMode, viewSwitchLocked]);
+
+    useEffect(() => {
+        return () => {
+            if (viewSwitchTimerRef.current) clearTimeout(viewSwitchTimerRef.current);
+        };
+    }, []);
 
     // Guard ref to prevent circular state updates.
     // When syncing parent data → hook (setInitialData), GridStack may fire onLayoutCommit
@@ -488,9 +524,10 @@ const TemplateBuilderStep2: React.FC<Step2Props> = ({ data, onChange, onDraftSav
             {/* Mobile Layout Mode Toggle - always shown (for view switching) */}
             <MobileLayoutModeBar
                 viewMode={viewMode}
-                onViewModeChange={setViewMode}
+                onViewModeChange={handleViewModeChange}
                 mobileLayoutMode={mobileLayoutMode}
                 onToggle={isPreviewMode ? undefined : toggleMobileLayoutMode}
+                viewSwitchDisabled={viewSwitchLocked}
             />
 
             <div className={`flex ${isPreviewMode ? 'flex-shrink-0' : 'flex-1'} min-h-0 overflow-hidden rounded-b-lg border border-t-0 border-theme`}>

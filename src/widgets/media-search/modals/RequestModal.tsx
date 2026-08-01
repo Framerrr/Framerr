@@ -11,8 +11,18 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Film, Tv, Star, Loader2 } from 'lucide-react';
-import { Modal, Button, Select, MultiSelectDropdown } from '../../../shared/ui';
+import { Star, Calendar, Loader2 } from 'lucide-react';
+import {
+    Modal,
+    Button,
+    Select,
+    MultiSelectDropdown,
+    MediaPoster,
+    MediaHeroCol,
+    MediaTypeBadge,
+    MediaSynopsis,
+    MediaSectionHeading,
+} from '../../../shared/ui';
 import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
 import api from '../../../api/client';
 import type { OverseerrMediaResult } from '../types';
@@ -189,10 +199,14 @@ export const RequestModal: React.FC<RequestModalProps> = ({
         refetchTvDetails, resetRequestState, requestedSeasonNumbers, tvSeasons,
     ]);
 
-    // ── Poster ──
+    // ── Poster / display title ──
     const posterUrl = item.posterPath
         ? `https://image.tmdb.org/t/p/w342${item.posterPath}`
         : null;
+    const displayTitle = item.title || item.name || 'Unknown Title';
+    const displayYear = item.releaseDate || item.firstAirDate
+        ? new Date((item.releaseDate || item.firstAirDate)!).getFullYear()
+        : undefined;
 
     const isLoading = serversLoading || tvLoading;
 
@@ -205,119 +219,84 @@ export const RequestModal: React.FC<RequestModalProps> = ({
         ? allSeasonsRequested
         : (effectiveState === 'requested' || effectiveState === 'available');
 
+    const seasonStatusBadge = (() => {
+        if (allSeasonsRequested) {
+            return (
+                <span style={{
+                    fontSize: '0.625rem',
+                    fontWeight: 500,
+                    textTransform: 'none',
+                    letterSpacing: 'normal',
+                    padding: '0.125rem 0.375rem',
+                    borderRadius: '0.25rem',
+                    background: 'var(--success-glass, rgba(34, 197, 94, 0.15))',
+                    color: 'var(--success)',
+                }}>
+                    All Requested
+                </span>
+            );
+        }
+        if (someSeasonsRequested) {
+            const hasAvailableSeason = tvSeasons.some(s => s.status === 5)
+                || (optimisticRequested.length > 0 && tvSeasons.some(s => s.status !== undefined && s.status >= 4));
+            return (
+                <span style={{
+                    fontSize: '0.625rem',
+                    fontWeight: 500,
+                    textTransform: 'none',
+                    letterSpacing: 'normal',
+                    padding: '0.125rem 0.375rem',
+                    borderRadius: '0.25rem',
+                    background: 'var(--warning-glass, rgba(234, 179, 8, 0.15))',
+                    color: 'var(--warning)',
+                }}>
+                    {hasAvailableSeason ? 'Partially Available' : 'Partially Requested'}
+                </span>
+            );
+        }
+        return null;
+    })();
+
     return (
-        <Modal open={true} onOpenChange={(open) => !open && onClose()} size="md" zIndex={zIndex}>
+        <Modal open={true} onOpenChange={(open) => !open && onClose()} size="lg" zIndex={zIndex}>
             <Modal.Header title="Request" />
             <Modal.Body>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <div className="space-y-6">
+                    <div className="media-hero">
+                        <MediaPoster src={posterUrl} alt={displayTitle} />
 
-                    {/* ── Poster + Info ── */}
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                        {/* Poster */}
-                        {posterUrl ? (
-                            <img
-                                src={posterUrl}
-                                alt={item.title}
-                                style={{
-                                    width: '100px',
-                                    height: '150px',
-                                    objectFit: 'cover',
-                                    borderRadius: '6px',
-                                    flexShrink: 0,
-                                }}
-                            />
-                        ) : (
-                            <div style={{
-                                width: '100px',
-                                height: '150px',
-                                borderRadius: '6px',
-                                background: 'var(--bg-tertiary)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0,
-                            }}>
-                                <Film size={32} style={{ color: 'var(--text-tertiary)' }} />
+                        <MediaHeroCol>
+                            <h2 className="media-hero__title">{displayTitle}</h2>
+
+                            <MediaTypeBadge type={isTv ? 'tv' : 'movie'} />
+
+                            <div className="media-hero__meta">
+                                {displayYear ? (
+                                    <div className="media-hero__meta-item">
+                                        <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
+                                        <span>{displayYear}</span>
+                                    </div>
+                                ) : null}
+                                {typeof item.voteAverage === 'number' && item.voteAverage > 0 ? (
+                                    <div className="media-hero__meta-item">
+                                        <Star size={14} style={{ color: 'var(--warning)' }} />
+                                        <span>{item.voteAverage.toFixed(1)}/10</span>
+                                    </div>
+                                ) : null}
                             </div>
-                        )}
-
-                        {/* Info */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <h3 style={{
-                                margin: '0 0 0.25rem 0',
-                                fontSize: '1.125rem',
-                                fontWeight: 600,
-                                color: 'var(--text-primary)',
-                            }}>
-                                {item.title}
-                                {item.releaseDate && (
-                                    <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', marginLeft: '0.5rem' }}>
-                                        ({new Date(item.releaseDate).getFullYear()})
-                                    </span>
-                                )}
-                            </h3>
-
-                            {/* Type + Rating row */}
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                marginBottom: '0.5rem',
-                            }}>
-                                <span style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.2rem',
-                                    padding: '0.125rem 0.375rem',
-                                    background: 'var(--bg-tertiary)',
-                                    borderRadius: '3px',
-                                    fontSize: '0.6875rem',
-                                    fontWeight: 600,
-                                    color: 'var(--text-tertiary)',
-                                }}>
-                                    {isTv ? <Tv size={10} /> : <Film size={10} />}
-                                    {isTv ? 'TV' : 'Movie'}
-                                </span>
-                                {typeof item.voteAverage === 'number' && item.voteAverage > 0 && (
-                                    <span style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '0.2rem',
-                                        fontSize: '0.75rem',
-                                        color: 'var(--text-tertiary)',
-                                    }}>
-                                        <Star size={11} style={{ color: 'var(--warning)' }} />
-                                        {item.voteAverage.toFixed(1)}
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* Synopsis (truncated) */}
-                            {item.overview && (
-                                <p style={{
-                                    margin: 0,
-                                    fontSize: '0.8125rem',
-                                    lineHeight: 1.5,
-                                    color: 'var(--text-secondary)',
-                                    display: '-webkit-box',
-                                    WebkitLineClamp: 3,
-                                    WebkitBoxOrient: 'vertical',
-                                    overflow: 'hidden',
-                                }}>
-                                    {item.overview}
-                                </p>
-                            )}
 
                             <ExternalMediaLinks
                                 tmdbId={item.id}
                                 imdbId={imdbId}
+                                title={displayTitle}
+                                year={displayYear}
                                 mediaType={isTv ? 'tv' : 'movie'}
-                                className="mt-2"
                             />
-                        </div>
+                        </MediaHeroCol>
                     </div>
 
-                    {/* ── Loading state ── */}
+                    {item.overview ? <MediaSynopsis text={item.overview} /> : null}
+
                     {isLoading && (
                         <div style={{
                             display: 'flex',
@@ -330,20 +309,9 @@ export const RequestModal: React.FC<RequestModalProps> = ({
                         </div>
                     )}
 
-                    {/* ── Server Picker (only if 4K available) ── */}
                     {!isLoading && showServerPicker && applicableServers.length > 0 && (
                         <div>
-                            <label style={{
-                                display: 'block',
-                                fontSize: '0.75rem',
-                                fontWeight: 600,
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em',
-                                color: 'var(--text-tertiary)',
-                                marginBottom: '0.375rem',
-                            }}>
-                                Server
-                            </label>
+                            <MediaSectionHeading>Server</MediaSectionHeading>
                             <Select
                                 value={selectedServerId != null ? String(selectedServerId) : ''}
                                 onValueChange={(val: string) => setSelectedServerId(val ? Number(val) : null)}
@@ -362,69 +330,6 @@ export const RequestModal: React.FC<RequestModalProps> = ({
                         </div>
                     )}
 
-                    {/* ── Season Picker (only for TV shows) ── */}
-                    {!isLoading && showSeasonPicker && seasonOptions.length > 0 && (
-                        <div>
-                            <label style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                fontSize: '0.75rem',
-                                fontWeight: 600,
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em',
-                                color: 'var(--text-tertiary)',
-                                marginBottom: '0.375rem',
-                            }}>
-                                Seasons
-                                {someSeasonsRequested && (() => {
-                                    // Check if any season is available (status 5) → "Partially Available"
-                                    const hasAvailableSeason = tvSeasons.some(s => s.status === 5)
-                                        || optimisticRequested.length > 0 && tvSeasons.some(s => s.status !== undefined && s.status >= 4);
-                                    const badgeText = hasAvailableSeason ? 'Partially Available' : 'Partially Requested';
-                                    return (
-                                        <span style={{
-                                            fontSize: '0.625rem',
-                                            fontWeight: 500,
-                                            textTransform: 'none',
-                                            letterSpacing: 'normal',
-                                            padding: '0.125rem 0.375rem',
-                                            borderRadius: '0.25rem',
-                                            background: 'var(--warning-glass, rgba(234, 179, 8, 0.15))',
-                                            color: 'var(--warning)',
-                                        }}>
-                                            {badgeText}
-                                        </span>
-                                    );
-                                })()}
-                                {allSeasonsRequested && (
-                                    <span style={{
-                                        fontSize: '0.625rem',
-                                        fontWeight: 500,
-                                        textTransform: 'none',
-                                        letterSpacing: 'normal',
-                                        padding: '0.125rem 0.375rem',
-                                        borderRadius: '0.25rem',
-                                        background: 'var(--success-glass, rgba(34, 197, 94, 0.15))',
-                                        color: 'var(--success)',
-                                    }}>
-                                        All Requested
-                                    </span>
-                                )}
-                            </label>
-                            <MultiSelectDropdown
-                                options={seasonOptions}
-                                selectedIds={selectedSeasons.map(String)}
-                                onChange={(ids) => setSelectedSeasons(ids.map(Number))}
-                                placeholder="Select seasons..."
-                                showBulkActions={true}
-                                disabledIds={disabledSeasonIds}
-                                zIndex={(zIndex || 100) + 10}
-                            />
-                        </div>
-                    )}
-
-                    {/* ── Error ── */}
                     {submitError && (
                         <div style={{
                             padding: '0.5rem 0.75rem',
@@ -436,49 +341,73 @@ export const RequestModal: React.FC<RequestModalProps> = ({
                             {submitError}
                         </div>
                     )}
-
-                    {/* ── Footer Buttons ── */}
-                    {!isLoading && (
-                        <div style={{
-                            display: 'flex',
-                            justifyContent: 'flex-end',
-                            gap: '0.5rem',
-                            paddingTop: '0.25rem',
-                        }}>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={onClose}
-                            >
-                                {alreadyDone ? 'Close' : 'Cancel'}
-                            </Button>
-                            {alreadyDone ? (
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    disabled
-                                    customColor={{
-                                        background: effectiveState === 'available' ? 'var(--success)' : 'var(--warning)',
-                                        text: '#fff',
-                                    }}
-                                >
-                                    {effectiveState === 'available' ? 'Available' : 'Requested'}
-                                </Button>
-                            ) : (
-                                <Button
-                                    variant="primary"
-                                    size="sm"
-                                    disabled={!isValid || requestState === 'loading' || requestState === 'success'}
-                                    loading={requestState === 'loading'}
-                                    onClick={handleRequest}
-                                >
-                                    {requestState === 'success' ? 'Requested ✓' : 'Request'}
-                                </Button>
-                            )}
-                        </div>
-                    )}
                 </div>
             </Modal.Body>
+
+            {!isLoading && (
+                <Modal.Footer className="!items-end !justify-between gap-3 flex-wrap">
+                    {showSeasonPicker && seasonOptions.length > 0 ? (
+                        <div style={{ flex: '1 1 12rem', minWidth: 0, maxWidth: '20rem' }}>
+                            <div
+                                className="media-section-heading"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    marginBottom: '0.375rem',
+                                }}
+                            >
+                                Seasons
+                                {seasonStatusBadge}
+                            </div>
+                            <MultiSelectDropdown
+                                options={seasonOptions}
+                                selectedIds={selectedSeasons.map(String)}
+                                onChange={(ids) => setSelectedSeasons(ids.map(Number))}
+                                placeholder="Select seasons..."
+                                showBulkActions={true}
+                                disabledIds={disabledSeasonIds}
+                                zIndex={(zIndex || 100) + 10}
+                            />
+                        </div>
+                    ) : (
+                        <div />
+                    )}
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', flexShrink: 0 }}>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={onClose}
+                        >
+                            {alreadyDone ? 'Close' : 'Cancel'}
+                        </Button>
+                        {alreadyDone ? (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                disabled
+                                customColor={{
+                                    background: effectiveState === 'available' ? 'var(--success)' : 'var(--warning)',
+                                    text: '#fff',
+                                }}
+                            >
+                                {effectiveState === 'available' ? 'Available' : 'Requested'}
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                disabled={!isValid || requestState === 'loading' || requestState === 'success'}
+                                loading={requestState === 'loading'}
+                                onClick={handleRequest}
+                            >
+                                {requestState === 'success' ? 'Requested ✓' : 'Request'}
+                            </Button>
+                        )}
+                    </div>
+                </Modal.Footer>
+            )}
         </Modal>
     );
 };

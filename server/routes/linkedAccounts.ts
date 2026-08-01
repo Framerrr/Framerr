@@ -14,6 +14,8 @@ import { setHasLocalPassword, hasLocalPassword } from '../db/users';
 import { hashPassword, validatePassword } from '../auth/password';
 import { getSystemConfig } from '../db/systemConfig';
 import { checkPlexLibraryAccess } from '../utils/plexLibraryAccess';
+import { isPlexAdminTokenInvalidError } from '../utils/plexErrors';
+import { getPlexClientIdentifier } from '../utils/plexClientIdentifier';
 import logger from '../utils/logger';
 import axios from 'axios'; // Kept for plex.tv external API call (Tier 2)
 import { OverseerrAdapter } from '../integrations/overseerr/adapter';
@@ -130,12 +132,13 @@ router.post('/plex', requireAuth, async (req: Request, res: Response) => {
         const ssoConfig = systemConfig.plexSSO;
         if (ssoConfig?.machineId && ssoConfig?.adminToken) {
             try {
+                const clientIdentifier = await getPlexClientIdentifier();
                 const { hasAccess } = await checkPlexLibraryAccess(
                     plexUser.id.toString(),
                     {
                         adminToken: ssoConfig.adminToken as string,
                         machineId: ssoConfig.machineId as string,
-                        clientIdentifier: (ssoConfig.clientIdentifier as string) || 'framerr-dashboard',
+                        clientIdentifier,
                         adminPlexId: ssoConfig.adminPlexId as string,
                     }
                 );
@@ -146,6 +149,13 @@ router.post('/plex', requireAuth, async (req: Request, res: Response) => {
                     return;
                 }
             } catch (accessError) {
+                if (isPlexAdminTokenInvalidError(accessError)) {
+                    res.status(503).json({
+                        error: 'Plex SSO is temporarily unavailable. An administrator must reconnect Plex in Auth settings.',
+                        code: 'PLEX_ADMIN_TOKEN_INVALID'
+                    });
+                    return;
+                }
                 logger.error(`[LinkedAccounts] Failed to verify library access: error="${(accessError as Error).message}"`);
                 res.status(500).json({ error: 'Failed to verify library access' });
                 return;

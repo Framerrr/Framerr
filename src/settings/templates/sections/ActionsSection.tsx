@@ -1,5 +1,11 @@
 /**
  * ActionsSection - Template action buttons
+ *
+ * Labels shorten via per-button @container queries when cells are tight:
+ *   Create New Template → Create New
+ *   Save Current Dashboard → Save Current
+ *   Import Template → Import
+ * Never icon-only.
  */
 
 import React from 'react';
@@ -30,28 +36,37 @@ export const ActionsSection: React.FC<ActionsSectionProps> = ({
                     <Button
                         variant="secondary"
                         onClick={onCreateNew}
-                        className="flex items-center justify-center gap-2 w-full py-8"
+                        className="@container flex items-center justify-center gap-2 w-full min-w-0 py-8"
                     >
-                        <Plus size={16} />
-                        Create New Template
+                        <Plus size={16} className="shrink-0" />
+                        <span className="min-w-0 truncate">
+                            <span className="@[11rem]:hidden">Create New</span>
+                            <span className="hidden @[11rem]:inline">Create New Template</span>
+                        </span>
                     </Button>
 
                     <Button
                         variant="secondary"
                         onClick={onSaveCurrent}
-                        className="flex items-center justify-center gap-2 w-full py-8"
+                        className="@container flex items-center justify-center gap-2 w-full min-w-0 py-8"
                     >
-                        <Save size={16} />
-                        Save Current Dashboard
+                        <Save size={16} className="shrink-0" />
+                        <span className="min-w-0 truncate">
+                            <span className="@[11rem]:hidden">Save Current</span>
+                            <span className="hidden @[11rem]:inline">Save Current Dashboard</span>
+                        </span>
                     </Button>
 
                     <Button
                         variant="secondary"
                         onClick={() => fileInputRef.current?.click()}
-                        className="flex items-center justify-center gap-2 w-full py-8"
+                        className="@container flex items-center justify-center gap-2 w-full min-w-0 py-8"
                     >
-                        <Upload size={16} />
-                        Import Template
+                        <Upload size={16} className="shrink-0" />
+                        <span className="min-w-0 truncate">
+                            <span className="@[11rem]:hidden">Import</span>
+                            <span className="hidden @[11rem]:inline">Import Template</span>
+                        </span>
                     </Button>
                 </div>
             )}

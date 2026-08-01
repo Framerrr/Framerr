@@ -1,6 +1,15 @@
 import React from 'react';
-import { Star, Calendar, Building2, Users } from 'lucide-react';
-import { Modal } from '../../../shared/ui';
+import { Star, Calendar, Building2 } from 'lucide-react';
+import {
+    Modal,
+    MediaPoster,
+    MediaHeroCol,
+    MediaTypeBadge,
+    MediaSynopsis,
+    MediaGenres,
+    MediaPeople,
+    MediaCast,
+} from '../../../shared/ui';
 import { ExternalMediaLinks } from '../../../shared/ui/ExternalMediaLinks';
 import api from '../../../api/client';
 import logger from '../../../utils/logger';
@@ -184,283 +193,81 @@ const MediaInfoModal: React.FC<MediaInfoModalProps> = ({
                 {/* Main content — shown immediately with initial data, enriched with metadata */}
                 {hasContent && (
                     <div className="space-y-6">
-                        {/* Poster and Basic Info */}
-                        <div style={{ display: 'flex', gap: '1.5rem' }}>
-                            {/* Poster */}
-                            {displayThumb && (
-                                <div style={{
-                                    width: '150px',
-                                    flexShrink: 0,
-                                    alignSelf: 'flex-start',
-                                    borderRadius: '8px',
-                                    overflow: 'hidden',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-                                }}>
-                                    <img
-                                        src={displayThumb}
-                                        alt={displayTitle}
-                                        style={{
-                                            width: '100%',
-                                            height: 'auto',
-                                            display: 'block'
-                                        }}
-                                        onError={(e) => {
-                                            (e.target as HTMLImageElement).style.display = 'none';
-                                        }}
-                                    />
-                                </div>
-                            )}
+                        <div className="media-hero">
+                            <MediaPoster
+                                src={displayThumb}
+                                alt={displayTitle}
+                                onImgError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                            />
 
-                            {/* Title and Metadata */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <h2 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '1.5rem',
-                                    fontWeight: 700,
-                                    color: 'var(--text-primary)'
-                                }}>
-                                    {displayTitle}
-                                </h2>
-                                {subtitle && (
-                                    <p style={{
-                                        margin: '0 0 0.75rem 0',
-                                        color: 'var(--text-secondary)',
-                                        fontSize: '0.95rem'
-                                    }}>
-                                        {subtitle}
-                                    </p>
-                                )}
-                                {mediaType === 'episode' && episodeTitle && (
-                                    <p style={{
-                                        margin: '0 0 0.75rem 0',
-                                        fontSize: '1.1rem',
-                                        fontWeight: 500,
-                                        color: 'var(--text-primary)'
-                                    }}>
+                            <MediaHeroCol>
+                                <h2 className="media-hero__title">{displayTitle}</h2>
+                                {subtitle ? (
+                                    <p className="media-hero__subtitle">{subtitle}</p>
+                                ) : null}
+                                {mediaType === 'episode' && episodeTitle ? (
+                                    <p className="media-hero__subtitle" style={{ fontSize: '1.1rem', fontWeight: 500, color: 'var(--text-primary)' }}>
                                         {episodeTitle}
                                     </p>
-                                )}
+                                ) : null}
 
-                                {/* Metadata Row */}
-                                <div style={{
-                                    display: 'flex',
-                                    flexWrap: 'wrap',
-                                    gap: '1rem',
-                                    marginTop: '0.75rem',
-                                    fontSize: '0.9rem'
-                                }}>
+                                <MediaTypeBadge type={mediaType === 'episode' || mediaType === 'track' ? 'tv' : 'movie'} />
+
+                                <div className="media-hero__meta">
                                     {metadata?.year && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-primary)' }}>
+                                        <div className="media-hero__meta-item">
                                             <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
                                             <span>{metadata.year}</span>
                                         </div>
                                     )}
                                     {metadata?.rating && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-primary)' }}>
+                                        <div className="media-hero__meta-item">
                                             <Star size={14} style={{ color: 'var(--warning)' }} />
                                             <span>{metadata.rating.toFixed(1)}/10</span>
                                         </div>
                                     )}
                                     {metadata?.contentRating && (
-                                        <div style={{
-                                            padding: '0.125rem 0.5rem',
-                                            background: 'var(--bg-hover)',
-                                            borderRadius: '4px',
-                                            fontSize: '0.8rem',
-                                            fontWeight: 600,
-                                            color: 'var(--text-primary)'
-                                        }}>
+                                        <div className="media-type-badge" style={{ fontSize: '0.8rem' }}>
                                             {metadata.contentRating}
+                                        </div>
+                                    )}
+                                    {metadata?.studio && (
+                                        <div className="media-hero__meta-item">
+                                            <Building2 size={14} style={{ color: 'var(--text-secondary)' }} />
+                                            <span>{metadata.studio}</span>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Studio */}
-                                {metadata?.studio && (
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '0.5rem',
-                                        marginTop: '0.75rem',
-                                        fontSize: '0.85rem',
-                                        color: 'var(--text-secondary)'
-                                    }}>
-                                        <Building2 size={14} />
-                                        <span>{metadata.studio}</span>
-                                    </div>
-                                )}
-
                                 <ExternalMediaLinks
                                     tmdbId={externalIds.tmdbId}
                                     imdbId={externalIds.imdbId}
+                                    title={displayTitle}
+                                    year={metadata?.year}
                                     mediaType={mediaType === 'episode' || mediaType === 'track' ? 'tv' : 'movie'}
-                                    className="mt-2"
                                 />
-                            </div>
+                            </MediaHeroCol>
                         </div>
 
-                        {/* Synopsis */}
-                        {metadata?.summary && (
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <h4 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)'
-                                }}>
-                                    Synopsis
-                                </h4>
-                                <p style={{
-                                    margin: 0,
-                                    lineHeight: 1.6,
-                                    color: 'var(--text-primary)',
-                                    fontSize: '0.95rem'
-                                }}>
-                                    {metadata.summary}
-                                </p>
+                        {/* Shared: tagline → synopsis → genres → directors → writers → cast */}
+                        {metadata?.tagline ? (
+                            <div style={{
+                                fontStyle: 'italic',
+                                color: 'var(--text-secondary)',
+                                fontSize: '1rem',
+                                borderLeft: '3px solid var(--accent)',
+                                paddingLeft: '1rem'
+                            }}>
+                                "{metadata.tagline}"
                             </div>
-                        )}
-
-                        {/* Genres */}
-                        {metadata?.genres && metadata.genres.length > 0 && (
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <h4 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)'
-                                }}>
-                                    Genres
-                                </h4>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                    {metadata.genres.map((genre, idx) => (
-                                        <span
-                                            key={idx}
-                                            style={{
-                                                padding: '0.25rem 0.75rem',
-                                                background: 'var(--bg-hover)',
-                                                borderRadius: '12px',
-                                                fontSize: '0.85rem',
-                                                color: 'var(--text-primary)'
-                                            }}
-                                        >
-                                            {genre}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Directors */}
-                        {metadata?.directors && metadata.directors.length > 0 && (
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <h4 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)'
-                                }}>
-                                    Director{metadata.directors.length > 1 ? 's' : ''}
-                                </h4>
-                                <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                                    {metadata.directors.join(', ')}
-                                </p>
-                            </div>
-                        )}
-
-                        {/* Writers */}
-                        {metadata?.writers && metadata.writers.length > 0 && (
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <h4 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)'
-                                }}>
-                                    Writer{metadata.writers.length > 1 ? 's' : ''}
-                                </h4>
-                                <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                                    {metadata.writers.join(', ')}
-                                </p>
-                            </div>
-                        )}
-
-                        {/* Cast */}
-                        {metadata?.cast && metadata.cast.length > 0 && (
-                            <div>
-                                <h4 style={{
-                                    margin: '0 0 0.75rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem'
-                                }}>
-                                    <Users size={14} />
-                                    Cast
-                                </h4>
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-                                    gap: '0.5rem'
-                                }}>
-                                    {metadata.cast.slice(0, 12).map((actor, idx) => (
-                                        <div
-                                            key={idx}
-                                            style={{
-                                                padding: '0.5rem',
-                                                background: 'var(--bg-hover)',
-                                                borderRadius: '6px'
-                                            }}
-                                        >
-                                            <div style={{
-                                                fontWeight: 500,
-                                                fontSize: '0.9rem',
-                                                whiteSpace: 'nowrap',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                color: 'var(--text-primary)'
-                                            }}>
-                                                {actor.name}
-                                            </div>
-                                            {actor.role && (
-                                                <div style={{
-                                                    fontSize: '0.8rem',
-                                                    color: 'var(--text-secondary)',
-                                                    whiteSpace: 'nowrap',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    marginTop: '0.125rem'
-                                                }}>
-                                                    {actor.role}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                                {metadata.cast.length > 12 && (
-                                    <p style={{
-                                        marginTop: '0.75rem',
-                                        fontSize: '0.85rem',
-                                        color: 'var(--text-secondary)',
-                                        fontStyle: 'italic'
-                                    }}>
-                                        +{metadata.cast.length - 12} more cast members
-                                    </p>
-                                )}
-                            </div>
-                        )}
+                        ) : null}
+                        {metadata?.summary ? <MediaSynopsis text={metadata.summary} /> : null}
+                        {metadata?.genres?.length ? <MediaGenres genres={metadata.genres} /> : null}
+                        {metadata?.directors?.length ? <MediaPeople label="Director" names={metadata.directors} /> : null}
+                        {metadata?.writers?.length ? <MediaPeople label="Writer" names={metadata.writers} /> : null}
+                        {metadata?.cast?.length ? <MediaCast members={metadata.cast} /> : null}
                     </div>
                 )}
             </Modal.Body>

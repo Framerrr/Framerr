@@ -1,22 +1,23 @@
 /**
  * MovieDetailModal - Detail view for a Radarr movie
  * 
- * Hero layout matches RequestInfoModal / EpisodeDetailModal exactly:
- * - 150x225 poster, 1.5rem/700 title, metadata row, status badge, ExternalMediaLinks
- * - Floating X close button (uses Modal's relative content wrapper)
- * - Hidden Dialog.Title/Description for Radix a11y
- * 
- * Two modes:
- * 1. Missing mode: Movie details + search actions in footer
- * 2. Upcoming mode: Movie details + countdown
+ * Hero/body shared with other media detail modals via MediaDetail primitives.
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
     Search, Download, ArrowLeft, Check, AlertCircle,
-    Loader2, Film, Calendar, Star, Building2, UserCheck
+    Loader2, Calendar, Star, Building2, UserCheck
 } from 'lucide-react';
-import { Modal } from '@/shared/ui';
+import {
+    Modal,
+    MediaPoster,
+    MediaHeroCol,
+    MediaTypeBadge,
+    MediaSectionHeading,
+    MediaSynopsis,
+    MediaGenres,
+} from '@/shared/ui';
 import { Button } from '@/shared/ui/Button/Button';
 import { ExternalMediaLinks } from '@/shared/ui/ExternalMediaLinks';
 import { useAutoSearchState } from '../hooks/useAutoSearchState';
@@ -335,197 +336,57 @@ const MovieDetailModal: React.FC<MovieDetailModalProps> = ({
                 {/* ============ INFO VIEW ============ */}
                 {view === 'info' && (
                     <div className="space-y-6">
-                        {/* Poster and Basic Info — matches RequestInfoModal exactly */}
-                        <div style={{ display: 'flex', gap: '1.5rem' }}>
-                            {/* Poster */}
-                            {posterUrl ? (
-                                <div style={{
-                                    width: '150px',
-                                    height: '225px',
-                                    minHeight: '225px',
-                                    flexShrink: 0,
-                                    alignSelf: 'flex-start',
-                                    borderRadius: '8px',
-                                    overflow: 'hidden',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-                                }}>
-                                    <img
-                                        src={posterUrl}
-                                        alt={title}
-                                        style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            objectFit: 'cover',
-                                            display: 'block'
-                                        }}
-                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                    />
-                                </div>
-                            ) : (
-                                <div style={{
-                                    width: '150px',
-                                    height: '225px',
-                                    flexShrink: 0,
-                                    borderRadius: '8px',
-                                    background: 'var(--bg-tertiary)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}>
-                                    <Film size={48} style={{ color: 'var(--text-tertiary)' }} />
-                                </div>
-                            )}
+                        <div className="media-hero">
+                            <MediaPoster
+                                src={posterUrl}
+                                alt={title}
+                                statusLabel={movieStatusResult.label}
+                                statusColor={movieStatusResult.color}
+                                onImgError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
 
-                            {/* Title and Metadata */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                {/* Movie title */}
-                                <h2 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '1.5rem',
-                                    fontWeight: 700,
-                                    color: 'var(--text-primary)'
-                                }}>
-                                    {title}
-                                </h2>
+                            <MediaHeroCol>
+                                <h2 className="media-hero__title">{title}</h2>
 
-                                {/* Year subtitle */}
-                                {year && (
-                                    <p style={{
-                                        margin: '0 0 0.75rem 0',
-                                        color: 'var(--text-secondary)',
-                                        fontSize: '0.95rem'
-                                    }}>
-                                        {year}
-                                    </p>
-                                )}
+                                <MediaTypeBadge type="movie" />
 
-                                {/* Type Badge — matches Request Info */}
-                                <div style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.25rem',
-                                    padding: '0.25rem 0.5rem',
-                                    background: 'var(--bg-hover)',
-                                    borderRadius: '4px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 600,
-                                    color: 'var(--text-secondary)',
-                                    marginBottom: '0.75rem'
-                                }}>
-                                    <Film size={12} />
-                                    Movie
-                                </div>
-
-                                {/* Metadata Row — matches Request Info layout */}
-                                <div style={{
-                                    display: 'flex',
-                                    flexWrap: 'wrap',
-                                    gap: '1rem',
-                                    fontSize: '0.9rem'
-                                }}>
-                                    {displayDate && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-primary)' }}>
+                                <div className="media-hero__meta">
+                                    {(displayDate || year) ? (
+                                        <div className="media-hero__meta-item">
                                             <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
-                                            <span>{displayDate}</span>
+                                            <span>{displayDate || year}</span>
                                         </div>
-                                    )}
+                                    ) : null}
                                     {(typeof rating === 'number' && rating > 0) && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-primary)' }}>
+                                        <div className="media-hero__meta-item">
                                             <Star size={14} style={{ color: 'var(--warning)' }} />
                                             <span>{rating.toFixed(1)}/10</span>
                                         </div>
                                     )}
                                     {studio && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-primary)' }}>
+                                        <div className="media-hero__meta-item">
                                             <Building2 size={14} style={{ color: 'var(--text-secondary)' }} />
                                             <span>{studio}</span>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Status Badge — matches Request Info */}
-                                <div style={{
-                                    display: 'inline-block',
-                                    marginTop: '0.75rem',
-                                    padding: '0.25rem 0.75rem',
-                                    background: `${movieStatusResult.color}20`,
-                                    border: `1px solid ${movieStatusResult.color}40`,
-                                    borderRadius: '6px',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 600,
-                                    color: movieStatusResult.color
-                                }}>
-                                    {movieStatusResult.label}
-                                </div>
-
-                                {/* External links — IMDB + TMDB */}
                                 <ExternalMediaLinks
                                     imdbId={imdbId}
                                     tmdbId={tmdbId}
+                                    title={title}
+                                    year={year}
                                     mediaType="movie"
-                                    className="mt-2"
                                 />
-                            </div>
+                            </MediaHeroCol>
                         </div>
 
-                        {/* Genres */}
-                        {genres.length > 0 && (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                {genres.map(genre => (
-                                    <span
-                                        key={genre}
-                                        style={{
-                                            padding: '0.25rem 0.75rem',
-                                            background: 'var(--bg-hover)',
-                                            border: '1px solid var(--border)',
-                                            borderRadius: '999px',
-                                            fontSize: '0.8rem',
-                                            color: 'var(--text-secondary)',
-                                            fontWeight: 500
-                                        }}
-                                    >
-                                        {genre}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
+                        {overview ? <MediaSynopsis text={overview} /> : null}
+                        <MediaGenres genres={genres} />
 
-                        {/* Synopsis */}
-                        {overview && (
-                            <div>
-                                <h4 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)'
-                                }}>
-                                    Synopsis
-                                </h4>
-                                <p style={{
-                                    margin: 0,
-                                    lineHeight: 1.6,
-                                    color: 'var(--text-primary)',
-                                    fontSize: '0.95rem'
-                                }}>
-                                    {overview}
-                                </p>
-                            </div>
-                        )}
-
-                        {/* Release dates section — always show both cinema + digital */}
+                        {/* Domain: release milestones */}
                         <div>
-                            <h4 style={{
-                                margin: '0 0 0.5rem 0',
-                                fontSize: '0.9rem',
-                                fontWeight: 600,
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em',
-                                color: 'var(--text-secondary)'
-                            }}>
-                                Release Dates
-                            </h4>
+                            <MediaSectionHeading>Release Dates</MediaSectionHeading>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                                 <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
                                     <span style={{ color: 'var(--text-secondary)', marginRight: '0.5rem' }}>In Cinemas:</span>

@@ -86,7 +86,7 @@ export const LibrarySyncSection: React.FC<LibrarySyncSectionProps> = ({
     return (
         <div className="p-3 rounded-lg border border-theme bg-theme-hover">
             <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
                     <div className="flex-shrink-0 relative z-10">
                         <Switch
                             checked={enabled}
@@ -94,7 +94,7 @@ export const LibrarySyncSection: React.FC<LibrarySyncSectionProps> = ({
                             aria-label="Enable Library Sync"
                         />
                     </div>
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-theme-primary flex items-center gap-2">
                             <Database size={14} />
                             Enable Library Sync
@@ -179,7 +179,7 @@ export const LibrarySyncSection: React.FC<LibrarySyncSectionProps> = ({
                 {/* Sync Now button - only for existing integrations with sync enabled */}
                 {!isNewIntegration && enabled && (
                     showComplete ? (
-                        <div className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-success/20 text-success border border-success/30">
+                        <div className="flex-shrink-0 whitespace-nowrap flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg bg-success/20 text-success border border-success/30">
                             <CheckCircle2 size={14} />
                             Complete
                         </div>
@@ -190,6 +190,7 @@ export const LibrarySyncSection: React.FC<LibrarySyncSectionProps> = ({
                             onClick={onSyncNow}
                             loading={syncStatus?.syncStatus === 'syncing'}
                             icon={RefreshCw}
+                            className="flex-shrink-0 whitespace-nowrap"
                         >
                             {syncStatus?.syncStatus === 'syncing' ? 'Syncing...' : 'Sync Now'}
                         </Button>

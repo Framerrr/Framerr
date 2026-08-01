@@ -60,14 +60,27 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
 
 
 
-    const fetchAdminServers = async (): Promise<void> => {
+    const fetchAdminServers = async (opts?: { quiet?: boolean }): Promise<boolean> => {
         setLoadingServers(true);
         try {
             const response = await plexApi.getAdminResources();
             setServers(response);
+            return true;
         } catch (error) {
-            const err = error as Error;
-            logger.debug('[PlexAuth] Failed to fetch admin servers:', err.message);
+            const err = error as Error & { status?: number };
+            logger.warn('[PlexAuth] Failed to fetch admin servers:', err.message);
+            setServers([]);
+            if (!opts?.quiet) {
+                const needsReconnect = err.status === 503
+                    || /invalid or expired|reconnect/i.test(err.message);
+                showError(
+                    needsReconnect ? 'Plex Connection Expired' : 'Failed to Load Servers',
+                    needsReconnect
+                        ? 'Reconnect Plex to refresh the server list and restore shared-user SSO.'
+                        : err.message
+                );
+            }
+            return false;
         } finally {
             setLoadingServers(false);
         }
@@ -83,8 +96,16 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
                 adminPlexId: String(user.id)
             });
 
-            // Fetch servers
-            await fetchServers(token);
+            // Prefer the stored-token path so we verify what SSO will actually use.
+            // Fall back to the fresh token only if the round-trip is still warming up.
+            const storedOk = await fetchAdminServers({ quiet: true });
+            if (!storedOk) {
+                await fetchServers(token);
+                showError(
+                    'Verify Reconnect',
+                    'Connected, but the stored token could not load servers yet. Try Refresh — if it fails, reconnect again.'
+                );
+            }
 
             // Auto-enable SSO on first connection
             setConfig(prev => ({
@@ -94,7 +115,9 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
                 enabled: true
             }));
 
-            showSuccess('Plex Connected', `Connected as ${user.username}`);
+            if (storedOk) {
+                showSuccess('Plex Connected', `Connected as ${user.username}`);
+            }
         } catch (error) {
             const err = error as Error;
             logger.error('[PlexAuth] Failed to save after auth:', err.message);
@@ -262,7 +285,7 @@ export const PlexPage: React.FC<PlexAuthSettingsProps> = ({ onSaveNeeded, onSave
                                     </Select>
                                 </div>
                                 <button
-                                    onClick={fetchAdminServers}
+                                    onClick={() => { void fetchAdminServers(); }}
                                     disabled={loadingServers}
                                     className="px-3 py-2 border border-theme rounded-lg text-theme-secondary hover:bg-theme-hover transition-all"
                                     title="Refresh servers"

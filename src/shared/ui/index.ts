@@ -170,3 +170,17 @@ export type { LoadingSpinnerProps } from './LoadingSpinner';
 // StatusDot - Status indicator dot with pulse animation
 export { StatusDot } from './StatusDot';
 export type { StatusDotProps, MonitorStatus } from './StatusDot';
+
+// MediaDetail - Shared hero/body patterns for media info modals
+export {
+    MediaTypeBadge,
+    MediaStatusBadge,
+    MediaSectionHeading,
+    MediaSynopsis,
+    MediaGenres,
+    MediaPeople,
+    MediaCast,
+    MediaPoster,
+    MediaHeroCol,
+} from './MediaDetail';
+export type { MediaTypeBadgeKind, MediaCastMember } from './MediaDetail';

@@ -6,6 +6,11 @@
  *
  * Desktop: bar centered at ~35% from top, width capped at 700px
  * Mobile:  bar at top of viewport, fills available width
+ *
+ * The shared layoutId bar is intentionally NOT inside the backdrop's
+ * AnimatePresence opacity exit — used for the open FLIP only. Close return
+ * is a body-level fixed flight owned by MediaSearchWidget (avoids painting
+ * under sibling grid-stack items).
  */
 
 import React, { useEffect, useRef, useCallback } from 'react';
@@ -34,6 +39,13 @@ interface SearchTakeoverProps {
     children: React.ReactNode;
     /** Shared layoutId for FLIP animation from widget bar to takeover bar */
     layoutId?: string;
+    /** Called when the shared layoutId bar finishes its FLIP animation */
+    onBarLayoutAnimationComplete?: () => void;
+    /**
+     * Scroll lock for the overlay. Parent may own lock during close flight
+     * after isActive becomes false — pass false to skip locking here.
+     */
+    lockScroll?: boolean;
 }
 
 const BACKDROP_VARIANTS = {
@@ -52,11 +64,14 @@ const SearchTakeover: React.FC<SearchTakeoverProps> = ({
     previewMode = false,
     children,
     layoutId,
+    onBarLayoutAnimationComplete,
+    lockScroll,
 }) => {
     const backdropRef = useRef<HTMLDivElement>(null);
 
-    // Lock page scroll when active (iOS-compatible, matches Modal behavior)
-    useScrollLock(isActive);
+    // Lock page scroll when active (iOS-compatible, matches Modal behavior).
+    // Parent can disable this and own the lock across the close flight.
+    useScrollLock(lockScroll ?? isActive);
 
     // Focus the input when takeover becomes active
     useEffect(() => {
@@ -93,81 +108,94 @@ const SearchTakeover: React.FC<SearchTakeoverProps> = ({
         [onClose]
     );
 
-    return createPortal(
-        <AnimatePresence>
-            {isActive && (
-                <motion.div
-                    ref={backdropRef}
-                    className="search-takeover-backdrop"
-                    variants={BACKDROP_VARIANTS}
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                    transition={{ duration: 0.2 }}
-                    onClick={handleBackdropClick}
+    const searchBar = (
+        <motion.div
+            layoutId={layoutId}
+            className="search-takeover-bar"
+            onLayoutAnimationComplete={onBarLayoutAnimationComplete}
+            transition={{ type: 'spring' as const, damping: 28, stiffness: 300 }}
+            style={{ borderRadius: '1rem', zIndex: 250 }}
+        >
+            <Search size={16} className="search-takeover-search-icon" />
+            <input
+                ref={inputRef}
+                type="text"
+                className="search-takeover-input"
+                placeholder="Search movies, shows, actors..."
+                value={query}
+                onChange={onQueryChange}
+                disabled={previewMode}
+                autoFocus
+            />
+            {query && (
+                <button
+                    className="search-takeover-clear"
+                    onClick={onClear}
+                    title="Clear search"
                 >
-                    <div
-                        className="search-takeover-container"
-                    >
-                        {/* Close button */}
-                        <motion.button
-                            className="search-takeover-close"
-                            onClick={onClose}
-                            title="Close search"
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
-                            transition={{ delay: 0.15, duration: 0.15 }}
-                        >
-                            <X size={16} />
-                        </motion.button>
-
-                        {/* Search bar — FLIP animated via layoutId */}
-                        <motion.div
-                            layoutId={layoutId}
-                            className="search-takeover-bar"
-                            transition={{ type: 'spring' as const, damping: 28, stiffness: 300 }}
-                            style={{ borderRadius: '1rem' }}
-                        >
-                            <Search size={16} className="search-takeover-search-icon" />
-                            <input
-                                ref={inputRef}
-                                type="text"
-                                className="search-takeover-input"
-                                placeholder="Search movies, shows, actors..."
-                                value={query}
-                                onChange={onQueryChange}
-                                disabled={previewMode}
-                                autoFocus
-                            />
-                            {query && (
-                                <button
-                                    className="search-takeover-clear"
-                                    onClick={onClear}
-                                    title="Clear search"
-                                >
-                                    <X size={14} />
-                                </button>
-                            )}
-                        </motion.div>
-
-                        {/* Dropdown content — fades in after bar lands */}
-                        {children && (
-                            <motion.div
-                                className="search-takeover-dropdown"
-                                data-scroll-lock-allow
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: 8 }}
-                                transition={{ delay: 0.12, duration: 0.2 }}
-                            >
-                                {children}
-                            </motion.div>
-                        )}
-                    </div>
-                </motion.div>
+                    <X size={14} />
+                </button>
             )}
-        </AnimatePresence>,
+        </motion.div>
+    );
+
+    return createPortal(
+        <>
+            {/* Scrim + chrome — may opacity-exit independently of the shared bar */}
+            <AnimatePresence>
+                {isActive && (
+                    <motion.div
+                        ref={backdropRef}
+                        className="search-takeover-backdrop"
+                        variants={BACKDROP_VARIANTS}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        transition={{ duration: 0.2 }}
+                        onClick={handleBackdropClick}
+                    >
+                        <div className="search-takeover-container">
+                            <motion.button
+                                className="search-takeover-close"
+                                onClick={onClose}
+                                title="Close search"
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.8 }}
+                                transition={{ delay: 0.15, duration: 0.15 }}
+                            >
+                                <X size={16} />
+                            </motion.button>
+
+                            {/* Holds vertical space so the dropdown stays under the real bar */}
+                            <div className="search-takeover-bar search-takeover-bar--slot" aria-hidden />
+
+                            {children && (
+                                <motion.div
+                                    className="search-takeover-dropdown"
+                                    data-scroll-lock-allow
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 8 }}
+                                    transition={{ delay: 0.12, duration: 0.2 }}
+                                >
+                                    {children}
+                                </motion.div>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Shared layoutId bar — outside scrim exit so close FLIP isn't opacity-clipped */}
+            {isActive && (
+                <div className="search-takeover-bar-layer" aria-hidden={false}>
+                    <div className="search-takeover-container">
+                        {searchBar}
+                    </div>
+                </div>
+            )}
+        </>,
         document.body
     );
 };
