@@ -1,12 +1,14 @@
 /**
  * Plex Library Access Check
- * 
+ *
  * Shared helper to verify a Plex user has library access on the admin's server.
  * Used by both SSO login (auth.ts) and manual Plex linking (linkedAccounts.ts).
  */
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import xml2js from 'xml2js';
 import logger from './logger';
+import { getPlexClientIdentifier } from './plexClientIdentifier';
+import { PlexAdminTokenInvalidError } from './plexErrors';
 
 interface SharedServer {
     userID?: string;
@@ -26,7 +28,8 @@ interface ParsedSharedServersXML {
 interface PlexSSOConfig {
     adminToken: string;
     machineId: string;
-    clientIdentifier: string;
+    /** Optional; resolved via getPlexClientIdentifier() when omitted */
+    clientIdentifier?: string;
     adminPlexId?: string;
 }
 
@@ -37,11 +40,12 @@ interface LibraryAccessResult {
 
 /**
  * Check if a Plex user has library access on the admin's Plex server.
- * 
+ *
  * - If the user IS the Plex admin → returns { hasAccess: true, isAdmin: true }
  * - If the user IS in the shared_servers list → returns { hasAccess: true, isAdmin: false }
  * - If the user is NOT in the list → returns { hasAccess: false, isAdmin: false }
- * - Throws on network/config errors (caller must handle)
+ * - Throws PlexAdminTokenInvalidError when plex.tv rejects the admin token (401)
+ * - Throws on other network/config errors (caller must handle)
  */
 export async function checkPlexLibraryAccess(
     plexUserId: string,
@@ -62,18 +66,34 @@ export async function checkPlexLibraryAccess(
         throw new Error('No Plex machine ID configured');
     }
 
+    const clientIdentifier = ssoConfig.clientIdentifier?.trim()
+        || await getPlexClientIdentifier();
+
     let sharedUsers: SharedServer[] = [];
 
-    const sharedServersResponse = await axios.get<string>(
-        `https://plex.tv/api/servers/${ssoConfig.machineId}/shared_servers`,
-        {
-            headers: {
-                'Accept': 'application/json',
-                'X-Plex-Token': ssoConfig.adminToken,
-                'X-Plex-Client-Identifier': ssoConfig.clientIdentifier
+    let sharedServersResponse;
+    try {
+        sharedServersResponse = await axios.get<string>(
+            `https://plex.tv/api/servers/${ssoConfig.machineId}/shared_servers`,
+            {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Plex-Token': ssoConfig.adminToken,
+                    'X-Plex-Client-Identifier': clientIdentifier
+                }
             }
+        );
+    } catch (error) {
+        const axiosErr = error as AxiosError;
+        if (axiosErr.response?.status === 401) {
+            logger.error(
+                `[PlexLibraryAccess] Admin token rejected by Plex (401) for shared_servers — ` +
+                `SSO shared-user logins will fail until an admin reconnects Plex`
+            );
+            throw new PlexAdminTokenInvalidError();
         }
-    );
+        throw error;
+    }
 
     const responseData = sharedServersResponse.data;
     logger.debug(`[PlexLibraryAccess] shared_servers response: status=${sharedServersResponse.status} dataType=${typeof responseData}`);

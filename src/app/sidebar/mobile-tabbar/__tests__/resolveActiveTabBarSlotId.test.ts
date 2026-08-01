@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     resolveActiveTabBarSlotId,
     tabBarSlotKey,
+    isActiveDashboardMissingFromTabBar,
 } from '../resolveActiveTabBarSlotId';
 import type { TabBarSlot } from '../tabBarLayout';
 
@@ -23,6 +24,18 @@ describe('resolveActiveTabBarSlotId', () => {
                 tabs: [],
             }),
         ).toBe(tabBarSlotKey(baseSlots[1], 1));
+    });
+
+    it('returns null when active dashboard is not bound to the bar', () => {
+        expect(
+            resolveActiveTabBarSlotId({
+                slots: baseSlots,
+                hash: 'dashboard/dash-b',
+                activeDashboardId: 'dash-b',
+                homeDashboardId: 'dash-a',
+                tabs: [],
+            }),
+        ).toBeNull();
     });
 
     it('selects profile action on profile settings route', () => {
@@ -49,6 +62,18 @@ describe('resolveActiveTabBarSlotId', () => {
         ).toBe(tabBarSlotKey(baseSlots[3], 3));
     });
 
+    it('selects settings even when active dashboard is unbound', () => {
+        expect(
+            resolveActiveTabBarSlotId({
+                slots: baseSlots,
+                hash: 'settings/integrations',
+                activeDashboardId: 'dash-b',
+                homeDashboardId: 'dash-a',
+                tabs: [],
+            }),
+        ).toBe(tabBarSlotKey(baseSlots[3], 3));
+    });
+
     it('returns null when no slot matches', () => {
         expect(
             resolveActiveTabBarSlotId({
@@ -59,5 +84,40 @@ describe('resolveActiveTabBarSlotId', () => {
                 tabs: [],
             }),
         ).toBeNull();
+    });
+});
+
+describe('isActiveDashboardMissingFromTabBar', () => {
+    it('is true on an unbound dashboard route', () => {
+        expect(
+            isActiveDashboardMissingFromTabBar({
+                slots: baseSlots,
+                hash: 'dashboard/dash-b',
+                activeDashboardId: 'dash-b',
+                homeDashboardId: 'dash-a',
+            }),
+        ).toBe(true);
+    });
+
+    it('is false when the active dashboard is bound', () => {
+        expect(
+            isActiveDashboardMissingFromTabBar({
+                slots: baseSlots,
+                hash: 'dashboard/dash-a',
+                activeDashboardId: 'dash-a',
+                homeDashboardId: 'dash-a',
+            }),
+        ).toBe(false);
+    });
+
+    it('is false on non-dashboard routes', () => {
+        expect(
+            isActiveDashboardMissingFromTabBar({
+                slots: baseSlots,
+                hash: 'settings/integrations',
+                activeDashboardId: 'dash-b',
+                homeDashboardId: 'dash-a',
+            }),
+        ).toBe(false);
     });
 });

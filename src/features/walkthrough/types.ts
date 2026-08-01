@@ -172,6 +172,11 @@ export interface WalkthroughContextValue {
     resume: () => void;
     /** Reset a flow's completion and restart it (route-aware — defers if not on required page) */
     resetAndStartFlow: (flowId: string) => void;
+    /**
+     * True while a flow is scheduled to start (route wait / start delay) or currently running.
+     * Use to temporarily reveal chrome the tour needs (e.g. mobile edit button).
+     */
+    isFlowPendingOrActive: boolean;
 }
 
 // ============================================================================

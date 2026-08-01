@@ -1,20 +1,25 @@
 /**
  * useIntegrationFallback Hook
- * 
+ *
  * Resolves the active integration ID for a widget, with fallback logic.
- * 
+ *
  * Flow:
  * 1. If configured integrationId is accessible → use it
  * 2. If configured integrationId is NOT accessible → try fallback
  * 3. If no fallback available → return null with reason
- * 
+ *
  * This prevents widgets from showing errors when their configured
  * integration is deleted or unshared.
- * 
+ *
+ * Critical: never fall back (or allow persist) while auth/integrations are
+ * still settling — a transient partial list can otherwise auto-bind the wrong
+ * server (e.g. jellyfin before plex) and rewrite widget config.
+ *
  * Uses React Query for real-time reactivity to integration sharing changes.
  */
 
 import { useMemo, useRef } from 'react';
+import { useAuth } from '../../../context/useAuth';
 import { useRoleAwareIntegrations } from '../../../api/hooks/useIntegrations';
 import logger from '../../../utils/logger';
 import { resolveEffectiveIntegrationId } from '../resolveEffectiveIntegrationId';
@@ -60,15 +65,24 @@ export function useIntegrationFallback({
     widgetType = 'unknown',
     explicitlyCleared,
 }: UseIntegrationFallbackOptions): IntegrationFallbackResult {
+    const { user, loading: authLoading } = useAuth();
+
     // Use React Query hook for real-time reactivity (role-aware)
     // React Query keeps previous data during background refetches, so accessibleInstances
     // always has the last successful data (never empty during refetch).
     // isError detects query failures where we should use cached results.
     const {
         data: allIntegrations = [],
-        isLoading: loading,
+        isLoading,
+        isPending,
+        isFetching,
+        isFetched,
         isError,
     } = useRoleAwareIntegrations();
+
+    // Auth or first integrations fetch not ready — do not resolve fallback yet
+    const authReady = !authLoading && !!user;
+    const integrationsReady = authReady && !isPending && !isLoading && (isFetched || isError);
 
     // Cache the last stable (non-empty) result to use during refetching or errors
     // This prevents widgets from briefly showing wrong state during SSE reconnection
@@ -94,16 +108,18 @@ export function useIntegrationFallback({
             compatibleTypes.includes(i.type.toLowerCase())
         );
 
-        // Initial loading - show loading state
-        if (loading) {
-            return {
-                integrationId: null,
-                isOriginal: false,
-                isFallback: false,
-                reason: 'loading',
-                loading: true,
-                compatibleInstances: [],
-            };
+        const loadingResult = (): IntegrationFallbackResult => ({
+            integrationId: null,
+            isOriginal: false,
+            isFallback: false,
+            reason: 'loading',
+            loading: true,
+            compatibleInstances: [],
+        });
+
+        // Initial load / auth gate — show loading, never fall back
+        if (!integrationsReady) {
+            return loadingResult();
         }
 
         // STABILITY GUARD: Only protect against network errors
@@ -114,6 +130,19 @@ export function useIntegrationFallback({
         if (configuredId && isError && lastStableResultRef.current) {
             logger.debug(`[useIntegrationFallback] ${widgetType}: Using cached result (network error)`);
             return lastStableResultRef.current;
+        }
+
+        const configuredMissing = !!configuredId
+            && !explicitlyCleared
+            && !compatible.some((i) => i.id === configuredId);
+
+        // Configured bind not in the current list while a fetch is in flight —
+        // hold loading so we don't fall back to compatible[0] (often jellyfin) and persist it.
+        if (configuredMissing && isFetching) {
+            logger.debug(
+                `[useIntegrationFallback] ${widgetType}: Holding bind — configured id missing while integrations fetch`,
+            );
+            return loadingResult();
         }
 
         const effectiveId = resolveEffectiveIntegrationId(
@@ -155,11 +184,20 @@ export function useIntegrationFallback({
                   : undefined,
             compatibleInstances: compatible,
         };
-    }, [loading, isError, configuredId, accessibleInstances, compatibleTypes, widgetType, explicitlyCleared]);
+    }, [
+        integrationsReady,
+        isFetching,
+        isError,
+        configuredId,
+        accessibleInstances,
+        compatibleTypes,
+        widgetType,
+        explicitlyCleared,
+    ]);
 
     // Cache stable results for use during network errors
     // Any non-loading, non-error result is valid to cache (including 'not_configured' and 'no_access')
-    if (!loading && !isError) {
+    if (integrationsReady && !isError && !result.loading) {
         lastStableResultRef.current = result;
     }
 

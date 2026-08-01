@@ -67,6 +67,33 @@ export function resolveActiveTabBarSlotId({
     return null;
 }
 
+/**
+ * True when the user is on a dashboard route whose active dashboard is not
+ * bound to any bottom-bar dashboard slot (e.g. switched via hold-switcher).
+ * Used to drop the selection pill's last geometry so the next real slot snap
+ * does not reappear on the stale bound-dashboard position.
+ */
+export function isActiveDashboardMissingFromTabBar({
+    slots,
+    hash,
+    activeDashboardId,
+    homeDashboardId,
+}: {
+    slots: TabBarSlot[];
+    hash: string;
+    activeDashboardId: string | null | undefined;
+    homeDashboardId: string | null | undefined;
+}): boolean {
+    if (!isDashboardHashActive(hash) || activeDashboardId == null) {
+        return false;
+    }
+    return !slots.some(slot => {
+        if (slot.kind !== 'dashboard') return false;
+        const boundId = slot.dashboardId ?? homeDashboardId;
+        return boundId != null && boundId === activeDashboardId;
+    });
+}
+
 export function tabBarSlotKey(slot: TabBarSlot, index: number): string {
     switch (slot.kind) {
         case 'menu':

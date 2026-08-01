@@ -7,6 +7,8 @@ import { getSystemConfig } from '../db/systemConfig';
 import { findUserByExternalId, linkAccount, getLinkedAccount, updateLinkedAccountMetadata } from '../db/linkedAccounts';
 import { createSSOSetupToken } from '../db/ssoSetupTokens';
 import { checkPlexLibraryAccess } from '../utils/plexLibraryAccess';
+import { isPlexAdminTokenInvalidError } from '../utils/plexErrors';
+import { getPlexClientIdentifier } from '../utils/plexClientIdentifier';
 import logger from '../utils/logger';
 import { importSsoProfilePicture } from '../utils/importSsoProfilePicture';
 import axios from 'axios';
@@ -290,13 +292,13 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
             return;
         }
 
-        // Get user info from Plex
-        const clientId = ssoConfig.clientIdentifier || '';
+        // Get user info from Plex (stable client id — never empty / never rotate under a live token)
+        const clientId = await getPlexClientIdentifier();
         const userResponse = await axios.get<PlexUserResponse>('https://plex.tv/api/v2/user', {
             headers: {
                 'Accept': 'application/json',
                 'X-Plex-Token': plexToken as string,
-                'X-Plex-Client-Identifier': clientId as string
+                'X-Plex-Client-Identifier': clientId
             }
         });
 
@@ -313,7 +315,7 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
                     {
                         adminToken: ssoConfig.adminToken as string,
                         machineId: ssoConfig.machineId as string,
-                        clientIdentifier: (ssoConfig.clientIdentifier as string) || '',
+                        clientIdentifier: clientId,
                         adminPlexId: ssoConfig.adminPlexId as string,
                     }
                 );
@@ -324,6 +326,14 @@ router.post('/plex-login', async (req: Request, res: Response): Promise<void> =>
                     return;
                 }
             } catch (accessError) {
+                if (isPlexAdminTokenInvalidError(accessError)) {
+                    logger.error('[PlexSSO] Admin token invalid — shared-user login blocked until reconnect');
+                    res.status(503).json({
+                        error: 'Plex SSO is temporarily unavailable. An administrator must reconnect Plex in Auth settings.',
+                        code: 'PLEX_ADMIN_TOKEN_INVALID'
+                    });
+                    return;
+                }
                 logger.error(`[PlexSSO] Failed to verify library access: error="${(accessError as Error).message}"`);
                 res.status(500).json({ error: 'Failed to verify library access' });
                 return;

@@ -1,7 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../../api/client';
-import { Star, Calendar, Clock, User, Check, XCircle, Film, Tv } from 'lucide-react';
-import { Modal, Button } from '../../../shared/ui';
+import { Star, Calendar, Clock, User, Check, XCircle } from 'lucide-react';
+import {
+    Modal,
+    Button,
+    MediaPoster,
+    MediaHeroCol,
+    MediaTypeBadge,
+    MediaSectionHeading,
+    MediaSynopsis,
+    MediaGenres,
+    MediaPeople,
+    MediaCast,
+} from '../../../shared/ui';
 import { useMediaServerMeta } from '../../../shared/hooks/useMediaServerMeta';
 import { openMediaInApp } from '../../../shared/utils/mediaDeepLinks';
 import { getIconComponent } from '../../../utils/iconUtils';
@@ -271,122 +282,62 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                 {!loading && (
                     <div className="space-y-6">
                         {/* Poster and Basic Info */}
-                        <div style={{ display: 'flex', gap: '1.5rem' }}>
-                            {/* Poster */}
-                            {hasPoster ? (
-                                <div style={{
-                                    width: '150px',
-                                    height: '225px',
-                                    minHeight: '225px',
-                                    flexShrink: 0,
-                                    alignSelf: 'flex-start',
-                                    borderRadius: '8px',
-                                    overflow: 'hidden',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-                                }}>
-                                    <img
-                                        src={localCacheSrc || cdnFallbackSrc || undefined}
-                                        alt={title}
-                                        style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            objectFit: 'cover',
-                                            display: 'block'
-                                        }}
-                                        onError={(e) => {
-                                            const img = e.target as HTMLImageElement;
-                                            if (cdnFallbackSrc && img.src !== cdnFallbackSrc) {
-                                                img.src = cdnFallbackSrc;
-                                            } else {
-                                                img.style.display = 'none';
-                                            }
-                                        }}
-                                    />
-                                </div>
-                            ) : (
-                                <div style={{
-                                    width: '150px',
-                                    height: '225px',
-                                    flexShrink: 0,
-                                    borderRadius: '8px',
-                                    background: 'var(--bg-tertiary)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}>
-                                    <Film size={48} style={{ color: 'var(--text-tertiary)' }} />
-                                </div>
-                            )}
+                        <div className="media-hero">
+                            <MediaPoster
+                                src={hasPoster ? (localCacheSrc || cdnFallbackSrc) : null}
+                                alt={title}
+                                statusLabel={statusInfo.label}
+                                statusColor={statusInfo.color}
+                                onImgError={(e) => {
+                                    const img = e.target as HTMLImageElement;
+                                    if (cdnFallbackSrc && img.src !== cdnFallbackSrc) {
+                                        img.src = cdnFallbackSrc;
+                                    } else {
+                                        img.style.display = 'none';
+                                    }
+                                }}
+                            />
 
-                            {/* Title and Metadata */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <h2 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '1.5rem',
-                                    fontWeight: 700,
-                                    color: 'var(--text-primary)'
-                                }}>
-                                    {title}
-                                </h2>
+                            <MediaHeroCol>
+                                <h2 className="media-hero__title">{title}</h2>
 
-                                {/* Type Badge */}
-                                <div style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '0.25rem',
-                                    padding: '0.25rem 0.5rem',
-                                    background: 'var(--bg-hover)',
-                                    borderRadius: '4px',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 600,
-                                    color: 'var(--text-secondary)',
-                                    marginBottom: '0.75rem'
-                                }}>
-                                    {request.type === 'movie' ? <Film size={12} /> : <Tv size={12} />}
-                                    {request.type === 'movie' ? 'Movie' : 'TV Show'}
-                                </div>
+                                <MediaTypeBadge type={request.type} />
 
-                                {/* Metadata Row */}
-                                <div style={{
-                                    display: 'flex',
-                                    flexWrap: 'wrap',
-                                    gap: '1rem',
-                                    fontSize: '0.9rem'
-                                }}>
+                                <div className="media-hero__meta">
                                     {details?.tmdb?.releaseDate && new Date(details.tmdb.releaseDate).getFullYear() > 0 && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-primary)' }}>
+                                        <div className="media-hero__meta-item">
                                             <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
                                             <span>{new Date(details.tmdb.releaseDate).getFullYear()}</span>
                                         </div>
                                     )}
                                     {(typeof details?.tmdb?.rating === 'number' && details.tmdb.rating > 0) ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-primary)' }}>
+                                        <div className="media-hero__meta-item">
                                             <Star size={14} style={{ color: 'var(--warning)' }} />
                                             <span>{details.tmdb.rating.toFixed(1)}/10</span>
                                         </div>
                                     ) : null}
                                     {(details?.tmdb?.runtime && details.tmdb.runtime > 0 && request.type === 'movie') ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: 'var(--text-primary)' }}>
+                                        <div className="media-hero__meta-item">
                                             <Clock size={14} style={{ color: 'var(--text-secondary)' }} />
                                             <span>{Math.floor(details.tmdb.runtime / 60)}h {details.tmdb.runtime % 60}m</span>
                                         </div>
                                     ) : null}
                                 </div>
 
-                                {/* Status Badge */}
-                                <div
-                                    className="overseerr-status-chip"
-                                    style={{
-                                        marginTop: '0.75rem',
-                                        '--overseerr-status-color': statusInfo.color,
-                                    } as React.CSSProperties}
-                                >
-                                    <span className="overseerr-status-chip__dot" aria-hidden="true" />
-                                    {statusInfo.label}
-                                </div>
+                                <ExternalMediaLinks
+                                    tmdbId={request.media?.tmdbId}
+                                    imdbId={details?.tmdb?.imdbId}
+                                    title={title}
+                                    year={
+                                        details?.tmdb?.releaseDate
+                                            ? new Date(details.tmdb.releaseDate).getFullYear()
+                                            : undefined
+                                    }
+                                    mediaType={request.type}
+                                />
 
                                 {canOpenInMediaServer && (
-                                    <div style={{ marginTop: '1rem' }}>
+                                    <div>
                                         <Button
                                             size="md"
                                             textSize="sm"
@@ -399,15 +350,9 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                                     </div>
                                 )}
 
-                                <ExternalMediaLinks
-                                    tmdbId={request.media?.tmdbId}
-                                    imdbId={details?.tmdb?.imdbId}
-                                    mediaType={request.type}
-                                    className="mt-2"
-                                />
                                 {/* Season Availability Visualization (for TV shows) */}
                                 {request.type === 'tv' && details?.tmdb?.numberOfSeasons && details.tmdb.numberOfSeasons > 0 && (
-                                    <div style={{ marginTop: '0.75rem' }}>
+                                    <div>
                                         <div style={{
                                             fontSize: '0.75rem',
                                             color: 'var(--text-secondary)',
@@ -481,11 +426,32 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                                         </div>
                                     </div>
                                 )}
+                            </MediaHeroCol>
+                        </div>
+
+                        {/* Request Info — first body section under hero */}
+                        <div>
+                            <MediaSectionHeading>Request Info</MediaSectionHeading>
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '0.5rem'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                                    <User size={14} style={{ color: 'var(--text-secondary)' }} />
+                                    <span>Requested by: <strong>{details?.request?.requestedBy?.displayName || request.requestedBy?.displayName || 'Unknown'}</strong></span>
+                                </div>
+                                {details?.request?.createdAt && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                                        <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
+                                        <span>Requested on: {new Date(details.request.createdAt).toLocaleDateString()}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Tagline */}
-                        {(details?.tmdb?.tagline || request.media?.overview) && details?.tmdb?.tagline && (
+                        {/* Shared media body: tagline → synopsis → genres → directors → cast */}
+                        {details?.tmdb?.tagline && (
                             <div style={{
                                 fontStyle: 'italic',
                                 color: 'var(--text-secondary)',
@@ -497,7 +463,28 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                             </div>
                         )}
 
-                        {/* Download Progress (Phase 9: Multi-bar, max 5) */}
+                        {details?.tmdb?.overview && (
+                            <MediaSynopsis text={details.tmdb.overview} />
+                        )}
+
+                        {details?.tmdb?.genres && details.tmdb.genres.length > 0 && (
+                            <MediaGenres genres={details.tmdb.genres} />
+                        )}
+
+                        {details?.tmdb?.directors && details.tmdb.directors.length > 0 && (
+                            <MediaPeople label="Director" names={details.tmdb.directors} />
+                        )}
+
+                        {details?.tmdb?.cast && details.tmdb.cast.length > 0 && (
+                            <MediaCast
+                                members={details.tmdb.cast.map((actor) => ({
+                                    name: actor.name,
+                                    role: actor.character,
+                                }))}
+                            />
+                        )}
+
+                        {/* Domain: download / admin */}
                         {downloadInfo?.isDownloading && downloadInfo.downloads.length > 0 && (
                             <div style={{
                                 padding: '1rem',
@@ -505,20 +492,10 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                                 borderRadius: '8px',
                                 border: '1px solid var(--border)'
                             }}>
-                                <h4 style={{
-                                    margin: '0 0 0.75rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)'
-                                }}>
-                                    Download Progress
-                                </h4>
+                                <MediaSectionHeading>Download Progress</MediaSectionHeading>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                     {downloadInfo.downloads.slice(0, 5).map((dl) => (
                                         <div key={dl.integrationId}>
-                                            {/* Show label if multiple instances */}
                                             {downloadInfo.downloads.length > 1 && (
                                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
                                                     {dl.displayName || dl.integrationId}
@@ -563,37 +540,6 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                             </div>
                         )}
 
-                        {/* Request Info */}
-                        <div>
-                            <h4 style={{
-                                margin: '0 0 0.5rem 0',
-                                fontSize: '0.9rem',
-                                fontWeight: 600,
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em',
-                                color: 'var(--text-secondary)'
-                            }}>
-                                Request Info
-                            </h4>
-                            <div style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '0.5rem'
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-                                    <User size={14} style={{ color: 'var(--text-secondary)' }} />
-                                    <span>Requested by: <strong>{details?.request?.requestedBy?.displayName || request.requestedBy?.displayName || 'Unknown'}</strong></span>
-                                </div>
-                                {details?.request?.createdAt && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-                                        <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
-                                        <span>Requested on: {new Date(details.request.createdAt).toLocaleDateString()}</span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Admin Actions */}
                         {showActions && (
                             <div style={{
                                 padding: '1rem',
@@ -601,16 +547,7 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                                 borderRadius: '8px',
                                 border: '1px solid var(--border)'
                             }}>
-                                <h4 style={{
-                                    margin: '0 0 0.75rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)'
-                                }}>
-                                    Admin Actions
-                                </h4>
+                                <MediaSectionHeading>Admin Actions</MediaSectionHeading>
                                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                                     <button
                                         onClick={() => handleAction('approve')}
@@ -660,116 +597,6 @@ const RequestInfoModal: React.FC<RequestInfoModalProps> = ({
                             </div>
                         )}
 
-                        {/* Synopsis */}
-                        {details?.tmdb?.overview && (
-                            <div>
-                                <h4 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)'
-                                }}>
-                                    Synopsis
-                                </h4>
-                                <p style={{
-                                    margin: 0,
-                                    lineHeight: 1.6,
-                                    color: 'var(--text-primary)',
-                                    fontSize: '0.95rem'
-                                }}>
-                                    {details.tmdb.overview}
-                                </p>
-                            </div>
-                        )}
-
-                        {/* Genres */}
-                        {details?.tmdb?.genres && details.tmdb.genres.length > 0 && (
-                            <div>
-                                <h4 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)'
-                                }}>
-                                    Genres
-                                </h4>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                    {details.tmdb.genres.map((genre, idx) => (
-                                        <span
-                                            key={idx}
-                                            style={{
-                                                padding: '0.25rem 0.75rem',
-                                                background: 'var(--bg-hover)',
-                                                borderRadius: '12px',
-                                                fontSize: '0.85rem',
-                                                color: 'var(--text-primary)'
-                                            }}
-                                        >
-                                            {genre}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Directors */}
-                        {details?.tmdb?.directors && details.tmdb.directors.length > 0 && (
-                            <div>
-                                <h4 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)'
-                                }}>
-                                    {details.tmdb.directors.length > 1 ? 'Directors' : 'Director'}
-                                </h4>
-                                <div style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                                    {details.tmdb.directors.join(', ')}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Cast */}
-                        {details?.tmdb?.cast && details.tmdb.cast.length > 0 && (
-                            <div>
-                                <h4 style={{
-                                    margin: '0 0 0.5rem 0',
-                                    fontSize: '0.9rem',
-                                    fontWeight: 600,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.05em',
-                                    color: 'var(--text-secondary)'
-                                }}>
-                                    Cast
-                                </h4>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                    {details.tmdb.cast.map((actor, idx) => (
-                                        <span
-                                            key={idx}
-                                            title={actor.character ? `as ${actor.character}` : undefined}
-                                            style={{
-                                                padding: '0.25rem 0.75rem',
-                                                background: 'var(--bg-hover)',
-                                                borderRadius: '12px',
-                                                fontSize: '0.85rem',
-                                                color: 'var(--text-primary)',
-                                                cursor: actor.character ? 'default' : undefined
-                                            }}
-                                        >
-                                            {actor.name}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Error Message */}
                         {error && (
                             <div style={{
                                 padding: '1rem',

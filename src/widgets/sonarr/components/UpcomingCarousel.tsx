@@ -118,7 +118,11 @@ const UpcomingCarousel = ({
                                 <span className="snr-carousel-row-title">{seriesTitle}</span>
                                 <ReleasePill type={pill.type} date={pill.date} dimmed={pill.dimmed} />
                             </div>
-                            {network && <span className="snr-network-badge">{network.slice(0, 8)}</span>}
+                            {network && (
+                                <span className="snr-network-badge" title={network}>
+                                    {network}
+                                </span>
+                            )}
                         </div>
                     );
                 })}

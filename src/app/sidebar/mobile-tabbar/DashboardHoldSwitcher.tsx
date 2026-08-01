@@ -17,6 +17,8 @@ import { LoadingSpinner } from '@/shared/ui';
 import { triggerHaptic } from '@/utils/haptics';
 
 const VIEWPORT_MARGIN = 16;
+/** Extra space under the last (active) row so a finger on the tab slot doesn’t hit it. */
+const LIST_BOTTOM_PAD_PX = 16;
 
 export type HoldSwitcherCommit =
     | { type: 'dashboard'; id: string }
@@ -118,7 +120,7 @@ export const DashboardHoldSwitcher = forwardRef<DashboardHoldSwitcherHandle, Das
         }, [dashboards, activeDashboardId]);
 
         const rowCount = orderedDashboards.length + 1;
-        const estimatedContentHeight = rowCount * 48 + 56;
+        const estimatedContentHeight = rowCount * 48 + 56 + LIST_BOTTOM_PAD_PX;
 
         const target = useMemo(
             () => computeTargetGeometry(anchorRect, estimatedContentHeight),
@@ -285,8 +287,11 @@ export const DashboardHoldSwitcher = forwardRef<DashboardHoldSwitcherHandle, Das
                             </p>
                             <div
                                 ref={scrollRef}
-                                className="overflow-y-auto pb-3"
-                                style={{ maxHeight: target.height - 40 }}
+                                className="overflow-y-auto"
+                                style={{
+                                    maxHeight: target.height - 40,
+                                    paddingBottom: LIST_BOTTOM_PAD_PX,
+                                }}
                                 onScroll={rebuildRowCache}
                             >
                                 {isLoading ? (

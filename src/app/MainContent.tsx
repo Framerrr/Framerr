@@ -176,13 +176,15 @@ const MainContent = (): React.JSX.Element => {
     }, [activeDashboardId]);
 
     // Calculate extra padding for settings container when sidebar is expanded
+    // NOTE: settings intentionally still pushes — sidebar is always open there. Do not remove.
     const settingsExtraPadding = (!isMobile && isExpanded)
         ? LAYOUT.SIDEBAR_WIDTH_EXPANDED - LAYOUT.SIDEBAR_WIDTH
         : 0;
 
-    // Desktop tabs: inset from sidebar when it's visible; clear expanded sidebar like settings
+    // Desktop tabs: fixed inset from sidebar's collapsed footprint at all times.
+    // Expanding the sidebar overlays tab content instead of pushing it (dashboard parity).
     const tabLeftPadding = (!isMobile && !isSidebarHidden)
-        ? LAYOUT.PAGE_MARGIN + (isExpanded ? LAYOUT.SIDEBAR_WIDTH_EXPANDED - LAYOUT.SIDEBAR_WIDTH : 0)
+        ? LAYOUT.PAGE_MARGIN
         : 0;
 
     // Mobile tab bar offset

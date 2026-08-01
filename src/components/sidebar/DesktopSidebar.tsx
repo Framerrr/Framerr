@@ -55,12 +55,11 @@ export function DesktopSidebar() {
     /** Open switcher after expand animation settles (hold-from-condensed path). */
     const pendingOpenDashboardPickerRef = React.useRef(false);
     const dashboardPickerOverlayRef = React.useRef<HTMLDivElement>(null);
-    const sidebarFooterRef = React.useRef<HTMLDivElement>(null);
     const [dashboardMenuOpen, setDashboardMenuOpen] = useState(false);
     const dashboardMenuOpenRef = React.useRef(false);
     const [newDashboardOpen, setNewDashboardOpen] = useState(false);
     const [dashboardPickerBox, setDashboardPickerBox] = useState<DashboardPickerOverlayBox | null>(null);
-    /** Cap list so it stops above the footer instead of clipping into it */
+    /** Cap list to sidebar bottom (may cover footer when vertical space is tight) */
     const [dashboardPickerMaxHeight, setDashboardPickerMaxHeight] = useState(0);
     /** Target list height (content measure) — drives Highlight boundsOffset */
     const [dashboardPickerListHeight, setDashboardPickerListHeight] = useState(0);
@@ -178,12 +177,39 @@ export function DesktopSidebar() {
         dashboardHoldStartRef.current = null;
     };
 
-    const handleDashboardHoldPointerDown = (e: React.PointerEvent): void => {
+    const closeDashboardPicker = (): void => {
+        setDashboardMenuOpenSafe(false);
+        if (!pointerOverSidebarRef.current && !isOnSettingsPage) {
+            if (isSidebarHidden) {
+                hideTimeoutRef.current = setTimeout(() => {
+                    if (pointerOverSidebarRef.current) return;
+                    setIsExpanded(false);
+                    setPeekIntent(false);
+                    hideTimeoutRef.current = null;
+                }, 100);
+            } else if (!showNotificationCenter) {
+                setIsExpanded(false);
+            }
+        }
+    };
+
+    const handleDashboardHoldPointerDown = (e: React.PointerEvent<HTMLElement>): void => {
         // Primary button / touch only
         if (e.button !== 0 && e.pointerType === 'mouse') return;
         dashboardHoldTriggeredRef.current = false;
         clearDashboardHold();
         dashboardHoldStartRef.current = { x: e.clientX, y: e.clientY };
+        // Touch/pen only: block link preview/drag, and capture so the hold tracks
+        // off-element moves. Do NOT capture for mouse — that retargets click away
+        // from the <a> and breaks navigate-on-click.
+        if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+            e.preventDefault();
+            try {
+                e.currentTarget.setPointerCapture(e.pointerId);
+            } catch {
+                // ignore — capture is best-effort
+            }
+        }
         dashboardHoldTimerRef.current = setTimeout(() => {
             dashboardHoldTimerRef.current = null;
             dashboardHoldTriggeredRef.current = true;
@@ -202,23 +228,54 @@ export function DesktopSidebar() {
         }
     };
 
-    const handleDashboardHoldPointerEnd = (): void => {
+    const handleDashboardHoldPointerEnd = (e?: React.PointerEvent<HTMLElement>): void => {
+        if (e) {
+            try {
+                if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+                    e.currentTarget.releasePointerCapture(e.pointerId);
+                }
+            } catch {
+                // ignore
+            }
+        }
         clearDashboardHold();
     };
 
-    const closeDashboardPicker = (): void => {
-        setDashboardMenuOpenSafe(false);
-        if (!pointerOverSidebarRef.current && !isOnSettingsPage) {
-            if (isSidebarHidden) {
-                hideTimeoutRef.current = setTimeout(() => {
-                    if (pointerOverSidebarRef.current) return;
-                    setIsExpanded(false);
-                    setPeekIntent(false);
-                    hideTimeoutRef.current = null;
-                }, 100);
-            } else if (!showNotificationCenter) {
-                setIsExpanded(false);
+    /** Touch tap after preventDefault on pointerdown — click may not fire. */
+    const handleDashboardHoldPointerUp = (e: React.PointerEvent<HTMLElement>): void => {
+        const wasHold = dashboardHoldTriggeredRef.current;
+        const start = dashboardHoldStartRef.current;
+        handleDashboardHoldPointerEnd(e);
+        if (wasHold) {
+            // Keep dashboardHoldTriggeredRef true so the trailing mouse click is
+            // suppressed (otherwise it sees menu open and closes immediately).
+            // Click handler / touch path below clear the flag.
+            if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+                dashboardHoldTriggeredRef.current = false;
             }
+            return;
+        }
+        // Touch/pen only — mouse still uses the anchor click handler
+        if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+        if (!start) return;
+        if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > DASHBOARD_HOLD_MOVE_CANCEL_PX) {
+            return;
+        }
+        if (dashboardMenuOpenRef.current) {
+            closeDashboardPicker();
+            return;
+        }
+        // Synthesize navigation that the prevented touch click would have done
+        if (isAlreadyOnDashboardPage()) {
+            document.getElementById('dashboard-layer')?.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+        const destination = activeDashboardId
+            ? `#dashboard/${activeDashboardId}`
+            : '#dashboard';
+        const result = guardedNavigate(destination, dashboardEdit);
+        if (result === 'proceed') {
+            window.location.hash = destination;
         }
     };
 
@@ -261,16 +318,11 @@ export function DesktopSidebar() {
                 rowHeight: a.height / scaleY,
             });
 
-            // Stop above notifications/profile/settings/logout — never grow into the footer
-            const footer = sidebarFooterRef.current;
+            // Cap to sidebar bottom so the list can use the footer band when height is tight
             const gap = 8;
             const hardCap = 24 * 16; // 24rem
-            if (footer) {
-                const available = (footer.getBoundingClientRect().top - a.bottom) / scaleY - gap;
-                setDashboardPickerMaxHeight(Math.max(0, Math.min(hardCap, available)));
-            } else {
-                setDashboardPickerMaxHeight(hardCap);
-            }
+            const available = (s.bottom - a.bottom) / scaleY - gap;
+            setDashboardPickerMaxHeight(Math.max(0, Math.min(hardCap, available)));
         };
 
         updateBox();
@@ -306,8 +358,8 @@ export function DesktopSidebar() {
 
     // Mirror indicator geometry onto the list clip (full pill — not only the list band).
     // Height/top/left/width are ref-owned so React re-renders don't reset clipping.
-    // z-45 sits under the dashboard row (z-50) so scrolled text goes under the header,
-    // not over the branding / switcher label.
+    // Overlay geometry mirrors the indicator. While open, clipPath is cleared so the
+    // list can paint over the footer band; the real dashboard row stays above (z-50).
     useLayoutEffect(() => {
         if (!dashboardPickerMorphActive || !dashboardPickerBox) return;
         const aside = asideRef.current;
@@ -344,9 +396,14 @@ export function DesktopSidebar() {
                 overlay.style.width = `${width}px`;
                 overlay.style.height = `${height}px`;
 
-                // Same scroll-clip as the pill so list can't paint into the branding header
-                const clip = getComputedStyle(indicator).clipPath;
-                overlay.style.clipPath = clip && clip !== 'none' ? clip : '';
+                // While open, skip scroll clip so the header/list can paint over the footer.
+                // When closing, mirror the indicator clip again.
+                if (dashboardMenuOpenRef.current) {
+                    overlay.style.clipPath = '';
+                } else {
+                    const clip = getComputedStyle(indicator).clipPath;
+                    overlay.style.clipPath = clip && clip !== 'none' ? clip : '';
+                }
 
                 const spacer = overlay.querySelector(
                     '[data-dashboard-picker-spacer]',
@@ -693,6 +750,9 @@ export function DesktopSidebar() {
                         height: dashboardMenuOpen ? dashboardPickerListHeight : 0,
                     }}
                     scrollContainerRef={navScrollRef}
+                    // Only while open — when closed, indicator clips at the footer again
+                    extendClipBottomToContainer={dashboardMenuOpen}
+                    disableScrollClip={dashboardMenuOpen}
                 >
                     {/* Content Area - conditional based on mode */}
                     {showNotificationCenter ? (
@@ -713,7 +773,12 @@ export function DesktopSidebar() {
                     ) : (
                         <nav
                             ref={navScrollRef}
-                            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-4 space-y-1 relative"
+                            className={`flex-1 min-h-0 py-4 space-y-1 relative ${
+                                // While open, don't clip the real dashboard row at the footer edge
+                                dashboardMenuOpen
+                                    ? 'overflow-visible'
+                                    : 'overflow-y-auto overflow-x-hidden'
+                            }`}
                             style={{ overscrollBehavior: 'contain' }}
                         >
                             {/* Mode Toggle - Tabs / Settings (only on settings page, when expanded) */}
@@ -761,22 +826,22 @@ export function DesktopSidebar() {
                                 </div>
                             )}
 
-                            {/* Dashboard row stays above the grown pill (z-40); tabs stay at default z-1 beneath it */}
+                            {/* Real dashboard row stays mounted when open (avoids label shift from a duplicate header) */}
                             <HighlightItem value="dashboard" zIndex={dashboardPickerMorphActive ? 50 : 1}>
                                 <div
                                     ref={dashboardAnchorRef}
-                                    className="relative group flex items-center min-h-[48px] rounded-xl"
+                                    className="relative group flex items-center min-h-[48px] rounded-xl touch-manipulation"
                                     onPointerDown={handleDashboardHoldPointerDown}
                                     onPointerMove={handleDashboardHoldPointerMove}
-                                    onPointerUp={handleDashboardHoldPointerEnd}
+                                    onPointerUp={handleDashboardHoldPointerUp}
                                     onPointerCancel={handleDashboardHoldPointerEnd}
-                                    onPointerLeave={handleDashboardHoldPointerEnd}
                                     onContextMenu={(e) => {
                                         // Avoid OS callout interfering with hold-to-switch on touch
                                         e.preventDefault();
                                     }}
                                     style={{
                                         WebkitTouchCallout: 'none',
+                                        WebkitUserSelect: 'none',
                                         userSelect: 'none',
                                     } as React.CSSProperties}
                                 >
@@ -786,6 +851,8 @@ export function DesktopSidebar() {
                                                 ? `/#dashboard/${activeDashboardId}`
                                                 : '/#dashboard'
                                         }
+                                        draggable={false}
+                                        onDragStart={(e) => e.preventDefault()}
                                         onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
                                             if (dashboardHoldTriggeredRef.current) {
                                                 dashboardHoldTriggeredRef.current = false;
@@ -794,6 +861,7 @@ export function DesktopSidebar() {
                                             }
                                             if (dashboardMenuOpen) {
                                                 e.preventDefault();
+                                                closeDashboardPicker();
                                                 return;
                                             }
                                             if (isAlreadyOnDashboardPage()) {
@@ -813,8 +881,14 @@ export function DesktopSidebar() {
                                                 ? 'text-accent'
                                                 : 'text-theme-secondary hover:text-theme-primary'
                                         }`}
+                                        style={{
+                                            WebkitTouchCallout: 'none',
+                                            WebkitUserSelect: 'none',
+                                            userSelect: 'none',
+                                            WebkitUserDrag: 'none',
+                                        } as React.CSSProperties}
                                     >
-                                        <div className="absolute left-0 w-20 h-full flex items-center justify-center">
+                                        <div className="absolute left-0 w-20 h-full flex items-center justify-center pointer-events-none">
                                             <span className={`flex items-center justify-center ${activeNavItem === 'dashboard' || dashboardMenuOpen ? 'text-accent' : ''}`}>
                                                 {renderIcon(activeDashboardIcon, 20)}
                                             </span>
@@ -822,7 +896,7 @@ export function DesktopSidebar() {
                                         {isExpanded && (
                                             <span
                                                 title={activeDashboardName}
-                                                className="truncate min-w-0 pr-1"
+                                                className="truncate min-w-0 pr-1 pointer-events-none"
                                             >
                                                 {activeDashboardName}
                                             </span>
@@ -833,7 +907,15 @@ export function DesktopSidebar() {
                                         type="button"
                                         aria-label="Switch dashboard"
                                         aria-expanded={dashboardMenuOpen}
-                                        className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors transition-opacity hover:bg-[rgba(59,130,246,0.12)] active:bg-[rgba(59,130,246,0.18)] opacity-0 pointer-events-none text-theme-tertiary hover:text-theme-primary group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto focus:opacity-100 focus:pointer-events-auto"
+                                        className={`absolute right-3.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-colors transition-opacity hover:bg-[rgba(59,130,246,0.12)] active:bg-[rgba(59,130,246,0.18)] text-theme-tertiary hover:text-theme-primary focus:opacity-100 focus:pointer-events-auto ${
+                                            dashboardMenuOpen
+                                                ? 'opacity-100 pointer-events-auto'
+                                                : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto'
+                                        }`}
+                                        onPointerDown={e => {
+                                            // Don't let the row hold/capture steal this click
+                                            e.stopPropagation();
+                                        }}
                                         onClick={e => {
                                             e.preventDefault();
                                             e.stopPropagation();
@@ -859,10 +941,18 @@ export function DesktopSidebar() {
                         </nav>
                     )}
 
-                    {/* Footer - ALWAYS visible */}
+                    {/* Footer — always visible. Opaque fill so overflow-visible tabs
+                        cannot paint through it; switcher (z-45) still overlaps on top
+                        when vertical space is tight. */}
                     <div
-                        ref={sidebarFooterRef}
-                        className="flex-shrink-0 py-3 border-t border-theme-light flex flex-col gap-2 relative z-[70]"
+                        className={`flex-shrink-0 py-3 border-t border-theme-light flex flex-col gap-2 relative ${
+                            dashboardMenuOpen
+                                ? 'z-10 pointer-events-none'
+                                : 'z-[70]'
+                        }`}
+                        style={{
+                            background: 'linear-gradient(135deg, color-mix(in srgb, var(--bg-secondary) 82%, var(--bg-tertiary)), var(--bg-secondary))',
+                        }}
                     >
                         {/* Notifications Button */}
                         <HighlightItem value="notifications">
@@ -1039,9 +1129,11 @@ export function DesktopSidebar() {
 
                 {/*
                   List chrome matches the FULL expanding Highlight pill.
-                  Geometry + clipPath synced each frame from the indicator.
-                  z-45 is under the dashboard row (z-50) so scrolled rows pass
-                  under the switcher header instead of painting over branding.
+                  Geometry synced each frame from the indicator.
+                  z-45 stays under the real dashboard row (z-50) so icon/name never
+                  need a duplicate header (avoids open/close alignment shift).
+                  While open, footer is z-10 and nav overflow is visible so the list
+                  can use the footer band; scrolled rows pass under the real header.
                 */}
                 {dashboardPickerMorphActive && isExpanded && dashboardPickerBox && (
                     <div
@@ -1060,7 +1152,7 @@ export function DesktopSidebar() {
                         }}
                     >
                         <div className="flex h-full min-h-0 flex-col">
-                            {/* Reserves the dashboard row; clicks pass through to HighlightItem */}
+                            {/* Reserves the dashboard row; clicks pass through to the real nav item */}
                             <div
                                 data-dashboard-picker-spacer
                                 className="shrink-0 pointer-events-none"

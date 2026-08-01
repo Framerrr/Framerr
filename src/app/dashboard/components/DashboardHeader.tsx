@@ -89,6 +89,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                         }}
                         className="p-2 rounded-lg text-theme-tertiary opacity-40 hover:opacity-90 hover:bg-theme-hover transition-all duration-300"
                         title="Edit dashboard"
+                        data-walkthrough="edit-button"
                     >
                         <Edit size={16} />
                     </button>

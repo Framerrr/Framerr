@@ -26,12 +26,17 @@ export function useIntegrations() {
  * Hook to get integrations based on user role (non-admin safe)
  * - Admin: calls /api/integrations (full list)
  * - Non-admin: calls /api/integrations/shared (accessible only)
- * 
+ *
+ * Waits for auth to finish before fetching. Otherwise `user` is briefly null,
+ * we hit /shared as a non-admin, and widget fallback can auto-bind the wrong
+ * instance (e.g. jellyfin before plex) and persist it.
+ *
  * Use this in widgets, dashboard, and any non-admin-only context
  */
 export function useRoleAwareIntegrations() {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const isAdmin = user?.group === 'admin';
+    const authReady = !authLoading && !!user;
 
     return useQuery({
         queryKey: isAdmin ? integrationsKeys.list() : integrationsKeys.shared(),
@@ -45,6 +50,7 @@ export function useRoleAwareIntegrations() {
                 return response.integrations || [];
             }
         },
+        enabled: authReady,
     });
 }
 

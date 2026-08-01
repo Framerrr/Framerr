@@ -267,9 +267,18 @@
     mask-image: none !important;
 }
 
-/* Reduce glass-card box-shadow on sidebar in glass mode (halved from default) */
+/* Sidebar / mobile bar in glass mode:
+   Keep glass border + soft shadow, but use an opaque theme fill so
+   dashboard content cannot show through (glass-start/end ~0.95 still leaks). */
 .sidebar-shadow.glass-card,
 .sidebar-shadow-bottom.glass-card {
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--bg-secondary) 82%, var(--bg-tertiary)),
+        var(--bg-secondary)
+    ) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     box-shadow:
         0 20px 40px rgba(0, 0, 0, 0.12),
         0 8px 16px rgba(0, 0, 0, 0.07),

@@ -8,12 +8,12 @@
  */
 import { Router, Request, Response, NextFunction } from 'express';
 import axios, { AxiosError } from 'axios';
-import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger';
 import { requireAuth, requireAdmin } from '../middleware/auth';
 import { getSystemConfig, updateSystemConfig } from '../db/systemConfig';
 import { linkAccount } from '../db/linkedAccounts';
 import { invalidateSystemSettings } from '../utils/invalidateUserSettings';
+import { getPlexClientIdentifier } from '../utils/plexClientIdentifier';
 import xml2js from 'xml2js';
 
 // ============================================================================
@@ -35,14 +35,10 @@ const router = Router();
 // Plex API base URLs
 const PLEX_TV_API = 'https://plex.tv/api/v2';
 
-// Module-level cache for client identifier (prevents regeneration race condition)
-let cachedClientIdentifier: string | null = null;
-
 // Types
 interface PlexHeaders {
     [key: string]: string | undefined;
     'Accept': string;
-    'Content-Type': string;
     'X-Plex-Product': string;
     'X-Plex-Version': string;
     'X-Plex-Client-Identifier': string;
@@ -114,11 +110,10 @@ interface VerifyUserBody {
     plexToken?: string;
 }
 
-// Standard headers for Plex API requests
+// Standard headers for Plex API requests (no Content-Type on GETs — matches working SSO calls)
 const getPlexHeaders = (clientId: string, token: string | null = null): PlexHeaders => {
     const headers: PlexHeaders = {
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
         'X-Plex-Product': 'Framerr',
         'X-Plex-Version': '1.0',
         'X-Plex-Client-Identifier': clientId
@@ -129,42 +124,7 @@ const getPlexHeaders = (clientId: string, token: string | null = null): PlexHead
     return headers;
 };
 
-/**
- * Get or create a persistent client identifier for this Framerr instance
- * Uses module-level cache to prevent race conditions with DB cache invalidation
- */
-async function getClientIdentifier(): Promise<string> {
-    // Return cached value if we have it
-    if (cachedClientIdentifier) {
-        return cachedClientIdentifier;
-    }
-
-    const config = await getSystemConfig();
-
-    // Check if we already have a client ID stored in DB
-    if (config.plexSSO?.clientIdentifier) {
-        cachedClientIdentifier = config.plexSSO.clientIdentifier as string;
-        logger.debug('[Plex] Using existing client identifier from DB');
-        return cachedClientIdentifier;
-    }
-
-    // Generate a new one and store it
-    const clientId = `framerr-${uuidv4()}`;
-
-    // Save to DB
-    await updateSystemConfig({
-        plexSSO: {
-            ...(config.plexSSO || {}),
-            clientIdentifier: clientId
-        }
-    });
-
-    // Cache it in memory
-    cachedClientIdentifier = clientId;
-
-    logger.info(`[Plex] Generated new client identifier: id=${clientId}`);
-    return clientId;
-}
+const getClientIdentifier = getPlexClientIdentifier;
 
 
 /**
@@ -393,6 +353,18 @@ router.get('/admin-resources', requireAuth, requireAdmin, async (req: Request, r
 
         res.json(servers);
     } catch (error) {
+        const axiosErr = error as AxiosError;
+        if (axiosErr.response?.status === 401) {
+            // Use 503 (not 401) so the frontend API client does not treat this as a Framerr session expiry.
+            logger.error(
+                '[Plex] Failed to get admin resources: admin token rejected by Plex (401) — reconnect required'
+            );
+            res.status(503).json({
+                error: 'Plex admin token is invalid or expired. Reconnect Plex in Auth settings.',
+                code: 'PLEX_ADMIN_TOKEN_INVALID'
+            });
+            return;
+        }
         logger.error(`[Plex] Failed to get admin resources: error="${(error as Error).message}"`);
         res.status(500).json({ error: 'Failed to get Plex servers' });
     }
@@ -480,7 +452,8 @@ router.post('/verify-user', async (req: Request, res: Response): Promise<void> =
             // Get users with library access from Plex.tv (XML response)
             const usersResponse = await axios.get<string>('https://plex.tv/api/users', {
                 headers: {
-                    'X-Plex-Token': ssoConfig.adminToken as string
+                    'X-Plex-Token': ssoConfig.adminToken as string,
+                    'X-Plex-Client-Identifier': clientId
                 }
             });
 

@@ -50,12 +50,12 @@
    /* Subtext0 */
 
    /* ============================================
-       BORDERS - Subtle overlay colors
+       BORDERS - Soft overlay edges
        ============================================ */
-   --border: #6c7086;
-   /* Overlay1 - Visible on Surface backgrounds */
-   --border-light: #45475a;
-   /* Surface1 */
+   --border: rgba(186, 194, 222, 0.14);
+   /* Subtext1 @ 14% */
+   --border-light: rgba(186, 194, 222, 0.08);
+   /* Quieter nested edges */
    --border-accent: rgba(137, 180, 250, 0.4);
 
    /* ============================================

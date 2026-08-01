@@ -163,8 +163,9 @@ export function buildGridStackOptions(policy: GridPolicy): GridStackOptions {
         // Disabled - remove via delete button only
         removable: false,
 
-        // Animation
-        animate: true,
+        // Animation — off on transform-scaled surfaces (template builder/preview).
+        // Rapid desktop↔mobile column switches + GS animate timers OOM iOS Safari.
+        animate: policy.layout.transformScale == null,
         alwaysShowResizeHandle: true,
 
         // Resize handles

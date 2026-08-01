@@ -1,29 +1,86 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { api } from '../../../api/client';
+import { getIconComponent } from '../../../utils/iconUtils';
 import './styles.css';
 
 interface ExternalMediaLinksProps {
     tmdbId?: number | null;
     imdbId?: string | null;
     tvdbId?: number | null;
+    /** Title + year enable Overseerr-style RT Algolia lookup */
+    title?: string | null;
+    year?: number | null;
     mediaType?: 'movie' | 'tv' | 'show';
     className?: string;
 }
 
+interface RTLookupResponse {
+    url: string;
+}
+
+const rtUrlCache = new Map<string, string | null>();
+
+const ICON_SIZE = 13;
+const TmdbIcon = getIconComponent('system:tmdb');
+const ImdbIcon = getIconComponent('system:imdb');
+const TvdbIcon = getIconComponent('system:tvdb');
+const RtIcon = getIconComponent('system:rotten-tomatoes');
+
 /**
- * Renders TMDB, IMDB, and TVDB link pills for media items.
- * Shows nothing if all IDs are null/undefined.
+ * Renders TMDB, IMDb, TVDB, and (when title+year available) Rotten Tomatoes link pills.
+ * Brand marks come from the system icon set (`system:tmdb`, etc.).
+ * RT URL is resolved via Framerr's Overseerr-style Algolia lookup.
  */
 export const ExternalMediaLinks: React.FC<ExternalMediaLinksProps> = ({
     tmdbId,
     imdbId,
     tvdbId,
+    title,
+    year,
     mediaType = 'movie',
     className = '',
 }) => {
-    if (!tmdbId && !imdbId && !tvdbId) return null;
-
-    // Normalize media type for TMDB URL ('show' → 'tv')
     const tmdbType = mediaType === 'show' ? 'tv' : mediaType;
+    const rtKind = tmdbType === 'tv' ? 'tv' : 'movie';
+    const [rtUrl, setRtUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+        const trimmed = title?.trim();
+        if (!trimmed || year == null || !Number.isFinite(year) || year < 1800) {
+            setRtUrl(null);
+            return;
+        }
+
+        const key = `${rtKind}:${year}:${trimmed.toLowerCase()}`;
+        if (rtUrlCache.has(key)) {
+            setRtUrl(rtUrlCache.get(key) ?? null);
+            return;
+        }
+
+        let cancelled = false;
+        const params = new URLSearchParams({
+            title: trimmed,
+            year: String(year),
+            type: rtKind,
+        });
+
+        api.get<RTLookupResponse>(`/api/media/rotten-tomatoes?${params}`)
+            .then((data) => {
+                const url = data?.url ?? null;
+                rtUrlCache.set(key, url);
+                if (!cancelled) setRtUrl(url);
+            })
+            .catch(() => {
+                rtUrlCache.set(key, null);
+                if (!cancelled) setRtUrl(null);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [title, year, rtKind]);
+
+    if (!tmdbId && !imdbId && !tvdbId && !rtUrl) return null;
 
     return (
         <div className={`external-media-links ${className}`}>
@@ -35,11 +92,7 @@ export const ExternalMediaLinks: React.FC<ExternalMediaLinksProps> = ({
                     className="external-media-link external-media-link--tmdb"
                     title="View on TMDB"
                 >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                        <polyline points="15 3 21 3 21 9" />
-                        <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
+                    <TmdbIcon size={ICON_SIZE} className="external-media-link__icon" />
                     TMDB
                 </a>
             )}
@@ -51,11 +104,7 @@ export const ExternalMediaLinks: React.FC<ExternalMediaLinksProps> = ({
                     className="external-media-link external-media-link--imdb"
                     title="View on IMDb"
                 >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                        <polyline points="15 3 21 3 21 9" />
-                        <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
+                    <ImdbIcon size={ICON_SIZE} className="external-media-link__icon" />
                     IMDb
                 </a>
             )}
@@ -67,12 +116,20 @@ export const ExternalMediaLinks: React.FC<ExternalMediaLinksProps> = ({
                     className="external-media-link external-media-link--tvdb"
                     title="View on TVDB"
                 >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                        <polyline points="15 3 21 3 21 9" />
-                        <line x1="10" y1="14" x2="21" y2="3" />
-                    </svg>
+                    <TvdbIcon size={ICON_SIZE} className="external-media-link__icon" />
                     TVDB
+                </a>
+            )}
+            {rtUrl && (
+                <a
+                    href={rtUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="external-media-link external-media-link--rt"
+                    title="View on Rotten Tomatoes"
+                >
+                    <RtIcon size={ICON_SIZE} className="external-media-link__icon" />
+                    RT
                 </a>
             )}
         </div>

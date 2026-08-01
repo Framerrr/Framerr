@@ -34,6 +34,37 @@
     gap: 0.5rem;
 }
 
+/* layoutId bar sits in this layer (sibling of scrim) so close FLIP isn't
+   tied to the backdrop opacity exit. Same centering as the scrim. */
+.search-takeover-bar-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 201;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 25vh;
+    pointer-events: none;
+}
+
+@media (max-width: 768px) {
+    .search-takeover-bar-layer {
+        padding-top: calc(3.5rem + env(safe-area-inset-top, 0px));
+    }
+}
+
+.search-takeover-bar-layer .search-takeover-bar {
+    pointer-events: auto;
+}
+
+/* Invisible stand-in inside the scrim so dropdown position stays correct */
+.search-takeover-bar--slot {
+    visibility: hidden;
+    height: 3rem;
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
 /* Close button - rounded square, above-right */
 .search-takeover-close {
     position: absolute;

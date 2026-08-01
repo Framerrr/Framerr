@@ -115,7 +115,7 @@ const DashboardEditOverlay: React.FC<DashboardEditOverlayProps> = ({
                             restDelta: 2,
                             overflow: { delay: 0.15 },
                         }}
-                        className="sticky top-0 z-30 py-1"
+                        className="sticky top-0 z-30 py-1 @container"
                     >
                         <DashboardEditBar
                             canUndo={canUndo}

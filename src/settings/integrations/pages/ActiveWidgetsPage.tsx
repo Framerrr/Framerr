@@ -6,10 +6,11 @@
  */
 
 import React from 'react';
-import { Info, Monitor, Smartphone, Layers } from 'lucide-react';
+import { Info, Layers } from 'lucide-react';
 import { useActiveWidgets } from '../../widgets/hooks/useActiveWidgets';
 import { WidgetCard } from '../../widgets/components/WidgetCard';
 import { SettingsPage, SettingsSection, EmptyState } from '../../../shared/ui/settings';
+import { ViewModeToggle } from '../../../shared/ui';
 
 export const ActiveWidgetsPage: React.FC = () => {
     const {
@@ -58,35 +59,14 @@ export const ActiveWidgetsPage: React.FC = () => {
             description="Manage and customize your dashboard widgets"
         >
             <SettingsSection title="Your Widgets" icon={Layers}>
-                {/* Desktop/Mobile Toggle - only shown in independent mode */}
+                {/* Desktop/Mobile — ViewModeToggle → SlidingTabBar (trial; easy to revert) */}
                 {showViewToggle && (
-                    <div className="mb-6 flex items-center justify-between">
-                        <div className="flex items-center gap-1 bg-theme-primary rounded-lg p-1">
-                            <button
-                                onClick={() => setViewMode('desktop')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'desktop'
-                                    ? 'bg-accent text-white'
-                                    : 'text-theme-secondary hover:text-theme-primary'
-                                    }`}
-                            >
-                                <Monitor size={14} />
-                                Desktop
-                            </button>
-                            <button
-                                onClick={() => setViewMode('mobile')}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'mobile'
-                                    ? 'bg-accent text-white'
-                                    : 'text-theme-secondary hover:text-theme-primary'
-                                    }`}
-                            >
-                                <Smartphone size={14} />
-                                Mobile
-                            </button>
-                        </div>
-                        <div className="text-xs text-theme-tertiary">
-                            Editing {viewMode} widgets
-                        </div>
-                    </div>
+                    <ViewModeToggle
+                        className="mb-6"
+                        viewMode={viewMode}
+                        onViewModeChange={setViewMode}
+                        suffix="widgets"
+                    />
                 )}
 
                 {/* Stats - Inline on mobile */}

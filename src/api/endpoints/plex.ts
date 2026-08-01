@@ -63,7 +63,7 @@ export const plexApi = {
      * Note: Returns array directly, not { servers: [...] }
      */
     getResources: (token: string) =>
-        api.get<PlexServer[]>(`/api/plex/resources?token=${token}`),
+        api.get<PlexServer[]>(`/api/plex/resources?token=${encodeURIComponent(token)}`),
 
     /**
      * Configure Plex SSO settings

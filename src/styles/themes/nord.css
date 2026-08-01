@@ -28,9 +28,9 @@
    --text-tertiary: #e5e9f0;
    /* Snow Storm 0 */
 
-   /* Borders */
-   --border: #4c566a;
-   --border-light: #434c5e;
+   /* Borders - soft snow edge */
+   --border: rgba(216, 222, 233, 0.14);
+   --border-light: rgba(216, 222, 233, 0.08);
 
    /* Status Colors */
    --success: #a3be8c;

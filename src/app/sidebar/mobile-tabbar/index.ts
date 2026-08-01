@@ -39,6 +39,7 @@ export {
 export {
     resolveActiveTabBarSlotId,
     tabBarSlotKey,
+    isActiveDashboardMissingFromTabBar,
 } from './resolveActiveTabBarSlotId';
 export {
     DashboardHoldSwitcher,

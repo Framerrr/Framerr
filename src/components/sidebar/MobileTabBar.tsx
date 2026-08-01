@@ -21,6 +21,7 @@ import {
     TabBarSelectionTarget,
     resolveActiveTabBarSlotId,
     tabBarSlotKey,
+    isActiveDashboardMissingFromTabBar,
     useMobileTabBarLayout,
     type DashboardHoldSwitcherHandle,
 } from '@/app/sidebar/mobile-tabbar';
@@ -151,6 +152,17 @@ export function MobileTabBar() {
                   })
                 : null,
         [layoutReady, slots, hash, activeDashboardId, homeDashboardId, tabs],
+    );
+    const resetSelectionAnchor = useMemo(
+        () =>
+            layoutReady &&
+            isActiveDashboardMissingFromTabBar({
+                slots,
+                hash,
+                activeDashboardId,
+                homeDashboardId,
+            }),
+        [layoutReady, slots, hash, activeDashboardId, homeDashboardId],
     );
 
     // Swipe-to-edit handlers
@@ -852,6 +864,7 @@ export function MobileTabBar() {
                             >
                                 <TabBarSelectionScope
                                     activeId={activeTabBarSlotId}
+                                    resetSelectionAnchor={resetSelectionAnchor}
                                     className="flex justify-around items-center w-full"
                                 >
                                 {slots.map((slot, slotIndex) => {

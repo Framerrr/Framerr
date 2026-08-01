@@ -73,6 +73,13 @@ describe('touchInteractionPolicy', () => {
         expect(opts.framerrDisableResizeScroll).toBe(false);
     });
 
+    it('buildGridStackOptions disables animate when transformScale is set (template/iOS)', () => {
+        const scaled = basePolicy(false);
+        scaled.layout.transformScale = 0.5;
+        expect(buildGridStackOptions(scaled).animate).toBe(false);
+        expect(buildGridStackOptions(basePolicy(true)).animate).toBe(true);
+    });
+
     describe('shouldResetStalledTouchState', () => {
         const stalled = {
             mouseHandled: false,

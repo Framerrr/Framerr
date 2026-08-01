@@ -19,9 +19,9 @@
     --text-secondary: #e6e6e6;
     --text-tertiary: #6272a4;
 
-    /* Borders */
-    --border: #6272a4;
-    --border-light: #44475a;
+    /* Borders - soft comment-purple edge */
+    --border: rgba(98, 114, 164, 0.28);
+    --border-light: rgba(98, 114, 164, 0.14);
 
     /* Status Colors */
     --success: #50fa7b;

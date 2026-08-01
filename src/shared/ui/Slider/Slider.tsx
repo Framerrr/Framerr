@@ -95,52 +95,54 @@ export const Slider: React.FC<SliderProps> = ({
     const fillPercent = range > 0 ? ((value - min) / range) * 100 : 0;
 
     return (
-        <div
-            ref={trackRef}
-            role="slider"
-            aria-valuemin={min}
-            aria-valuemax={max}
-            aria-valuenow={value}
-            aria-disabled={disabled}
-            tabIndex={disabled ? -1 : 0}
-            className={`
-                relative w-full h-6 flex items-center select-none touch-none
-                ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                ${className}
-            `}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerUp}
-            {...props}
-        >
-            {/* Track background */}
-            <div className="absolute left-0 right-0 h-1.5 rounded-full bg-theme-tertiary" />
-
-            {/* Filled track */}
+        // Horizontal padding so the thumb isn't clipped at 0%/100% by overflow parents
+        <div className={`relative w-full px-2.5 ${className}`}>
             <div
-                className="absolute left-0 h-1.5 rounded-full"
-                style={{
-                    width: `${fillPercent}%`,
-                    background: 'var(--accent)',
-                }}
-            />
-
-            {/* Thumb */}
-            <div
+                ref={trackRef}
+                role="slider"
+                aria-valuemin={min}
+                aria-valuemax={max}
+                aria-valuenow={value}
+                aria-disabled={disabled}
+                tabIndex={disabled ? -1 : 0}
                 className={`
-                    absolute w-4.5 h-4.5 rounded-full
-                    transition-shadow duration-150
-                    ${isDragging ? 'scale-110' : ''}
+                    relative w-full h-6 flex items-center select-none touch-none
+                    ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                 `}
-                style={{
-                    left: `calc(${fillPercent}% - 9px)`,
-                    background: 'var(--accent)',
-                    boxShadow: isDragging
-                        ? '0 0 0 4px var(--accent-alpha-20, rgba(var(--accent-rgb, 99,102,241), 0.2)), 0 1px 3px rgba(0,0,0,0.3)'
-                        : '0 1px 3px rgba(0,0,0,0.3)',
-                }}
-            />
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
+                {...props}
+            >
+                {/* Track background */}
+                <div className="absolute left-0 right-0 h-1.5 rounded-full bg-theme-tertiary" />
+
+                {/* Filled track */}
+                <div
+                    className="absolute left-0 h-1.5 rounded-full"
+                    style={{
+                        width: `${fillPercent}%`,
+                        background: 'var(--accent)',
+                    }}
+                />
+
+                {/* Thumb — centered on value; outer px keeps it inside the box at ends */}
+                <div
+                    className={`
+                        absolute w-4.5 h-4.5 rounded-full -translate-x-1/2
+                        transition-shadow duration-150
+                        ${isDragging ? 'scale-110' : ''}
+                    `}
+                    style={{
+                        left: `${fillPercent}%`,
+                        background: 'var(--accent)',
+                        boxShadow: isDragging
+                            ? '0 0 0 4px var(--accent-alpha-20, rgba(var(--accent-rgb, 99,102,241), 0.2)), 0 1px 3px rgba(0,0,0,0.3)'
+                            : '0 1px 3px rgba(0,0,0,0.3)',
+                    }}
+                />
+            </div>
         </div>
     );
 };
