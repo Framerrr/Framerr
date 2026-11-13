@@ -2,6 +2,13 @@
 
 All notable changes to Framerr will be documented in this file.
 
+## [0.4.2] - 2026-11-12
+
+### Fixed
+- Jellyfin realtime WebSocket auth on Jellyfin 12 (was falling back to polling)
+
+---
+
 ## [0.4.1] - 2026-08-01
 
 ### Added

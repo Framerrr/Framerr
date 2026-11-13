@@ -75,12 +75,17 @@ class JellyfinRealtimeManager implements RealtimeManager {
                 .replace('https://', 'wss://')
                 .replace('http://', 'ws://');
 
-            const fullUrl = `${wsUrl}/socket?api_key=${this.apiKey}`;
+            // Jellyfin 12 disabled legacy ?api_key= auth. Use the same MediaBrowser
+            // Authorization header as the HTTP adapter (do not also send ApiKey).
+            const fullUrl = `${wsUrl}/socket`;
 
             logger.debug('[Jellyfin] Connecting to server');
 
             this.ws = new WebSocket(fullUrl, {
-                rejectUnauthorized: false
+                rejectUnauthorized: false,
+                headers: {
+                    Authorization: `MediaBrowser Token="${this.apiKey}"`,
+                },
             });
 
             this.ws.on('open', () => {
